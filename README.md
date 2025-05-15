@@ -45,6 +45,7 @@ rust-photoacoustic/
 │   └── visualization/       # Visualization module
 │       ├── mod.rs           # Module exports
 │       ├── api.rs           # REST API endpoints using Rocket
+│       ├── jwt.rs           # JWT Bearer token authentication (cheking using PKCE)
 │       └── server.rs        # Web server configuration serving the SPA and API
 ├── web/                     # Frontend SPA
 │   ├── src/                 # React components and hooks
@@ -80,12 +81,15 @@ The visualization module operates as an embedded web server built with the Rocke
 The server hosts a static single-page application (SPA) developed using Vite and React 19. This SPA presents the analysis results in a clear, user-friendly interface.
 
 Key features:
+
 - **API-first design:** Enables easy integration with other applications or systems, allowing users to access analysis results programmatically.
+- **JWT authentication:** The API is secured with JWT authentication, ensuring that only authorized users can access the analysis results.
 - **Modern frontend:** The SPA uses the [sctg vite react auth0 template](https://github.com/sctg-development/vite-react-heroui-auth0-template) for rapid development and a polished user experience.
 
 This architecture ensures both interactive visualization and programmatic access to results.
   
 ### Used libraries
+
 - `cpal`: Audio input/output library for Rust
 - `rustfft`: Fast Fourier Transform library
 
