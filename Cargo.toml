@@ -1,0 +1,40 @@
+[package]
+name = "rust-photoacoustic"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ronan Le Meillat"]
+description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
+
+[dependencies]
+# Audio processing
+cpal = "0.15.3"         # Audio input
+hound = "3.5"         # WAV file handling
+rustfft = "6.3"       # Fast Fourier Transform
+ndarray = "0.16"      # Numerical arrays
+dasp_sample = "0.11"  # Digital signal processing
+dasp_signal = "0.11"  # Signal processing
+dasp_window = "0.11"  # Windowing functions
+dasp_ring_buffer = "0.11"  # Ring buffer for audio
+
+# Command line interface
+clap = { version = "4.5", features = ["derive"] }
+
+# Web interface
+rocket = { version = "0.5", features = ["json"] }
+rocket_cors = "0.6.0"
+jsonwebtoken = "9.3"   # For JWT auth
+
+# Error handling and utilities
+anyhow = "1.0.98"       # Error handling
+thiserror = "2.0"    # Error definitions
+log = "0.4"          # Logging
+env_logger = "0.11"   # Logging implementation
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"  # JSON serialization
+chrono = { version = "0.4.41", features = ["serde"] }
+rand = "0.9.1"
+
+[dev-dependencies]
+criterion = "0.5"     # Benchmarking
+mockall = "0.13"      # Mocking for tests
+
