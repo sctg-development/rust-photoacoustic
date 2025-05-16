@@ -9,6 +9,7 @@ description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 # Audio processing
 cpal = "0.15.3"            # Audio input
 hound = "3.5"              # WAV file handling
+include_dir = "0.7"        # Include files in the binary
 rustfft = "6.3"            # Fast Fourier Transform
 ndarray = "0.16"           # Numerical arrays
 dasp_sample = "0.11"       # Digital signal processing
@@ -22,6 +23,7 @@ clap = { version = "4.5", features = ["derive"] }
 # Web interface
 rocket = { version = "0.5", features = ["json"] }
 rocket_cors = "0.6.0"
+rocket_okapi = { version = "0.9", features = [ "rapidoc", "swagger" ]} # Automatic OpenAPI generation at build time 
 jsonwebtoken = "9.3"       # For JWT auth
 
 # Error handling and utilities
@@ -33,8 +35,14 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"         # JSON serialization
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
+reqwest = "0.12.15"
 
 [dev-dependencies]
 criterion = "0.5"          # Benchmarking
 mockall = "0.13"           # Mocking for tests
+
+[build-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"         # JSON serialization
+tokio = { version = "1", features = ["full"] }
 

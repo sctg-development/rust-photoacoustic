@@ -7,9 +7,9 @@
 //! This module handles visualization and data presentation,
 //! including a web server for interactive visualization.
 
-mod api;
-mod jwt;
-mod server;
+pub mod api;
+pub mod jwt;
+pub mod server;
 
 use anyhow::Result;
 use crate::AnalysisResult;
