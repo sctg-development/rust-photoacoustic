@@ -38,6 +38,7 @@ rust-photoacoustic/
 │   │   └── mod.rs             # Microphone interface using CPAL
 │   ├── bin/                   # Binary utilities
 │   │   ├── differential.rs    # Differential signal processor utility
+│   │   ├── filters.rs         # Audio filter utility
 │   │   └── noise_generator.rs # Noise generator utility
 │   ├── preprocessing/         # Signal preprocessing module
 │   │   ├── mod.rs             # Feature export
@@ -187,3 +188,47 @@ cargo run --bin differential -- --input first.wav --input2 second.wav --output d
 ```
 
 This utility is particularly useful for testing the differential signal processing algorithms or preparing test files.
+
+## Audio Filter Utility
+
+The project includes a standalone audio filter utility, located at `src/bin/filters.rs`. This tool allows for the application of different digital filters to WAV files for signal processing and analysis.
+
+### Usage
+
+You can run the filter processor from the command line:
+
+```bash
+cargo run --bin filters [OPTIONS]
+```
+
+### Command Line Options
+
+- `--input`, `-i <FILE>`: Input WAV file.
+- `--output`, `-o <FILE>`: Output WAV file.
+- `--filter-type`, `-t <TYPE>`: Filter type to apply (default: bandpass):
+  - `bandpass`: Bandpass filter around a center frequency
+  - `lowpass`: Lowpass filter with specific cutoff
+- `--center-freq`, `-f <HZ>`: Center frequency in Hz for bandpass filter (default: 2000.0).
+- `--bandwidth`, `-b <HZ>`: Bandwidth in Hz for bandpass filter (default: 100.0).
+- `--cutoff-freq`, `-c <HZ>`: Cutoff frequency in Hz for lowpass filter (default: 5000.0).
+- `--order`, `-n <ORDER>`: Filter order for bandpass filter, must be even (default: 4).
+- `--channel`, `-l <NUMBER>`: Apply filter to specific channel only (default: all channels).
+- `--gain`, `-g <VALUE>`: Gain to apply to the output signal (default: 1.0).
+
+### Examples
+
+```bash
+# Apply a bandpass filter centered at 1000 Hz with 50 Hz bandwidth
+cargo run --bin filters -- -i input.wav -o output.wav -t bandpass -f 1000 -b 50
+
+# Apply a lowpass filter with 3000 Hz cutoff
+cargo run --bin filters -- -i input.wav -o output.wav -t lowpass -c 3000
+
+# Filter only the left channel of a stereo file
+cargo run --bin filters -- -i stereo.wav -o filtered.wav -l 0
+
+# Use a higher-order filter for sharper cutoff
+cargo run --bin filters -- -i input.wav -o output.wav -n 8 -f 2000 -b 200
+```
+
+This utility is useful for isolating specific frequency components in your audio signals or removing unwanted noise before analysis.
