@@ -13,6 +13,9 @@ use std::env;
 use std::io::Cursor;
 use std::path::PathBuf;
 use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
+use crate::visualization::oxide_auth::{authorize, authorize_consent, token, refresh};
+
+use super::oxide_auth::OxideState;
 
 const STATIC_DIR: Dir = include_dir!("web/dist");
 #[derive(Debug)]
@@ -62,6 +65,9 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 }
 
 pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
+    // Créer l'état OAuth2
+    let oxide_state = OxideState::preconfigured();
+    
     let rocket = rocket::custom(figment)
         .attach(CORS)
         .mount(
@@ -76,7 +82,13 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
             webclient,
             // openapi_snippet,
             // openapi_snippet_map,
-        ]);
+            // oxide_auth routes
+            authorize,
+            authorize_consent,
+            token,
+            refresh,
+        ])
+        .manage(oxide_state);
         rocket
 }
 

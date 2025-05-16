@@ -1,0 +1,1515 @@
+diff --git a/.cirrus.yml b/.cirrus.yml
+index 126f49e..c8743d6 100644
+--- a/.cirrus.yml
++++ b/.cirrus.yml
+@@ -11,7 +11,6 @@ stable_task:
+       - CRATE: oxide-auth-actix
+       - CRATE: actix-example
+       - CRATE: oxide-auth-iron
+-      - CRATE: oxide-auth-poem
+       - CRATE: oxide-auth-rouille
+       - CRATE: oxide-auth-db
+         OXIDE_AUTH_SKIP_REDIS: yes
+@@ -33,7 +32,6 @@ nightly_task:
+       - CRATE: oxide-auth-actix
+       - CRATE: actix-example
+       - CRATE: oxide-auth-iron
+-      - CRATE: oxide-auth-poem
+       - CRATE: oxide-auth-rouille
+       - CRATE: oxide-auth-rocket
+       - CRATE: oxide-auth-db
+diff --git a/Contributors.txt b/Contributors.txt
+index 5dd6230..a2c18af 100644
+--- a/Contributors.txt
++++ b/Contributors.txt
+@@ -7,3 +7,4 @@ asonix <asonix@asonix.dog> (actix 1.0 update)
+ Geobert Quach (on behalf of Isode Ltd.)
+ robjtede <robjtede@icloud.com> (actix-web 3.0 update)
+ Oleg Chirukhin <oleg@jetstorm.ru>
++Jordan Morris <jthecybertinkerer@gmail.com>
+diff --git a/Readme.md b/Readme.md
+index 10c60df..3a46dad 100644
+--- a/Readme.md
++++ b/Readme.md
+@@ -29,15 +29,14 @@ that is considered more idiomatic for their library. Besides the implementation
+ of `oxide-auth` traits for the request type, specific error and response traits
+ are also implemented.
+ 
+-| What             | Crate                | Notes   | Docs                                                                                                |
+-|------------------|----------------------|---------|-----------------------------------------------------------------------------------------------------|
+-| `actix`          | `oxide-auth-actix`   | -       | [![actix docs](https://docs.rs/oxide-auth-actix/badge.svg)](https://docs.rs/oxide-auth-actix)       |
+-| `async` wrappers | `oxide-auth-async`   | -       | [![async docs](https://docs.rs/oxide-auth-async/badge.svg)](https://docs.rs/oxide-auth-async)       |
+-| `redis`          | `oxide-auth-db`      | -       | [![redis docs](https://docs.rs/oxide-auth-db/badge.svg)](https://docs.rs/oxide-auth-db)             |
+-| `rocket`         | `oxide-auth-rocket`  | nightly | [![rocket docs](https://docs.rs/oxide-auth-rocket/badge.svg)](https://docs.rs/oxide-auth-rocket)    |
+-| `rouille`        | `oxide-auth-rouille` | -       | [![rouille docs](https://docs.rs/oxide-auth-rouille/badge.svg)](https://docs.rs/oxide-auth-rouille) |
+-| `iron`           | `oxide-auth-iron`    | -       | [![iron docs](https://docs.rs/oxide-auth-iron/badge.svg)](https://docs.rs/oxide-auth-iron)          |
+-| `poem`           | `oxide-auth-poem`    | -       | [![poem docs](https://docs.rs/oxide-auth-poem/badge.svg)](https://docs.rs/oxide-auth-poem)          |
++| What | Crate | Notes | Docs |
++|-|-|-|-|
++| `actix` | `oxide-auth-actix` | - | [![actix docs](https://docs.rs/oxide-auth-actix/badge.svg)](https://docs.rs/oxide-auth-actix) |
++| `async` wrappers | `oxide-auth-async` | - | [![async docs](https://docs.rs/oxide-auth-async/badge.svg)](https://docs.rs/oxide-auth-async) |
++| `redis` | `oxide-auth-db` | - | [![redis docs](https://docs.rs/oxide-auth-db/badge.svg)](https://docs.rs/oxide-auth-db) |
++| `rocket` | `oxide-auth-rocket` | nightly | [![rocket docs](https://docs.rs/oxide-auth-rocket/badge.svg)](https://docs.rs/oxide-auth-rocket) |
++| `rouille` | `oxide-auth-rouille` | - | [![rouille docs](https://docs.rs/oxide-auth-rouille/badge.svg)](https://docs.rs/oxide-auth-rouille) |
++| `iron` | `oxide-auth-iron` | - | [![iron docs](https://docs.rs/oxide-auth-iron/badge.svg)](https://docs.rs/oxide-auth-iron) |
+ 
+ ## Additional
+ 
+@@ -61,10 +60,9 @@ suggestions but sometimes the associate workload can seem daunting. That means
+ that simplifications to the workflow are also *highly* appreciated.
+ 
+ Licensed under either of
+-
+-* MIT license ([LICENSE-MIT] or http://opensource.org/licenses/MIT)
+-* Apache License, Version 2.0 ([LICENSE-APACHE] or http://www.apache.org/licenses/LICENSE-2.0)
+-  at your option.
++ * MIT license ([LICENSE-MIT] or http://opensource.org/licenses/MIT)
++ * Apache License, Version 2.0 ([LICENSE-APACHE] or http://www.apache.org/licenses/LICENSE-2.0)
++at your option.
+ 
+ The license applies to all parts of the source code, its documentation and
+ supplementary files unless otherwise indicated. It does NOT apply to the
+@@ -73,23 +71,13 @@ of completion. These are distributed as permitted by [IETF Trust License
+ 4–Section 3.c.i][IETF4].
+ 
+ [actix]: https://crates.io/crates/actix-web
+-
+ [iron]: https://crates.io/crates/iron
+-
+ [rocket]: https://crates.io/crates/rocket
+-
+ [rouille]: https://crates.io/crates/rouille
+-
+ [interactive example]: oxide-auth-actix/examples/actix-example
+-
+ [CHANGES]: CHANGELOG.md
+-
+ [MIGRATION]: Migration.md
+-
+ [CONTRIBUTING]: docs/CONTRIBUTING.md
+-
+ [LICENSE-MIT]: docs/LICENSE-MIT
+-
+ [LICENSE-APACHE]: docs/LICENSE-APACHE
+-
+ [IETF4]: https://trustee.ietf.org/license-info/IETF-TLP-4.htm
+diff --git a/examples/support/client.rs b/examples/support/client.rs
+index 7ca9790..1adbff4 100644
+--- a/examples/support/client.rs
++++ b/examples/support/client.rs
+@@ -14,7 +14,7 @@ use oxide_auth::endpoint::UniqueValue;
+ /// Send+Sync client implementation.
+ #[derive(Clone)]
+ pub struct Client {
+-    pub config: Config,
++    config: Config,
+     state: Arc<RwLock<State>>,
+ }
+ 
+@@ -71,9 +71,9 @@ struct State {
+ 
+ #[derive(Serialize, Deserialize)]
+ struct TokenMap {
+-    token_type: Option<String>,
++    token_type: String,
+ 
+-    scope: Option<String>,
++    scope: String,
+ 
+     #[serde(skip_serializing_if="Option::is_none")]
+     access_token: Option<String>,
+diff --git a/examples/support/generic.rs b/examples/support/generic.rs
+index 8aa3ff7..2700b99 100644
+--- a/examples/support/generic.rs
++++ b/examples/support/generic.rs
+@@ -19,13 +19,13 @@ use std::fmt;
+ 
+ pub use self::client::{Client, Config as ClientConfig, Error as ClientError};
+ 
+-/// Try to open the server url `http://localhost:{port}` in the browser, or print a guiding statement
++/// Try to open the server url `http://localhost:8020` in the browser, or print a guiding statement
+ /// to the console if this is not possible.
+-pub fn open_in_browser(port: u16) {
++pub fn open_in_browser() {
+     use std::io::{Error, ErrorKind};
+     use std::process::Command;
+ 
+-    let target_address = format!("http://localhost:{port}/");
++    let target_addres = "http://localhost:8020/";
+ 
+     // As suggested by <https://stackoverflow.com/questions/3739327/launching-a-website-via-windows-commandline>
+     let open_with = if cfg!(target_os = "linux") {
+@@ -39,16 +39,13 @@ pub fn open_in_browser(port: u16) {
+         Err(Error::new(ErrorKind::Other, "Open not supported"))
+     };
+ 
+-    open_with
+-        .and_then(|cmd| Command::new(cmd).arg(&target_address).status())
+-        .and_then(|status| {
+-            if status.success() {
+-                Ok(())
+-            } else {
+-                Err(Error::new(ErrorKind::Other, "Non zero status"))
+-            }
++    open_with.and_then(|cmd| Command::new(cmd).arg(target_addres).status())
++        .and_then(|status| if status.success() {
++            Ok(())
++        } else { 
++            Err(Error::new(ErrorKind::Other, "Non zero status")) 
+         })
+-        .unwrap_or_else(|_| println!("Please navigate to {}", target_address));
++        .unwrap_or_else(|_| println!("Please navigate to {}", target_addres));
+ }
+ 
+ pub fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
+diff --git a/examples/support/rocket.rs b/examples/support/rocket.rs
+index a49a163..f5bee8e 100644
+--- a/examples/support/rocket.rs
++++ b/examples/support/rocket.rs
+@@ -5,23 +5,24 @@ mod generic;
+ 
+ use self::generic::{Client, ClientConfig, ClientError};
+ 
+-use rocket::{Rocket, State};
+-use rocket::fairing::{Fairing, Info, Kind};
++use rocket::{Rocket, State,Build};
++use rocket::fairing::{self,Fairing, Info, Kind};
+ use rocket::http::Status;
+-use rocket::response::{Redirect, content::Html, status::Custom};
++use rocket::response::{Redirect, content::RawHtml, status::Custom};
+ 
+ pub use self::generic::consent_page_html;
+ pub struct ClientFairing;
+ 
++#[rocket::async_trait]
+ impl Fairing for ClientFairing {
+     fn info(&self) -> Info {
+         Info {
+             name: "Simple oauth client implementation",
+-            kind: Kind::Attach,
++            kind: Kind::Ignite,
+         }
+     }
+ 
+-    fn on_attach(&self, rocket: Rocket) -> Result<Rocket, Rocket> {
++    async fn on_ignite(&self, rocket: Rocket<Build>) -> fairing::Result {
+         let config = ClientConfig {
+             client_id: "LocalClient".into(),
+             protected_url: "http://localhost:8000/".into(),
+@@ -37,7 +38,7 @@ impl Fairing for ClientFairing {
+ }
+ 
+ #[get("/endpoint?<code>&<error>")]
+-fn oauth_endpoint<'r>(code: Option<String>, error: Option<String>, state: State<Client>)
++fn oauth_endpoint<'r>(code: Option<String>, error: Option<String>, state: &State<Client>)
+     -> Result<Redirect, Custom<String>> 
+ {
+     if let Some(error) = error {
+@@ -55,7 +56,7 @@ fn oauth_endpoint<'r>(code: Option<String>, error: Option<String>, state: State<
+ }
+ 
+ #[get("/")]
+-fn client_view(state: State<Client>) -> Result<Html<String>, Custom<String>> {
++fn client_view(state: &State<Client>) -> Result<RawHtml<String>, Custom<String>> {
+     let protected_page = state
+         .retrieve_protected_page()
+         .map_err(internal_error)?;
+@@ -74,19 +75,19 @@ fn client_view(state: State<Client>) -> Result<Html<String>, Custom<String>> {
+         <form action=\"/clientside/refresh\" method=\"post\"><button>Refresh token</button></form>
+         </main></html>", state.as_html(), protected_page);
+ 
+-    Ok(Html(display_page))
++    Ok(RawHtml(display_page))
+ }
+ 
+ #[post("/refresh")]
+-fn refresh(state: State<Client>) -> Result<Redirect, Custom<String>> {
++fn refresh(state: &State<Client>) -> Result<Redirect, Custom<String>> {
+     state.refresh()
+         .map_err(internal_error)
+         .map(|()| Redirect::found("/clientside"))
+ }
+ 
+ #[get("/debug")]
+-fn client_debug(state: State<Client>) -> Html<String> {
+-    Html(state.as_html())
++fn client_debug(state: &State<Client>) -> RawHtml<String> {
++    RawHtml(state.as_html())
+ }
+ 
+ fn internal_error(err: ClientError) -> Custom<String> {
+diff --git a/oxide-auth-actix/examples/actix-example/src/main.rs b/oxide-auth-actix/examples/actix-example/src/main.rs
+index 90b03f3..19dc7a5 100644
+--- a/oxide-auth-actix/examples/actix-example/src/main.rs
++++ b/oxide-auth-actix/examples/actix-example/src/main.rs
+@@ -97,7 +97,7 @@ async fn index(
+ }
+ 
+ async fn start_browser() -> () {
+-    let _ = thread::spawn(|| support::open_in_browser(8020));
++    let _ = thread::spawn(support::open_in_browser);
+ }
+ 
+ // Example of a main function of an actix-web server supporting oauth.
+diff --git a/oxide-auth-axum/Cargo.toml b/oxide-auth-axum/Cargo.toml
+index 1662432..2c02a5c 100644
+--- a/oxide-auth-axum/Cargo.toml
++++ b/oxide-auth-axum/Cargo.toml
+@@ -1,6 +1,6 @@
+ [package]
+ name = "oxide-auth-axum"
+-version = "0.6.0"
++version = "0.5.0"
+ authors = ["Daniel Alvsåker <daniel.alvsaaker@protonmail.com>"]
+ repository = "https://github.com/HeroicKatora/oxide-auth.git"
+ 
+@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
+ edition = "2021"
+ 
+ [dependencies]
+-axum = { version = "0.8", default-features = false, features = [
++axum = { version = "0.7", default-features = false, features = [
+     "form",
+     "query",
+ ] }
+diff --git a/oxide-auth-axum/src/request.rs b/oxide-auth-axum/src/request.rs
+index 553dabe..0dc1a52 100644
+--- a/oxide-auth-axum/src/request.rs
++++ b/oxide-auth-axum/src/request.rs
+@@ -1,5 +1,6 @@
+ use oxide_auth::frontends::dev::{NormalizedParameter, QueryParameter, WebRequest};
+ use axum::{
++    async_trait,
+     extract::{Query, Form, FromRequest, FromRequestParts, Request},
+     http::{header, request::Parts},
+ };
+@@ -79,6 +80,7 @@ impl WebRequest for OAuthRequest {
+     }
+ }
+ 
++#[async_trait]
+ impl<S> FromRequest<S> for OAuthRequest
+ where
+     S: Send + Sync,
+@@ -111,6 +113,7 @@ where
+     }
+ }
+ 
++#[async_trait]
+ impl<S> FromRequestParts<S> for OAuthResource
+ where
+     S: Send + Sync,
+diff --git a/oxide-auth-db/examples/db-example/src/main.rs b/oxide-auth-db/examples/db-example/src/main.rs
+index 21bd7dd..85149f0 100644
+--- a/oxide-auth-db/examples/db-example/src/main.rs
++++ b/oxide-auth-db/examples/db-example/src/main.rs
+@@ -86,7 +86,7 @@ async fn index(
+ }
+ 
+ async fn start_browser() -> () {
+-    let _ = thread::spawn(|| support::open_in_browser(8020));
++    let _ = thread::spawn(support::open_in_browser);
+ }
+ 
+ /// Example of a main function of an actix-web server supporting oauth.
+diff --git a/oxide-auth-iron/examples/iron.rs b/oxide-auth-iron/examples/iron.rs
+index 94667d8..e44603f 100644
+--- a/oxide-auth-iron/examples/iron.rs
++++ b/oxide-auth-iron/examples/iron.rs
+@@ -129,7 +129,7 @@ fn main() {
+             .expect("Failed to launch client");
+     });
+ 
+-    support::open_in_browser(8020);
++    support::open_in_browser();
+ 
+     server.join().unwrap();
+     client.join().unwrap();
+diff --git a/oxide-auth-poem/Cargo.toml b/oxide-auth-poem/Cargo.toml
+index 384d5e3..587a340 100644
+--- a/oxide-auth-poem/Cargo.toml
++++ b/oxide-auth-poem/Cargo.toml
+@@ -1,6 +1,6 @@
+ [package]
+ name = "oxide-auth-poem"
+-version = "0.3.0"
++version = "0.2.0"
+ repository = "https://github.com/HeroicKatora/oxide-auth.git"
+ authors = ["l1npengtul <l1npengtul@protonmail.com>"]
+ description = "A OAuth2 server library for Poem featuring a set of configurable and pluggable backends."
+@@ -10,18 +10,10 @@ categories = ["web-programming::http-server", "authentication"]
+ license = "MIT OR Apache-2.0"
+ edition = "2021"
+ 
+-[features]
+-default = []
++# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+ 
+ [dependencies]
+-poem = "3.1"
++poem = "1.3"
+ oxide-auth = { version = "0.6", path = "../oxide-auth" }
+-thiserror = "2.0"
+-
+-[dev-dependencies]
+-reqwest = { version = "0.12", features = ["blocking"] }
+-serde = { version = "1.0", features = ["derive"] }
++thiserror = "1.0"
+ serde_urlencoded = "0.7"
+-serde_json = "1.0"
+-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+-url = "2"
+diff --git a/oxide-auth-poem/examples/poem-example/main.rs b/oxide-auth-poem/examples/poem-example/main.rs
+deleted file mode 100644
+index 1b9ab5a..0000000
+--- a/oxide-auth-poem/examples/poem-example/main.rs
++++ /dev/null
+@@ -1,225 +0,0 @@
+-use std::sync::{Arc, Mutex};
+-use poem::{get, handler, post, EndpointExt, Route, Server};
+-use poem::listener::TcpListener;
+-use poem::middleware::AddDataEndpoint;
+-use poem::web::Data;
+-use oxide_auth::endpoint::{
+-    Authorizer, Issuer, OwnerConsent, QueryParameter, Registrar, Solicitation, WebResponse,
+-};
+-use oxide_auth::frontends::simple::endpoint::{FnSolicitor, Generic, Vacant};
+-use oxide_auth::primitives::{
+-    authorizer::AuthMap, generator::RandomGenerator, issuer::TokenMap, prelude::ClientMap,
+-    prelude::Client,
+-};
+-use oxide_auth_poem::error::OAuthError;
+-use oxide_auth_poem::request::OAuthRequest;
+-use oxide_auth_poem::response::OAuthResponse;
+-
+-mod support;
+-
+-struct EndpointState {
+-    registrar: Mutex<ClientMap>,
+-    authorizer: Mutex<AuthMap<RandomGenerator>>,
+-    issuer: Mutex<TokenMap<RandomGenerator>>,
+-}
+-
+-impl EndpointState {
+-    const DENY_TEXT: &'static str = "<html>
+-This page should be accessed via an oauth token from the client in the example. Click
+-<a href=\"/authorize?response_type=code&client_id=LocalClient\">
+-here</a> to begin the authorization process.
+-</html>
+-";
+-
+-    fn preconfigured(client_port: u16) -> Self {
+-        EndpointState {
+-            registrar: Mutex::new(
+-                vec![Client::confidential(
+-                    "LocalClient",
+-                    format!("http://localhost:{client_port}/endpoint")
+-                        .parse::<url::Url>()
+-                        .unwrap()
+-                        .into(),
+-                    "default-scope".parse().unwrap(),
+-                    "SecretSecret".as_bytes(),
+-                )]
+-                .into_iter()
+-                .collect(),
+-            ),
+-            authorizer: Mutex::new(AuthMap::new(RandomGenerator::new(16))),
+-            issuer: Mutex::new(TokenMap::new(RandomGenerator::new(16))),
+-        }
+-    }
+-
+-    /// In larger app, you'd likey wrap it in your own Endpoint instead of `Generic`.
+-    pub fn endpoint(&self) -> Generic<impl Registrar + '_, impl Authorizer + '_, impl Issuer + '_> {
+-        Generic {
+-            registrar: self.registrar.lock().unwrap(),
+-            authorizer: self.authorizer.lock().unwrap(),
+-            issuer: self.issuer.lock().unwrap(),
+-            // Solicitor configured later.
+-            solicitor: Vacant,
+-            // Scope configured later.
+-            scopes: Vacant,
+-            // OAuthResponse is Default
+-            response: Vacant,
+-        }
+-    }
+-}
+-
+-fn consent_form(_: &mut OAuthRequest, solicitation: Solicitation) -> OwnerConsent<OAuthResponse> {
+-    let mut response = OAuthResponse::default();
+-    if let Err(e) = response.ok() {
+-        return OwnerConsent::Error(e);
+-    }
+-    response = match response.content_type("text/html") {
+-        Ok(t) => t,
+-        Err(e) => return OwnerConsent::Error(e),
+-    };
+-    response = response.body(&support::consent_page_html("/authorize", solicitation));
+-
+-    OwnerConsent::InProgress(response)
+-}
+-
+-fn consent_decision(request: &mut OAuthRequest, _: Solicitation) -> OwnerConsent<OAuthResponse> {
+-    // Authenticate the request better in a real app!
+-    let allowed = request.query().and_then(|q| q.unique_value("allow")).is_some();
+-    if allowed {
+-        OwnerConsent::Authorized("dummy user".into())
+-    } else {
+-        OwnerConsent::Denied
+-    }
+-}
+-
+-#[handler]
+-fn get_authorize(
+-    request: OAuthRequest, state: Data<&Arc<EndpointState>>,
+-) -> poem::Result<OAuthResponse> {
+-    state
+-        .endpoint()
+-        .with_solicitor(FnSolicitor(consent_form))
+-        .authorization_flow()
+-        .execute(request)
+-        .map_err(|e| {
+-            let e: OAuthError = e.into();
+-            e.into()
+-        })
+-}
+-
+-#[handler]
+-fn post_authorize(
+-    request: OAuthRequest, state: Data<&Arc<EndpointState>>,
+-) -> poem::Result<OAuthResponse> {
+-    state
+-        .endpoint()
+-        .with_solicitor(FnSolicitor(consent_decision))
+-        .authorization_flow()
+-        .execute(request)
+-        .map_err(|e| {
+-            let e: OAuthError = e.into();
+-            e.into()
+-        })
+-}
+-
+-#[handler]
+-fn token_handler(
+-    request: OAuthRequest, state: Data<&Arc<EndpointState>>,
+-) -> poem::Result<OAuthResponse> {
+-    let grant_type = request.body().and_then(|body| body.unique_value("grant_type"));
+-
+-    match grant_type.as_deref() {
+-        Some("authorization_code") => {
+-            state
+-                .endpoint()
+-                .access_token_flow()
+-                .execute(request)
+-                .map_err(|e| {
+-                    let e: OAuthError = e.into();
+-                    e.into()
+-                })
+-        }
+-        _ => state.endpoint().refresh_flow().execute(request).map_err(|e| {
+-            let e: OAuthError = e.into();
+-            e.into()
+-        }),
+-    }
+-}
+-
+-#[handler]
+-fn get_index(request: OAuthRequest, state: Data<&Arc<EndpointState>>) -> poem::Result<OAuthResponse> {
+-    let protect = state
+-        .endpoint()
+-        .with_scopes(vec!["default-scope".parse().unwrap()])
+-        .resource_flow()
+-        .execute(request);
+-
+-    let _grant = match protect {
+-        Ok(grant) => grant,
+-        Err(Ok(mut response)) => {
+-            return Ok(response
+-                .content_type("text/html")
+-                .unwrap()
+-                .body(EndpointState::DENY_TEXT));
+-        }
+-        Err(Err(error)) => {
+-            let error: OAuthError = error.into();
+-            return Err(error.into());
+-        }
+-    };
+-
+-    let mut resp = OAuthResponse::default();
+-    resp.ok()?;
+-    resp.body_text("Hello, world!")?;
+-
+-    Ok(resp)
+-}
+-
+-fn main_router(client_port: u16) -> AddDataEndpoint<Route, Arc<EndpointState>> {
+-    let state = Arc::new(EndpointState::preconfigured(client_port));
+-
+-    Route::new()
+-        .at("/authorize", get(get_authorize).post(post_authorize))
+-        .at("/token", post(token_handler))
+-        .at("/", get(get_index))
+-        .data(state)
+-}
+-
+-async fn start_server(client_port: u16, server_port: u16) -> tokio::io::Result<()> {
+-    Server::new(TcpListener::bind(("::", server_port)))
+-        .name("oauth-server")
+-        .run(main_router(client_port))
+-        .await
+-}
+-
+-async fn start_client(client_port: u16, server_port: u16) -> tokio::io::Result<()> {
+-    Server::new(TcpListener::bind(("::", client_port)))
+-        .name("oauth-client")
+-        .run(support::dummy_client_routes(client_port, server_port))
+-        .await
+-}
+-
+-#[tokio::main]
+-async fn main() {
+-    const SERVER_PORT: u16 = 3000;
+-    const CLIENT_PORT: u16 = 3001;
+-
+-    let server_handle = tokio::spawn(start_server(CLIENT_PORT, SERVER_PORT));
+-    let client_handle = tokio::spawn(start_client(CLIENT_PORT, SERVER_PORT));
+-
+-    let browser_handle: tokio::task::JoinHandle<tokio::io::Result<()>> = tokio::spawn(async {
+-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+-
+-        support::open_in_browser(SERVER_PORT);
+-
+-        Ok(())
+-    });
+-
+-    match tokio::try_join!(server_handle, client_handle, browser_handle) {
+-        Ok(_) => {
+-            // noop
+-        }
+-        Err(err) => {
+-            println!("Failed with {}", err);
+-        }
+-    }
+-}
+diff --git a/oxide-auth-poem/examples/poem-example/support.rs b/oxide-auth-poem/examples/poem-example/support.rs
+deleted file mode 100644
+index cc83165..0000000
+--- a/oxide-auth-poem/examples/poem-example/support.rs
++++ /dev/null
+@@ -1,106 +0,0 @@
+-use std::sync::{Arc};
+-use poem::{get, handler, post, EndpointExt, IntoResponse, Route};
+-use poem::http::StatusCode;
+-use poem::web::{Data, Query};
+-use serde::Deserialize;
+-
+-#[path = "../../../examples/support/generic.rs"]
+-mod generic;
+-
+-pub use self::generic::{consent_page_html, open_in_browser};
+-
+-use self::generic::{Client, ClientConfig};
+-
+-#[derive(Deserialize)]
+-struct EndpointQuery {
+-    error: Option<String>,
+-    code: Option<String>,
+-}
+-
+-#[handler]
+-async fn endpoint_handler(
+-    Query(EndpointQuery { error, code }): Query<EndpointQuery>, client: Data<&Arc<Client>>,
+-) -> poem::Result<poem::Response> {
+-    if let Some(error) = error {
+-        let message = format!("Error during authorization: {}", error);
+-        return Ok((StatusCode::OK, message).into());
+-    }
+-
+-    let code = code.ok_or_else(|| poem::Error::from_string("Missing code", StatusCode::BAD_REQUEST))?;
+-
+-    let client = client.clone();
+-
+-    let auth_handle = tokio::task::spawn_blocking(move || client.authorize(&code));
+-
+-    auth_handle
+-        .await
+-        .unwrap()
+-        .map_err(|e| poem::Error::from_string(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR))?;
+-
+-    Ok(poem::web::Redirect::see_other("/").into_response())
+-}
+-
+-#[handler]
+-async fn refresh_handler(client: Data<&Arc<Client>>) -> poem::Result<poem::Response> {
+-    let client = client.clone();
+-
+-    let refresh_handle = tokio::task::spawn_blocking(move || client.refresh());
+-
+-    refresh_handle
+-        .await
+-        .unwrap()
+-        .map_err(|e| poem::Error::from_string(e.to_string(), StatusCode::INTERNAL_SERVER_ERROR))?;
+-
+-    Ok(poem::web::Redirect::see_other("/").into_response())
+-}
+-
+-#[handler]
+-async fn index_handler(client: Data<&Arc<Client>>) -> poem::Result<poem::Response> {
+-    let html = client.as_html();
+-
+-    let protected_client = client.clone();
+-
+-    let protected_page_handle =
+-        tokio::task::spawn_blocking(move || protected_client.retrieve_protected_page());
+-    let protected_page_result = protected_page_handle.await.unwrap();
+-
+-    let protected_page = protected_page_result
+-        .map_err(|err| poem::Error::from_string(err.to_string(), StatusCode::OK))?;
+-
+-    let protected_url = client.config.protected_url.as_str();
+-
+-    let display_page = format!(
+-        "<html><style>
+-            aside{{overflow: auto; word-break: keep-all; white-space: nowrap}}
+-            main{{text-align: center}}
+-            main>aside,main>article{{margin: auto; text-align: left; border: 1px solid black; width: 50%}}
+-        </style>
+-        <main>
+-        Used token <aside style>{html}</aside> to access
+-        <a href=\"{protected_url}\">{protected_url}</a>.
+-        Its contents are:
+-        <article>{protected_page}</article>
+-        <form action=\"/refresh\" method=\"post\"><button>Refresh token</button></form>
+-        </main></html>");
+-
+-    Ok(poem::Response::builder()
+-        .content_type("text/html")
+-        .body(display_page))
+-}
+-
+-pub fn dummy_client_routes(client_port: u16, server_port: u16) -> impl poem::Endpoint {
+-    let client = Arc::new(Client::new(ClientConfig {
+-        client_id: "LocalClient".into(),
+-        client_secret: Some("SecretSecret".to_owned()),
+-        protected_url: format!("http://localhost:{server_port}/"),
+-        token_url: format!("http://localhost:{server_port}/token"),
+-        refresh_url: format!("http://localhost:{server_port}/token"),
+-        redirect_uri: format!("http://localhost:{client_port}/endpoint"),
+-    }));
+-
+-    Route::new()
+-        .at("/endpoint", get(endpoint_handler))
+-        .at("/refresh", post(refresh_handler))
+-        .at("/", get(index_handler))
+-        .data(client)
+-}
+diff --git a/oxide-auth-poem/src/error.rs b/oxide-auth-poem/src/error.rs
+index b39ddd4..262f19f 100644
+--- a/oxide-auth-poem/src/error.rs
++++ b/oxide-auth-poem/src/error.rs
+@@ -1,8 +1,4 @@
+-use super::request::OAuthRequest;
+-use oxide_auth::endpoint::OAuthError as EndpointError;
+-use oxide_auth::frontends::simple::endpoint::Error as SimpleError;
+ use poem::error::{BadRequest, InternalServerError, Unauthorized};
+-use poem::http::StatusCode;
+ use thiserror::Error;
+ 
+ /// Errors that may be generated by this crate.
+@@ -36,36 +32,3 @@ impl From<OxidePoemError> for poem::Error {
+         }
+     }
+ }
+-
+-/// Generic error type produced by Oxide Auth operations that can be coerced into an `poem::Error`
+-pub struct OAuthError(poem::Error);
+-
+-impl From<SimpleError<OAuthRequest>> for OAuthError {
+-    fn from(error: SimpleError<OAuthRequest>) -> Self {
+-        let poem_error = match error {
+-            SimpleError::Web(p) => p.into(),
+-            SimpleError::OAuth(oauth) => {
+-                let status = match oauth {
+-                    EndpointError::BadRequest | EndpointError::DenySilently => StatusCode::BAD_REQUEST,
+-                    EndpointError::PrimitiveError => StatusCode::INTERNAL_SERVER_ERROR,
+-                };
+-
+-                poem::Error::new(oauth, status)
+-            }
+-        };
+-
+-        OAuthError(poem_error)
+-    }
+-}
+-
+-impl From<poem::Error> for OAuthError {
+-    fn from(e: poem::Error) -> Self {
+-        OAuthError(e)
+-    }
+-}
+-
+-impl From<OAuthError> for poem::Error {
+-    fn from(value: OAuthError) -> poem::Error {
+-        value.0
+-    }
+-}
+diff --git a/oxide-auth-poem/src/lib.rs b/oxide-auth-poem/src/lib.rs
+index 04cb956..87ef5d2 100644
+--- a/oxide-auth-poem/src/lib.rs
++++ b/oxide-auth-poem/src/lib.rs
+@@ -1,6 +1,8 @@
+ //! Adaptations and integration for Poem.
+ #![warn(missing_docs)]
+ #![deny(clippy::pedantic)]
++// i hate this lint in particular
++#![allow(clippy::module_name_repetitions)]
+ 
+ /// Things related to Requests (from the client)
+ pub mod request;
+diff --git a/oxide-auth-poem/src/request.rs b/oxide-auth-poem/src/request.rs
+index 4275e37..498c95c 100644
+--- a/oxide-auth-poem/src/request.rs
++++ b/oxide-auth-poem/src/request.rs
+@@ -1,7 +1,11 @@
+-use super::{error::OxidePoemError, response::OAuthResponse};
+-use oxide_auth::endpoint::{NormalizedParameter, QueryParameter, WebRequest};
+-use poem::{error::BadRequest, web::Form, FromRequest, Request, RequestBody};
+ use std::borrow::Cow;
++use poem::{
++    FromRequest, Request, RequestBody,
++    error::BadRequest,
++    web::{Form},
++};
++use oxide_auth::endpoint::{NormalizedParameter, QueryParameter, WebRequest};
++use crate::{error::OxidePoemError, response::OAuthResponse};
+ 
+ #[derive(Clone, Debug, Default)]
+ /// Type implementing `WebRequest` as well as `Request` for use in route handlers
+@@ -62,16 +66,12 @@ impl WebRequest for OAuthRequest {
+     }
+ }
+ 
++#[poem::async_trait]
+ impl<'a> FromRequest<'a> for OAuthRequest {
+     async fn from_request(req: &'a Request, body: &mut RequestBody) -> poem::Result<Self> {
+-        use poem::web::Query;
+-
+-        let query = <Query<NormalizedParameter> as FromRequest>::from_request(req, body)
+-            .await
+-            .ok()
+-            .map(|f| f.0);
++        let query = serde_urlencoded::from_str(req.uri().query().unwrap_or("")).ok();
+ 
+-        let body = <Form<NormalizedParameter> as FromRequest>::from_request(req, body)
++        let body = Form::<NormalizedParameter>::from_request(req, body)
+             .await
+             .ok()
+             .map(|f| f.0);
+diff --git a/oxide-auth-poem/src/response.rs b/oxide-auth-poem/src/response.rs
+index 6e9c6d4..6a0a46b 100644
+--- a/oxide-auth-poem/src/response.rs
++++ b/oxide-auth-poem/src/response.rs
+@@ -1,12 +1,13 @@
+-use super::error::OxidePoemError;
+-use oxide_auth::{endpoint::WebResponse, frontends::dev::Url};
+ use poem::{
+     http::{
++        Extensions,
+         header::{InvalidHeaderValue, CONTENT_TYPE, LOCATION, WWW_AUTHENTICATE},
+-        Extensions, HeaderMap, HeaderValue, StatusCode, Version,
++        HeaderMap, HeaderValue, StatusCode, Version,
+     },
+     Body, IntoResponse, Response, ResponseParts,
+ };
++use oxide_auth::{endpoint::WebResponse, frontends::dev::Url};
++use crate::error::OxidePoemError;
+ 
+ #[derive(Default, Clone, Debug)]
+ /// Type implementing `WebResponse` and `IntoResponse` for use in route handlers
+diff --git a/oxide-auth-rocket/Cargo.toml b/oxide-auth-rocket/Cargo.toml
+index 429e883..9804526 100644
+--- a/oxide-auth-rocket/Cargo.toml
++++ b/oxide-auth-rocket/Cargo.toml
+@@ -14,7 +14,7 @@ edition = "2018"
+ # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+ 
+ [dependencies]
+-rocket = "0.4.2"
++rocket = "0.5.1"
+ oxide-auth = { version = "0.6.0", path = "../oxide-auth" }
+ serde_urlencoded = "0.7"
+ 
+@@ -22,3 +22,4 @@ serde_urlencoded = "0.7"
+ reqwest = { version = "0.11.10", features = ["blocking"] }
+ serde = { version = "1.0", features = ["derive"] }
+ serde_json = "1.0"
++
+diff --git a/oxide-auth-rocket/examples/rocket.rs b/oxide-auth-rocket/examples/rocket.rs
+index 7ecb858..f327381 100644
+--- a/oxide-auth-rocket/examples/rocket.rs
++++ b/oxide-auth-rocket/examples/rocket.rs
+@@ -1,5 +1,3 @@
+-#![feature(proc_macro_hygiene, decl_macro)]
+-
+ extern crate oxide_auth;
+ extern crate oxide_auth_rocket;
+ #[macro_use]
+@@ -9,7 +7,6 @@ extern crate rocket;
+ #[path = "../../examples/support/rocket.rs"]
+ mod support;
+ 
+-use std::io;
+ use std::sync::Mutex;
+ 
+ use oxide_auth::endpoint::{OwnerConsent, Solicitation};
+@@ -18,8 +15,7 @@ use oxide_auth::primitives::prelude::*;
+ use oxide_auth::primitives::registrar::RegisteredUrl;
+ use oxide_auth_rocket::{OAuthResponse, OAuthRequest, OAuthFailure};
+ 
+-use rocket::{Data, State, Response, http};
+-use rocket::http::ContentType;
++use rocket::State;
+ use rocket::response::Responder;
+ 
+ struct MyState {
+@@ -30,8 +26,8 @@ struct MyState {
+ 
+ #[get("/authorize")]
+ fn authorize<'r>(
+-    oauth: OAuthRequest<'r>, state: State<MyState>,
+-) -> Result<OAuthResponse<'r>, OAuthFailure> {
++    oauth: OAuthRequest<'r>, state: &State<MyState>,
++) -> Result<OAuthResponse, OAuthFailure> {
+     state
+         .endpoint()
+         .with_solicitor(FnSolicitor(consent_form))
+@@ -42,8 +38,8 @@ fn authorize<'r>(
+ 
+ #[post("/authorize?<allow>")]
+ fn authorize_consent<'r>(
+-    oauth: OAuthRequest<'r>, allow: Option<bool>, state: State<MyState>,
+-) -> Result<OAuthResponse<'r>, OAuthFailure> {
++    oauth: OAuthRequest<'r>, allow: Option<bool>, state: &State<MyState>,
++) -> Result<OAuthResponse, OAuthFailure> {
+     let allowed = allow.unwrap_or(false);
+     state
+         .endpoint()
+@@ -55,11 +51,10 @@ fn authorize_consent<'r>(
+         .map_err(|err| err.pack::<OAuthFailure>())
+ }
+ 
+-#[post("/token", data = "<body>")]
+-fn token<'r>(
+-    mut oauth: OAuthRequest<'r>, body: Data, state: State<MyState>,
+-) -> Result<OAuthResponse<'r>, OAuthFailure> {
+-    oauth.add_body(body);
++#[post("/token", data = "<oauth>")]
++async fn token<'r>(
++    oauth: OAuthRequest<'r> , state: &State<MyState>,
++) -> Result<OAuthResponse, OAuthFailure> {
+     state
+         .endpoint()
+         .access_token_flow()
+@@ -67,11 +62,10 @@ fn token<'r>(
+         .map_err(|err| err.pack::<OAuthFailure>())
+ }
+ 
+-#[post("/refresh", data = "<body>")]
+-fn refresh<'r>(
+-    mut oauth: OAuthRequest<'r>, body: Data, state: State<MyState>,
+-) -> Result<OAuthResponse<'r>, OAuthFailure> {
+-    oauth.add_body(body);
++#[post("/refresh", data = "<oauth>")]
++async fn refresh<'r>(
++    oauth: OAuthRequest<'r>, state: &State<MyState>,
++) -> Result<OAuthResponse, OAuthFailure> {
+     state
+         .endpoint()
+         .refresh_flow()
+@@ -80,7 +74,7 @@ fn refresh<'r>(
+ }
+ 
+ #[get("/")]
+-fn protected_resource<'r>(oauth: OAuthRequest<'r>, state: State<MyState>) -> impl Responder<'r> {
++fn protected_resource<'r,'o:'r>(oauth: OAuthRequest<'r>, state: &State<MyState>) -> impl Responder<'r,'o> {
+     const DENY_TEXT: &str = "<html>
+ This page should be accessed via an oauth token from the client in the example. Click
+ <a href=\"/authorize?response_type=code&client_id=LocalClient\">
+@@ -95,20 +89,17 @@ here</a> to begin the authorization process.
+         .execute(oauth);
+     match protect {
+         Ok(_grant) => Ok("Hello, world"),
+-        Err(Ok(response)) => {
+-            let error: OAuthResponse = Response::build_from(response.into())
+-                .header(ContentType::HTML)
+-                .sized_body(io::Cursor::new(DENY_TEXT))
+-                .finalize()
+-                .into();
+-            Err(Ok(error))
++        Err(Ok(mut response)) => {
++            response.body_html(DENY_TEXT);
++            // let error= response.try_into().unwrap();
++            Err(Ok(response))
+         }
+         Err(Err(err)) => Err(Err(err.pack::<OAuthFailure>())),
+     }
+ }
+-
+-fn main() {
+-    rocket::ignite()
++#[rocket::main]
++async fn main() {
++    rocket::build()
+         .mount(
+             "/",
+             routes![authorize, authorize_consent, token, protected_resource, refresh,],
+@@ -116,7 +107,8 @@ fn main() {
+         // We only attach the test client here because there can only be one rocket.
+         .attach(support::ClientFairing)
+         .manage(MyState::preconfigured())
+-        .launch();
++        .ignite().await.unwrap()
++        .launch().await.unwrap();
+ }
+ 
+ impl MyState {
+@@ -162,21 +154,17 @@ impl MyState {
+ 
+ fn consent_form<'r>(
+     _: &mut OAuthRequest<'r>, solicitation: Solicitation,
+-) -> OwnerConsent<OAuthResponse<'r>> {
++) -> OwnerConsent<OAuthResponse> {
++    let output = support::consent_page_html(
++        "/authorize",
++        solicitation,
++    );
+     OwnerConsent::InProgress(
+-        Response::build()
+-            .status(http::Status::Ok)
+-            .header(http::ContentType::HTML)
+-            .sized_body(io::Cursor::new(support::consent_page_html(
+-                "/authorize",
+-                solicitation,
+-            )))
+-            .finalize()
+-            .into(),
++        OAuthResponse::new().body_html(&output).to_owned()
+     )
+ }
+ 
+-fn consent_decision<'r>(allowed: bool, _: Solicitation) -> OwnerConsent<OAuthResponse<'r>> {
++fn consent_decision<'r>(allowed: bool, _: Solicitation) -> OwnerConsent<OAuthResponse> {
+     if allowed {
+         OwnerConsent::Authorized("dummy user".into())
+     } else {
+diff --git a/oxide-auth-rocket/src/failure.rs b/oxide-auth-rocket/src/failure.rs
+index 477dace..58f9ef7 100644
+--- a/oxide-auth-rocket/src/failure.rs
++++ b/oxide-auth-rocket/src/failure.rs
+@@ -42,8 +42,8 @@ enum Kind {
+     OAuth(OAuthError),
+ }
+ 
+-impl<'r> Responder<'r> for OAuthFailure {
+-    fn respond_to(self, _: &Request) -> Result<'r> {
++impl<'r,'o:'r> Responder<'r,'o> for OAuthFailure {
++    fn respond_to(self, _: &Request) -> Result<'o> {
+         match self.inner {
+             Web(_) | OAuth(DenySilently) | OAuth(BadRequest) => Err(Status::BadRequest),
+             OAuth(PrimitiveError) => Err(Status::InternalServerError),
+diff --git a/oxide-auth-rocket/src/lib.rs b/oxide-auth-rocket/src/lib.rs
+index 96c4bcf..7bbc757 100644
+--- a/oxide-auth-rocket/src/lib.rs
++++ b/oxide-auth-rocket/src/lib.rs
+@@ -3,12 +3,13 @@
+ 
+ mod failure;
+ 
+-use std::io::Cursor;
++use std::convert::TryInto;
++use rocket::http::Header;
+ use std::marker::PhantomData;
+ 
++use rocket::data::{self,DataStream, FromData, Limits};
+ use rocket::{Data, Request, Response};
+ use rocket::http::{ContentType, Status};
+-use rocket::http::hyper::header;
+ use rocket::request::FromRequest;
+ use rocket::response::{self, Responder};
+ use rocket::outcome::Outcome;
+@@ -20,6 +21,74 @@ pub use oxide_auth::frontends::simple::endpoint::Generic;
+ pub use oxide_auth::frontends::simple::request::NoError;
+ pub use self::failure::OAuthFailure;
+ 
++
++
++/* 
++    A note from a contributer: jtmorrisbytes.
++    When rocket transitioned from 0.4 to 0.5, they went to async code.
++    The OAuthRequest type is expected to uphold the 'static lifetime bound in FromRequest
++    because its difficult to hold data across an await point. I was unable to make the code work
++    unless ONLY OAuthRequest was bound by the 'static lifetime.
++    
++    I also changed the way OAuthRequest Works.
++    I Implemented FromData, which allows you to use the OAuthRequest type as a data guard, and
++    that the body data will be automatically parsed. see the examples.
++    
++    add_body now takes a DataStream instead of a Data.
++    Rocket now enforces data limits upon data guards.
++
++    The limits are configured using rocket's built in 'form' limit configuration. if no limit is specified, the 
++    library will use the default. a seperate limit can be added if required by feedback from the library users.
++
++    I did not feel like keeping the OAuthRequest Type a simple wrapper around request due to managing lifetimes and decided
++    to make it it's own type that holds only the data it needs. If we need to keep the original type,
++    we may be able to make it work since you can tell the compiler to make the request outlive the response.
++*/ 
++/// Header value for WWW_AUTHENTICATE. this is not present in the version of hyper that rocket depends on
++const WWW_AUTHENTICATE: &str = "www_authenticate";
++
++/// allows this type to be used as a data guard. replaces OAuthRequest::add_body.
++/// if you dont need the request body, then simply use FromRequest
++/// limits are configured in rocket.toml using the "form" limit. if no limit is set, this implementation uses the default defined by rocket::limit::Limits::FORM
++/// 
++/// ex: Data Guard
++/// // the format argument ensures that this handler will not be called unless the content-typ matches the 'format' argument in the macor
++/// #[rocket::get("/example"),data="<oauth_request>",format="application/x-www-urlencoded"]
++/// fn handler(oauth_request: OAuthRequest) -> () {
++///     // the oauth_request variable has the body set here due to the FromData implementation. calling add_body is not needed 
++/// }
++/// ex FromRequest
++/// #[rocket::get("/example")]
++/// fn handler(oauth_request: OAuthRequest) -> {
++// /     the oauth_request variable DOES NOT have the body set here because rocket uses FromRequest here
++/// }
++// Note: the 'impl<'r> FromData<'r> for OAuthRequest<'static> is intentional. only OAuthRequest is required here to make this work
++// if you try to bind 'r: 'static then the code wont compile due to 'borrowed data __req escapes from the function' 
++#[rocket::async_trait]
++impl<'r> FromData<'r> for OAuthRequest<'static> {
++    type Error=NoError;
++    async fn from_data(request: &'r Request<'_>, data: Data<'r>) -> data::Outcome<'r,Self,Self::Error> {
++        let mut _self = Self::new(request);
++        // check the content type here
++        match request.content_type() {
++            Some(content_type) if content_type.is_form()  => {},
++            _=>{
++                _self.body = Err(WebError::NotAForm);
++                return data::Outcome::Success(Self::new(request))
++            }
++        };
++        let limit = request.limits().get("form").unwrap_or(Limits::FORM);
++        let data_stream = data.open(limit);
++        _self.add_body(data_stream).await;
++
++        data::Outcome::Success(_self)
++
++    }
++} 
++
++
++
++
+ /// Request guard that also buffers OAuth data internally.
+ pub struct OAuthRequest<'r> {
+     auth: Option<String>,
+@@ -30,9 +99,104 @@ pub struct OAuthRequest<'r> {
+ 
+ /// Response type for Rocket OAuth requests
+ ///
+-/// A simple wrapper type around a simple `rocket::Response<'r>` that implements `WebResponse`.
+-#[derive(Debug)]
+-pub struct OAuthResponse<'r>(Response<'r>);
++/// A type that holds all of the response data
++#[derive(Debug,Clone)]
++pub struct OAuthResponse {
++    /// represents the body of the request
++    body:String,
++    /// Represents the status of the request. Default is Status::OK
++    status: rocket::http::Status,
++    content_type: ContentType,
++    /// Optional. represents a location header value. if Some(_) a location header will be set.
++    /// otherwise no location header will be set
++    header_location: Option<String>,
++    /// represents a www_authenticate header value
++    header_www_authenticate: Option<String>,
++    body_length: usize
++}
++impl<'r> OAuthResponse {
++    /// attempts to convert this type into an instance of rocket::response::Response. if it fails, it returns a status code
++    pub fn try_into_response(self) -> response::Result<'r> {
++        let mut builder = Response::build();
++        let mut response = &mut builder;
++        response = response.status(self.status);
++        // set the content type
++        let content_type = Header::new(rocket::http::hyper::header::CONTENT_TYPE.to_string(), self.content_type.to_string());
++        // set the location header if present
++        if let Some(location) = self.header_location {
++            response = response.header(Header::new(rocket::http::hyper::header::LOCATION.to_string(), location));
++        }
++        if let Some(www_authenticate) = self.header_www_authenticate {
++            response = response.header(Header::new(WWW_AUTHENTICATE, www_authenticate));
++        }
++        response = response.header(content_type);
++        Ok(response.sized_body(self.body_length, std::io::Cursor::new(self.body)).finalize())
++    }
++    /// sets the content type for this response
++    pub fn set_content_type(&mut self,content_type:ContentType) -> &mut Self {
++        self.content_type = content_type;
++        self
++    }
++    /// sets or unsets the location header for this response. 
++    pub fn set_location(&mut self,location: Option<&str>) -> &mut Self {
++        self.header_location = location.map(|str| str.to_string());
++        self
++    }
++    /// sets the status for this request. Default is Status::OK
++    pub fn set_status(&mut self,status: Status) -> &mut Self {
++        self.status = status;
++        self
++    }
++
++    /// sets the content type and body to be a html document
++    pub fn body_html(&mut self, html: &str) -> &mut Self {
++        self.content_type = ContentType::HTML;
++        self.body = html.to_string();
++        self.body_length = self.body.len();
++        self
++    }
++    /// sets the content type and body to be a text document
++    pub fn body_text(&mut self, text: &str) -> &mut Self {
++        self.content_type = ContentType::Text;
++        self.body = text.to_string();
++        self.body_length = self.body.len();
++        self
++    }
++    /// sets the content_type and body to be a json document
++    pub fn body_json(&mut self,json: &str) -> &mut Self {
++        self.content_type = ContentType::JSON;
++        self.body = json.to_string();
++        self.body_length= self.body.len();
++        self
++    }
++}
++impl std::default::Default for OAuthResponse {
++    fn default() -> Self {
++        Self { status: rocket::http::Status::Ok,content_type: ContentType::Text,header_location:None,header_www_authenticate:None,body:String::new(),body_length:0 }
++    }
++}
++
++impl <'r,'o: 'r> Responder<'r,'o> for OAuthResponse {
++    fn respond_to(self, _request: &'r Request<'_>) -> response::Result<'o> {
++        // build a new response
++        let mut builder = Response::build();
++        let mut response = &mut builder;
++        response = response.status(self.status);
++        // set the content type
++        let content_type = Header::new(rocket::http::hyper::header::CONTENT_TYPE.to_string(), self.content_type.to_string());
++        // set the location header if present
++        if let Some(location) = self.header_location {
++            response = response.header(Header::new(rocket::http::hyper::header::LOCATION.to_string(), location));
++        }
++        if let Some(www_authenticate) = self.header_www_authenticate {
++            response = response.header(Header::new(WWW_AUTHENTICATE, www_authenticate));
++        }
++        response = response.header(content_type);
++        Ok(response.sized_body(self.body_length, std::io::Cursor::new(self.body)).finalize())
++    }
++}
++
++
+ 
+ /// Request error at the http layer.
+ ///
+@@ -52,14 +216,49 @@ pub enum WebError {
+ 
+     /// Form data was requested but the request was not a form.
+     NotAForm,
++
++    /// Failed to read the datastream into a string while attemting to call add_body
++    DataStreamReadFailed,
++
++    /// reached the default or  configured maximum data size limits while reading the datastream into a string and there is still data remaining
++    ExceededDataLimits 
++
+ }
++impl std::fmt::Display for WebError {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match *self {
++            Self::Encoding => {
++                write!(f,"A parameter was encoded incorrectly while parsing a form")
++            },
++            Self::BodyNeeded => {
++                write!(f,"The body was needed but was not provided")
++            }
++            Self::NotAForm => {
++                write!(f,"Form data was requested but the request was not a form")
++            }
++            Self::DataStreamReadFailed => {
++                write!(f,"An I/O error occurred while attempting to read the data stream into a buffer")
++            }
++            Self::ExceededDataLimits => {
++                write!(f,"Exceeded the data limits while attempting to read the data stream into a buffer")
++            }
++        }
++    }
++}
++
++
++
+ 
+ impl<'r> OAuthRequest<'r> {
+     /// Create the request data from request headers.
+     ///
+     /// Some oauth methods need additionally the body data which you can attach later.
+-    pub fn new<'a>(request: &'a Request<'r>) -> Self {
+-        let query = request.uri().query().unwrap_or("");
++    pub fn new<'a>(request: &'a Request<'_>) -> Self {
++        // rocket::http::uri::Query can no longer be constructed using the following line:
++        // let query = request.uri().query().unwrap_or("");
++        // request.uri().query() -> Option<rocket::http::uri::Query<'_>>
++        // using query.as_str to preserve the original behavior
++        let query = request.uri().query().map(|query| query.as_str()).unwrap_or("");
+         let query = match serde_urlencoded::from_str(query) {
+             Ok(query) => Ok(query),
+             Err(_) => Err(WebError::Encoding),
+@@ -94,12 +293,55 @@ impl<'r> OAuthRequest<'r> {
+     /// simplify the implementation of primitives and handlers, this type is the central request
+     /// type for both these use cases. When you forget to provide the body to a request, the oauth
+     /// system will return an error the moment the request is used.
+-    pub fn add_body(&mut self, data: Data) {
+-        // Nothing to do if we already have a body, or already generated an error. This includes
+-        // the case where the content type does not indicate a form, as the error is silent until a
+-        // body is explicitely requested.
++    ///
++    pub async fn add_body(&mut self, data_stream: DataStream<'_>) {
++        // // Nothing to do if we already have a body, or already generated an error. This includes
++        // // the case where the content type does not indicate a form, as the error is silent until a
++        // // body is explicitely requested.
++
++        // // jtmorrisbytes:
++        // // not sure whether this is the desired behavior, but
++        // // trying to prevent defining our own default here
++        // // https://api.rocket.rs/v0.5/rocket/data/struct.Limits
++        // // unsure whether to use FORM or DATA_FORM here. More research is required
++        // // in order to get the configured limits from request.rocket().limits(),
++        // // we need a reference to the request here.
++        
++        
+         if let Ok(None) = self.body {
+-            match serde_urlencoded::from_reader(data.open()) {
++        //     // accepts the limit given to the function or uses the rocket configured default
++        //     let limit = limits.unwrap_or(rocket::data::Limits::FORM);
++        //     let data = data.open(limit);
++        //     // jtmorrisbytes:
++        //     // datastream has several options
++        //     // 
++        //     // we can stream the data into a file and read it from there
++        //     // we can convert the datastream into a vector of bytes.
++        //     // we can stream the stream into another vector of bytes
++        //     // we can also convert the datastream into a string.
++        //     // if we convert the datastream into a string, it will guarentee that the data is valid UTF-8
++        //     // 
++        //     // https://api.rocket.rs/v0.5/rocket/data/struct.DataStream
++        //     // but std::io::read is no longer implemented
++        //     // in favor of tokio::io::util::AsyncRead
++        //     // 
++        //     // I am going to read the data into a string, then serialize the data
++
++        //     // try to read the data into a string. if it fails, set an error and retern early
++            let data_string = match data_stream.into_string().await {
++                Ok(capped_string) => capped_string,
++                Err(_e) => {
++                    self.body = Err(WebError::DataStreamReadFailed);
++                    return;
++                }
++            };
++            if !data_string.is_complete() {
++        //         // we have reached the provided or configured data limits while reading the data into the string.
++                self.body = Err(WebError::ExceededDataLimits);
++                return;
++            }
++        //  serde_urlencoded does not have an implementation of tokio::io::AsyncRead. as such we are serializng from a string
++        match serde_urlencoded::from_str(&data_string) {
+                 Ok(query) => self.body = Ok(Some(query)),
+                 Err(_) => self.body = Err(WebError::Encoding),
+             }
+@@ -107,21 +349,25 @@ impl<'r> OAuthRequest<'r> {
+     }
+ }
+ 
+-impl<'r> OAuthResponse<'r> {
++impl OAuthResponse {
+     /// Create a new `OAuthResponse<'r>`
+     pub fn new() -> Self {
+         Default::default()
+     }
+ 
+-    /// Create a new `OAuthResponse<'r>` from an existing `rocket::Response<'r>`
+-    pub fn from_response(response: Response<'r>) -> Self {
+-        OAuthResponse(response)
+-    }
++    // Create a new `OAuthResponse<'r>` from an existing `rocket::Response<'r>`
++    
++    // pub fn from_response<'r>(response: Response<'r>) -> Self {
++    //     // response.resp
++    //     Self {response.status}
++    // }
++
++    // pub fn into_response(self,response: Response)
+ }
+ 
+ impl<'r> WebRequest for OAuthRequest<'r> {
+     type Error = WebError;
+-    type Response = OAuthResponse<'r>;
++    type Response = OAuthResponse;
+ 
+     fn query(&mut self) -> Result<Cow<dyn QueryParameter + 'static>, Self::Error> {
+         match self.query.as_ref() {
+@@ -143,82 +389,86 @@ impl<'r> WebRequest for OAuthRequest<'r> {
+     }
+ }
+ 
+-impl<'r> WebResponse for OAuthResponse<'r> {
++impl WebResponse for OAuthResponse {
+     type Error = WebError;
+ 
+     fn ok(&mut self) -> Result<(), Self::Error> {
+-        self.0.set_status(Status::Ok);
++        self.status = Status::Ok;
++        // self.0.set_status(Status::Ok);
+         Ok(())
+     }
+ 
+     fn redirect(&mut self, url: Url) -> Result<(), Self::Error> {
+-        self.0.set_status(Status::Found);
+-        self.0.set_header(header::Location(url.into()));
++        self.status = Status::Found;
++        // jtmorrisbytes:
++
++        // set header's api changed from
++        // self.0.set_header(header::Location(url.into()));
++        // to
++        // let header = Header::new(header::LOCATION.as_str(), url.to_string());
++        self.header_location = Some(url.to_string());
++        // there does not appear to be a type that implements into<Header> in rocket's library for the location header.
++        // most likely because rocket expects you to return rocket::response::Redirect from handlers to perform a redirect
+         Ok(())
+     }
+ 
+     fn client_error(&mut self) -> Result<(), Self::Error> {
+-        self.0.set_status(Status::BadRequest);
++        self.status = Status::BadRequest;
+         Ok(())
+     }
+ 
+     fn unauthorized(&mut self, kind: &str) -> Result<(), Self::Error> {
+-        self.0.set_status(Status::Unauthorized);
+-        self.0.set_raw_header("WWW-Authenticate", kind.to_owned());
++        self.status = Status::Unauthorized;
++        self.header_www_authenticate = Some(kind.to_owned());
+         Ok(())
+     }
+ 
+     fn body_text(&mut self, text: &str) -> Result<(), Self::Error> {
+-        self.0.set_sized_body(Cursor::new(text.to_owned()));
+-        self.0.set_header(ContentType::Plain);
++        self.body_text(text);
+         Ok(())
+     }
+ 
+     fn body_json(&mut self, data: &str) -> Result<(), Self::Error> {
+-        self.0.set_sized_body(Cursor::new(data.to_owned()));
+-        self.0.set_header(ContentType::JSON);
++        self.body_json(data);
+         Ok(())
+     }
+ }
+-
+-impl<'a, 'r> FromRequest<'a, 'r> for OAuthRequest<'r> {
++#[rocket::async_trait]
++impl<'r> FromRequest<'r> for OAuthRequest<'static> {
+     type Error = NoError;
+ 
+-    fn from_request(request: &'a Request<'r>) -> Outcome<Self, (Status, Self::Error), ()> {
++    async fn from_request(request: &'r Request<'_>) -> rocket::request::Outcome<Self,Self::Error> {
+         Outcome::Success(Self::new(request))
+     }
+ }
+ 
+-impl<'r> Responder<'r> for OAuthResponse<'r> {
+-    fn respond_to(self, _: &Request) -> response::Result<'r> {
+-        Ok(self.0)
+-    }
+-}
+-
+-impl<'r> Responder<'r> for WebError {
+-    fn respond_to(self, _: &Request) -> response::Result<'r> {
++impl<'r,'o:'r> Responder<'r,'o> for WebError {
++    fn respond_to(self, _: &Request) -> response::Result<'o> {
+         match self {
+             WebError::Encoding => Err(Status::BadRequest),
+             WebError::NotAForm => Err(Status::BadRequest),
+             WebError::BodyNeeded => Err(Status::InternalServerError),
++            WebError::DataStreamReadFailed => Err(Status::InternalServerError),
++            WebError::ExceededDataLimits => Err(Status::PayloadTooLarge)
+         }
+     }
+ }
+ 
+-impl<'r> Default for OAuthResponse<'r> {
+-    fn default() -> Self {
+-        OAuthResponse(Default::default())
+-    }
+-}
+-
+-impl<'r> From<Response<'r>> for OAuthResponse<'r> {
+-    fn from(r: Response<'r>) -> Self {
+-        OAuthResponse::from_response(r)
+-    }
+-}
+-
+-impl<'r> Into<Response<'r>> for OAuthResponse<'r> {
+-    fn into(self) -> Response<'r> {
+-        self.0
++// impl<'r> Default for OAuthResponse<'r> {
++//     fn default() -> Self {
++//         OAuthResponse(Default::default())
++//     }
++// }
++
++// impl<'r> From<Response<'r>> for OAuthResponse<'r> {
++//     fn from(r: Response<'r>) -> Self {
++//         OAuthResponse::from_response(r)
++//     }
++// }
++
++impl<'r> TryInto<Response<'r>> for OAuthResponse {
++    type Error = rocket::http::Status;
++    fn try_into(self) -> Result<Response<'r>, Self::Error> {
++        self.try_into_response()   
+     }
+ }
+diff --git a/oxide-auth-rouille/examples/rouille.rs b/oxide-auth-rouille/examples/rouille.rs
+index 790cec7..ea02df4 100644
+--- a/oxide-auth-rouille/examples/rouille.rs
++++ b/oxide-auth-rouille/examples/rouille.rs
+@@ -124,7 +124,7 @@ here</a> to begin the authorization process.
+     });
+ 
+     // Try to direct the browser to an url initiating the flow
+-    support::open_in_browser(8020);
++    support::open_in_browser();
+     join.join().expect("Failed to run");
+     client.join().expect("Failed to run client");
+ }
+diff --git a/oxide-auth/src/frontends/mod.rs b/oxide-auth/src/frontends/mod.rs
+index b213c23..8c9f7e1 100644
+--- a/oxide-auth/src/frontends/mod.rs
++++ b/oxide-auth/src/frontends/mod.rs
+@@ -13,7 +13,6 @@
+ //! * `simple`: Implemented here, can be reused in other web servers.
+ //! * `actix`: `oxide-auth-actix`
+ //! * `iron`: `oxide-auth-iron`
+-//! * `poem`: `oxide-auth-poem`
+ //! * `rouille`: `oxide-auth-rouille`
+ //! * `rocket`: `oxide-auth-rocket`
+ //!

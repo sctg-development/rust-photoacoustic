@@ -10,6 +10,7 @@
 pub mod api;
 pub mod jwt;
 pub mod server;
+pub mod oxide_auth;
 
 use anyhow::Result;
 use crate::AnalysisResult;
