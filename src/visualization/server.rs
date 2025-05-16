@@ -65,7 +65,7 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 }
 
 pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
-    // Créer l'état OAuth2
+    // Create OAuth2 state
     let oxide_state = OxideState::preconfigured();
     
     let rocket = rocket::custom(figment)
@@ -80,9 +80,6 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .mount("/",routes![
             favicon,
             webclient,
-            // openapi_snippet,
-            // openapi_snippet_map,
-            // oxide_auth routes
             authorize,
             authorize_consent,
             token,
@@ -90,6 +87,35 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         ])
         .manage(oxide_state);
         rocket
+}
+
+#[cfg(test)]
+pub fn build_rocket_test_instance() -> Rocket<Build> {
+    use rocket::Config;
+    
+    // Create a test configuration
+    let config = Config::figment()
+        .merge(("address", "localhost"))
+        .merge(("port", 0))  // Random port for tests
+        .merge(("log_level", rocket::config::LogLevel::Off));
+    
+    // Create OAuth2 state
+    let oxide_state = super::oxide_auth::OxideState::preconfigured();
+    
+    // Build Rocket instance for tests
+    rocket::custom(config)
+        .attach(CORS)
+        .mount(
+            "/",
+            routes![
+                // Routes for OAuth tests
+                authorize,
+                authorize_consent,
+                token,
+                refresh,
+            ],
+        )
+        .manage(oxide_state)
 }
 
 /// Retrieves a static file from the web/dist directory

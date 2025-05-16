@@ -130,7 +130,7 @@ fn consent_decision<'r>(allowed: bool, _: Solicitation) -> OwnerConsent<OAuthRes
     }
 }
 
-pub fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
+fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
     macro_rules! template {
         () => {
             "<html>'{0:}' (at {1:}) is requesting permission for '{2:}'

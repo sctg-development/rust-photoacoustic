@@ -55,7 +55,7 @@ rust-photoacoustic/
 │   └── visualization/         # Visualization module
 │       ├── mod.rs             # Module exports
 │       ├── api.rs             # REST API endpoints using Rocket
-│       ├── jwt.rs             # JWT Bearer token authentication (checking using PKCE)
+│       ├── oxide_auth.rs      # Oauth2 authentication using oxide-auth
 │       └── server.rs          # Web server configuration serving the SPA and API
 ├── web/                       # Frontend SPA
 │   ├── src/                   # React components and hooks
