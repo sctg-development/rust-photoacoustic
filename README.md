@@ -168,22 +168,22 @@ cargo run --bin differential [OPTIONS]
 ### Command Line Options
 
 - `--input <FILE>`: Input WAV file (stereo for channel differencing, mono for file differencing).
-- `--input2 <FILE>`: Second input WAV file (required for File1MinusFile2 mode).
+- `--input2 <FILE>`: Second input WAV file (required for file1-minus-file2 mode).
 - `--output <FILE>`: Output WAV file (mono).
 - `--mode <MODE>`: Differential mode:
-  - `LeftMinusRight` (default): Left minus Right for stereo files
-  - `RightMinusLeft`: Right minus Left for stereo files
-  - `File1MinusFile2`: First file minus second file for mono files
+  - `left-minus-right` (default): Left minus Right for stereo files
+  - `right-minus-left`: Right minus Left for stereo files
+  - `file1-minus-file2`: First file minus second file for mono files
 - `--gain <VALUE>`: Gain to apply to the output signal (default: 1.0).
 
 Example:
 
 ```bash
 # Process a stereo file to get L-R
-cargo run --bin differential -- --input stereo_file.wav --output lr_diff.wav --mode LeftMinusRight
+cargo run --bin differential -- --input stereo_file.wav --output lr_diff.wav --mode LeftMinusRleft-minus-right
 
 # Subtract one mono file from another
-cargo run --bin differential -- --input first.wav --input2 second.wav --output diff.wav --mode File1MinusFile2 --gain 1.5
+cargo run --bin differential -- --input first.wav --input2 second.wav --output diff.wav --mode file1-minus-file2 --gain 1.5
 ```
 
 This utility is particularly useful for testing the differential signal processing algorithms or preparing test files.
