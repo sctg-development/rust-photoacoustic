@@ -2,6 +2,42 @@
 
 use anyhow::Result;
 
+/// Calculate the differential signal between two i16 sample vectors
+/// 
+/// This function calculates signal_a - signal_b for each sample pair.
+/// Used primarily by the differential binary utility for WAV file processing.
+/// 
+/// # Arguments
+/// 
+/// * `signal_a` - First signal
+/// * `signal_b` - Second signal (to be subtracted from signal_a)
+/// 
+/// # Returns
+/// 
+/// A new vector containing the sample-wise difference
+pub fn calculate_differential(signal_a: &[i16], signal_b: &[i16]) -> Vec<i16> {
+    let mut result = Vec::with_capacity(signal_a.len());
+    
+    let length = std::cmp::min(signal_a.len(), signal_b.len());
+    for i in 0..length {
+        // Calculate difference with saturation to prevent overflow
+        let diff = match signal_a[i].checked_sub(signal_b[i]) {
+            Some(val) => val,
+            None => {
+                // Handle underflow with saturation
+                if signal_a[i] < signal_b[i] {
+                    i16::MIN
+                } else {
+                    i16::MAX
+                }
+            }
+        };
+        result.push(diff);
+    }
+    
+    result
+}
+
 /// Trait for implementing differential signal calculation
 pub trait DifferentialCalculator: Send + Sync {
     /// Calculate the differential signal A-B

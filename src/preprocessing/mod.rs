@@ -3,8 +3,8 @@
 //! This module handles preprocessing of the acquired audio signals,
 //! including filtering and differential calculation.
 
-mod filters;
-mod differential;
+pub mod filters;
+pub mod differential;
 #[cfg(test)]
 mod filters_test;
 #[cfg(test)]
