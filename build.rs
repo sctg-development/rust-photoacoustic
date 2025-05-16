@@ -22,13 +22,13 @@ use std::process::Command;
 use std::str;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// Vérifie si des fichiers source web sont plus récents que les fichiers compilés
+// Checks if any web source files are newer than the compiled files
 fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
-    // Obtenir la date de modification la plus récente des fichiers dans dist
+    // Get the most recent modification date of files in dist
     let dist_latest_mod = get_latest_modification_time(dist_path)
         .unwrap_or_else(|| SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 86400);
     
-    // Obtenir la date de modification la plus récente des fichiers source
+    // Get the most recent modification date of source files
     let src_paths = [
         PathBuf::from("./web/src"),
         PathBuf::from("./web/public"),
@@ -36,13 +36,13 @@ fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
         PathBuf::from("./web/package.json"),
         PathBuf::from("./web/tsconfig.json"),
         PathBuf::from("./web/vite.config.ts"),
-        // Ajoutez d'autres fichiers/dossiers à surveiller au besoin
+        // Add other files/directories to watch as needed
     ];
     
     for path in &src_paths {
         if let Some(mod_time) = get_latest_modification_time(path) {
             if mod_time > dist_latest_mod {
-                println!("cargo:warning=Fichier modifié détecté: {:?}", path);
+                println!("cargo:warning=Modified file detected: {:?}", path);
                 return true;
             }
         }
@@ -51,8 +51,8 @@ fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
     false
 }
 
-// Récupère la date de modification la plus récente dans un répertoire (récursivement)
-// ou pour un fichier unique
+// Gets the most recent modification date in a directory (recursively)
+// or for a single file
 fn get_latest_modification_time(path: &PathBuf) -> Option<u64> {
     if !path.exists() {
         return None;
@@ -71,7 +71,7 @@ fn get_latest_modification_time(path: &PathBuf) -> Option<u64> {
         return None;
     }
     
-    // Fonction récursive pour parcourir les dossiers
+    // Recursive function to walk through directories
     fn visit_dir(dir: &PathBuf, latest: &mut u64) {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -136,28 +136,28 @@ impl PackageJson {
 
 #[tokio::main]
 async fn main() {
-    // Indique à Cargo de relancer le script build.rs si des fichiers du dossier web changent
+    // Tells Cargo to rerun build.rs if any files in the web folder change
     println!("cargo:rerun-if-changed=web");
 
-    // Vérifie si les fichiers dist existent déjà pour éviter une reconstruction inutile
+    // Checks if dist files already exist to avoid unnecessary rebuilds
     let dist_path = PathBuf::from("./web/dist");
     let needs_build = !dist_path.exists() || is_web_source_newer_than_dist(&dist_path);
 
     let data = fs::read_to_string("./web/package.json").unwrap();
     let mut package: PackageJson = serde_json::from_str(&data).unwrap();
 
-    // Construit le chemin du fichier dans le répertoire temporaire
+    // Build the path to the file in the temporary directory
     let tmp_dir = env::var("TMP")
         .or_else(|_| env::var("TEMP"))
         .or_else(|_| env::var("TMPDIR"))
         .unwrap_or_else(|_| "/tmp".to_string());
     let mut path = PathBuf::from(tmp_dir);
     path.push("version-1B282C00-C9CC-4C5F-890E-952D88623718.txt");
-    // Lit la version à partir du fichier
+    // Read the version from the file
     let version =
         fs::read_to_string(&path).unwrap_or_else(|_| env::var("CARGO_PKG_VERSION").unwrap());
 
-    // Vérifie si la version a changé
+    // Check if the version has changed
     let version_changed = package.version != version;
     if version_changed {
         package.set_version(&version);
@@ -165,9 +165,9 @@ async fn main() {
         fs::write("./web/package.json", serialized).unwrap();
     }
 
-    // Si aucune reconstruction n'est nécessaire, on quitte tôt
+    // If no rebuild is needed, exit early
     if !needs_build && !version_changed {
-        println!("cargo:warning=Aucun changement détecté dans les fichiers web, compilation ignorée");
+        println!("cargo:warning=No changes detected in web files, skipping compilation");
         return;
     }
 
