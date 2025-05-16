@@ -32,30 +32,33 @@ Develop a Rust program to analyze the concentration of water vapor in air using 
 ```plaintext
 rust-photoacoustic/
 ├── src/
-│   ├── main.rs              # Application entry point
-│   ├── acquisition/         # Audio signal acquisition module
-│   │   └── mod.rs           # Microphone interface using CPAL
-│   ├── preprocessing/       # Signal preprocessing module
-│   │   ├── mod.rs           # Feature export
-│   │   ├── filters.rs       # Digital filters implementation
-│   │   └── differential.rs  # Differential signal calculation
-│   ├── spectral/            # Spectral analysis module
-│   │   ├── mod.rs           # Feature export
-│   │   └── fft.rs           # FFT implementation using rustfft
-│   └── visualization/       # Visualization module
-│       ├── mod.rs           # Module exports
-│       ├── api.rs           # REST API endpoints using Rocket
-│       ├── jwt.rs           # JWT Bearer token authentication (cheking using PKCE)
-│       └── server.rs        # Web server configuration serving the SPA and API
-├── web/                     # Frontend SPA
-│   ├── src/                 # React components and hooks
-│   ├── public/              # Static assets
-│   ├── package.json         # NPM dependencies
-│   └── vite.config.js       # Vite configuration
-├── data/                    # Example data folder
-├── examples/                # Usage examples
-├── tests/                   # Integration tests
-└── Cargo.toml               # Rust project configuration
+│   ├── main.rs                # Application entry point
+│   ├── acquisition/           # Audio signal acquisition module
+│   │   └── mod.rs             # Microphone interface using CPAL
+│   ├── preprocessing/         # Signal preprocessing module
+│   │   ├── mod.rs             # Feature export
+│   │   ├── differential.rs    # Differential signal calculation
+│   ├── spectral/              # Spectral analysis module
+│   │   ├── mod.rs             # Feature export
+│   │   └── fft.rs             # FFT implementation using rustfft
+│   ├── utility/               # Utility functions and tools
+│   │   ├── mod.rs             # Module exports
+│   │   └── noise_generator.rs # Noise signal generator
+│   └── visualization/         # Visualization module
+│       ├── mod.rs             # Module exports
+│       ├── api.rs             # REST API endpoints using Rocket
+│       ├── jwt.rs             # JWT Bearer token authentication (checking using PKCE)
+│       └── server.rs          # Web server configuration serving the SPA and API
+├── web/                       # Frontend SPA
+│   ├── src/                   # React components and hooks
+│   ├── public/                # Static assets
+│   ├── package.json           # NPM dependencies
+│   └── vite.config.js         # Vite configuration
+├── data/                      # Example data folder
+├── examples/                  # Usage examples
+├── tests/                     # Integration tests
+├── count_lines.sh             # Script to count lines of code
+└── Cargo.toml                 # Rust project configuration
 ```
 
 ## Technical Parameters
@@ -109,6 +112,36 @@ This architecture ensures both interactive visualization and programmatic access
 - `--output`: Output file for results (JSON)
 - `--window-size`: Analysis window size in samples (default: 4096)
 - `--averages`: Number of spectra to average (default: 10)
+
+## Noise Generator Utility
+
+The project includes a standalone noise signal generator utility, located at `src/utility/noise_generator.rs` and available as a binary target. This tool is useful for generating synthetic white noise signals for testing and calibration of the signal processing pipeline.
+
+### Usage
+
+You can run the noise generator from the command line:
+
+```bash
+cargo run --bin noise_generator [OPTIONS]
+```
+
+### Command Line Options
+
+- `--output <FILE>`: Specify the output WAV file for the generated noise (required).
+- `--duration <SECONDS>`: Duration of the generated noise in seconds (default: 10).
+- `--sample-rate <HZ>`: Sampling rate of the output file (default: 48000).
+- `--channels <N>`: Number of audio channels (default: 2).
+- `--correlated`: Set to true to use correlations between channels (default is independent)
+- `--correlation`: Correlation coefficient between channels (-1.0 to 1.0) (default: 0)
+- `--amplitude <VALUE>`: Amplitude of the noise signal (default: 0.5).
+
+Example:
+
+```bash
+cargo run --bin noise_generator -- --output test_noise.wav --duration 5 --amplitude 0.3
+```
+
+This will generate a 5-second stereo pink noise WAV file named `test_noise.wav` with amplitude 0.3.
 
 ## References
 
