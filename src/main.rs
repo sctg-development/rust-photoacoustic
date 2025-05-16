@@ -2,6 +2,7 @@
 mod acquisition;
 mod preprocessing;
 mod spectral;
+mod utility;
 mod visualization;
 
 use anyhow::Result;
