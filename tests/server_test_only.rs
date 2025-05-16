@@ -14,11 +14,11 @@ fn get_figment() -> rocket::figment::Figment {
 
 #[rocket::async_test]
 async fn test_oauth_server_authorization_endpoint() {
-    // Configuration of the Rocket test client
+    // Configuration du client de test Rocket
     let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment()).await;
     let client = Client::tracked(rocket).await.expect("valid rocket instance");
 
-    // Test of the authorization endpoint
+    // Test de l'endpoint d'autorisation
     let query_params = format!(
         "response_type=code&client_id=LocalClient&redirect_uri=http://localhost:8080/clientside/endpoint&scope=default-scope&state=test-state"
     );
@@ -33,10 +33,10 @@ async fn test_oauth_server_authorization_endpoint() {
     let body = response.into_string().await.expect("Response body");
     assert!(
         body.contains("Accept"),
-        "The consent page should contain an Accept button"
+        "La page de consentement devrait contenir un bouton Accept"
     );
     assert!(
         body.contains("Deny"),
-        "The consent page should contain a Deny button"
+        "La page de consentement devrait contenir un bouton Deny"
     );
 }

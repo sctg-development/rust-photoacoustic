@@ -80,7 +80,7 @@ impl OxideState {
                 vec![Client::public(
                     "LocalClient",
                     RegisteredUrl::Semantic(
-                        "http://localhost:8000/clientside/endpoint".parse().unwrap(),
+                        "http://localhost:8080/clientside/endpoint".parse().unwrap(),
                     ),
                     "default-scope".parse().unwrap(),
                 )]
