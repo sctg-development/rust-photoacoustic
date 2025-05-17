@@ -20,7 +20,7 @@ async fn test_oauth_server_authorization_endpoint() {
 
     // Test de l'endpoint d'autorisation
     let query_params = format!(
-        "response_type=code&client_id=LocalClient&redirect_uri=http://localhost:8080/clientside/endpoint&scope=default-scope&state=test-state"
+        "response_type=code&client_id=LocalClient&redirect_uri=http://localhost:8080/client/&scope=default-scope&state=test-state"
     );
 
     let response = client
