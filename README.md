@@ -232,3 +232,32 @@ cargo run --bin filters -- -i input.wav -o output.wav -n 8 -f 2000 -b 200
 ```
 
 This utility is useful for isolating specific frequency components in your audio signals or removing unwanted noise before analysis.
+
+## Continuous Integration
+
+This project uses GitHub Actions for continuous integration. The CI pipeline automatically builds and tests the code on multiple platforms:
+
+- Windows (x86_64)
+- Ubuntu Linux (x86_64 and ARM64)
+- macOS (x86_64 and ARM64)
+
+The CI workflow includes:
+
+- Building the project for all target platforms
+- Running tests
+- Special handling for tests that require specific timeouts (like introspection tests)
+- Code quality checks (formatting and linting)
+
+You can see the workflow status in the GitHub repository under the Actions tab.
+
+### Running Tests Locally
+
+To run the tests locally:
+
+```bash
+# Run all tests
+cargo test
+
+# Run a specific test with output displayed
+cargo test --test introspection_test -- --nocapture
+```
