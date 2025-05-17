@@ -10,7 +10,7 @@ use hound::{SampleFormat, WavSpec, WavWriter};
 use std::path::PathBuf;
 
 // Import the NoiseGenerator from our library
-use rust_photoacoustic::utility::NoiseGenerator;
+use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
 
 /// White noise generator for audio testing
 #[derive(Debug, Parser)]

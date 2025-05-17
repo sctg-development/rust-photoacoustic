@@ -6,7 +6,6 @@
 
 use super::differential::{DifferentialCalculator, SimpleDifferential};
 use anyhow::Result;
-use hound;
 use std::fs;
 use std::path::PathBuf;
 
@@ -28,7 +27,7 @@ mod tests {
         }
 
         // Read all samples
-        let mut interleaved_samples: Vec<f32> = reader
+        let interleaved_samples: Vec<f32> = reader
             .samples::<i16>()
             .map(|s| s.map(|sample| sample as f32 / 32768.0))
             .collect::<Result<_, _>>()?;

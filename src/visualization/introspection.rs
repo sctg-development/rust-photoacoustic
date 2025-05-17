@@ -2,7 +2,6 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-use crate::visualization::jwt_validator::JwtValidator;
 use crate::visualization::oxide_auth::OxideState;
 use chrono::{TimeZone, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
@@ -10,7 +9,7 @@ use oxide_auth::primitives::issuer::Issuer;
 use rocket::form::Form;
 use rocket::serde::{json::Json, Deserialize, Serialize};
 use rocket::FromForm;
-use rocket::{http::Status, post, State};
+use rocket::{post, State};
 use std::collections::HashMap;
 // Déjà importé via rocket::serde
 
@@ -214,11 +213,11 @@ pub fn introspect(
                 additional_claims: HashMap::new(),
             };
 
-            return Json(response);
+            Json(response)
         }
         Err(_) => {
             // Failed to decode as JWT
-            return Json(inactive_response);
+            Json(inactive_response)
         }
     }
 }

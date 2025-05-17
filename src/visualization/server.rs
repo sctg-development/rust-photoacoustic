@@ -8,9 +8,9 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::figment::Figment;
 use rocket::http::{ContentType, Header};
 use rocket::response::{Redirect, Responder};
-use rocket::{async_trait, delete, get, options, post, put, routes, uri, Build, Rocket};
+use rocket::{async_trait, get, options, routes, uri, Build, Rocket};
 use rocket::{Request, Response};
-use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
+use rocket_okapi::{openapi, openapi_get_routes};
 use std::env;
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -77,7 +77,8 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         }
     };
 
-    let rocket = rocket::custom(figment)
+    
+    rocket::custom(figment)
         .attach(CORS)
         .mount(
             "/",
@@ -100,8 +101,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
             routes![super::api_auth::get_profile, super::api_auth::get_data,],
         )
         .manage(oxide_state)
-        .manage(jwt_validator);
-    rocket
+        .manage(jwt_validator)
 }
 
 #[cfg(test)]
@@ -174,7 +174,7 @@ async fn webclient(path: PathBuf) -> Option<StaticFileResponse> {
             .parse::<ContentType>()
             .unwrap();
         let bytes = response.bytes().await.unwrap();
-        let response_content: Vec<u8> = bytes.iter().map(|byte| *byte).collect();
+        let response_content: Vec<u8> = bytes.iter().copied().collect();
         let content = StaticFileResponse(response_content, content_type);
         return Some(content);
     }
@@ -192,7 +192,7 @@ async fn webclient(path: PathBuf) -> Option<StaticFileResponse> {
         StaticFileResponse(file.contents().to_vec(), content_type)
     });
     if file.is_some() {
-        return file;
+        file
     } else {
         let file = STATIC_DIR.get_file("index.html").map(|file| {
             let content_type = ContentType::from_extension(
@@ -205,7 +205,7 @@ async fn webclient(path: PathBuf) -> Option<StaticFileResponse> {
             .unwrap_or(ContentType::Binary);
             StaticFileResponse(file.contents().to_vec(), content_type)
         });
-        return file;
+        file
     }
 }
 
@@ -237,5 +237,5 @@ async fn favicon() -> Option<StaticFileResponse> {
         .unwrap_or(ContentType::Binary);
         StaticFileResponse(file.contents().to_vec(), content_type)
     });
-    return file;
+    file
 }

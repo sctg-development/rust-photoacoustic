@@ -4,7 +4,6 @@
 
 use super::filters::{BandpassFilter, Filter};
 use anyhow::Result;
-use hound;
 use std::fs;
 use std::path::PathBuf;
 
@@ -218,7 +217,7 @@ mod tests {
                     .to_str()
                     .unwrap(),
             )
-            .expect(&format!("Failed to save original signal at {} Hz", freq));
+            .unwrap_or_else(|_| panic!("Failed to save original signal at {} Hz", freq));
 
             save_wav_file(
                 &filtered_signal,
@@ -228,7 +227,7 @@ mod tests {
                     .to_str()
                     .unwrap(),
             )
-            .expect(&format!("Failed to save filtered signal at {} Hz", freq));
+            .unwrap_or_else(|_| panic!("Failed to save filtered signal at {} Hz", freq));
         }
     }
 }

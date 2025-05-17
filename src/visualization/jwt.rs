@@ -330,7 +330,7 @@ impl Issuer for JwtTokenMap {
             client_id: token_data.claims.aud,
             scope: token_data.claims.scope.parse().map_err(|e| {
                 log::error!("Failed to parse scope from token: {}", e);
-                ()
+                
             })?,
             redirect_uri,
             until: exp_time,
@@ -481,7 +481,7 @@ impl Issuer for JwtIssuer {
 }
 
 // Implement Issuer for &JwtIssuer so it can be used in OxideState::endpoint()
-impl<'a> Issuer for &'a JwtIssuer {
+impl Issuer for &JwtIssuer {
     fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
         // For an immutable reference, we need to use internal mutability
         let mut guard = self.0.lock().map_err(|_| ())?;

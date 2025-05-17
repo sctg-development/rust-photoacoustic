@@ -53,6 +53,12 @@ pub struct SimpleDifferential {
     // No state needed for this simple implementation
 }
 
+impl Default for SimpleDifferential {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimpleDifferential {
     /// Create a new simple differential calculator
     pub fn new() -> Self {

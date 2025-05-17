@@ -150,7 +150,7 @@ struct AnalysisResult {
 
 /// Process audio data through the signal processing pipeline
 fn process_audio(
-    mut source: Box<dyn acquisition::AudioSource>,
+    source: Box<dyn acquisition::AudioSource>,
     filter: Box<dyn preprocessing::Filter>,
     analyzer: Box<dyn spectral::SpectralAnalyzer>,
 ) -> Result<AnalysisResult> {

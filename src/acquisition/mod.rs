@@ -7,8 +7,7 @@
 //! This module handles the acquisition of audio data from microphones
 //! or from WAV files.
 
-use anyhow::{Context, Result};
-use rand::Rng;
+use anyhow::Result;
 use std::path::Path;
 
 /// Represents an audio source (either live or from file)

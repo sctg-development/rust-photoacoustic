@@ -9,7 +9,7 @@
 //! 2. Apply a lowpass filter with configurable cutoff frequency
 
 use clap::{Parser, ValueEnum};
-use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
+use hound::{WavReader, WavWriter};
 use rust_photoacoustic::preprocessing::filters::{BandpassFilter, Filter, LowpassFilter};
 use std::path::PathBuf;
 

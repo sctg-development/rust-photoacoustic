@@ -34,8 +34,8 @@ impl Clone for OxideState {
 }
 
 #[get("/authorize")]
-pub fn authorize<'r>(
-    oauth: OAuthRequest<'r>,
+pub fn authorize(
+    oauth: OAuthRequest<'_>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
     state
@@ -47,8 +47,8 @@ pub fn authorize<'r>(
 }
 
 #[post("/authorize?<allow>")]
-pub fn authorize_consent<'r>(
-    oauth: OAuthRequest<'r>,
+pub fn authorize_consent(
+    oauth: OAuthRequest<'_>,
     allow: Option<bool>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
@@ -137,8 +137,8 @@ impl OxideState {
     }
 }
 
-fn consent_form<'r>(
-    _: &mut OAuthRequest<'r>,
+fn consent_form(
+    _: &mut OAuthRequest<'_>,
     solicitation: Solicitation,
 ) -> OwnerConsent<OAuthResponse> {
     let output = consent_page_html("/authorize", solicitation);

@@ -4,7 +4,6 @@
 
 //! Digital filters for signal preprocessing
 
-use anyhow::Result;
 
 /// Trait for implementing digital filters
 pub trait Filter: Send + Sync {

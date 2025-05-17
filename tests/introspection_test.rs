@@ -8,13 +8,9 @@ use oxide_auth::primitives::grant::{Extensions, Grant};
 use oxide_auth::primitives::issuer::Issuer;
 use rocket::http::ContentType;
 use rocket::local::asynchronous::Client;
-use rocket::serde::json::Json;
-use rust_photoacoustic::visualization::jwt::JwtIssuer;
-use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
 use rust_photoacoustic::visualization::oxide_auth::OxideState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration as StdDuration;
 use tokio::time::timeout;
 use url::Url;
@@ -129,7 +125,7 @@ async fn test_jwt_token_introspection() {
         let introspection_response: IntrospectionResponse =
             serde_json::from_str(&response_body).expect("Failed to parse response");
 
-        assert_eq!(introspection_response.active, true);
+        assert!(introspection_response.active);
         assert_eq!(introspection_response.scope, Some("read:api".to_string()));
         assert_eq!(
             introspection_response.client_id,
@@ -210,7 +206,7 @@ async fn test_expired_token_introspection() {
         let introspection_response: IntrospectionResponse =
             serde_json::from_str(&response_body).expect("Failed to parse response");
 
-        assert_eq!(introspection_response.active, false);
+        assert!(!introspection_response.active);
 
         // Shutdown the Rocket instance
         client.rocket().shutdown().await;
@@ -265,7 +261,7 @@ async fn test_invalid_token_introspection() {
         let introspection_response: IntrospectionResponse =
             serde_json::from_str(&response_body).expect("Failed to parse response");
 
-        assert_eq!(introspection_response.active, false);
+        assert!(!introspection_response.active);
 
         // Shutdown the Rocket instance
         println!("Shutting down server...");
@@ -347,7 +343,7 @@ async fn test_oxide_auth_token_introspection() {
         let introspection_response: IntrospectionResponse =
             serde_json::from_str(&response_body).expect("Failed to parse response");
 
-        assert_eq!(introspection_response.active, true);
+        assert!(introspection_response.active);
         assert_eq!(
             introspection_response.client_id,
             Some("test_client".to_string())

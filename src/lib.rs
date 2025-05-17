@@ -11,7 +11,6 @@ pub mod spectral;
 pub mod utility;
 pub mod visualization;
 
-use chrono;
 use serde::{Deserialize, Serialize};
 
 /// Result of a photoacoustic analysis

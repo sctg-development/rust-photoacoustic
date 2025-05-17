@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use rustfft::{
-    num_complex::{Complex, Complex32},
+    num_complex::Complex32,
     FftPlanner,
 };
 

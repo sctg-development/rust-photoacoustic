@@ -46,8 +46,8 @@ impl NoiseGenerator {
         // Avoid ln(0)
         let u1 = if u1 < 0.0001 { 0.0001 } else { u1 };
 
-        let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-        z
+        
+        (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos()
     }
 
     /// Generate a buffer of mono Gaussian white noise
