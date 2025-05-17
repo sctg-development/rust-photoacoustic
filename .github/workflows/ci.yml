@@ -58,7 +58,14 @@ jobs:
     - name: Install ARM64 dependencies
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
       run: |
+        # Remove exisiting Ubuntu sources 
+        sudo rm -f /etc/apt/sources.list.d/ubuntu.list
+        # Add AMD64 architecture
+        sudo dpkg --add-architecture amd64
+        # Add AMD64 sources
+        echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu $(lsb_release -cs) main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/ubuntu.list
         sudo apt-get update
+        # Add ARM64 architecture
         sudo dpkg --add-architecture arm64
         # Configuration correcte des sources pour ARM64 - utilise ports.ubuntu.com pour tout
         echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs) main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/arm64.list
