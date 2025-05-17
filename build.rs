@@ -139,6 +139,20 @@ impl PackageJson {
     }
 }
 
+// Implement a Default trait for PackageJson providing a default npm package.json
+impl Default for PackageJson {
+    fn default() -> Self {
+        Self {
+            name: "webconsole".to_string(),
+            private: Some(true),
+            version: "0.0.0".to_string(),
+            type_: Some("module".to_string()),
+            scripts: HashMap::new(),
+            dependencies: HashMap::new(),
+            dev_dependencies: HashMap::new(),
+        }
+    }
+}
 #[tokio::main]
 async fn main() {
     // Tells Cargo to rerun build.rs if any files in the web folder change
