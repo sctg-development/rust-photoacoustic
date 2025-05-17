@@ -218,20 +218,20 @@ jobs:
             export LD_LIBRARY_PATH=$OPENSSL_LIB_DIR:$LD_LIBRARY_PATH
             
             # Create custom pkg-config file
-            mkdir -p /usr/local/openssl-arm64/lib/pkgconfig
-            echo "prefix=/usr/local/openssl-arm64" > /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "exec_prefix=${prefix}" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "libdir=${exec_prefix}/lib" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "includedir=${prefix}/include" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "Name: OpenSSL" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "Description: Secure Sockets Layer and cryptography libraries" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "Version: 1.1.1q" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "Libs: -L${libdir} -lssl -lcrypto" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
-            echo "Cflags: -I${includedir}" >> /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc
+            mkdir -p /usr/lib/aarch64-linux-gnu/pkgconfig
+            echo "prefix=/usr/local/openssl-arm64" > /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "exec_prefix=${prefix}" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "libdir=${exec_prefix}/lib" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "includedir=${prefix}/include" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "Name: OpenSSL" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "Description: Secure Sockets Layer and cryptography libraries" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "Version: 3.0.13" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "Libs: -L${libdir} -lssl -lcrypto" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
+            echo "Cflags: -I${includedir}" >> /usr/lib/aarch64-linux-gnu/pkgconfig/openssl.pc
             
             # Update PKG_CONFIG_PATH
-            export PKG_CONFIG_PATH=/usr/local/openssl-arm64/lib/pkgconfig:$PKG_CONFIG_PATH
+            export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
             
             # Test the new setup
             echo "Testing custom OpenSSL pkg-config:"
