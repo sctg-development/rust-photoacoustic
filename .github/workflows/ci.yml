@@ -59,7 +59,6 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
       run: |
         # Remove exisiting Ubuntu sources 
-        ls -lR
         sudo rm -vf /etc/apt/sources.list.d/*
         # Add AMD64 architecture
         sudo dpkg --add-architecture amd64
@@ -118,7 +117,28 @@ jobs:
         export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
         export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
         export PKG_CONFIG_SYSROOT_DIR=/
-        exec pkg-config --define-prefix "$@"
+        
+        # Exécuter pkg-config avec les options demandées
+        output=$(pkg-config "$@")
+        
+        # Corriger les chemins dans la sortie si nécessaire
+        if [[ "$@" == *"--libs"* ]]; then
+          # Fix library paths for --libs output
+          output=$(echo "$output" | sed "s|-L/usr/lib/lib/aarch64-linux-gnu|-L/usr/lib/aarch64-linux-gnu|g")
+          output=$(echo "$output" | sed "s|-L/lib/aarch64-linux-gnu|-L/usr/lib/aarch64-linux-gnu|g")
+          output=$(echo "$output" | sed "s|-L/usr/lib/|-L/usr/lib/aarch64-linux-gnu/|g")
+          # Fix library names if needed
+          output=$(echo "$output" | sed "s|-lssl |-L/usr/lib/aarch64-linux-gnu -lssl |g")
+          output=$(echo "$output" | sed "s|-lcrypto |-L/usr/lib/aarch64-linux-gnu -lcrypto |g")
+        fi
+        
+        if [[ "$@" == *"--cflags"* ]]; then
+          # Fix include paths for --cflags output
+          output=$(echo "$output" | sed "s|-I/usr/lib/include|-I/usr/include/aarch64-linux-gnu|g")
+          output=$(echo "$output" | sed "s|-I/usr/include|-I/usr/include/aarch64-linux-gnu|g")
+        fi
+        
+        echo "$output"
         ' | sudo tee /usr/local/bin/aarch64-linux-gnu-pkg-config
         sudo chmod +x /usr/local/bin/aarch64-linux-gnu-pkg-config
         
@@ -130,6 +150,13 @@ jobs:
         echo "Checking for OpenSSL .pc files:"
         find /usr -name "openssl.pc" || true
         find /usr -name "libssl.pc" || true
+        
+        # Afficher le contenu du fichier openssl.pc s'il existe
+        OPENSSL_PC=$(find /usr -name "openssl.pc" | head -n 1)
+        if [ -n "$OPENSSL_PC" ]; then
+          echo "Content of $OPENSSL_PC:"
+          cat "$OPENSSL_PC" || true
+        fi
     
     # Build project
     - name: Build
@@ -137,22 +164,82 @@ jobs:
         if [ "${{ matrix.cross }}" = "true" ]; then
           # Set up environment variables for cross-compilation
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            # Setup OpenSSL for ARM64
+            # Setup OpenSSL for ARM64 - S'assurer que tous les chemins sont corrects
             export OPENSSL_DIR=/usr
             export OPENSSL_INCLUDE_DIR=/usr/include/aarch64-linux-gnu
             export OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
+            
+            # Vérification des répertoires OpenSSL
+            echo "Vérification du contenu de OPENSSL_LIB_DIR:"
+            ls -la $OPENSSL_LIB_DIR/libssl* || true
+            echo "Vérification du contenu de OPENSSL_INCLUDE_DIR:"
+            ls -la $OPENSSL_INCLUDE_DIR/openssl || true
+            
+            # Configuration de pkg-config
             export PKG_CONFIG_ALLOW_CROSS=1
             export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
             export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
             export PKG_CONFIG_SYSROOT_DIR=/
             export PKG_CONFIG=/usr/local/bin/aarch64-linux-gnu-pkg-config
+            
+            # Configuration pour la compilation statique
             export OPENSSL_STATIC=1
+            export OPENSSL_NO_VENDOR=0
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+            
             # Bypass OpenSSL version check if needed
-            export RUSTFLAGS="-C target-feature=+crt-static"
+            export RUSTFLAGS="-C target-feature=+crt-static -C link-args=-Wl,-rpath,$OPENSSL_LIB_DIR"
             
             # Tenter de vérifier directement avec pkg-config
             echo "Testing pkg-config for OpenSSL:"
             $PKG_CONFIG --libs --cflags openssl || true
+          fi
+          
+          # Fallback: compile OpenSSL from source if needed
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ] && ! $PKG_CONFIG --libs --cflags openssl 2>/dev/null; then
+            echo "OpenSSL pkg-config failed, attempting to compile OpenSSL from source..."
+            
+            # Download and extract OpenSSL
+            cd /tmp
+            curl -O https://www.openssl.org/source/openssl-1.1.1q.tar.gz
+            tar -xzf openssl-1.1.1q.tar.gz
+            cd openssl-1.1.1q
+            
+            # Configure and compile OpenSSL for ARM64
+            export CC=aarch64-linux-gnu-gcc
+            ./Configure linux-aarch64 --cross-compile-prefix=aarch64-linux-gnu- --prefix=/usr/local/openssl-arm64 shared
+            make -j$(nproc)
+            sudo make install
+            
+            # Update environment variables to use the compiled OpenSSL
+            export OPENSSL_DIR=/usr/local/openssl-arm64
+            export OPENSSL_INCLUDE_DIR=/usr/local/openssl-arm64/include
+            export OPENSSL_LIB_DIR=/usr/local/openssl-arm64/lib
+            export LD_LIBRARY_PATH=$OPENSSL_LIB_DIR:$LD_LIBRARY_PATH
+            
+            # Create custom pkg-config file
+            mkdir -p /usr/local/openssl-arm64/lib/pkgconfig
+            cat > /usr/local/openssl-arm64/lib/pkgconfig/openssl.pc << 'EOF'
+            prefix=/usr/local/openssl-arm64
+            exec_prefix=${prefix}
+            libdir=${exec_prefix}/lib
+            includedir=${prefix}/include
+
+            Name: OpenSSL
+            Description: Secure Sockets Layer and cryptography libraries
+            Version: 1.1.1q
+            Libs: -L${libdir} -lssl -lcrypto
+            Cflags: -I${includedir}
+            EOF
+            
+            # Update PKG_CONFIG_PATH
+            export PKG_CONFIG_PATH=/usr/local/openssl-arm64/lib/pkgconfig:$PKG_CONFIG_PATH
+            
+            # Test the new setup
+            echo "Testing custom OpenSSL pkg-config:"
+            $PKG_CONFIG --libs --cflags openssl || true
+            
+            cd $GITHUB_WORKSPACE
           fi
           
           # First attempt: try to build with all features
