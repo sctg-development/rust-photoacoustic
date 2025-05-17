@@ -78,7 +78,7 @@ impl OxideState {
         OxideState {
             registrar: Mutex::new(
                 vec![Client::public(
-                    "LocalClient",
+                    "LaserSmartClient",
                     RegisteredUrl::Semantic(
                         "http://localhost:8080/client/".parse().unwrap(),
                     ),
