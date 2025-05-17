@@ -4,24 +4,29 @@
 
 // Main entry point for the photoacoustic water vapor analyzer
 mod acquisition;
+mod config;
 mod preprocessing;
 mod spectral;
 mod utility;
 mod visualization;
 
 use anyhow::Result;
+use base64;
 use clap::Parser;
+use config::Config;
+use log::{debug, info};
 use rocket::{
     config::LogLevel,
     data::{Limits, ToByteUnit},
 };
 use std::path::PathBuf;
 use visualization::server::build_rocket;
+use base64::prelude::*;
 
 /// Water vapor analyzer using photoacoustic spectroscopy
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
-struct Args {
+pub struct Args {
     /// Audio input device
     #[arg(long)]
     input_device: Option<String>,
@@ -61,31 +66,61 @@ struct Args {
     /// Web server address (default: localhost) only used if --web is set
     #[arg(short, long, default_value = "127.0.0.1")]
     web_address: String,
+    
+    /// Path to configuration file (YAML format)
+    #[arg(long)]
+    config: Option<PathBuf>,
 }
 
 #[rocket::main]
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
+    
+    // Load configuration
+    let config_path = args.config.clone().unwrap_or_else(|| PathBuf::from("config.yaml"));
+    let mut config = Config::from_file(&config_path)?;
+    
+    // Apply command line overrides
+    config.apply_args(args.web_port, args.web_address.clone());
+    
     // Configure Rocket
     if args.web {
-        println!(
+        info!(
             "Web server enabled on {}:{}",
-            args.web_address, args.web_port
+            config.visualization.address, config.visualization.port
         );
-        let figment = rocket::Config::figment()
-            .merge((
-                "ident",
-                format!("LaserSmartApiServer/{}", env!("CARGO_PKG_VERSION")),
-            ))
+        
+        let mut figment = rocket::Config::figment()
+            .merge(("ident", config.visualization.name.clone()))
             .merge(("limits", Limits::new().limit("json", 2.mebibytes())))
-            .merge((
-                "ident",
-                format!("LaserSmartApiServer/{}", env!("CARGO_PKG_VERSION")),
-            ))
-            .merge(("address", args.web_address))
-            .merge(("port", args.web_port))
+            .merge(("address", config.visualization.address.clone()))
+            .merge(("port", config.visualization.port))
             .merge(("log_level", LogLevel::Normal));
+            
+        // Configure TLS if certificates are provided
+        if let (Some(cert), Some(key)) = (&config.visualization.cert, &config.visualization.key) {
+            debug!("SSL certificates found in configuration, enabling TLS");
+            
+            // Decode base64 certificates
+            let cert_data = BASE64_STANDARD.decode(cert)?;
+            let key_data = BASE64_STANDARD.decode(key)?;
+            
+            // Create temporary files for the certificates
+            let temp_dir = std::env::temp_dir();
+            let cert_path = temp_dir.join("server.crt");
+            let key_path = temp_dir.join("server.key");
+            
+            // Write the certificates to temporary files
+            std::fs::write(&cert_path, cert_data)?;
+            std::fs::write(&key_path, key_data)?;
+            
+            // Configure TLS
+            figment = figment.merge(("tls.certs", cert_path))
+                            .merge(("tls.key", key_path));
+            
+            info!("TLS enabled for web server");
+        }
 
         let _rocket = build_rocket(figment).await;
         let _rocket_ignite = _rocket.ignite().await?;
@@ -131,11 +166,16 @@ async fn main() -> Result<()> {
         );
     }
 
-    // Start web server if requested
+    // Web server is already started in the previous conditional if args.web is true,
+    // so we don't need to start it again here. The if statement below would have been
+    // executed if we hadn't already started the server above.
+    
+    /*
     if args.web {
         println!("Starting web visualization server...");
-        visualization::start_server(result)?;
+        visualization::start_server(result, &config)?;
     }
+    */
 
     Ok(())
 }

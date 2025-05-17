@@ -10,6 +10,7 @@ pub mod preprocessing;
 pub mod spectral;
 pub mod utility;
 pub mod visualization;
+pub mod config;
 
 use serde::{Deserialize, Serialize};
 

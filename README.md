@@ -1,5 +1,39 @@
 # Water Vapor Analyzer by Laser Photoacoustic Spectroscopy
 
+## Configuration
+
+The application can be configured using a YAML configuration file. By default, it looks for `config.yaml` in the current directory.
+
+### Configuration File
+
+You can specify an alternative configuration file using the `--config` command line argument:
+
+```bash
+cargo run -- --config /path/to/your/config.yaml
+```
+
+If the specified configuration file doesn't exist, a default one will be generated.
+
+### Example Configuration
+
+```yaml
+# Visualization server settings
+visualization:
+  port: 8080                    # The port to listen on
+  address: 127.0.0.1            # The address to bind to
+  name: LaserSmartApiServer/0.1.0 # The server name
+  # SSL certificate PEM data (Base64 encoded) - Optional
+  # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  # SSL key PEM data (Base64 encoded) - Optional
+  # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
+```
+
+### Command Line Overrides
+
+Command line arguments take precedence over configuration file values:
+- `--web-port` overrides `visualization.port`
+- `--web-address` overrides `visualization.address`
+
 ## Project Objective
 
 Develop a Rust program to analyze the concentration of water vapor in air using laser photoacoustic spectroscopy in a differential Helmholtz resonator. The goal is to process the sound signal to extract the amplitude of the fundamental component related to photoacoustic excitation.

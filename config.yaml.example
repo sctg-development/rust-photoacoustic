@@ -1,0 +1,14 @@
+# Photoacoustic Water Vapor Analyzer Configuration
+
+# Visualization server settings
+visualization:
+  # The port to listen on
+  port: 8080
+  # The address to bind to
+  address: 127.0.0.1
+  # The server name
+  name: LaserSmartApiServer/0.1.0
+  # SSL certificate PEM data (Base64 encoded) - Optional
+  # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  # SSL key PEM data (Base64 encoded) - Optional
+  # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
