@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 //! Audio filter utility
-//! 
+//!
 //! This binary tool applies various filters to WAV files.
 //! It can:
 //! 1. Apply a bandpass filter with configurable center frequency and bandwidth
@@ -10,8 +10,8 @@
 
 use clap::{Parser, ValueEnum};
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
+use rust_photoacoustic::preprocessing::filters::{BandpassFilter, Filter, LowpassFilter};
 use std::path::PathBuf;
-use rust_photoacoustic::preprocessing::filters::{Filter, BandpassFilter, LowpassFilter};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum FilterType {
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut reader = WavReader::open(&args.input)?;
     let spec = reader.spec();
     let sample_rate = spec.sample_rate;
-    
+
     println!("Input WAV specifications:");
     println!("- Sample rate: {} Hz", spec.sample_rate);
     println!("- Bits per sample: {}", spec.bits_per_sample);
@@ -79,19 +79,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Read all samples
     let samples: Vec<i16> = reader.samples::<i16>().collect::<Result<Vec<i16>, _>>()?;
-    
+
     // Process based on filter type
     println!("Processing with filter: {:?}", args.filter_type);
-    
+
     // Convert samples to f32 for filtering
     let channels = spec.channels as usize;
     let mut channel_samples = vec![Vec::new(); channels];
-    
+
     // Split samples into channels
     for (i, &sample) in samples.iter().enumerate() {
         channel_samples[i % channels].push(sample as f32 / 32768.0);
     }
-    
+
     // Create the appropriate filter
     let filter: Box<dyn Filter> = match args.filter_type {
         FilterType::Bandpass => {
@@ -99,24 +99,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("- Center frequency: {:.1} Hz", args.center_freq);
             println!("- Bandwidth: {:.1} Hz", args.bandwidth);
             println!("- Order: {}", args.order);
-            
+
             Box::new(
                 BandpassFilter::new(args.center_freq, args.bandwidth)
                     .with_sample_rate(sample_rate)
-                    .with_order(args.order)
+                    .with_order(args.order),
             )
-        },
+        }
         FilterType::Lowpass => {
             println!("Lowpass filter parameters:");
             println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
-            
-            Box::new(
-                LowpassFilter::new(args.cutoff_freq)
-                    .with_sample_rate(sample_rate)
-            )
+
+            Box::new(LowpassFilter::new(args.cutoff_freq).with_sample_rate(sample_rate))
         }
     };
-    
+
     // Apply filter to channels
     let filtered_channels = match args.channel {
         Some(ch) if ch < channels => {
@@ -124,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut result = channel_samples.clone();
             result[ch] = filter.apply(&channel_samples[ch]);
             result
-        },
+        }
         _ => {
             println!("Filtering all channels");
             channel_samples
@@ -133,10 +130,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect()
         }
     };
-    
+
     // Interleave and convert back to i16
     let mut output_samples = Vec::with_capacity(samples.len());
-    
+
     for i in 0..filtered_channels[0].len() {
         for ch in 0..channels {
             let sample = filtered_channels[ch][i] * args.gain;
@@ -144,16 +141,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             output_samples.push(value);
         }
     }
-    
+
     // Write output WAV file
     println!("Writing output to {:?}", args.output);
     let mut writer = WavWriter::create(&args.output, spec)?;
-    
+
     for &sample in &output_samples {
         writer.write_sample(sample)?;
     }
     writer.finalize()?;
-    
+
     println!("Filtering complete!");
     Ok(())
 }

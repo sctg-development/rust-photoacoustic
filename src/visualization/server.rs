@@ -2,18 +2,18 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+use crate::visualization::oxide_auth::{authorize, authorize_consent, refresh, token};
+use include_dir::{include_dir, Dir};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::figment::Figment;
 use rocket::http::{ContentType, Header};
 use rocket::response::{Redirect, Responder};
 use rocket::{async_trait, delete, get, options, post, put, routes, uri, Build, Rocket};
 use rocket::{Request, Response};
-use include_dir::{include_dir, Dir};
+use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
 use std::env;
 use std::io::Cursor;
 use std::path::PathBuf;
-use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
-use crate::visualization::oxide_auth::{authorize, authorize_consent, token, refresh};
 
 use super::oxide_auth::OxideState;
 
@@ -67,7 +67,7 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
     // Create OAuth2 state
     let oxide_state = OxideState::preconfigured();
-    
+
     // Initialize JWT validator for API authentication
     let jwt_validator = match super::api_auth::init_jwt_validator() {
         Ok(validator) => std::sync::Arc::new(validator),
@@ -76,47 +76,47 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
             std::process::exit(1);
         }
     };
-    
+
     let rocket = rocket::custom(figment)
         .attach(CORS)
         .mount(
             "/",
-            openapi_get_routes![
-                webclient_index,
-                webclient_index_html,
+            openapi_get_routes![webclient_index, webclient_index_html,],
+        )
+        .mount(
+            "/",
+            routes![
+                favicon,
+                webclient,
+                authorize,
+                authorize_consent,
+                token,
+                refresh,
+                super::introspection::introspect,
             ],
         )
-        .mount("/",routes![
-            favicon,
-            webclient,
-            authorize,
-            authorize_consent,
-            token,
-            refresh,
-            super::introspection::introspect,
-        ])
-        .mount("/api", routes![
-            super::api_auth::get_profile,
-            super::api_auth::get_data,
-        ])
+        .mount(
+            "/api",
+            routes![super::api_auth::get_profile, super::api_auth::get_data,],
+        )
         .manage(oxide_state)
         .manage(jwt_validator);
-        rocket
+    rocket
 }
 
 #[cfg(test)]
 pub fn build_rocket_test_instance() -> Rocket<Build> {
     use rocket::Config;
-    
+
     // Create a test configuration
     let config = Config::figment()
         .merge(("address", "localhost"))
-        .merge(("port", 0))  // Random port for tests
+        .merge(("port", 0)) // Random port for tests
         .merge(("log_level", rocket::config::LogLevel::Off));
-    
+
     // Create OAuth2 state
     let oxide_state = super::oxide_auth::OxideState::preconfigured();
-    
+
     // Initialize JWT validator for API authentication
     let jwt_validator = match super::api_auth::init_jwt_validator() {
         Ok(validator) => std::sync::Arc::new(validator),
@@ -125,7 +125,7 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
             std::process::exit(1);
         }
     };
-    
+
     // Build Rocket instance for tests
     rocket::custom(config)
         .attach(CORS)
@@ -141,10 +141,10 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
                 // super::introspection::introspect,
             ],
         )
-        .mount("/api", routes![
-            super::api_auth::get_profile,
-            super::api_auth::get_data,
-        ])
+        .mount(
+            "/api",
+            routes![super::api_auth::get_profile, super::api_auth::get_data,],
+        )
         .manage(oxide_state)
         .manage(jwt_validator)
 }
@@ -225,7 +225,7 @@ async fn webclient_index() -> Redirect {
 }
 
 #[get("/favicon.ico")]
-async fn favicon() -> Option<StaticFileResponse>  {
+async fn favicon() -> Option<StaticFileResponse> {
     let file = STATIC_DIR.get_file("favicon.ico").map(|file| {
         let content_type = ContentType::from_extension(
             file.path()

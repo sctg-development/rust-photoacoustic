@@ -7,11 +7,11 @@
 //! This module contains functionality for managing JWT signing and verification keys,
 //! with support for both symmetric and asymmetric keys.
 
+use anyhow::{anyhow, Result};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use anyhow::{Result, anyhow};
 
 /// Types of JWT keys supported by the application
 #[derive(Debug, Clone, Copy)]
@@ -52,9 +52,14 @@ impl JwtKeyConfig {
     pub fn new_symmetric(secret: &[u8], algorithm: Algorithm) -> Result<Self> {
         match algorithm {
             Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => (),
-            _ => return Err(anyhow!("Algorithm {:?} is not valid for symmetric keys", algorithm)),
+            _ => {
+                return Err(anyhow!(
+                    "Algorithm {:?} is not valid for symmetric keys",
+                    algorithm
+                ))
+            }
         }
-        
+
         Ok(Self {
             algorithm,
             key_type: KeyType::Symmetric,
@@ -62,21 +67,34 @@ impl JwtKeyConfig {
             decoding_key: DecodingKey::from_secret(secret),
         })
     }
-    
+
     /// Create a new JWT key configuration with RSA keys
-    pub fn new_rsa(private_key_path: impl AsRef<Path>, public_key_path: impl AsRef<Path>, algorithm: Algorithm) -> Result<Self> {
+    pub fn new_rsa(
+        private_key_path: impl AsRef<Path>,
+        public_key_path: impl AsRef<Path>,
+        algorithm: Algorithm,
+    ) -> Result<Self> {
         match algorithm {
-            Algorithm::RS256 | Algorithm::RS384 | Algorithm::RS512 | 
-            Algorithm::PS256 | Algorithm::PS384 | Algorithm::PS512 => (),
-            _ => return Err(anyhow!("Algorithm {:?} is not valid for RSA keys", algorithm)),
+            Algorithm::RS256
+            | Algorithm::RS384
+            | Algorithm::RS512
+            | Algorithm::PS256
+            | Algorithm::PS384
+            | Algorithm::PS512 => (),
+            _ => {
+                return Err(anyhow!(
+                    "Algorithm {:?} is not valid for RSA keys",
+                    algorithm
+                ))
+            }
         }
-        
+
         let mut private_key = Vec::new();
         File::open(private_key_path)?.read_to_end(&mut private_key)?;
-        
+
         let mut public_key = Vec::new();
         File::open(public_key_path)?.read_to_end(&mut public_key)?;
-        
+
         Ok(Self {
             algorithm,
             key_type: KeyType::RSA,
@@ -84,15 +102,28 @@ impl JwtKeyConfig {
             decoding_key: DecodingKey::from_rsa_pem(&public_key)?,
         })
     }
-    
+
     /// Create a new JWT key configuration with RSA keys from PEM strings
-    pub fn new_rsa_from_pem(private_key: &[u8], public_key: &[u8], algorithm: Algorithm) -> Result<Self> {
+    pub fn new_rsa_from_pem(
+        private_key: &[u8],
+        public_key: &[u8],
+        algorithm: Algorithm,
+    ) -> Result<Self> {
         match algorithm {
-            Algorithm::RS256 | Algorithm::RS384 | Algorithm::RS512 | 
-            Algorithm::PS256 | Algorithm::PS384 | Algorithm::PS512 => (),
-            _ => return Err(anyhow!("Algorithm {:?} is not valid for RSA keys", algorithm)),
+            Algorithm::RS256
+            | Algorithm::RS384
+            | Algorithm::RS512
+            | Algorithm::PS256
+            | Algorithm::PS384
+            | Algorithm::PS512 => (),
+            _ => {
+                return Err(anyhow!(
+                    "Algorithm {:?} is not valid for RSA keys",
+                    algorithm
+                ))
+            }
         }
-        
+
         Ok(Self {
             algorithm,
             key_type: KeyType::RSA,
@@ -100,20 +131,29 @@ impl JwtKeyConfig {
             decoding_key: DecodingKey::from_rsa_pem(public_key)?,
         })
     }
-    
+
     /// Create a new JWT key configuration with EC keys
-    pub fn new_ec(private_key_path: impl AsRef<Path>, public_key_path: impl AsRef<Path>, algorithm: Algorithm) -> Result<Self> {
+    pub fn new_ec(
+        private_key_path: impl AsRef<Path>,
+        public_key_path: impl AsRef<Path>,
+        algorithm: Algorithm,
+    ) -> Result<Self> {
         match algorithm {
             Algorithm::ES256 | Algorithm::ES384 => (),
-            _ => return Err(anyhow!("Algorithm {:?} is not valid for EC keys", algorithm)),
+            _ => {
+                return Err(anyhow!(
+                    "Algorithm {:?} is not valid for EC keys",
+                    algorithm
+                ))
+            }
         }
-        
+
         let mut private_key = Vec::new();
         File::open(private_key_path)?.read_to_end(&mut private_key)?;
-        
+
         let mut public_key = Vec::new();
         File::open(public_key_path)?.read_to_end(&mut public_key)?;
-        
+
         Ok(Self {
             algorithm,
             key_type: KeyType::EC,
@@ -121,14 +161,23 @@ impl JwtKeyConfig {
             decoding_key: DecodingKey::from_ec_pem(&public_key)?,
         })
     }
-    
+
     /// Create a new JWT key configuration with EC keys from PEM strings
-    pub fn new_ec_from_pem(private_key: &[u8], public_key: &[u8], algorithm: Algorithm) -> Result<Self> {
+    pub fn new_ec_from_pem(
+        private_key: &[u8],
+        public_key: &[u8],
+        algorithm: Algorithm,
+    ) -> Result<Self> {
         match algorithm {
             Algorithm::ES256 | Algorithm::ES384 => (),
-            _ => return Err(anyhow!("Algorithm {:?} is not valid for EC keys", algorithm)),
+            _ => {
+                return Err(anyhow!(
+                    "Algorithm {:?} is not valid for EC keys",
+                    algorithm
+                ))
+            }
         }
-        
+
         Ok(Self {
             algorithm,
             key_type: KeyType::EC,
@@ -136,7 +185,7 @@ impl JwtKeyConfig {
             decoding_key: DecodingKey::from_ec_pem(public_key)?,
         })
     }
-    
+
     /// Create a default HS256 key configuration from a secret
     pub fn default_from_secret(secret: &[u8]) -> Self {
         Self {
@@ -146,11 +195,14 @@ impl JwtKeyConfig {
             decoding_key: DecodingKey::from_secret(secret),
         }
     }
-    
+
     /// Generate a key pair for testing purposes
     #[cfg(test)]
     pub fn generate_test_key_pair() -> Result<Self> {
         // For testing, just use a symmetric key
-        Self::new_symmetric(b"test-secret-key-for-jwt-token-testing-only", Algorithm::HS256)
+        Self::new_symmetric(
+            b"test-secret-key-for-jwt-token-testing-only",
+            Algorithm::HS256,
+        )
     }
 }

@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
 use oxide_auth::endpoint::{OwnerConsent, Solicitation};
 use oxide_auth::frontends::simple::endpoint::{FnSolicitor, Generic, Vacant};
@@ -92,21 +92,21 @@ impl OxideState {
         // Secret key for JWT token signing - in a real app this should be loaded from a secure source
         // For development, we use a simple hard-coded key
         let jwt_secret = b"my-super-secret-jwt-key-for-photoacoustic-app";
-        
+
         // Create and configure the JWT issuer
         let mut jwt_issuer = JwtIssuer::new(jwt_secret);
-        jwt_issuer.with_issuer("rust-photoacoustic") // Set the issuer name
-                 .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
-        
+        jwt_issuer
+            .with_issuer("rust-photoacoustic") // Set the issuer name
+            .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
+
         OxideState {
             registrar: Arc::new(Mutex::new(
                 vec![Client::public(
                     "LaserSmartClient",
-                    RegisteredUrl::Semantic(
-                        "http://localhost:8080/client/".parse().unwrap(),
-                    ),
+                    RegisteredUrl::Semantic("http://localhost:8080/client/".parse().unwrap()),
                     "openid profile email read:api write:api".parse().unwrap(),
-                ).with_additional_redirect_uris(vec![
+                )
+                .with_additional_redirect_uris(vec![
                     RegisteredUrl::Semantic("http://localhost:5173/client/".parse().unwrap()),
                     RegisteredUrl::Semantic("https://myname.local/client/".parse().unwrap()),
                 ])]

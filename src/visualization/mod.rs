@@ -13,21 +13,23 @@ pub mod introspection;
 pub mod jwt;
 pub mod jwt_keys;
 pub mod jwt_validator;
-pub mod server;
 pub mod oxide_auth;
+pub mod server;
 
-use anyhow::Result;
 use crate::AnalysisResult;
+use anyhow::Result;
 
 /// Start the visualization web server
 pub fn start_server(data: AnalysisResult) -> Result<()> {
     println!("Starting server with data: {:?}", data);
-    println!("This is a mock implementation. In a real application, this would start a Rocket server.");
-    
+    println!(
+        "This is a mock implementation. In a real application, this would start a Rocket server."
+    );
+
     // In a real implementation, this would:
     // 1. Initialize Rocket server
     // 2. Set up API routes
     // 3. Start the server in a background thread or tokio runtime
-    
+
     Ok(())
 }

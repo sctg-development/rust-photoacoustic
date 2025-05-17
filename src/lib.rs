@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 //! Rust Photoacoustic library
-//! 
+//!
 //! This library provides functionality for photoacoustic analysis of water vapor.
 
 pub mod acquisition;
@@ -12,7 +12,7 @@ pub mod utility;
 pub mod visualization;
 
 use chrono;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Result of a photoacoustic analysis
 #[derive(Debug, Serialize, Deserialize)]

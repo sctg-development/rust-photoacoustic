@@ -2,19 +2,19 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 //! Signal preprocessing module
-//! 
+//!
 //! This module handles preprocessing of the acquired audio signals,
 //! including filtering and differential calculation.
 
-pub mod filters;
 pub mod differential;
 #[cfg(test)]
-mod filters_test;
-#[cfg(test)]
 mod differential_test;
+pub mod filters;
+#[cfg(test)]
+mod filters_test;
 
-pub use filters::{Filter, BandpassFilter};
 pub use differential::DifferentialCalculator;
+pub use filters::{BandpassFilter, Filter};
 
 use anyhow::Result;
 

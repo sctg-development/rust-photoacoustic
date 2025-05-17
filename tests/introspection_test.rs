@@ -4,20 +4,20 @@
 
 use chrono::{Duration as ChronoDuration, Utc};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
-use rust_photoacoustic::visualization::jwt::JwtIssuer;
-use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
-use rust_photoacoustic::visualization::oxide_auth::OxideState;
+use oxide_auth::primitives::grant::{Extensions, Grant};
+use oxide_auth::primitives::issuer::Issuer;
 use rocket::http::ContentType;
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::Json;
+use rust_photoacoustic::visualization::jwt::JwtIssuer;
+use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+use rust_photoacoustic::visualization::oxide_auth::OxideState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
-use url::Url;
-use oxide_auth::primitives::grant::{Grant, Extensions};
-use oxide_auth::primitives::issuer::Issuer;
 use tokio::time::timeout;
+use url::Url;
 
 // Import and define IntrospectionResponse structure to match the one in introspection.rs
 #[derive(Deserialize)]
@@ -68,25 +68,27 @@ async fn test_jwt_token_introspection() {
     let test_future = async {
         // Set up client and state for testing JWT tokens
         let oxide_state = OxideState::preconfigured();
-        
+
         // Configure Rocket for testing with explicit shutdown
         let figment = rocket::Config::figment()
             .merge(("port", 0)) // Use a random port for testing
             .merge(("address", "127.0.0.1"))
             .merge(("shutdown.ctrlc", false)) // Don't wait for Ctrl+C
-            .merge(("shutdown.grace", 1)) 
+            .merge(("shutdown.grace", 1))
             .merge(("shutdown.mercy", 1))
             .merge(("shutdown.force", true));
-        
+
         let rocket = rocket::custom(figment)
             .mount(
                 "/",
                 rocket::routes![rust_photoacoustic::visualization::introspection::introspect],
             )
             .manage(oxide_state);
-        
-        let client = Client::tracked(rocket).await.expect("valid rocket instance");
-        
+
+        let client = Client::tracked(rocket)
+            .await
+            .expect("valid rocket instance");
+
         // Test with a valid JWT token
         let now = Utc::now();
         let claims = JwtClaims {
@@ -103,14 +105,15 @@ async fn test_jwt_token_introspection() {
                 ("name".to_string(), "Test User".to_string()),
             ])),
         };
-        
+
         let header = Header::new(Algorithm::HS256);
         let token = encode(
-            &header, 
-            &claims, 
-            &EncodingKey::from_secret(b"my-super-secret-jwt-key-for-photoacoustic-app")
-        ).expect("Token encoding failed");
-        
+            &header,
+            &claims,
+            &EncodingKey::from_secret(b"my-super-secret-jwt-key-for-photoacoustic-app"),
+        )
+        .expect("Token encoding failed");
+
         // Test the endpoint with a valid token
         let response = client
             .post("/introspect")
@@ -118,21 +121,27 @@ async fn test_jwt_token_introspection() {
             .body(format!("token={}", token))
             .dispatch()
             .await;
-        
-        let response_body = response.into_string().await.expect("Failed to get response body");
-        let introspection_response: IntrospectionResponse = serde_json::from_str(&response_body)
-            .expect("Failed to parse response");
-        
+
+        let response_body = response
+            .into_string()
+            .await
+            .expect("Failed to get response body");
+        let introspection_response: IntrospectionResponse =
+            serde_json::from_str(&response_body).expect("Failed to parse response");
+
         assert_eq!(introspection_response.active, true);
         assert_eq!(introspection_response.scope, Some("read:api".to_string()));
-        assert_eq!(introspection_response.client_id, Some("LaserSmartClient".to_string()));
+        assert_eq!(
+            introspection_response.client_id,
+            Some("LaserSmartClient".to_string())
+        );
         assert_eq!(introspection_response.sub, Some("test_user".to_string()));
-        
+
         // Shutdown the Rocket instance
         client.rocket().shutdown().await;
         Ok::<(), Box<dyn std::error::Error>>(())
     };
-    
+
     // Run with a timeout
     if let Err(_) = timeout(StdDuration::from_secs(5), test_future).await {
         println!("Test timed out, ending silently.");
@@ -144,23 +153,25 @@ async fn test_expired_token_introspection() {
     let test_future = async {
         // Set up client and state
         let oxide_state = OxideState::preconfigured();
-        
+
         let figment = rocket::Config::figment()
             .merge(("port", 0))
             .merge(("address", "127.0.0.1"))
             .merge(("shutdown.ctrlc", false))
             .merge(("shutdown.grace", 0))
             .merge(("shutdown.mercy", 0));
-        
+
         let rocket = rocket::custom(figment)
             .mount(
                 "/",
                 rocket::routes![rust_photoacoustic::visualization::introspection::introspect],
             )
             .manage(oxide_state);
-        
-        let client = Client::tracked(rocket).await.expect("valid rocket instance");
-        
+
+        let client = Client::tracked(rocket)
+            .await
+            .expect("valid rocket instance");
+
         // Test with an expired token
         let now = Utc::now();
         let expired_claims = JwtClaims {
@@ -174,34 +185,38 @@ async fn test_expired_token_introspection() {
             scope: "read:api".to_string(),
             metadata: None,
         };
-        
+
         let header = Header::new(Algorithm::HS256);
         let expired_token = encode(
-            &header, 
-            &expired_claims, 
-            &EncodingKey::from_secret(b"my-super-secret-jwt-key-for-photoacoustic-app")
-        ).expect("Token encoding failed");
-        
+            &header,
+            &expired_claims,
+            &EncodingKey::from_secret(b"my-super-secret-jwt-key-for-photoacoustic-app"),
+        )
+        .expect("Token encoding failed");
+
         let response = client
             .post("/introspect")
             .header(ContentType::Form)
             .body(format!("token={}", expired_token))
             .dispatch()
             .await;
-        
+
         assert_eq!(response.status().code, 200);
-        
-        let response_body = response.into_string().await.expect("Failed to get response body");
-        let introspection_response: IntrospectionResponse = serde_json::from_str(&response_body)
-            .expect("Failed to parse response");
-        
+
+        let response_body = response
+            .into_string()
+            .await
+            .expect("Failed to get response body");
+        let introspection_response: IntrospectionResponse =
+            serde_json::from_str(&response_body).expect("Failed to parse response");
+
         assert_eq!(introspection_response.active, false);
-        
+
         // Shutdown the Rocket instance
         client.rocket().shutdown().await;
         Ok::<(), Box<dyn std::error::Error>>(())
     };
-    
+
     // Run with a timeout
     if let Err(_) = timeout(StdDuration::from_secs(5), test_future).await {
         println!("Test timed out, ending silently.");
@@ -213,7 +228,7 @@ async fn test_invalid_token_introspection() {
     let test_future = async {
         // Set up client and state
         let oxide_state = OxideState::preconfigured();
-        
+
         let figment = rocket::Config::figment()
             .merge(("port", 0))
             .merge(("address", "127.0.0.1"))
@@ -221,16 +236,18 @@ async fn test_invalid_token_introspection() {
             .merge(("shutdown.grace", 1))
             .merge(("shutdown.mercy", 1))
             .merge(("shutdown.force", true)); // Force shutdown;
-        
+
         let rocket = rocket::custom(figment)
             .mount(
                 "/",
                 rocket::routes![rust_photoacoustic::visualization::introspection::introspect],
             )
             .manage(oxide_state);
-        
-        let client = Client::tracked(rocket).await.expect("valid rocket instance");
-        
+
+        let client = Client::tracked(rocket)
+            .await
+            .expect("valid rocket instance");
+
         // Test with an invalid token
         let response = client
             .post("/introspect")
@@ -238,21 +255,24 @@ async fn test_invalid_token_introspection() {
             .body("token=invalid_token")
             .dispatch()
             .await;
-        
+
         assert_eq!(response.status().code, 200);
-        
-        let response_body = response.into_string().await.expect("Failed to get response body");
-        let introspection_response: IntrospectionResponse = serde_json::from_str(&response_body)
-            .expect("Failed to parse response");
-        
+
+        let response_body = response
+            .into_string()
+            .await
+            .expect("Failed to get response body");
+        let introspection_response: IntrospectionResponse =
+            serde_json::from_str(&response_body).expect("Failed to parse response");
+
         assert_eq!(introspection_response.active, false);
-        
+
         // Shutdown the Rocket instance
         println!("Shutting down server...");
         client.rocket().shutdown().await;
         Ok::<(), Box<dyn std::error::Error>>(())
     };
-    
+
     // Run with a timeout
     if let Err(_) = timeout(StdDuration::from_secs(5), test_future).await {
         println!("Test timed out");
@@ -264,7 +284,7 @@ async fn test_oxide_auth_token_introspection() {
     let test_future = async {
         // Set up client and state
         let oxide_state = OxideState::preconfigured();
-        
+
         let figment = rocket::Config::figment()
             .merge(("port", 0))
             .merge(("address", "127.0.0.1"))
@@ -273,18 +293,20 @@ async fn test_oxide_auth_token_introspection() {
             .merge(("shutdown.mercy", 1))
             .merge(("shutdown.force", true)) // Force shutdown
             .merge(("log_level", rocket::config::LogLevel::Debug)); // Add debug logging
-        
+
         let rocket = rocket::custom(figment)
             .mount(
                 "/",
                 rocket::routes![rust_photoacoustic::visualization::introspection::introspect],
             )
             .manage(oxide_state.clone());
-        
+
         println!("Creating test client...");
-        let client = Client::tracked(rocket).await.expect("valid rocket instance");
+        let client = Client::tracked(rocket)
+            .await
+            .expect("valid rocket instance");
         println!("Test client created successfully");
-        
+
         // Test with an oxide-auth token
         let now = Utc::now();
         let grant = Grant {
@@ -295,7 +317,7 @@ async fn test_oxide_auth_token_introspection() {
             until: now + ChronoDuration::hours(1),
             extensions: Extensions::new(),
         };
-        
+
         // Create a token
         println!("Creating token...");
         let token = {
@@ -304,7 +326,7 @@ async fn test_oxide_auth_token_introspection() {
             println!("Token created: {}", token.token);
             token.token
         };
-        
+
         println!("Sending token to introspection endpoint...");
         let response = client
             .post("/introspect")
@@ -312,38 +334,44 @@ async fn test_oxide_auth_token_introspection() {
             .body(format!("token={}", token))
             .dispatch()
             .await;
-        
+
         println!("Response status: {}", response.status());
         assert_eq!(response.status().code, 200);
-        
-        let response_body = response.into_string().await.expect("Failed to get response body");
+
+        let response_body = response
+            .into_string()
+            .await
+            .expect("Failed to get response body");
         println!("Response body: {}", response_body);
-        
-        let introspection_response: IntrospectionResponse = serde_json::from_str(&response_body)
-            .expect("Failed to parse response");
-        
+
+        let introspection_response: IntrospectionResponse =
+            serde_json::from_str(&response_body).expect("Failed to parse response");
+
         assert_eq!(introspection_response.active, true);
-        assert_eq!(introspection_response.client_id, Some("test_client".to_string()));
+        assert_eq!(
+            introspection_response.client_id,
+            Some("test_client".to_string())
+        );
         assert_eq!(introspection_response.sub, Some("test_owner".to_string()));
-        
+
         // Drop state reference before shutdown
         drop(oxide_state);
-        
+
         // Shutdown the Rocket instance
         println!("Shutting down server...");
         client.rocket().shutdown().await;
         println!("Server shutdown complete");
-        
+
         Ok::<(), Box<dyn std::error::Error>>(())
     };
-    
+
     // Run with a timeout
     match timeout(StdDuration::from_secs(5), test_future).await {
         Ok(result) => {
             if let Err(e) = result {
                 panic!("Test failed: {}", e);
             }
-        },
+        }
         Err(_) => println!("Test timed out after 5 seconds… Ending silently."),
     }
 }

@@ -7,21 +7,21 @@
 use anyhow::Result;
 
 /// Calculate the differential signal between two i16 sample vectors
-/// 
+///
 /// This function calculates signal_a - signal_b for each sample pair.
 /// Used primarily by the differential binary utility for WAV file processing.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `signal_a` - First signal
 /// * `signal_b` - Second signal (to be subtracted from signal_a)
-/// 
+///
 /// # Returns
-/// 
+///
 /// A new vector containing the sample-wise difference
 pub fn calculate_differential(signal_a: &[i16], signal_b: &[i16]) -> Vec<i16> {
     let mut result = Vec::with_capacity(signal_a.len());
-    
+
     let length = std::cmp::min(signal_a.len(), signal_b.len());
     for i in 0..length {
         // Calculate difference with saturation to prevent overflow
@@ -38,7 +38,7 @@ pub fn calculate_differential(signal_a: &[i16], signal_b: &[i16]) -> Vec<i16> {
         };
         result.push(diff);
     }
-    
+
     result
 }
 
@@ -69,13 +69,13 @@ impl DifferentialCalculator for SimpleDifferential {
                 channel_b.len()
             ));
         }
-        
+
         let mut result = Vec::with_capacity(channel_a.len());
-        
+
         for (&a, &b) in channel_a.iter().zip(channel_b.iter()) {
             result.push(a - b);
         }
-        
+
         Ok(result)
     }
 }

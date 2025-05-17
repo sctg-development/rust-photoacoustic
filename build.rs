@@ -25,9 +25,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // Checks if any web source files are newer than the compiled files
 fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
     // Get the most recent modification date of files in dist
-    let dist_latest_mod = get_latest_modification_time(dist_path)
-        .unwrap_or_else(|| SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 86400);
-    
+    let dist_latest_mod = get_latest_modification_time(dist_path).unwrap_or_else(|| {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 86400
+    });
+
     // Get the most recent modification date of source files
     let src_paths = [
         PathBuf::from("./web/src"),
@@ -38,7 +43,7 @@ fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
         PathBuf::from("./web/vite.config.ts"),
         // Add other files/directories to watch as needed
     ];
-    
+
     for path in &src_paths {
         if let Some(mod_time) = get_latest_modification_time(path) {
             if mod_time > dist_latest_mod {
@@ -47,7 +52,7 @@ fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
             }
         }
     }
-    
+
     false
 }
 
@@ -57,9 +62,9 @@ fn get_latest_modification_time(path: &PathBuf) -> Option<u64> {
     if !path.exists() {
         return None;
     }
-    
+
     let mut latest = 0;
-    
+
     if path.is_file() {
         if let Ok(metadata) = fs::metadata(path) {
             if let Ok(modified) = metadata.modified() {
@@ -70,7 +75,7 @@ fn get_latest_modification_time(path: &PathBuf) -> Option<u64> {
         }
         return None;
     }
-    
+
     // Recursive function to walk through directories
     fn visit_dir(dir: &PathBuf, latest: &mut u64) {
         if let Ok(entries) = fs::read_dir(dir) {
@@ -93,9 +98,9 @@ fn get_latest_modification_time(path: &PathBuf) -> Option<u64> {
             }
         }
     }
-    
+
     visit_dir(path, &mut latest);
-    
+
     if latest > 0 {
         Some(latest)
     } else {
@@ -174,7 +179,11 @@ async fn main() {
     let is_windows = cfg!(target_os = "windows");
 
     let (command, install_args, build_args) = if is_windows {
-        ("cmd.exe", &["/C", "npm install --force"], &["/C", "npm run build"])
+        (
+            "cmd.exe",
+            &["/C", "npm install --force"],
+            &["/C", "npm run build"],
+        )
     } else {
         ("npm", &["install", "--force"], &["run", "build"])
     };

@@ -2,11 +2,15 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-use rocket::{get, http::Status, request::{self, FromRequest, Outcome, Request}};
-use rocket::serde::json::Json;
-use serde::{Serialize, Deserialize};
-use anyhow::Result;
 use crate::visualization::jwt_validator::{JwtValidator, UserInfo};
+use anyhow::Result;
+use rocket::serde::json::Json;
+use rocket::{
+    get,
+    http::Status,
+    request::{self, FromRequest, Outcome, Request},
+};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// JWT bearer token extractor for Rocket routes
@@ -74,16 +78,20 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         };
 
         // Get the validator from state
-        let state = request.rocket().state::<Arc<JwtValidator>>()
+        let state = request
+            .rocket()
+            .state::<Arc<JwtValidator>>()
             .expect("JwtValidator not configured");
 
         // Validate token
         let user_info = match state.get_user_info(&token) {
             Ok(info) => info,
-            Err(e) => return request::Outcome::Error((
-                Status::Unauthorized, 
-                AuthError::TokenInvalid(e.to_string())
-            )),
+            Err(e) => {
+                return request::Outcome::Error((
+                    Status::Unauthorized,
+                    AuthError::TokenInvalid(e.to_string()),
+                ))
+            }
         };
 
         request::Outcome::Success(AuthenticatedUser {
@@ -105,7 +113,7 @@ impl<'r> FromRequest<'r> for RequireScope {
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
         // Define a fixed scope for the endpoint - in a real app, this could be stored as state
         let required_scope = "read:api"; // Default scope for API endpoints
-        
+
         // Extract user
         let user = match AuthenticatedUser::from_request(request).await {
             request::Outcome::Success(user) => user,
@@ -158,7 +166,7 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 pub fn init_jwt_validator() -> Result<JwtValidator> {
     // In a real application, these values should come from environment variables or config
     let secret = b"my-super-secret-jwt-key-for-photoacoustic-app";
-    
+
     Ok(JwtValidator::new(secret)
         .with_issuer("rust-photoacoustic")
         .with_audience("LaserSmartClient"))

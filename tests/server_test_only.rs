@@ -1,18 +1,21 @@
 // Test file to isolate server tests
 
+use base64::{engine::general_purpose, Engine as _};
 use rocket::{
-    config::LogLevel, http::{ContentType, Status}, local::asynchronous::Client
+    config::LogLevel,
+    http::{ContentType, Status},
+    local::asynchronous::Client,
 };
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use url::Url;
-use sha2::{Sha256, Digest};
-use base64::{Engine as _, engine::general_purpose};
-use serde_json::Value;
 
 fn get_figment() -> rocket::figment::Figment {
-    rocket::Config::figment().merge(("port", 8080))
-    .merge(("address", "127.0.0.1"))
-    .merge(("log_level", LogLevel::Debug))
+    rocket::Config::figment()
+        .merge(("port", 8080))
+        .merge(("address", "127.0.0.1"))
+        .merge(("log_level", LogLevel::Debug))
 }
 
 // Function to generate a PKCE code verifier and its code challenge
@@ -42,11 +45,11 @@ fn generate_pkce_pair() -> (String, String) {
 fn extract_params_from_url(url: &str) -> HashMap<String, String> {
     let parsed_url = Url::parse(url).expect("Valid URL");
     let mut params = HashMap::new();
-    
+
     for (key, value) in parsed_url.query_pairs() {
         params.insert(key.to_string(), value.to_string());
     }
-    
+
     params
 }
 
@@ -54,14 +57,16 @@ fn extract_params_from_url(url: &str) -> HashMap<String, String> {
 async fn test_oauth2_pkce_flow() {
     // Configure the Rocket test client
     let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment()).await;
-    let client = Client::tracked(rocket).await.expect("valid rocket instance");
+    let client = Client::tracked(rocket)
+        .await
+        .expect("valid rocket instance");
 
     // Generate PKCE pair
     let (code_verifier, code_challenge) = generate_pkce_pair();
-    
+
     println!("Code Verifier: {}", code_verifier);
     println!("Code Challenge: {}", code_challenge);
-    
+
     // Step 1: Authorization request with PKCE
     let query_params = format!(
         "response_type=code&response_mode=query&client_id=LaserSmartClient&redirect_uri=http://localhost:8080/client/&scope=openid+profile+email+read:api+write:api&state=test-state&audience=https://myname.local&code_challenge={}&code_challenge_method=S256",
@@ -71,75 +76,108 @@ async fn test_oauth2_pkce_flow() {
     println!("Sending authorization request...");
     let response = client
         .get(format!("/authorize?{}", query_params))
-        .dispatch().await;
+        .dispatch()
+        .await;
 
     assert_eq!(response.status(), Status::Ok);
     assert!(response.content_type().unwrap().is_html());
 
     let body = response.into_string().await.expect("Response body");
-    assert!(body.contains("Accept"), "The consent page should contain an Accept button");
-    assert!(body.contains("Deny"), "The consent page should contain a Deny button");
-    
+    assert!(
+        body.contains("Accept"),
+        "The consent page should contain an Accept button"
+    );
+    assert!(
+        body.contains("Deny"),
+        "The consent page should contain a Deny button"
+    );
+
     // Step 2: Simulate user consent (accept)
     println!("Simulating user consent (Accept)...");
     let consent_response = client
         .post(format!("/authorize?{}&allow=true", query_params))
-        .dispatch().await;
-    
+        .dispatch()
+        .await;
+
     // The response should be a redirect to the callback URI with an authorization code
     assert_eq!(consent_response.status(), Status::Found);
-    
+
     // Extract the redirect URL and authorization code
-    let location_header = consent_response.headers().get_one("Location")
+    let location_header = consent_response
+        .headers()
+        .get_one("Location")
         .expect("Location header missing in response");
     println!("Redirect URL: {}", location_header);
-    
+
     let params = extract_params_from_url(location_header);
     let authorization_code = params.get("code").expect("Authorization code missing");
     println!("Authorization code: {}", authorization_code);
-    
+
     // Step 3: Exchange authorization code for tokens
     println!("Exchanging authorization code for tokens...");
     let token_body = format!(
         "grant_type=authorization_code&code={}&redirect_uri=http://localhost:8080/client/&client_id=LaserSmartClient&code_verifier={}&code_challenge_method=S256",
         authorization_code, code_verifier
     );
-    
+
     let token_response = client
         .post("/token")
         .header(ContentType::Form)
         .body(token_body)
-        .dispatch().await;
-    
+        .dispatch()
+        .await;
+
     assert_eq!(token_response.status(), Status::Ok);
-    
+
     // Verify the token response
-    let token_response_body = token_response.into_string().await.expect("Token response body");
+    let token_response_body = token_response
+        .into_string()
+        .await
+        .expect("Token response body");
     println!("Token response: {}", token_response_body);
-    
+
     let token_json: Value = serde_json::from_str(&token_response_body).expect("Valid JSON");
-    
+
     // Verify that we received an access_token
-    assert!(token_json.get("access_token").is_some(), "Response should contain an access_token");
+    assert!(
+        token_json.get("access_token").is_some(),
+        "Response should contain an access_token"
+    );
     // Note: The token_type case is not standardized, but our implementation uses lowercase
-    assert_eq!(token_json.get("token_type").and_then(Value::as_str).map(|s| s.to_lowercase()), Some("bearer".to_lowercase()), "Token type should be Bearer (case insensitive)");
-    
+    assert_eq!(
+        token_json
+            .get("token_type")
+            .and_then(Value::as_str)
+            .map(|s| s.to_lowercase()),
+        Some("bearer".to_lowercase()),
+        "Token type should be Bearer (case insensitive)"
+    );
+
     // Check that the token is a valid JWT (should have 3 parts separated by dots)
     if let Some(access_token) = token_json.get("access_token").and_then(Value::as_str) {
         println!("Access token: {}", access_token);
-        
+
         let token_parts: Vec<&str> = access_token.split('.').collect();
-        assert_eq!(token_parts.len(), 3, "Access token should be a valid JWT with three parts");
-        
+        assert_eq!(
+            token_parts.len(),
+            3,
+            "Access token should be a valid JWT with three parts"
+        );
+
         // Verify the token can be decoded as base64
-        let header_bytes = general_purpose::URL_SAFE_NO_PAD.decode(token_parts[0]).expect("Header should be valid base64");
+        let header_bytes = general_purpose::URL_SAFE_NO_PAD
+            .decode(token_parts[0])
+            .expect("Header should be valid base64");
         let header_json = String::from_utf8_lossy(&header_bytes);
         println!("JWT Header: {}", header_json);
-        assert!(header_json.contains("alg"), "JWT header should contain algorithm");
-        
+        assert!(
+            header_json.contains("alg"),
+            "JWT header should contain algorithm"
+        );
+
         // We could decode the payload too, but this is enough to verify it's a JWT
     }
-    
+
     // The complete OAuth2 PKCE flow has been successfully tested
     println!("OAuth2 PKCE flow test completed successfully!");
 }

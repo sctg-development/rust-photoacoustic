@@ -2,16 +2,16 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-use rocket::FromForm;
-use rocket::{post, State, http::Status};
-use rocket::serde::{json::Json, Deserialize, Serialize};
-use rocket::form::Form;
-use chrono::{TimeZone, Utc};
-use std::collections::HashMap;
-use crate::visualization::oxide_auth::OxideState;
 use crate::visualization::jwt_validator::JwtValidator;
+use crate::visualization::oxide_auth::OxideState;
+use chrono::{TimeZone, Utc};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use oxide_auth::primitives::issuer::Issuer;
-use jsonwebtoken::{decode, Validation, DecodingKey, Algorithm};
+use rocket::form::Form;
+use rocket::serde::{json::Json, Deserialize, Serialize};
+use rocket::FromForm;
+use rocket::{http::Status, post, State};
+use std::collections::HashMap;
 // Déjà importé via rocket::serde
 
 /// Copie de la structure JwtClaims pour le décodage local
@@ -90,12 +90,12 @@ pub struct IntrospectionResponse {
 
 /// RFC 7662 OAuth 2.0 Token Introspection Endpoint
 /// This allows clients to validate an access token and get information about it.
-/// 
+///
 /// This is particularly useful for resource servers that need to validate tokens.
 #[post("/introspect", data = "<params>")]
 pub fn introspect(
     params: Form<IntrospectionRequest>,
-    state: &State<OxideState>
+    state: &State<OxideState>,
 ) -> Json<IntrospectionResponse> {
     // Default response for inactive token
     let inactive_response = IntrospectionResponse {
@@ -108,28 +108,28 @@ pub fn introspect(
         nbf: None,
         aud: None,
         iss: None,
-        jti: None, 
+        jti: None,
         token_type: None,
         additional_claims: HashMap::new(),
     };
-    
+
     // Get the token from the request
     let token = &params.token;
-    
+
     // Lock the issuer to access it safely
     let issuer = state.issuer.lock().unwrap();
-    
+
     // First try to recover the token from the issuer
     match issuer.recover_token(token) {
         Ok(Some(grant)) => {
             // Token is valid and active
             let now = Utc::now();
-            
+
             // If token has expired, return inactive
             if grant.until < now {
                 return Json(inactive_response);
             }
-            
+
             // Create active response with available information
             let mut response = IntrospectionResponse {
                 active: true,
@@ -145,28 +145,32 @@ pub fn introspect(
                 token_type: Some("Bearer".to_string()),
                 additional_claims: HashMap::new(),
             };
-            
+
             // Extract any additional claims from extensions
             for (key, value) in grant.extensions.public() {
                 if let Some(val) = value {
-                    response.additional_claims.insert(key.to_string(), serde_json::Value::String(val.to_string()));
+                    response
+                        .additional_claims
+                        .insert(key.to_string(), serde_json::Value::String(val.to_string()));
                 } else {
-                    response.additional_claims.insert(key.to_string(), serde_json::Value::Bool(true));
+                    response
+                        .additional_claims
+                        .insert(key.to_string(), serde_json::Value::Bool(true));
                 }
             }
-            
+
             return Json(response);
-        },
+        }
         Ok(None) => {
             // Token exists but is invalid or expired
             // Fall through to manual JWT validation
-        },
+        }
         Err(_) => {
             // Error occurred during token recovery
             // Fall through to manual JWT validation
         }
     }
-    
+
     // If we get here, try to manually validate the token as a JWT
     let secret = b"my-super-secret-jwt-key-for-photoacoustic-app"; // Use the same secret as in OxideState::preconfigured
     let decoding_key = DecodingKey::from_secret(secret);
@@ -175,7 +179,7 @@ pub fn introspect(
     validation.validate_aud = false; // Disable audience validation
     validation.required_spec_claims.clear(); // Don't require any specific claims
     validation.set_audience(&["LaserSmartClient"]);
-    
+
     // Try to decode the token
     match decode::<JwtClaimsLocal>(token, &decoding_key, &validation) {
         Ok(token_data) => {
@@ -183,7 +187,7 @@ pub fn introspect(
             let claims = token_data.claims;
             let now = Utc::now();
             let exp = Utc.timestamp_opt(claims.exp, 0).single();
-            
+
             // Make sure the token is still valid
             if let Some(exp_time) = exp {
                 if exp_time < now {
@@ -193,7 +197,7 @@ pub fn introspect(
                 // Invalid expiration time
                 return Json(inactive_response);
             }
-            
+
             // Create active response with available information
             let response = IntrospectionResponse {
                 active: true,
@@ -209,13 +213,12 @@ pub fn introspect(
                 token_type: Some("Bearer".to_string()),
                 additional_claims: HashMap::new(),
             };
-            
+
             return Json(response);
-        },
+        }
         Err(_) => {
             // Failed to decode as JWT
             return Json(inactive_response);
         }
     }
 }
-
