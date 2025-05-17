@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 
 use oxide_auth::endpoint::{OwnerConsent, Solicitation};
 use oxide_auth::frontends::simple::endpoint::{FnSolicitor, Generic, Vacant};
@@ -13,10 +13,24 @@ use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::State;
 use rocket::{get, post};
 
+use super::jwt::JwtIssuer;
+
+// Define the structure with Arc for shared resources
 pub struct OxideState {
-    registrar: Mutex<ClientMap>,
-    authorizer: Mutex<AuthMap<RandomGenerator>>,
-    issuer: Mutex<TokenMap<RandomGenerator>>,
+    registrar: Arc<Mutex<ClientMap>>,
+    authorizer: Arc<Mutex<AuthMap<RandomGenerator>>>,
+    pub issuer: Arc<Mutex<JwtIssuer>>, // Wrap JwtIssuer in Arc<Mutex<>> for shared mutability
+}
+
+// Implement Clone for OxideState
+impl Clone for OxideState {
+    fn clone(&self) -> Self {
+        OxideState {
+            registrar: Arc::clone(&self.registrar),
+            authorizer: Arc::clone(&self.authorizer),
+            issuer: Arc::clone(&self.issuer),
+        }
+    }
 }
 
 #[get("/authorize")]
@@ -75,8 +89,17 @@ pub async fn refresh<'r>(
 
 impl OxideState {
     pub fn preconfigured() -> Self {
+        // Secret key for JWT token signing - in a real app this should be loaded from a secure source
+        // For development, we use a simple hard-coded key
+        let jwt_secret = b"my-super-secret-jwt-key-for-photoacoustic-app";
+        
+        // Create and configure the JWT issuer
+        let mut jwt_issuer = JwtIssuer::new(jwt_secret);
+        jwt_issuer.with_issuer("rust-photoacoustic") // Set the issuer name
+                 .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
+        
         OxideState {
-            registrar: Mutex::new(
+            registrar: Arc::new(Mutex::new(
                 vec![Client::public(
                     "LaserSmartClient",
                     RegisteredUrl::Semantic(
@@ -89,16 +112,13 @@ impl OxideState {
                 ])]
                 .into_iter()
                 .collect(),
-            ),
+            )),
             // Authorization tokens are 16 byte random keys to a memory hash map.
-            authorizer: Mutex::new(AuthMap::new(RandomGenerator::new(16))),
-            // Bearer tokens are also random generated but 256-bit tokens, since they live longer
-            // and this example is somewhat paranoid.
-            //
-            // We could also use a `TokenSigner::ephemeral` here to create signed tokens which can
-            // be read and parsed by anyone, but not maliciously created. However, they can not be
-            // revoked and thus don't offer even longer lived refresh tokens.
-            issuer: Mutex::new(TokenMap::new(RandomGenerator::new(16))),
+            authorizer: Arc::new(Mutex::new(AuthMap::new(RandomGenerator::new(16)))),
+            // Use JWT issuer for access tokens
+            // These tokens can be verified independently by the resource server
+            // and contain user information embedded within them
+            issuer: Arc::new(Mutex::new(jwt_issuer)),
         }
     }
 

@@ -68,6 +68,15 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
     // Create OAuth2 state
     let oxide_state = OxideState::preconfigured();
     
+    // Initialize JWT validator for API authentication
+    let jwt_validator = match super::api_auth::init_jwt_validator() {
+        Ok(validator) => std::sync::Arc::new(validator),
+        Err(e) => {
+            eprintln!("Failed to initialize JWT validator: {}", e);
+            std::process::exit(1);
+        }
+    };
+    
     let rocket = rocket::custom(figment)
         .attach(CORS)
         .mount(
@@ -84,8 +93,14 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
             authorize_consent,
             token,
             refresh,
+            super::introspection::introspect,
         ])
-        .manage(oxide_state);
+        .mount("/api", routes![
+            super::api_auth::get_profile,
+            super::api_auth::get_data,
+        ])
+        .manage(oxide_state)
+        .manage(jwt_validator);
         rocket
 }
 
@@ -102,6 +117,15 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
     // Create OAuth2 state
     let oxide_state = super::oxide_auth::OxideState::preconfigured();
     
+    // Initialize JWT validator for API authentication
+    let jwt_validator = match super::api_auth::init_jwt_validator() {
+        Ok(validator) => std::sync::Arc::new(validator),
+        Err(e) => {
+            eprintln!("Failed to initialize JWT validator: {}", e);
+            std::process::exit(1);
+        }
+    };
+    
     // Build Rocket instance for tests
     rocket::custom(config)
         .attach(CORS)
@@ -113,9 +137,16 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
                 authorize_consent,
                 token,
                 refresh,
+                // TODO: Add introspection endpoint once fixed
+                // super::introspection::introspect,
             ],
         )
+        .mount("/api", routes![
+            super::api_auth::get_profile,
+            super::api_auth::get_data,
+        ])
         .manage(oxide_state)
+        .manage(jwt_validator)
 }
 
 /// Retrieves a static file from the web/dist directory

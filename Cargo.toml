@@ -39,6 +39,7 @@ reqwest = "0.12.15"
 oxide-auth = "0.6.1"
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 serde_urlencoded = "0.7.1"
+url = "2.5"                # URL parsing
 
 [dev-dependencies]
 criterion = "0.5"          # Benchmarking

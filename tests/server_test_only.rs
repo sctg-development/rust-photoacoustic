@@ -101,7 +101,7 @@ async fn test_oauth2_pkce_flow() {
     // Step 3: Exchange authorization code for tokens
     println!("Exchanging authorization code for tokens...");
     let token_body = format!(
-        "grant_type=authorization_code&code={}&redirect_uri=http://localhost:8080/client/&client_id=LaserSmartClient&code_verifier={}",
+        "grant_type=authorization_code&code={}&redirect_uri=http://localhost:8080/client/&client_id=LaserSmartClient&code_verifier={}&code_challenge_method=S256",
         authorization_code, code_verifier
     );
     
@@ -121,10 +121,23 @@ async fn test_oauth2_pkce_flow() {
     
     // Verify that we received an access_token
     assert!(token_json.get("access_token").is_some(), "Response should contain an access_token");
+    // Note: The token_type case is not standardized, but our implementation uses lowercase
+    assert_eq!(token_json.get("token_type").and_then(Value::as_str).map(|s| s.to_lowercase()), Some("bearer".to_lowercase()), "Token type should be Bearer (case insensitive)");
     
-    // Optionally check other fields like refresh_token, token_type, etc.
+    // Check that the token is a valid JWT (should have 3 parts separated by dots)
     if let Some(access_token) = token_json.get("access_token").and_then(Value::as_str) {
         println!("Access token: {}", access_token);
+        
+        let token_parts: Vec<&str> = access_token.split('.').collect();
+        assert_eq!(token_parts.len(), 3, "Access token should be a valid JWT with three parts");
+        
+        // Verify the token can be decoded as base64
+        let header_bytes = general_purpose::URL_SAFE_NO_PAD.decode(token_parts[0]).expect("Header should be valid base64");
+        let header_json = String::from_utf8_lossy(&header_bytes);
+        println!("JWT Header: {}", header_json);
+        assert!(header_json.contains("alg"), "JWT header should contain algorithm");
+        
+        // We could decode the payload too, but this is enough to verify it's a JWT
     }
     
     // The complete OAuth2 PKCE flow has been successfully tested

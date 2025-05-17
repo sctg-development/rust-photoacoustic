@@ -8,7 +8,11 @@
 //! including a web server for interactive visualization.
 
 pub mod api;
+pub mod api_auth;
+pub mod introspection;
 pub mod jwt;
+pub mod jwt_keys;
+pub mod jwt_validator;
 pub mod server;
 pub mod oxide_auth;
 
