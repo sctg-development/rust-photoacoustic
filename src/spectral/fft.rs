@@ -5,10 +5,7 @@
 //! FFT implementation for spectral analysis
 
 use anyhow::Result;
-use rustfft::{
-    num_complex::Complex32,
-    FftPlanner,
-};
+use rustfft::{num_complex::Complex32, FftPlanner};
 
 /// Trait for implementing spectral analysis
 pub trait SpectralAnalyzer: Send + Sync {

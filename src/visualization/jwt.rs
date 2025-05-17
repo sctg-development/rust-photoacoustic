@@ -330,7 +330,6 @@ impl Issuer for JwtTokenMap {
             client_id: token_data.claims.aud,
             scope: token_data.claims.scope.parse().map_err(|e| {
                 log::error!("Failed to parse scope from token: {}", e);
-                
             })?,
             redirect_uri,
             until: exp_time,

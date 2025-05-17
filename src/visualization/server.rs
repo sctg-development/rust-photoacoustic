@@ -77,7 +77,6 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         }
     };
 
-    
     rocket::custom(figment)
         .attach(CORS)
         .mount(

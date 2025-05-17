@@ -11,7 +11,6 @@ mod fft;
 
 pub use fft::SpectralAnalyzer;
 
-
 /// Create a new spectral analyzer with the given window size and averaging
 pub fn create_spectral_analyzer(window_size: usize, averages: usize) -> Box<dyn SpectralAnalyzer> {
     Box::new(fft::FFTAnalyzer::new(window_size, averages))

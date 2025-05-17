@@ -4,7 +4,6 @@
 
 //! Digital filters for signal preprocessing
 
-
 /// Trait for implementing digital filters
 pub trait Filter: Send + Sync {
     /// Apply the filter to a signal and return the filtered signal
