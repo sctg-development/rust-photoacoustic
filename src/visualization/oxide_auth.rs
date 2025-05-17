@@ -82,7 +82,7 @@ impl OxideState {
                     RegisteredUrl::Semantic(
                         "http://localhost:8080/client/".parse().unwrap(),
                     ),
-                    "default-scope".parse().unwrap(),
+                    "openid profile email read:api write:api".parse().unwrap(),
                 ).with_additional_redirect_uris(vec![
                     RegisteredUrl::Semantic("http://localhost:5173/client/".parse().unwrap()),
                     RegisteredUrl::Semantic("https://myname.local/client/".parse().unwrap()),

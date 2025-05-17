@@ -2861,6 +2861,7 @@ name = "rust-photoacoustic"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.21.7",
  "chrono",
  "clap",
  "cpal",
@@ -2889,6 +2890,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "sha2",
  "thiserror 2.0.12",
  "tokio",
  "url",
