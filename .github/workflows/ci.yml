@@ -52,7 +52,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu
+        sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2t64 libasound2-dev
     
     # Install LLVM and Clang (required for bindgen)
     - name: Install LLVM and Clang
