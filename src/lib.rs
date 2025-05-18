@@ -6,11 +6,11 @@
 //! This library provides functionality for photoacoustic analysis of water vapor.
 
 pub mod acquisition;
+pub mod config;
 pub mod preprocessing;
 pub mod spectral;
 pub mod utility;
 pub mod visualization;
-pub mod config;
 
 use serde::{Deserialize, Serialize};
 

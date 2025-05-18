@@ -12,6 +12,7 @@ mod visualization;
 
 use anyhow::Result;
 use base64;
+use base64::prelude::*;
 use clap::Parser;
 use config::Config;
 use log::{debug, info};
@@ -21,7 +22,6 @@ use rocket::{
 };
 use std::path::PathBuf;
 use visualization::server::build_rocket;
-use base64::prelude::*;
 
 /// Water vapor analyzer using photoacoustic spectroscopy
 #[derive(Debug, Parser)]
@@ -66,7 +66,7 @@ pub struct Args {
     /// Web server address (default: localhost) only used if --web is set
     #[arg(short, long, default_value = "127.0.0.1")]
     web_address: String,
-    
+
     /// Path to configuration file (YAML format)
     #[arg(long)]
     config: Option<PathBuf>,
@@ -76,49 +76,53 @@ pub struct Args {
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    
+
     // Load configuration
-    let config_path = args.config.clone().unwrap_or_else(|| PathBuf::from("config.yaml"));
+    let config_path = args
+        .config
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("config.yaml"));
     let mut config = Config::from_file(&config_path)?;
-    
+
     // Apply command line overrides
     config.apply_args(args.web_port, args.web_address.clone());
-    
+
     // Configure Rocket
     if args.web {
         info!(
             "Web server enabled on {}:{}",
             config.visualization.address, config.visualization.port
         );
-        
+
         let mut figment = rocket::Config::figment()
             .merge(("ident", config.visualization.name.clone()))
             .merge(("limits", Limits::new().limit("json", 2.mebibytes())))
             .merge(("address", config.visualization.address.clone()))
             .merge(("port", config.visualization.port))
             .merge(("log_level", LogLevel::Normal));
-            
+
         // Configure TLS if certificates are provided
         if let (Some(cert), Some(key)) = (&config.visualization.cert, &config.visualization.key) {
             debug!("SSL certificates found in configuration, enabling TLS");
-            
+
             // Decode base64 certificates
             let cert_data = BASE64_STANDARD.decode(cert)?;
             let key_data = BASE64_STANDARD.decode(key)?;
-            
+
             // Create temporary files for the certificates
             let temp_dir = std::env::temp_dir();
             let cert_path = temp_dir.join("server.crt");
             let key_path = temp_dir.join("server.key");
-            
+
             // Write the certificates to temporary files
             std::fs::write(&cert_path, cert_data)?;
             std::fs::write(&key_path, key_data)?;
-            
+
             // Configure TLS
-            figment = figment.merge(("tls.certs", cert_path))
-                            .merge(("tls.key", key_path));
-            
+            figment = figment
+                .merge(("tls.certs", cert_path))
+                .merge(("tls.key", key_path));
+
             info!("TLS enabled for web server");
         }
 
@@ -169,7 +173,7 @@ async fn main() -> Result<()> {
     // Web server is already started in the previous conditional if args.web is true,
     // so we don't need to start it again here. The if statement below would have been
     // executed if we hadn't already started the server above.
-    
+
     /*
     if args.web {
         println!("Starting web visualization server...");
