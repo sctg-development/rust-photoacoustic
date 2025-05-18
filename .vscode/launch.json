@@ -41,7 +41,31 @@
             "args": ["--web", "--web-address=127.0.0.1", "--web-port=8888", "--frequency=2000", "--bandwidth=100"],
             "cwd": "${workspaceFolder}",
             "env": {
-                "RUST_BACKTRACE": "1"
+                "RUST_BACKTRACE": "1",
+                "RUST_LOG": "debug"
+            },
+            "terminal": "console"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug rust-photoacoustic (config)",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rust-photoacoustic",
+                    "--package=rust-photoacoustic"
+                ],
+                "filter": {
+                    "name": "rust-photoacoustic",
+                    "kind": "bin"
+                }
+            },
+            "args": ["--web", "--config", "${workspaceFolder}/config.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_BACKTRACE": "1",
+                "RUST_LOG": "debug"
             },
             "terminal": "console"
         },
@@ -63,7 +87,8 @@
             "args": ["-o", "test_noise.wav", "-d", "2", "-s", "48000", "-a", "0.8", "-c", "2"],
             "cwd": "${workspaceFolder}",
             "env": {
-                "RUST_BACKTRACE": "1"
+                "RUST_BACKTRACE": "1",
+                "RUST_LOG": "debug"
             },
             "terminal": "console"
         },

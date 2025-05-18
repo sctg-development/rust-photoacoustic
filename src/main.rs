@@ -61,7 +61,7 @@ pub struct Args {
 
     /// Web server port (default: 8080) only used if --web is set
     #[arg(short = 'p', long, default_value_t = 8080)]
-    web_port: i16,
+    web_port: u16,
 
     /// Web server address (default: localhost) only used if --web is set
     #[arg(short, long, default_value = "127.0.0.1")]
