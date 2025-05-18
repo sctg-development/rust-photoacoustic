@@ -57,7 +57,14 @@ fn extract_params_from_url(url: &str) -> HashMap<String, String> {
 async fn test_oauth2_pkce_flow() {
     // Configure the Rocket test client with a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment(), test_hmac_secret).await;
+    // Add shutdown configuration to ensure proper test cleanup
+    let figment = get_figment()
+        .merge(("shutdown.ctrlc", false))
+        .merge(("shutdown.grace", 1))
+        .merge(("shutdown.mercy", 1))
+        .merge(("shutdown.force", true));
+        
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, test_hmac_secret).await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");
@@ -157,7 +164,7 @@ async fn test_oauth2_pkce_flow() {
     // Check that the token is a valid JWT (should have 3 parts separated by dots)
     if let Some(access_token) = token_json.get("access_token").and_then(Value::as_str) {
         println!("Access token: {}", access_token);
-
+        println!("HS256 signing key: {}", test_hmac_secret);
         let token_parts: Vec<&str> = access_token.split('.').collect();
         assert_eq!(
             token_parts.len(),
