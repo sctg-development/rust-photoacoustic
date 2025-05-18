@@ -186,7 +186,7 @@ async fn main() {
 
     // If no rebuild is needed, exit early
     if !needs_build && !version_changed {
-        println!("cargo:warning=No changes detected in web files, skipping compilation");
+        println!("cargo:warning=No changes detected in web files, skipping vite build");
         return;
     }
 
