@@ -7,16 +7,22 @@ fn main() -> Result<()> {
     // Load configuration from the default file
     let mut config = Config::from_file("config.yaml")?;
     println!("Loaded configuration: {:?}", config);
-    
+
     // Override with command line arguments
     let web_port = 9000; // Example command line port
     let web_address = "192.168.1.100"; // Example command line address
-    
+
     config.apply_args(web_port, web_address.to_string());
-    println!("Configuration after applying command line arguments: {:?}", config);
-    
+    println!(
+        "Configuration after applying command line arguments: {:?}",
+        config
+    );
+
     // Access configuration values
-    println!("Server will run on {}:{}", config.visualization.address, config.visualization.port);
-    
+    println!(
+        "Server will run on {}:{}",
+        config.visualization.address, config.visualization.port
+    );
+
     Ok(())
 }
