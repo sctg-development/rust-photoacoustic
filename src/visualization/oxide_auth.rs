@@ -20,6 +20,7 @@ pub struct OxideState {
     registrar: Arc<Mutex<ClientMap>>,
     authorizer: Arc<Mutex<AuthMap<RandomGenerator>>>,
     pub issuer: Arc<Mutex<JwtIssuer>>, // Wrap JwtIssuer in Arc<Mutex<>> for shared mutability
+    pub hmac_secret: String, // HMAC secret for JWT validation
 }
 
 // Implement Clone for OxideState
@@ -29,6 +30,7 @@ impl Clone for OxideState {
             registrar: Arc::clone(&self.registrar),
             authorizer: Arc::clone(&self.authorizer),
             issuer: Arc::clone(&self.issuer),
+            hmac_secret: self.hmac_secret.clone(),
         }
     }
 }
@@ -88,10 +90,9 @@ pub async fn refresh<'r>(
 }
 
 impl OxideState {
-    pub fn preconfigured() -> Self {
-        // Secret key for JWT token signing - in a real app this should be loaded from a secure source
-        // For development, we use a simple hard-coded key
-        let jwt_secret = b"my-super-secret-jwt-key-for-photoacoustic-app";
+    pub fn preconfigured(hmac_secret: &str) -> Self {
+        // Use the HMAC secret from configuration
+        let jwt_secret = hmac_secret.as_bytes();
 
         // Create and configure the JWT issuer
         let mut jwt_issuer = JwtIssuer::new(jwt_secret);
@@ -119,6 +120,8 @@ impl OxideState {
             // These tokens can be verified independently by the resource server
             // and contain user information embedded within them
             issuer: Arc::new(Mutex::new(jwt_issuer)),
+            // Store the HMAC secret for validation elsewhere
+            hmac_secret: hmac_secret.to_string(),
         }
     }
 

@@ -55,8 +55,9 @@ fn extract_params_from_url(url: &str) -> HashMap<String, String> {
 
 #[rocket::async_test]
 async fn test_oauth2_pkce_flow() {
-    // Configure the Rocket test client
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment()).await;
+    // Configure the Rocket test client with a test HMAC secret
+    let test_hmac_secret = "test-hmac-secret-key-for-testing";
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment(), test_hmac_secret).await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

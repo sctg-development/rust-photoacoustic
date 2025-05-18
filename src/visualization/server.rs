@@ -64,12 +64,12 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
-    // Create OAuth2 state
-    let oxide_state = OxideState::preconfigured();
+pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> {
+    // Create OAuth2 state with the HMAC secret from config
+    let oxide_state = OxideState::preconfigured(hmac_secret);
 
-    // Initialize JWT validator for API authentication
-    let jwt_validator = match super::api_auth::init_jwt_validator() {
+    // Initialize JWT validator for API authentication with the HMAC secret
+    let jwt_validator = match super::api_auth::init_jwt_validator(hmac_secret) {
         Ok(validator) => std::sync::Arc::new(validator),
         Err(e) => {
             eprintln!("Failed to initialize JWT validator: {}", e);
@@ -113,11 +113,14 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
         .merge(("port", 0)) // Random port for tests
         .merge(("log_level", rocket::config::LogLevel::Off));
 
-    // Create OAuth2 state
-    let oxide_state = super::oxide_auth::OxideState::preconfigured();
+    // Use a test HMAC secret
+    let test_hmac_secret = "test-hmac-secret-key-for-testing";
+    
+    // Create OAuth2 state with the test secret
+    let oxide_state = super::oxide_auth::OxideState::preconfigured(test_hmac_secret);
 
-    // Initialize JWT validator for API authentication
-    let jwt_validator = match super::api_auth::init_jwt_validator() {
+    // Initialize JWT validator with the test secret
+    let jwt_validator = match super::api_auth::init_jwt_validator(test_hmac_secret) {
         Ok(validator) => std::sync::Arc::new(validator),
         Err(e) => {
             eprintln!("Failed to initialize JWT validator: {}", e);

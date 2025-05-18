@@ -14,3 +14,5 @@ visualization:
   # SSL key PEM data (Base64 encoded) - Optional
   # generated with `cat rust-photoacoustic.local.key | base64 -w0`
   # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
+  # HMAC secret for JWT token signing (used for API authentication)
+  hmac_secret: my-super-secret-jwt-key-for-photoacoustic-app

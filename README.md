@@ -43,6 +43,8 @@ visualization:
   # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
   # SSL key PEM data (Base64 encoded) - Optional
   # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
+  # HMAC secret for JWT token signing - Optional, default value will be used if not provided
+  hmac_secret: my-super-secret-jwt-key-for-photoacoustic-app
 ```
 
 ### SSL Certificates
@@ -75,6 +77,27 @@ Command line arguments take precedence over configuration file values:
 
 - `--web-port` overrides `visualization.port`
 - `--web-address` overrides `visualization.address`
+- `--hmac-secret` overrides `visualization.hmac_secret`
+
+### JWT Authentication
+
+The application uses JSON Web Tokens (JWT) for authentication. The HMAC secret used for signing and verifying JWTs can be configured in the following ways:
+
+1. In the configuration file:
+
+```yaml
+visualization:
+  # Other settings...
+  hmac_secret: your-secure-jwt-secret-key
+```
+
+2. Via command line:
+
+```bash
+cargo run -- --hmac-secret your-secure-jwt-secret-key
+```
+
+For production deployments, it is strongly recommended to set a custom HMAC secret rather than using the default.
 
 ## Project Objective
 

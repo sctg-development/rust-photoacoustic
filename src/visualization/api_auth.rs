@@ -163,9 +163,9 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 }
 
 /// Initialize the JWT validator for the API
-pub fn init_jwt_validator() -> Result<JwtValidator> {
-    // In a real application, these values should come from environment variables or config
-    let secret = b"my-super-secret-jwt-key-for-photoacoustic-app";
+pub fn init_jwt_validator(hmac_secret: &str) -> Result<JwtValidator> {
+    // Use the hmac_secret from config
+    let secret = hmac_secret.as_bytes();
 
     Ok(JwtValidator::new(secret)
         .with_issuer("rust-photoacoustic")

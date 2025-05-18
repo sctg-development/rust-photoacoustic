@@ -171,8 +171,9 @@ pub fn introspect(
     }
 
     // If we get here, try to manually validate the token as a JWT
-    let secret = b"my-super-secret-jwt-key-for-photoacoustic-app"; // Use the same secret as in OxideState::preconfigured
-    let decoding_key = DecodingKey::from_secret(secret);
+    // Get the HMAC secret from state
+    let hmac_secret = state.hmac_secret.as_bytes();
+    let decoding_key = DecodingKey::from_secret(hmac_secret);
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
     validation.validate_aud = false; // Disable audience validation

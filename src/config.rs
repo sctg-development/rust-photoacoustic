@@ -40,6 +40,9 @@ pub struct VisualizationConfig {
     /// SSL key PEM data (Base64 encoded)
     #[serde(default = "default_key")]
     pub key: Option<String>,
+    /// HMAC secret for JWT signing
+    #[serde(default = "default_hmac_secret")]
+    pub hmac_secret: String,
 }
 
 fn default_port() -> u16 {
@@ -74,6 +77,10 @@ fn default_key() -> Option<String> {
         Some(key_b64.to_string())
     }
 }
+
+fn default_hmac_secret() -> String {
+    "my-super-secret-jwt-key-for-photoacoustic-app".to_string()
+}
 impl Default for VisualizationConfig {
     fn default() -> Self {
         Self {
@@ -82,6 +89,7 @@ impl Default for VisualizationConfig {
             name: default_name(),
             cert: default_cert(),
             key: default_key(),
+            hmac_secret: default_hmac_secret(),
         }
     }
 }
@@ -168,7 +176,7 @@ impl Config {
     }
 
     /// Apply command line arguments to override configuration values
-    pub fn apply_args(&mut self, web_port: u16, web_address: String) {
+    pub fn apply_args(&mut self, web_port: u16, web_address: String, hmac_secret: Option<String>) {
         // Only override if command-line arguments are provided
         if web_port != default_port() {
             debug!("Overriding port from command line: {}", web_port);
@@ -178,6 +186,11 @@ impl Config {
         if web_address != default_address() {
             debug!("Overriding address from command line: {}", web_address);
             self.visualization.address = web_address; // Use the field directly
+        }
+
+        if let Some(secret) = hmac_secret {
+            debug!("Overriding HMAC secret from command line");
+            self.visualization.hmac_secret = secret;
         }
     }
 

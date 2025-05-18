@@ -18,6 +18,7 @@ fn test_config_load_and_save() -> Result<()> {
             name: "TestServer".to_string(),
             cert: None,
             key: None,
+            hmac_secret: "test-secret".to_string(),
         },
     };
 
@@ -45,13 +46,21 @@ fn test_config_load_and_save() -> Result<()> {
     let mut config = Config::default();
     assert_eq!(config.visualization.port, 8080);
     assert_eq!(config.visualization.address, "127.0.0.1");
+    assert_eq!(config.visualization.hmac_secret, "my-super-secret-jwt-key-for-photoacoustic-app");
 
-    // Apply command-line arguments
-    config.apply_args(9000, "192.168.0.1".to_string());
+    // Apply command-line arguments without HMAC secret
+    config.apply_args(9000, "192.168.0.1".to_string(), None);
 
     // Verify values were overridden
     assert_eq!(config.visualization.port, 9000);
     assert_eq!(config.visualization.address, "192.168.0.1");
+    assert_eq!(config.visualization.hmac_secret, "my-super-secret-jwt-key-for-photoacoustic-app");
+    
+    // Apply command-line arguments with HMAC secret
+    config.apply_args(9000, "192.168.0.1".to_string(), Some("new-secret-key".to_string()));
+    
+    // Verify HMAC secret was overridden
+    assert_eq!(config.visualization.hmac_secret, "new-secret-key");
 
     Ok(())
 }
@@ -248,6 +257,7 @@ visualization:
   name: "TestServer"
   cert: "this-is-not-valid-base64!"
   key: "SGVsbG8gV29ybGQ="
+  hmac_secret: "test-secret"
 "#;
     fs::write(&invalid_cert_path, invalid_cert_yaml)?;
 
@@ -267,15 +277,23 @@ visualization:
   address: "127.0.0.1"
   name: "TestServer"
   cert: "SGVsbG8gV29ybGQ="
+  key: null
+  hmac_secret: "test-secret"
 "#;
     fs::write(&missing_key_path, missing_key_yaml)?;
 
-    // This should fail validation
+    // This should fail validation with a specific error message
     let result = Config::from_file(&missing_key_path);
     assert!(
         result.is_err(),
         "YAML with certificate but no key should fail validation"
     );
+    if let Err(e) = result {
+        assert!(
+            e.to_string().contains("SSL certificate provided without a key"),
+            "Expected error about missing key, got: {}", e
+        );
+    }
 
     // Test 8: Invalid IPv6 format (currently not detected by jsonschema v0.30.0)
     let invalid_ipv6_path = temp_dir.path().join("invalid_ipv6.yaml");

@@ -12,7 +12,10 @@ fn main() -> Result<()> {
     let web_port = 9000; // Example command line port
     let web_address = "192.168.1.100"; // Example command line address
 
-    config.apply_args(web_port, web_address.to_string());
+    // Add a custom HMAC secret for JWT tokens
+    let hmac_secret = Some("custom-jwt-secret-from-cmdline".to_string());
+    
+    config.apply_args(web_port, web_address.to_string(), hmac_secret);
     println!(
         "Configuration after applying command line arguments: {:?}",
         config

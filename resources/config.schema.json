@@ -35,6 +35,10 @@
             "string",
             "null"
           ]
+        },
+        "hmac_secret": {
+          "type": "string",
+          "description": "HMAC secret for JWT token signing"
         }
       },
       "required": [

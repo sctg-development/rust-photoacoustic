@@ -1,0 +1,8 @@
+# Certificate provided without key
+visualization:
+  port: 8080
+  address: "127.0.0.1"
+  name: "TestServer"
+  cert: "SGVsbG8gV29ybGQ="
+  key: null
+  hmac_secret: "test-secret"

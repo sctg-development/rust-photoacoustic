@@ -63,7 +63,8 @@ struct JwtClaims {
 async fn test_jwt_token_introspection() {
     let test_future = async {
         // Set up client and state for testing JWT tokens
-        let oxide_state = OxideState::preconfigured();
+        let test_secret = "test-secret-for-introspection-tests";
+        let oxide_state = OxideState::preconfigured(test_secret);
 
         // Configure Rocket for testing with explicit shutdown
         let figment = rocket::Config::figment()
@@ -148,7 +149,8 @@ async fn test_jwt_token_introspection() {
 async fn test_expired_token_introspection() {
     let test_future = async {
         // Set up client and state
-        let oxide_state = OxideState::preconfigured();
+        let test_secret = "test-secret-for-introspection-tests";
+        let oxide_state = OxideState::preconfigured(test_secret);
 
         let figment = rocket::Config::figment()
             .merge(("port", 0))
@@ -223,7 +225,8 @@ async fn test_expired_token_introspection() {
 async fn test_invalid_token_introspection() {
     let test_future = async {
         // Set up client and state
-        let oxide_state = OxideState::preconfigured();
+        let test_secret = "test-secret-for-introspection-tests";
+        let oxide_state = OxideState::preconfigured(test_secret);
 
         let figment = rocket::Config::figment()
             .merge(("port", 0))
@@ -279,7 +282,8 @@ async fn test_invalid_token_introspection() {
 async fn test_oxide_auth_token_introspection() {
     let test_future = async {
         // Set up client and state
-        let oxide_state = OxideState::preconfigured();
+        let test_secret = "test-secret-for-introspection-tests";
+        let oxide_state = OxideState::preconfigured(test_secret);
 
         let figment = rocket::Config::figment()
             .merge(("port", 0))

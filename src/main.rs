@@ -67,6 +67,10 @@ pub struct Args {
     #[arg(short, long, default_value = "127.0.0.1")]
     web_address: String,
 
+    /// HMAC secret for JWT signing
+    #[arg(long)]
+    hmac_secret: Option<String>,
+
     /// Path to configuration file (YAML format)
     #[arg(long)]
     config: Option<PathBuf>,
@@ -85,7 +89,7 @@ async fn main() -> Result<()> {
     let mut config = Config::from_file(&config_path)?;
 
     // Apply command line overrides
-    config.apply_args(args.web_port, args.web_address.clone());
+    config.apply_args(args.web_port, args.web_address.clone(), args.hmac_secret.clone());
 
     // Configure Rocket
     if args.web {
@@ -117,7 +121,7 @@ async fn main() -> Result<()> {
             info!("TLS enabled for web server");
         }
 
-        let _rocket = build_rocket(figment).await;
+        let _rocket = build_rocket(figment, &config.visualization.hmac_secret).await;
         let _rocket_ignite = _rocket.ignite().await?;
         let _rocket_instance = _rocket_ignite.launch().await?;
     } else {
