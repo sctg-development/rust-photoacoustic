@@ -2,17 +2,22 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+use anyhow::Context;
 use anyhow::Result;
+use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// Checks if any web source files are newer than the compiled files
+const RS256_KEY_LENGTH: usize = 4096; // Default key length for RS256
+                                      // Checks if any web source files are newer than the compiled files
 fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
     // Get the most recent modification date of files in dist
     let dist_latest_mod = get_latest_modification_time(dist_path).unwrap_or_else(|| {
@@ -277,6 +282,57 @@ fn create_certificate_files_if_needed() -> Result<()> {
     Ok(())
 }
 
+fn create_rs256_key_pair_if_needed() -> Result<()> {
+    let pub_key_path = "resources/pub.key";
+    let priv_key_path = "resources/private.key";
+
+    // Check if both key files already exist
+    let pub_key_exists = std::path::Path::new(pub_key_path).exists();
+    let priv_key_exists = std::path::Path::new(priv_key_path).exists();
+
+    if pub_key_exists && priv_key_exists {
+        println!("cargo:warning=RS256 key pair files already exist, skipping generation");
+        return Ok(());
+    }
+
+    println!("cargo:warning=Generating RS256 key pair for JWT signing");
+    let mut rng = rsa::rand_core::OsRng;
+
+    // Generate a new random RSA key pair with the specified bits
+    let private_key = RsaPrivateKey::new(&mut rng, RS256_KEY_LENGTH)
+        .context("Failed to generate RSA private key")?;
+    let public_key = RsaPublicKey::from(&private_key);
+
+    // Create resources directory if it doesn't exist
+    let resources_dir = std::path::Path::new("resources");
+    if !resources_dir.exists() {
+        std::fs::create_dir_all(resources_dir)?;
+    }
+    // Convert keys to PKCS#1 PEM format
+    let private_pem = private_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .context("Failed to encode private key to PEM")?;
+    let public_pem = public_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .context("Failed to encode public key to PEM")?;
+
+    // Write private key to file
+    let mut private_file = File::create(&priv_key_path)
+        .with_context(|| format!("Failed to create private key file at {:?}", priv_key_path))?;
+    private_file
+        .write_all(private_pem.as_bytes())
+        .context("Failed to write private key to file")?;
+
+    // Write public key to file
+    let mut public_file = File::create(&pub_key_path)
+        .with_context(|| format!("Failed to create public key file at {:?}", pub_key_path))?;
+    public_file
+        .write_all(public_pem.as_bytes())
+        .context("Failed to write public key to file")?;
+
+    println!("cargo:warning=RS256 key pair generated successfully");
+    Ok(())
+}
 #[tokio::main]
 async fn main() {
     // Tells Cargo to rerun build.rs if any files in the web folder change or certificate files change
@@ -287,6 +343,10 @@ async fn main() {
     // Generate certificate files if they don't exist
     if let Err(e) = create_certificate_files_if_needed() {
         println!("cargo:warning=Failed to generate certificate files: {}", e);
+    }
+    // Generate RS256 key pair if it doesn't exist
+    if let Err(e) = create_rs256_key_pair_if_needed() {
+        println!("cargo:warning=Failed to generate RS256 key pair: {}", e);
     }
 
     // Checks if dist files already exist to avoid unnecessary rebuilds
