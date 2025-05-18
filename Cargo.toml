@@ -7,64 +7,66 @@ description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 
 [dependencies]
 # Audio processing
-cpal = "0.15.3"            # Audio input
-hound = "3.5"              # WAV file handling
-include_dir = "0.7"        # Include files in the binary
-rustfft = "6.3"            # Fast Fourier Transform
-ndarray = "0.16"           # Numerical arrays
-dasp_sample = "0.11"       # Digital signal processing
-dasp_signal = "0.11"       # Signal processing
-dasp_window = "0.11"       # Windowing functions
-dasp_ring_buffer = "0.11"  # Ring buffer for audio
+cpal = "0.15.3"           # Audio input
+hound = "3.5"             # WAV file handling
+include_dir = "0.7"       # Include files in the binary
+rustfft = "6.3"           # Fast Fourier Transform
+ndarray = "0.16"          # Numerical arrays
+dasp_sample = "0.11"      # Digital signal processing
+dasp_signal = "0.11"      # Signal processing
+dasp_window = "0.11"      # Windowing functions
+dasp_ring_buffer = "0.11" # Ring buffer for audio
 
 # Command line interface
 clap = { version = "4.5", features = ["derive"] }
 
 # Web interface
-rocket = { version = "0.5", features = ["json"] }
+rocket = { version = "0.5", features = ["json", "tls"] }
 rocket_cors = "0.6.0"
-rocket_okapi = { version = "0.9", features = [ "rapidoc", "swagger" ]} # Automatic OpenAPI generation at build time 
-jsonwebtoken = "9.3"       # For JWT auth
+rocket_okapi = { version = "0.9", features = [
+    "rapidoc",
+    "swagger",
+] } # Automatic OpenAPI generation at build time 
+jsonwebtoken = "9.3" # For JWT auth
 
 # Error handling and utilities
-anyhow = "1.0.98"          # Error handling
-thiserror = "2.0"          # Error definitions
-log = "0.4"                # Logging
-env_logger = "0.11"        # Logging implementation
+anyhow = "1.0.98"                                                                     # Error handling
+thiserror = "2.0"                                                                     # Error definitions
+log = "0.4"                                                                           # Logging
+env_logger = "0.11"                                                                   # Logging implementation
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"         # JSON serialization
-serde_yml = "0.0.12"       # YAML serialization
-jsonschema = "0.30"        # JSON Schema validation
-yaml-rust = "0.4"          # YAML parsing
-base64 = "0.22"            # For encoding/decoding certificates
-tempfile = "3.10.1"        # Temporary files for tests
+serde_json = "1.0"                                                                    # JSON serialization
+serde_yml = "0.0.12"                                                                  # YAML serialization
+jsonschema = "0.30"                                                                   # JSON Schema validation
+yaml-rust = "0.4"                                                                     # YAML parsing
+base64 = "0.22"                                                                       # For encoding/decoding certificates
+tempfile = "3.10.1"                                                                   # Temporary files for tests
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
 reqwest = "0.12.15"
 oxide-auth = "0.6.1"
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 serde_urlencoded = "0.7.1"
-url = "2.5"                # URL parsing
+url = "2.5"                                                                           # URL parsing
 
 [dev-dependencies]
-criterion = "0.6"          # Benchmarking
-mockall = "0.13"           # Mocking for tests
-oauth2 = "5.0.0"           # OAuth2 client implementation
-wiremock = "0.6.0"         # HTTP mocking
+criterion = "0.6"                                   # Benchmarking
+mockall = "0.13"                                    # Mocking for tests
+oauth2 = "5.0.0"                                    # OAuth2 client implementation
+wiremock = "0.6.0"                                  # HTTP mocking
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 uuid = { version = "1.8", features = ["v4"] }
-url = "2.5"                # URL parsing
-sha2 = "0.10"              # Pour le hachage SHA-256 utilisé dans PKCE
-base64 = "0.22"            # Pour l'encodage Base64URL utilisé dans PKCE
-serde_json = "1.0"         # Pour analyser la réponse JSON des tokens
-regex = "1.10.4"           # Expressions régulières
+url = "2.5"                                         # URL parsing
+sha2 = "0.10"                                       # Pour le hachage SHA-256 utilisé dans PKCE
+base64 = "0.22"                                     # Pour l'encodage Base64URL utilisé dans PKCE
+serde_json = "1.0"                                  # Pour analyser la réponse JSON des tokens
+regex = "1.10.4"                                    # Expressions régulières
 
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"         # JSON serialization
+serde_json = "1.0"                                 # JSON serialization
 tokio = { version = "1", features = ["full"] }
 
 [patch."https://github.com/197g/oxide-auth"]
 oxide-auth-rocket = { path = "./oxide-auth-rocket-patched" }
-

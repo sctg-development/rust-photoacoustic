@@ -109,19 +109,10 @@ async fn main() -> Result<()> {
             let cert_data = BASE64_STANDARD.decode(cert)?;
             let key_data = BASE64_STANDARD.decode(key)?;
 
-            // Create temporary files for the certificates
-            let temp_dir = std::env::temp_dir();
-            let cert_path = temp_dir.join("server.crt");
-            let key_path = temp_dir.join("server.key");
-
-            // Write the certificates to temporary files
-            std::fs::write(&cert_path, cert_data)?;
-            std::fs::write(&key_path, key_data)?;
-
             // Configure TLS
             figment = figment
-                .merge(("tls.certs", cert_path))
-                .merge(("tls.key", key_path));
+                .merge(("tls.certs", cert_data))
+                .merge(("tls.key", key_data));
 
             info!("TLS enabled for web server");
         }
