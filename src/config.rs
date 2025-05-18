@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use base64::Engine;
 use jsonschema;
 use log::{debug, error};
+use rand::rand_core::le;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
@@ -34,9 +35,10 @@ pub struct VisualizationConfig {
     #[serde(default = "default_name")]
     pub name: String,
     /// SSL certificate PEM data (Base64 encoded)
-    #[serde(default)]
+    #[serde(default = "default_cert")]
     pub cert: Option<String>,
     /// SSL key PEM data (Base64 encoded)
+    #[serde(default = "default_key")]
     pub key: Option<String>,
 }
 
@@ -52,14 +54,34 @@ fn default_name() -> String {
     format!("LaserSmartApiServer/{}", env!("CARGO_PKG_VERSION"))
 }
 
+// Use if exists the ../resources/cert.pem file converted to base64 at build time
+fn default_cert() -> Option<String> {
+    let cert_str = include_str!("../resources/cert.pem");
+    if cert_str.is_empty() {
+        None
+    } else {
+        let cert_b64 = base64::engine::general_purpose::STANDARD.encode(cert_str.as_bytes());
+        Some(cert_b64.to_string())
+    }
+}
+// Use if exists the ../resources/cert.key file converted to base64 at build time
+fn default_key() -> Option<String> {
+    let key_str = include_str!("../resources/cert.key");
+    if key_str.is_empty() {
+        None
+    } else {
+        let key_b64 = base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes());
+        Some(key_b64.to_string())
+    }
+}
 impl Default for VisualizationConfig {
     fn default() -> Self {
         Self {
             port: default_port(),
             address: default_address(),
             name: default_name(),
-            cert: None,
-            key: None,
+            cert: default_cert(),
+            key: default_key(),
         }
     }
 }

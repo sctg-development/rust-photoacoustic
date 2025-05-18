@@ -1,18 +1,8 @@
-// Copyright (c) 2024 Ronan LE MEILLAT for SCTG Development
-//
-// This file is part of the SCTGDesk project.
-//
-// SCTGDesk is free software: you can redistribute it and/or modify
-// it under the terms of the Affero General Public License version 3 as
-// published by the Free Software Foundation.
-//
-// SCTGDesk is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// Affero General Public License for more details.
-//
-// You should have received a copy of the Affero General Public License
-// along with SCTGDesk. If not, see <https://www.gnu.org/licenses/agpl-3.0.html>.
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
+use anyhow::{Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -153,10 +143,135 @@ impl Default for PackageJson {
         }
     }
 }
+
+// We need to compile the utility module directly in the build script
+// to be able to use it during compilation
+mod certificate_utils {
+    use anyhow::{Context, Result};
+    use rcgen::{
+        CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose, SanType
+    };
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::Path;
+    
+    pub fn create_self_signed_cert(
+        days: u32,
+        cert_path: &str,
+        key_path: &str,
+        common_name: &str,
+        alt_names: Option<Vec<String>>,
+    ) -> Result<()> {
+        // Create directory if it doesn't exist
+        if let Some(parent) = Path::new(cert_path).parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if let Some(parent) = Path::new(key_path).parent() {
+            fs::create_dir_all(parent)?;
+        }
+        
+        // Set up certificate parameters
+        let mut params = CertificateParams::new(vec![String::from(common_name)])?;
+        params.not_before = time::OffsetDateTime::now_utc();
+        params.not_after = time::OffsetDateTime::now_utc() + time::Duration::days(days as i64);
+        params.distinguished_name.push(DnType::CommonName, DnValue::from(common_name));
+        
+        // Add Subject Alternative Names if provided
+        if let Some(names) = alt_names {
+            for name in names {
+                if name.parse::<std::net::IpAddr>().is_ok() {
+                    params.subject_alt_names.push(SanType::IpAddress(name.parse().unwrap()));
+                } else {
+                    params.subject_alt_names.push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
+                }
+            }
+        } else {
+            // Default SAN entries
+            params.subject_alt_names.push(SanType::DnsName(Ia5String::try_from("localhost").unwrap()));
+            params.subject_alt_names.push(SanType::IpAddress("127.0.0.1".parse().unwrap()));
+            params.subject_alt_names.push(SanType::IpAddress("::1".parse().unwrap()));
+        }
+        
+        // Set to not be a CA certificate
+        params.is_ca = IsCa::NoCa;
+        
+        // Set key usage
+        params.key_usages = vec![
+            KeyUsagePurpose::DigitalSignature,
+            KeyUsagePurpose::KeyEncipherment,
+        ];
+        
+        let key_pair = KeyPair::generate().unwrap();
+        let cert = params.self_signed(&key_pair).context("Failed to generate certificate")?;
+        
+        // Get the certificate and private key in PEM format
+        let cert_pem = cert.pem();
+        let key_pem = key_pair.serialize_pem();
+        
+        // Write certificate to file
+        let mut cert_file = File::create(cert_path).context("Failed to create certificate file")?;
+        cert_file.write_all(cert_pem.as_bytes())
+            .context("Failed to write certificate to file")?;
+        
+        // Write private key to file
+        let mut key_file = File::create(key_path).context("Failed to create key file")?;
+        key_file.write_all(key_pem.as_bytes())
+            .context("Failed to write key to file")?;
+        
+        Ok(())
+    }
+}
+
+// Function to create a self-signed certificate if it doesn't exist
+fn create_certificate_files_if_needed() -> Result<()> {
+    let cert_path = "resources/cert.pem";
+    let key_path = "resources/cert.key";
+
+    // Check if both certificate files already exist
+    let cert_exists = std::path::Path::new(cert_path).exists();
+    let key_exists = std::path::Path::new(key_path).exists();
+
+    if cert_exists && key_exists {
+        println!("cargo:warning=Certificate and key files already exist, skipping generation");
+        return Ok(());
+    }
+
+    println!("cargo:warning=Generating self-signed certificate for development");
+
+    // Create resources directory if it doesn't exist
+    let resources_dir = std::path::Path::new("resources");
+    if !resources_dir.exists() {
+        std::fs::create_dir_all(resources_dir)?;
+    }
+
+    // Use the utility function to create the certificates
+    certificate_utils::create_self_signed_cert(
+        365, // Valid for 365 days
+        cert_path,
+        key_path,
+        "rust-photoacoustic.local",
+        Some(vec![
+            "localhost".to_string(),
+            "127.0.0.1".to_string(),
+            "::1".to_string()
+        ])
+    )?;
+
+    println!("cargo:warning=Self-signed certificate and key generated successfully");
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
-    // Tells Cargo to rerun build.rs if any files in the web folder change
+    // Tells Cargo to rerun build.rs if any files in the web folder change or certificate files change
     println!("cargo:rerun-if-changed=web");
+    println!("cargo:rerun-if-changed=resources/cert.pem");
+    println!("cargo:rerun-if-changed=resources/cert.key");
+
+    // Generate certificate files if they don't exist
+    if let Err(e) = create_certificate_files_if_needed() {
+        println!("cargo:warning=Failed to generate certificate files: {}", e);
+    }
 
     // Checks if dist files already exist to avoid unnecessary rebuilds
     let dist_path = PathBuf::from("./web/dist");

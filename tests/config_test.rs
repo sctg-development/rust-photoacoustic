@@ -236,10 +236,7 @@ visualization:
 
     // This should issue a warning but still pass (based on your current implementation)
     let result = Config::from_file(&invalid_address_path);
-    assert!(
-        result.is_err(),
-        "YAML with invalid address should not pass"
-    );
+    assert!(result.is_err(), "YAML with invalid address should not pass");
 
     // Test 6: Invalid YAML - malformed certificate
     let invalid_cert_path = temp_dir.path().join("invalid_cert.yaml");
@@ -281,19 +278,22 @@ visualization:
     );
 
     // Test 8: Invalid IPv6 format (currently not detected by jsonschema v0.30.0)
-        let invalid_ipv6_path = temp_dir.path().join("invalid_ipv6.yaml");
-        let invalid_ipv6_yaml = r#"
+    let invalid_ipv6_path = temp_dir.path().join("invalid_ipv6.yaml");
+    let invalid_ipv6_yaml = r#"
 # Invalid IPv6 format (too many segments)
 visualization:
   port: 8080
   address: "2001:0db8:85a3:0000:0000:8a2e:0370:7334:5678"
   name: "TestServer"
 "#;
-        fs::write(&invalid_ipv6_path, invalid_ipv6_yaml)?;
+    fs::write(&invalid_ipv6_path, invalid_ipv6_yaml)?;
 
-        // This should fail validation since the IPv6 address is invalid
-        let result = Config::from_file(&invalid_ipv6_path);
-        assert!(result.is_err(), "YAML with invalid IPv6 format should fail validation");
+    // This should fail validation since the IPv6 address is invalid
+    let result = Config::from_file(&invalid_ipv6_path);
+    assert!(
+        result.is_err(),
+        "YAML with invalid IPv6 format should fail validation"
+    );
 
     Ok(())
 }

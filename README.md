@@ -45,6 +45,30 @@ visualization:
   # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
 ```
 
+### SSL Certificates
+
+The application automatically generates self-signed SSL certificates during the build process if they don't already exist. These certificates are stored in the `resources/` directory and are included in the binary at compile time.
+
+You don't need to manually create certificates for development purposes, but for production use, you can replace them with proper certificates. You can:
+
+1. Generate custom certificates using the utility function in `src/utility/certificate_utilities.rs`
+2. Directly add your own certificates to the `resources/` directory
+3. Specify base64-encoded certificates in the configuration file
+
+The build script will not overwrite existing certificate files.
+
+For production use you can put your own certificates in the configuration file like this:
+
+```yaml
+visualization:
+  cert: |
+    LS0tLS1CRUdJTiBDRVJUSUZJ0FURV0tLS0tLS0tCk1JSURnRENDQW9TZ0F3SUJBZ0lSQU5aR2d3Z1N3bG9wY2d4cG9iTjV6bXh4c2xvY3p6c2xvY3p6c2xvY3p6Ck1B
+  key: | 
+    LS0tLS1CRUdJTiBQUklWQVRFIEtFWS
+```
+
+This allows you to use your own certificates without needing to modify the code or build scripts.
+
 ### Command Line Overrides
 
 Command line arguments take precedence over configuration file values:
@@ -301,6 +325,32 @@ The CI workflow includes:
 - Code quality checks (formatting and linting)
 
 You can see the workflow status in the GitHub repository under the Actions tab.
+
+## Utility Functions
+
+### Certificate Utilities
+
+The project includes a utility module for generating self-signed SSL certificates at `src/utility/certificate_utilities.rs`. This can be used programmatically:
+
+```rust
+use rust_photoacoustic::utility::certificate_utilities;
+
+// Generate a self-signed certificate
+certificate_utilities::create_self_signed_cert(
+    365,                       // Valid for 365 days
+    "path/to/cert.pem",       // Certificate output path
+    "path/to/cert.key",       // Private key output path
+    "localhost",              // Common name for the certificate
+    None,                     // Optional key length (default: 2048)
+    Some(vec![                // Optional subject alternative names
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+        "::1".to_string()
+    ])
+)?;
+```
+
+This utility is used by the build process to automatically generate development certificates, but can also be used in your own code when needed.
 
 ### Running Tests Locally
 
