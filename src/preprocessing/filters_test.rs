@@ -2,6 +2,25 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+//! # Tests for Audio Filter Implementations
+//!
+//! This module contains test cases for validating the audio filter implementations
+//! used in photoacoustic signal processing. It includes:
+//!
+//! - Tests for bandpass filter frequency response characteristics
+//! - Real-world WAV file processing tests
+//! - Validation of filter energy preservation properties
+//!
+//! ## Test Coverage:
+//!
+//! * Bandpass filter central frequency response verification
+//! * Frequency-domain attenuation characteristics
+//! * Filter application to real audio samples
+//! * Energy preservation and attenuation verification
+//!
+//! Tests generate output WAV files in the project's "out" directory for manual inspection
+//! and verification of filter behavior.
+
 use super::filters::{BandpassFilter, Filter};
 use anyhow::Result;
 use std::fs;
@@ -11,7 +30,26 @@ use std::path::PathBuf;
 mod tests {
     use super::*;
 
-    // Helper function to read a WAV file and return the samples as a Vec<f32>
+    /// Helper function to read a WAV file and return normalized samples.
+    ///
+    /// This function reads a WAV audio file from disk and converts the samples
+    /// to normalized floating-point values in the range [-1.0, 1.0].
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the WAV file
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing:
+    /// - Vector of normalized audio samples as f32 values
+    /// - Sample rate of the audio file in Hz
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// - The file cannot be opened
+    /// - Sample reading fails
     fn read_wav_file(path: &str) -> (Vec<f32>, u32) {
         let mut reader = hound::WavReader::open(path).expect("Failed to open WAV file");
         let spec = reader.spec();
@@ -23,7 +61,27 @@ mod tests {
         (samples, spec.sample_rate)
     }
 
-    // Helper function to save samples as a WAV file
+    /// Helper function to save floating-point samples as a WAV file.
+    ///
+    /// This function writes normalized floating-point audio samples to a WAV file.
+    /// It handles sample conversion to i16 format with proper value clamping.
+    ///
+    /// # Arguments
+    ///
+    /// * `samples` - Vector of normalized audio samples (expected range: [-1.0, 1.0])
+    /// * `sample_rate` - Sample rate of the audio in Hz
+    /// * `path` - Output path for the WAV file
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), String>` - Success or an error message
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The output directory cannot be created
+    /// - The WAV file cannot be written
+    /// - Any sample writing operations fail
     fn save_wav_file(samples: &[f32], sample_rate: u32, path: &str) -> Result<(), String> {
         // Create the directory if it doesn't exist
         if let Some(parent) = std::path::Path::new(path).parent() {
@@ -51,6 +109,18 @@ mod tests {
         Ok(())
     }
 
+    /// Test bandpass filter functionality with a real audio WAV file.
+    ///
+    /// This test validates that the bandpass filter correctly processes real audio data.
+    /// It loads a WAV file, applies a bandpass filter centered at 2000 Hz with a bandwidth
+    /// of 100 Hz, and verifies that the filter:
+    ///
+    /// 1. Preserves the input signal length
+    /// 2. Attenuates frequencies outside the passband
+    /// 3. Preserves reasonable signal energy within expected bounds
+    ///
+    /// The test also saves both original and filtered signals to WAV files for
+    /// manual auditory inspection.
     #[test]
     fn test_bandpass_filter_with_wav_file() {
         // Load the test WAV file
@@ -113,6 +183,21 @@ mod tests {
         .expect("Failed to save filtered signal");
     }
 
+    /// Test the frequency response characteristics of the bandpass filter.
+    ///
+    /// This test verifies that the bandpass filter correctly attenuates frequencies
+    /// outside its passband and preserves frequencies within the passband. It does this by:
+    ///
+    /// 1. Generating sine waves at multiple test frequencies
+    /// 2. Applying the bandpass filter to each sine wave
+    /// 3. Measuring the output RMS amplitude for each frequency
+    /// 4. Verifying that the filter response follows expected bandpass characteristics:
+    ///    - Center frequency has the highest amplitude
+    ///    - Passband edges have at least 50% of the center frequency amplitude
+    ///    - Frequencies outside the passband are significantly attenuated
+    ///
+    /// The test also saves both the original and filtered sine waves to WAV files for
+    /// visual and auditory inspection.
     #[test]
     fn test_bandpass_filter_frequency_response() {
         // Create test signals at different frequencies

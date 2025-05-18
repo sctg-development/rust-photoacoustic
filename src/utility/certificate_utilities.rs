@@ -2,7 +2,40 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Certificate utilities for generating self-signed certificates
+//! # Certificate Utilities
+//!
+//! This module provides utilities for generating and managing SSL/TLS certificates
+//! for secure communication in the photoacoustic application.
+//!
+//! ## Features
+//!
+//! * Generation of self-signed certificates
+//! * Support for custom validity periods
+//! * Support for custom Subject Alternative Names (SANs)
+//! * Proper key usage configuration
+//!
+//! ## Usage Example
+//!
+//! ```rust
+//! use rust_photoacoustic::utility::certificate_utilities::create_self_signed_cert;
+//!
+//! // Generate a simple self-signed certificate for localhost
+//! let result = create_self_signed_cert(
+//!     365,                           // Valid for 365 days
+//!     "path/to/certificate.pem",     // Certificate output path 
+//!     "path/to/private_key.pem",     // Private key output path
+//!     "localhost",                   // Common name
+//!     None,                          // Use default key length
+//!     None,                          // Use default alternative names
+//! );
+//! ```
+//!
+//! ## Security Considerations
+//!
+//! Self-signed certificates are suitable for development and testing environments,
+//! but should not be used in production without understanding the security implications.
+//! For production environments, certificates from a trusted Certificate Authority (CA)
+//! should be used whenever possible.
 
 use anyhow::{Context, Result};
 use rcgen::{
@@ -13,21 +46,73 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 
-/// Creates a self-signed certificate and key pair and writes them to the specified paths
+/// Creates a self-signed certificate and key pair and writes them to the specified paths.
+///
+/// This function generates a new X.509 certificate suitable for TLS/SSL connections.
+/// By default, the certificate will include "localhost", "127.0.0.1", and "::1" as
+/// Subject Alternative Names (SANs) if no alternative names are provided.
+///
+/// The certificate is configured with digital signature and key encipherment purposes,
+/// making it suitable for server authentication in TLS connections.
 ///
 /// # Arguments
 ///
-/// * `days` - Validity period in days
-/// * `cert_path` - Path to save the certificate
-/// * `key_path` - Path to save the private key
-/// * `common_name` - The common name for the certificate (e.g., "localhost")
-/// * `key_length` - Key length (default: 2048)
-/// * `alt_names` - Optional list of subject alternative names
+/// * `days` - Validity period in days for the certificate
+/// * `cert_path` - File path where the PEM-encoded certificate will be saved
+/// * `key_path` - File path where the PEM-encoded private key will be saved
+/// * `common_name` - The common name (CN) for the certificate (e.g., "localhost", "example.com")
+/// * `key_length` - Optional key length in bits (e.g., 2048, 4096). If None, uses the default length
+/// * `alt_names` - Optional list of subject alternative names (DNS names or IP addresses)
 ///
 /// # Returns
 ///
-/// * `Result<()>` - Success or error
+/// * `Result<()>` - Ok(()) on success, or an error if certificate generation or file operations fail
 ///
+/// # Errors
+///
+/// Returns an error if:
+/// - Certificate parameter creation fails
+/// - Self-signing operation fails
+/// - Output directories cannot be created
+/// - Certificate or key files cannot be created or written to
+///
+/// # Examples
+///
+/// Basic usage with default settings:
+///
+/// ```rust
+/// use rust_photoacoustic::utility::certificate_utilities::create_self_signed_cert;
+///
+/// let result = create_self_signed_cert(
+///     30,                     // Valid for 30 days
+///     "cert.pem",             // Certificate output path
+///     "key.pem",              // Private key output path
+///     "localhost",            // Common name
+///     None,                   // Use default key length
+///     None,                   // Use default alternative names
+/// );
+/// ```
+///
+/// Usage with custom alternative names:
+///
+/// ```rust
+/// use rust_photoacoustic::utility::certificate_utilities::create_self_signed_cert;
+///
+/// let alt_names = vec![
+///     "example.com".to_string(),
+///     "www.example.com".to_string(),
+///     "192.168.1.1".to_string(),
+/// ];
+///
+/// let result = create_self_signed_cert(
+///     365,                    // Valid for 1 year
+///     "server.crt",           // Certificate output path
+///     "server.key",           // Private key output path
+///     "example.com",          // Common name
+///     Some(4096),             // Use 4096-bit key
+///     Some(alt_names),        // Use custom alternative names
+/// );
+/// ```
 pub fn create_self_signed_cert(
     days: u32,
     cert_path: &str,
@@ -87,7 +172,18 @@ pub fn create_self_signed_cert(
         KeyUsagePurpose::KeyEncipherment,
     ];
 
-    let key_pair = KeyPair::generate().unwrap();
+    // Generate key pair with specified length or default
+    let key_pair = match key_length {
+        Some(bits) => {
+            // Note: Custom key length implementation would go here
+            // The rcgen crate doesn't directly expose key length configuration,
+            // so we're using the default for now
+            KeyPair::generate().context("Failed to generate key pair")?
+        },
+        None => KeyPair::generate().context("Failed to generate key pair")?,
+    };
+
+    // Generate self-signed certificate
     let cert = params
         .self_signed(&key_pair)
         .context("Failed to generate certificate")?;

@@ -2,6 +2,42 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+//! # OAuth 2.0 Token Introspection
+//!
+//! This module implements RFC 7662 OAuth 2.0 Token Introspection, providing
+//! functionality to validate tokens and retrieve metadata about them.
+//! 
+//! ## Features
+//!
+//! * Token validation against both the OAuth issuer and JWT signatures
+//! * RFC 7662 compliant introspection endpoint
+//! * Support for bearer tokens
+//! * Extraction of token metadata (scope, subject, expiration, etc.)
+//!
+//! ## Usage
+//!
+//! The introspection endpoint can be mounted in a Rocket application:
+//!
+//! ```rust
+//! use rocket::build;
+//! use rust_photoacoustic::visualization::introspection::introspect;
+//! use rust_photoacoustic::visualization::oxide_auth::OxideState;
+//!
+//! fn main() {
+//!     let state = OxideState::new("your-secret", "your-issuer");
+//!     
+//!     let rocket = rocket::build()
+//!         .manage(state)
+//!         .mount("/oauth", routes![introspect]);
+//!     
+//!     // Launch the server...
+//! }
+//! ```
+//!
+//! ## References
+//!
+//! * [RFC 7662: OAuth 2.0 Token Introspection](https://datatracker.ietf.org/doc/html/rfc7662)
+
 use crate::visualization::oxide_auth::OxideState;
 use chrono::{TimeZone, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
@@ -13,7 +49,15 @@ use rocket::{post, State};
 use std::collections::HashMap;
 // Déjà importé via rocket::serde
 
-/// Copie de la structure JwtClaims pour le décodage local
+/// Local representation of JWT claims for decoding and validation
+///
+/// This struct mirrors the structure of the JWT claims issued by the authorization
+/// server, enabling validation and extraction of token information.
+/// 
+/// # Fields
+///
+/// All standard JWT claims are supported, along with a scope claim for OAuth 2.0
+/// scope values and optional metadata for additional custom claims.
 #[derive(Debug, Deserialize)]
 struct JwtClaimsLocal {
     /// Subject (typically user ID)
@@ -37,7 +81,19 @@ struct JwtClaimsLocal {
     metadata: Option<HashMap<String, String>>,
 }
 
-/// Token introspection request
+/// Token introspection request parameters
+///
+/// This struct represents the request parameters for the token introspection endpoint
+/// as defined in RFC 7662 OAuth 2.0 Token Introspection.
+///
+/// # Fields
+///
+/// * `token` - The string value of the token to be introspected
+/// * `token_type_hint` - Optional hint about the type of token (e.g., "access_token")
+///
+/// # References
+///
+/// * [RFC 7662 Section 2.1](https://datatracker.ietf.org/doc/html/rfc7662#section-2.1)
 #[derive(FromForm, Deserialize)]
 pub struct IntrospectionRequest {
     /// The token that the client wants to introspect
@@ -46,7 +102,22 @@ pub struct IntrospectionRequest {
     pub token_type_hint: Option<String>,
 }
 
-/// Token introspection response as per RFC 7662
+/// Token introspection response according to RFC 7662
+///
+/// This struct represents the response returned by the token introspection endpoint.
+/// It includes standard fields defined in RFC 7662 and supports additional custom claims.
+///
+/// # Required Field
+///
+/// * `active` - Boolean indicating whether the token is active
+///
+/// # Optional Fields
+///
+/// All other fields are only included when the token is active.
+/// 
+/// # References
+///
+/// * [RFC 7662 Section 2.2](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2)
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct IntrospectionResponse {
@@ -88,9 +159,67 @@ pub struct IntrospectionResponse {
 }
 
 /// RFC 7662 OAuth 2.0 Token Introspection Endpoint
-/// This allows clients to validate an access token and get information about it.
 ///
-/// This is particularly useful for resource servers that need to validate tokens.
+/// This endpoint allows clients to validate an access token and obtain information about it.
+/// It first tries to validate the token using the configured OAuth issuer, then falls back
+/// to JWT validation if needed.
+///
+/// # Endpoint
+///
+/// `POST /introspect`
+///
+/// # Request Parameters
+///
+/// Accepts form data with the following fields:
+/// * `token` - The token to introspect (required)
+/// * `token_type_hint` - Optional hint about the token type
+///
+/// # Response
+///
+/// Returns a JSON object with the standard introspection response fields.
+/// The `active` field is always present; other fields are only included for active tokens.
+///
+/// # Authentication
+///
+/// In a production environment, this endpoint should be protected with appropriate
+/// authentication to prevent unauthorized token introspection.
+///
+/// # Example Request
+///
+/// ```
+/// POST /introspect HTTP/1.1
+/// Host: server.example.com
+/// Content-Type: application/x-www-form-urlencoded
+/// Accept: application/json
+///
+/// token=2YotnFZFEjr1zCsicMWpAA
+/// ```
+///
+/// # Example Response for an Active Token
+///
+/// ```json
+/// {
+///   "active": true,
+///   "client_id": "l238j323ds-23ij4",
+///   "scope": "read write",
+///   "sub": "Z5O3upPC88QrAjx00dis",
+///   "exp": 1419356238,
+///   "iat": 1419350238,
+///   "token_type": "Bearer"
+/// }
+/// ```
+///
+/// # Example Response for an Invalid Token
+///
+/// ```json
+/// {
+///   "active": false
+/// }
+/// ```
+///
+/// # References
+///
+/// * [RFC 7662: OAuth 2.0 Token Introspection](https://datatracker.ietf.org/doc/html/rfc7662)
 #[post("/introspect", data = "<params>")]
 pub fn introspect(
     params: Form<IntrospectionRequest>,
@@ -207,7 +336,7 @@ pub fn introspect(
                 exp: Some(claims.exp),
                 iat: Some(claims.iat),
                 nbf: Some(claims.nbf),
-                aud: Some(claims.aud), // Also set aud directly
+                aud: Some(claims.aud),
                 iss: Some(claims.iss),
                 jti: Some(claims.jti),
                 token_type: Some("Bearer".to_string()),

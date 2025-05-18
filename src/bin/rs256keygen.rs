@@ -2,6 +2,40 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+//! # RS256 Key Generator
+//! 
+//! This binary utility generates RSA key pairs for JWT token signing in RS256 format.
+//! It creates both private and public keys in PEM format and writes them to specified files.
+//! 
+//! ## Usage
+//! 
+//! ```
+//! rs256keygen [OPTIONS]
+//! ```
+//! 
+//! ## Options
+//! 
+//! - `--out-pub-key <PATH>`: Path for the public key PEM file (default: "./pub.key")
+//! - `--out-private-key <PATH>`: Path for the private key PEM file (default: "./private.key")
+//! - `--length <BITS>`: RSA key length in bits (default: 4096)
+//! 
+//! ## Examples
+//! 
+//! Generate default 4096-bit keys in the current directory:
+//! ```
+//! rs256keygen
+//! ```
+//! 
+//! Generate 3072-bit keys with custom paths:
+//! ```
+//! rs256keygen --length 3072 --out-pub-key /path/to/public.pem --out-private-key /path/to/private.pem
+//! ```
+//!
+//! ## Integration with Photoacoustic Configuration
+//!
+//! After generating the keys, they need to be Base64 encoded and added to the `config.yaml` file
+//! under the `visualization.rs256_private_key` and `visualization.rs256_public_key` fields.
+
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -11,28 +45,61 @@ use clap::Parser;
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 
-/// Generate RSA256 key pair for JWT tokens
+/// Command line arguments for the RSA256 key generation utility.
+///
+/// This struct defines the parameters that can be passed to the application
+/// via command line arguments. The clap crate automatically handles parsing
+/// and validation of these arguments.
 #[derive(Parser, Debug)]
-#[clap(author, version, about)]
+#[clap(author, version, about = "Generate RSA key pairs for JWT token signing in RS256 format")]
 struct Args {
-    /// Output path for the public key PEM file
+    /// Output path for the public key PEM file.
+    /// 
+    /// This file will contain the public key in PKCS#1 PEM format, which can be
+    /// used for JWT token verification. In the photoacoustic application, this key
+    /// should be base64-encoded and added to the config.yaml file.
     #[clap(long, default_value = "./pub.key")]
     out_pub_key: PathBuf,
 
-    /// Output path for the private key PEM file
+    /// Output path for the private key PEM file.
+    /// 
+    /// This file will contain the private key in PKCS#1 PEM format, which can be
+    /// used for JWT token signing. In the photoacoustic application, this key
+    /// should be base64-encoded and added to the config.yaml file.
     #[clap(long, default_value = "./private.key")]
     out_private_key: PathBuf,
 
-    /// RSA key length in bits
+    /// RSA key length in bits.
+    /// 
+    /// Common values are 2048, 3072, or 4096 bits. Longer keys provide more
+    /// security but require more computational resources for signing and verification.
+    /// The default of 4096 bits provides a high level of security suitable for most
+    /// applications.
     #[clap(long, default_value = "4096")]
     length: usize,
 }
 
+/// Main entry point for the RS256 key generation utility.
+/// 
+/// This function:
+/// 1. Parses command line arguments
+/// 2. Generates an RSA key pair with the specified key length
+/// 3. Encodes the keys in PKCS#1 PEM format
+/// 4. Writes the keys to the specified output files
+/// 5. Prints instructions for using the keys with the photoacoustic application
+/// 
+/// # Errors
+/// 
+/// Returns an error if:
+/// - RSA key generation fails
+/// - PEM encoding fails
+/// - File creation or writing fails
 fn main() -> Result<()> {
     let args = Args::parse();
 
     println!("Generating RSA key pair with {} bits...", args.length);
 
+    // Use OsRng directly to avoid dependency version conflicts
     let mut rng = rsa::rand_core::OsRng;
 
     // Generate a new random RSA key pair with the specified bits

@@ -2,6 +2,39 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+//! # Configuration Management
+//!
+//! This module implements configuration handling for the photoacoustic application.
+//! It supports loading, validating, and saving configuration from YAML files using
+//! JSON Schema validation for robust error checking.
+//!
+//! ## Configuration Structure
+//!
+//! The application's configuration is organized as a nested structure with sections:
+//! - `visualization`: Settings for the visualization web server
+//!
+//! ## Security Features
+//!
+//! The configuration supports both HMAC and RSA-based JWT token authentication:
+//! - HMAC-based JWT: Simple secret key-based token signing and verification
+//! - RS256 JWT: Public/private key pair for more secure token handling
+//!
+//! ## Usage
+//!
+//! ```no_run
+//! use rust_photoacoustic::config::Config;
+//! use std::path::Path;
+//!
+//! // Load config from file, creates a default if not found
+//! let mut config = Config::from_file(Path::new("config.yaml")).unwrap();
+//!
+//! // Apply command line overrides if needed
+//! config.apply_args(8081, "0.0.0.0".to_string(), None);
+//!
+//! // Access configuration values
+//! println!("Server port: {}", config.visualization.port);
+//! ```
+
 use anyhow::{Context, Result};
 use base64::Engine;
 use jsonschema;
@@ -13,51 +46,132 @@ use std::{
     path::Path,
 };
 
-/// Configuration structure for the application
+/// Root configuration structure for the photoacoustic application.
+///
+/// This structure serves as the main container for all configuration sections
+/// of the application. Currently, it only contains visualization settings, but
+/// it can be expanded to include other sections as the application grows.
+///
+/// # Structure
+///
+/// The configuration is designed to be deserialized from and serialized to YAML
+/// using the serde framework. The structure is validated against a JSON schema
+/// to ensure all required fields are present and have valid values.
+///
+/// # Default Values
+///
+/// Each section uses default values when not explicitly specified in the configuration
+/// file, allowing for minimal configuration when custom settings are not required.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// Visualization settings
+    /// Settings for the visualization web server component.
+    /// 
+    /// These settings control how the visualization server behaves, including
+    /// network binding, security, and authentication mechanisms.
+    /// If not specified in the configuration file, default values are used.
     #[serde(default)]
     pub visualization: VisualizationConfig,
 }
 
-/// Configuration for the visualization server
+/// Configuration for the visualization web server.
+///
+/// This structure contains all settings required for the visualization server component,
+/// including network binding parameters, TLS certificate settings, and authentication
+/// configuration with both HMAC and RSA key-based JWT options.
+///
+/// # Security Options
+///
+/// The structure supports two JWT authentication mechanisms:
+///
+/// 1. **HMAC-based JWT**: A simple secret key used for both signing and verification
+/// 2. **RS256-based JWT**: More secure public/private key pair where:
+///    - Private key is used for signing tokens
+///    - Public key is used for verifying tokens
+///
+/// The RS256 keys can be generated using the included `rs256keygen` binary.
+///
+/// # TLS Configuration
+///
+/// For secure HTTPS connections, both `cert` and `key` fields must be provided as
+/// Base64-encoded PEM files. If either is missing, the server will operate in non-TLS mode.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VisualizationConfig {
-    /// The port to listen on
+    /// The TCP port the visualization server will listen on.
+    /// 
+    /// Valid range is 1-65534. Default value is 8080.
     #[serde(default = "default_port")]
     pub port: u16,
-    /// The address to bind to
+    
+    /// The network address the server will bind to.
+    /// 
+    /// Can be an IPv4/IPv6 address or a hostname. Default is "127.0.0.1".
+    /// Use "0.0.0.0" to bind to all IPv4 interfaces.
     #[serde(default = "default_address")]
     pub address: String,
-    /// The server name
+    
+    /// The server name reported in HTTP headers and logs.
+    /// 
+    /// Default is "LaserSmartApiServer/" followed by the package version.
     #[serde(default = "default_name")]
     pub name: String,
-    /// SSL certificate PEM data (Base64 encoded)
+    
+    /// SSL/TLS certificate in PEM format, Base64 encoded.
+    /// 
+    /// If provided, `key` must also be supplied. For development,
+    /// defaults to the certificate in the resources directory.
     #[serde(default = "default_cert")]
     pub cert: Option<String>,
-    /// SSL key PEM data (Base64 encoded)
+    
+    /// SSL/TLS private key in PEM format, Base64 encoded.
+    /// 
+    /// If provided, `cert` must also be supplied. For development,
+    /// defaults to the key in the resources directory.
     #[serde(default = "default_key")]
     pub key: Option<String>,
-    /// HMAC secret for JWT signing
+    
+    /// Secret key for HMAC-based JWT token signing and verification.
+    /// 
+    /// Used when RS256 keys are not available or for simpler deployments.
+    /// Not recommended for production environments.
     #[serde(default = "default_hmac_secret")]
     pub hmac_secret: String,
-    /// RS256 private key PEM data (Base64 encoded)
+    
+    /// RS256 private key in PEM format, Base64 encoded.
+    /// 
+    /// Used for signing JWT tokens with the RS256 algorithm.
+    /// Can be generated with the `rs256keygen` binary.
     #[serde(default = "default_rs256_private_key")]
     pub rs256_private_key: String,
-    /// RS256 public key PEM data (Base64 encoded)
+    
+    /// RS256 public key in PEM format, Base64 encoded.
+    /// 
+    /// Used for verifying JWT tokens signed with the RS256 algorithm.
+    /// Can be generated with the `rs256keygen` binary.
     #[serde(default = "default_rs256_public_key")]
     pub rs256_public_key: String,
 }
 
+/// Provides the default TCP port (8080) for the visualization server.
+///
+/// This port is commonly used for development web servers and is
+/// generally available on most systems.
 fn default_port() -> u16 {
     8080
 }
 
+/// Provides the default network binding address (127.0.0.1) for the visualization server.
+///
+/// This loopback address ensures the server only accepts connections from the local machine,
+/// which is secure for development purposes. For production use where remote connections
+/// are required, this should be changed to "0.0.0.0" or a specific network interface.
 fn default_address() -> String {
     "127.0.0.1".to_string()
 }
 
+/// Generates the default server name string based on the current package version.
+///
+/// The server name is included in HTTP headers and used in logs to identify
+/// this specific instance of the visualization server.
 fn default_name() -> String {
     format!("LaserSmartApiServer/{}", env!("CARGO_PKG_VERSION"))
 }

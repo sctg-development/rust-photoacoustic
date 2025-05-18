@@ -1,55 +1,119 @@
 // Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
-//! Differential processor utility
+
+//! # Differential Processor Utility
 //!
-//! This binary tool processes WAV files to create differential signals.
-//! It can:
-//! 1. Process a stereo file and output the difference between channels (L-R or R-L)
-//! 2. Process two mono files and output their difference (file1-file2)
+//! This binary tool processes WAV audio files to create differential signals for photoacoustic analysis.
+//! It supports several processing modes to help extract the relevant signal components from raw recordings.
+//!
+//! ## Features
+//!
+//! * Process stereo files and output the difference between channels (L-R or R-L)
+//! * Process two mono files and output their difference (file1-file2)
+//! * Apply gain adjustment to the resulting differential signal
+//!
+//! ## Usage
+//!
+//! ```
+//! differential --input input.wav --output output.wav --mode LeftMinusRight --gain 1.0
+//! ```
+//!
+//! For File1MinusFile2 mode:
+//!
+//! ```
+//! differential --input file1.wav --input2 file2.wav --output result.wav --mode File1MinusFile2
+//! ```
+//!
+//! ## Applications in Photoacoustic Analysis
+//!
+//! In photoacoustic spectroscopy, differential signals help isolate the actual acoustic response
+//! by removing common mode noise. This is particularly useful when:
+//!
+//! 1. Using stereo recordings where one channel contains the signal+noise and the other contains just noise
+//! 2. Comparing before/after recordings to isolate the effect of a stimulus
 
 use clap::{Parser, ValueEnum};
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 use rust_photoacoustic::preprocessing::differential;
 use std::path::PathBuf;
 
+/// Defines the different modes of differential signal processing.
+///
+/// The mode determines which channels or files are subtracted from each other
+/// to create the output signal.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum DifferentialMode {
-    /// Left minus Right (for stereo files)
+    /// Left channel minus Right channel (for stereo files).
+    /// 
+    /// This mode is useful when the left channel contains signal+noise and
+    /// the right channel contains a reference noise recording.
     LeftMinusRight,
-    /// Right minus Left (for stereo files)
+    
+    /// Right channel minus Left channel (for stereo files).
+    ///
+    /// This mode is useful when the right channel contains signal+noise and
+    /// the left channel contains a reference noise recording.
     RightMinusLeft,
-    /// File1 minus File2 (for two mono files)
+    
+    /// First file minus Second file (for two mono files).
+    ///
+    /// This mode allows processing two separate recordings, such as with/without
+    /// stimulus or before/after a treatment.
     File1MinusFile2,
 }
 
+/// Command line arguments for the differential signal processor.
+///
+/// This structure defines all the parameters that can be provided via command line
+/// to control the differential processing of WAV files.
 #[derive(Parser, Debug)]
 #[command(name = "differential")]
-#[command(author = "Romain Lemeill")]
+#[command(author = "Ronan LE MEILLAT")]
 #[command(version = "1.0")]
 #[command(about = "Create differential signals from WAV files", long_about = None)]
 struct Args {
-    /// Input WAV file (stereo or mono)
+    /// Input WAV file (stereo or mono).
+    ///
+    /// This is the primary input file. For LeftMinusRight and RightMinusLeft modes,
+    /// this must be a stereo file. For File1MinusFile2 mode, this should be a mono file.
     #[arg(short = 'i', long)]
     input: PathBuf,
 
-    /// Second input WAV file (only used in File1MinusFile2 mode)
+    /// Second input WAV file (only used in File1MinusFile2 mode).
+    ///
+    /// This file is subtracted from the primary input file. It must be mono
+    /// and have the same sample rate and bit depth as the primary input.
     #[arg(short = '2', long)]
     input2: Option<PathBuf>,
 
-    /// Output WAV file
+    /// Output WAV file path where the differential signal will be saved.
+    ///
+    /// The output will always be a mono WAV file with the same sample rate
+    /// and bit depth as the input.
     #[arg(short, long)]
     output: PathBuf,
 
-    /// Differential mode
+    /// Differential mode determining how the signals are combined.
+    ///
+    /// Specifies which processing method to use: LeftMinusRight (default),
+    /// RightMinusLeft, or File1MinusFile2.
     #[arg(short, long, value_enum, default_value_t = DifferentialMode::LeftMinusRight)]
     mode: DifferentialMode,
 
-    /// Gain to apply to the output (multiplier)
+    /// Gain to apply to the output (multiplier).
+    ///
+    /// This value multiplies each sample of the differential signal.
+    /// Values greater than 1.0 amplify the signal, values less than 1.0 attenuate it.
+    /// The result is clamped to prevent digital clipping.
     #[arg(short, long, default_value_t = 1.0)]
     gain: f32,
 }
 
+/// Main entry point for the differential signal processing utility.
+///
+/// Parses command line arguments and routes processing to the appropriate function
+/// based on the selected differential mode.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -74,6 +138,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Processes a stereo WAV file to create a differential signal.
+///
+/// This function handles the LeftMinusRight and RightMinusLeft modes.
+/// It reads a stereo file, separates the channels, and creates a mono
+/// output file with the difference between the channels.
+///
+/// # Arguments
+///
+/// * `args` - Command line arguments containing input/output paths and processing parameters
+///
+/// # Returns
+///
+/// * `Result<(), Box<dyn std::error::Error>>` - Success or an error with description
+///
+/// # Errors
+///
+/// Will return an error if:
+/// - The input file cannot be read
+/// - The input file is not stereo
+/// - There is an issue writing the output file
 fn process_stereo_file(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("Reading stereo file {:?}", args.input);
 
@@ -139,6 +223,26 @@ fn process_stereo_file(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Processes two mono WAV files to create a differential signal.
+///
+/// This function handles the File1MinusFile2 mode. It reads two mono files,
+/// verifies their compatibility, and creates an output file with their difference.
+///
+/// # Arguments
+///
+/// * `args` - Command line arguments containing input/output paths and processing parameters
+///
+/// # Returns
+///
+/// * `Result<(), Box<dyn std::error::Error>>` - Success or an error with description
+///
+/// # Errors
+///
+/// Will return an error if:
+/// - Either input file cannot be read
+/// - Either input file is not mono
+/// - The input files have incompatible sample rates or bit depths
+/// - There is an issue writing the output file
 fn process_two_mono_files(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let input2 = args.input2.as_ref().unwrap(); // Safe because we checked earlier
 

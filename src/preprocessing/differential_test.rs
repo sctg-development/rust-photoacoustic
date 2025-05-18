@@ -2,7 +2,23 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Tests for differential signal calculation
+//! # Tests for Differential Signal Calculation
+//!
+//! This module contains test cases that validate the differential signal calculation 
+//! functionality in the photoacoustic signal processing pipeline.
+//!
+//! ## Test Coverage:
+//!
+//! * Basic functionality testing with simple vectors
+//! * Complex testing with real audio WAV files
+//! * Error handling for invalid inputs (uneven channel lengths)
+//! * Statistical validation of differential properties
+//!
+//! The tests ensure that:
+//! 1. Differential signals are correctly calculated (A-B)
+//! 2. Statistical properties are preserved (mean, energy)
+//! 3. Maximum differences are correctly identified
+//! 4. Error handling works as expected
 
 use super::differential::{DifferentialCalculator, SimpleDifferential};
 use anyhow::Result;
@@ -13,7 +29,29 @@ use std::path::PathBuf;
 mod tests {
     use super::*;
 
-    // Helper function to read a stereo WAV file and return the left and right channels
+    /// Helper function to read a stereo WAV file and return the left and right channels.
+    ///
+    /// This function opens a WAV file, validates that it's a stereo recording,
+    /// and separates the interleaved audio data into distinct left and right channel vectors.
+    /// The audio samples are normalized to the range [-1.0, 1.0].
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the stereo WAV file
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(Vec<f32>, Vec<f32>, u32)>` - Tuple containing:
+    ///   - Left channel samples as normalized f32 values
+    ///   - Right channel samples as normalized f32 values
+    ///   - Sample rate of the recording in Hz
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The file cannot be opened
+    /// - The file is not a stereo recording (doesn't have exactly 2 channels)
+    /// - There are issues reading the audio samples
     fn read_stereo_wav_file(path: &str) -> Result<(Vec<f32>, Vec<f32>, u32)> {
         let mut reader = hound::WavReader::open(path)?;
         let spec = reader.spec();
@@ -47,7 +85,27 @@ mod tests {
         Ok((left_channel, right_channel, spec.sample_rate))
     }
 
-    // Helper function to save samples as a WAV file
+    /// Helper function to save audio samples as a WAV file.
+    ///
+    /// This function creates a mono WAV file from the provided normalized audio samples.
+    /// It ensures the output directory exists, converts the floating-point samples to
+    /// 16-bit integers, and writes them to the specified path.
+    ///
+    /// # Arguments
+    ///
+    /// * `samples` - Vector of audio samples as normalized f32 values in range [-1.0, 1.0]
+    /// * `sample_rate` - Sample rate of the audio in Hz
+    /// * `path` - Output path where the WAV file should be saved
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The output directory cannot be created
+    /// - The WAV file cannot be written to disk
     fn save_wav_file(samples: &[f32], sample_rate: u32, path: &str) -> Result<()> {
         // Create the directory if it doesn't exist
         if let Some(parent) = std::path::Path::new(path).parent() {
@@ -75,6 +133,19 @@ mod tests {
         Ok(())
     }
 
+    /// Test the differential calculation using a real stereo WAV file.
+    ///
+    /// This comprehensive test loads a stereo WAV file, calculates the differential
+    /// signal between channels, and validates the results through multiple checks:
+    /// - Verifying sample-by-sample calculation correctness
+    /// - Confirming statistical properties (means, energies)
+    /// - Testing the location of maximum differences
+    /// - Saving the results as WAV files for manual verification
+    /// - Testing error handling for invalid inputs
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Success or an error
     #[test]
     fn test_differential_with_wav_file() -> Result<()> {
         // Load the test WAV file
@@ -219,6 +290,16 @@ mod tests {
         Ok(())
     }
 
+    /// Test basic differential calculation with simple test vectors.
+    ///
+    /// This test validates the core functionality of the differential calculator
+    /// using simple, predictable data. It checks that:
+    /// - The output length matches the input length
+    /// - Each output value equals the difference between corresponding input values
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Success or an error
     #[test]
     fn test_differential_basic() -> Result<()> {
         // Create simple test data
