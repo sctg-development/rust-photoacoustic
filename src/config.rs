@@ -6,8 +6,7 @@ use anyhow::{Context, Result};
 use base64::Engine;
 use jsonschema;
 use log::{debug, error};
-use serde::{de, Deserialize, Serialize};
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::Write,
@@ -94,21 +93,24 @@ impl Config {
         // First step: convert YAML to a generic Value
         let yaml_value: serde_yml::Value = serde_yml::from_str(&contents)
             .with_context(|| format!("Failed to parse YAML configuration from {:?}", path))?;
-        
+
         // Convert to JSON Value for validation
         let json_value = serde_json::to_value(&yaml_value)
             .context("Failed to convert YAML to JSON for validation")?;
-        
-        debug!("Raw YAML converted to JSON for validation: {:?}", json_value);
-        
+
+        debug!(
+            "Raw YAML converted to JSON for validation: {:?}",
+            json_value
+        );
+
         // Load and validate with the schema
         let schema_str = include_str!("../resources/config.schema.json");
-        let schema: serde_json::Value = serde_json::from_str(schema_str)
-            .context("Failed to parse JSON schema")?;
-        
+        let schema: serde_json::Value =
+            serde_json::from_str(schema_str).context("Failed to parse JSON schema")?;
+
         // Create the validator
         let validator = jsonschema::draft202012::new(&schema)?;
-        
+
         // Validate before deserializing to Config
         debug!("Validating {} configuration against schema", path.display());
         if let Err(error) = validator.validate(&json_value) {
@@ -120,7 +122,7 @@ impl Config {
         debug!("Schema validation passed, deserializing into Config structure");
         let config: Config = serde_yml::from_str(&contents)
             .with_context(|| format!("Failed to deserialize validated YAML from {:?}", path))?;
-        
+
         // Perform additional specific validations
         Self::validate_specific_rules(&config)?;
 
@@ -158,7 +160,7 @@ impl Config {
     /// Validate additional rules that aren't covered by the JSON schema
     fn validate_specific_rules(config: &Config) -> Result<()> {
         debug!("Performing additional validation checks");
-        
+
         // Validate SSL certificates
         if let Some(cert) = &config.visualization.cert {
             if config.visualization.key.is_none() {
@@ -181,18 +183,21 @@ impl Config {
                 .decode(key)
                 .context("SSL key is not valid base64")?;
         }
-        
+
         // Check value ranges for certain fields
-        if config.visualization.port < 1 || config.visualization.port > 65535 {
+        if config.visualization.port < 1 || config.visualization.port > 65534 {
             anyhow::bail!("Invalid port number: {}", config.visualization.port);
         }
 
         // Check if the address is in a valid format
         if !is_valid_ip_address(&config.visualization.address) {
-            debug!("Potentially invalid address format: {}", config.visualization.address);
+            debug!(
+                "Potentially invalid address format: {}",
+                config.visualization.address
+            );
             // Just issue a warning but don't block
         }
-        
+
         Ok(())
     }
 }
@@ -202,7 +207,7 @@ fn is_valid_ip_address(addr: &str) -> bool {
     if addr.parse::<std::net::IpAddr>().is_ok() {
         return true;
     }
-    
+
     // Special cases
     matches!(addr, "localhost" | "::" | "::0" | "0.0.0.0")
 }
