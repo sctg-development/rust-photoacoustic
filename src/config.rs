@@ -109,7 +109,9 @@ impl Config {
             serde_json::from_str(schema_str).context("Failed to parse JSON schema")?;
 
         // Create the validator
-        let validator = jsonschema::draft202012::new(&schema)?;
+        let validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&schema)?;
 
         // Validate before deserializing to Config
         debug!("Validating {} configuration against schema", path.display());

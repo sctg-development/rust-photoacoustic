@@ -151,7 +151,7 @@ visualization:
         "Valid YAML with full IPv6 should pass validation"
     );
 
-    // Test 1f: Valid YAML configuration with bracketed IPv6 address for port bindings
+    // Test 1f: Invalid YAML configuration with bracketed IPv6 address for port bindings (draft 2020-12)
     let bracketed_ipv6_path = temp_dir.path().join("bracketed_ipv6_config.yaml");
     let bracketed_ipv6_yaml = r#"
 # Photoacoustic Water Vapor Analyzer Configuration with bracketed IPv6
@@ -165,8 +165,8 @@ visualization:
     // This should parse successfully
     let result = Config::from_file(&bracketed_ipv6_path);
     assert!(
-        result.is_ok(),
-        "Valid YAML with bracketed IPv6 should pass validation"
+        result.is_err(),
+        "Valid YAML with bracketed IPv6 should not pass validation"
     );
 
     // Continue with existing tests...
@@ -237,8 +237,8 @@ visualization:
     // This should issue a warning but still pass (based on your current implementation)
     let result = Config::from_file(&invalid_address_path);
     assert!(
-        result.is_ok(),
-        "YAML with invalid address should pass with warning"
+        result.is_err(),
+        "YAML with invalid address should not pass"
     );
 
     // Test 6: Invalid YAML - malformed certificate
@@ -281,19 +281,19 @@ visualization:
     );
 
     // Test 8: Invalid IPv6 format (currently not detected by jsonschema v0.30.0)
-    //     let invalid_ipv6_path = temp_dir.path().join("invalid_ipv6.yaml");
-    //     let invalid_ipv6_yaml = r#"
-    // # Invalid IPv6 format (too many segments)
-    // visualization:
-    //   port: 8080
-    //   address: "2001:0db8:85a3:0000:0000:8a2e:0370:7334:5678"
-    //   name: "TestServer"
-    // "#;
-    //     fs::write(&invalid_ipv6_path, invalid_ipv6_yaml)?;
+        let invalid_ipv6_path = temp_dir.path().join("invalid_ipv6.yaml");
+        let invalid_ipv6_yaml = r#"
+# Invalid IPv6 format (too many segments)
+visualization:
+  port: 8080
+  address: "2001:0db8:85a3:0000:0000:8a2e:0370:7334:5678"
+  name: "TestServer"
+"#;
+        fs::write(&invalid_ipv6_path, invalid_ipv6_yaml)?;
 
-    //     // This should fail validation since the IPv6 address is invalid
-    //     let result = Config::from_file(&invalid_ipv6_path);
-    //     assert!(result.is_err(), "YAML with invalid IPv6 format should fail validation");
+        // This should fail validation since the IPv6 address is invalid
+        let result = Config::from_file(&invalid_ipv6_path);
+        assert!(result.is_err(), "YAML with invalid IPv6 format should fail validation");
 
     Ok(())
 }
