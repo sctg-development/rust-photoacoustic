@@ -89,7 +89,11 @@ async fn main() -> Result<()> {
     let mut config = Config::from_file(&config_path)?;
 
     // Apply command line overrides
-    config.apply_args(args.web_port, args.web_address.clone(), args.hmac_secret.clone());
+    config.apply_args(
+        args.web_port,
+        args.web_address.clone(),
+        args.hmac_secret.clone(),
+    );
 
     // Configure Rocket
     if args.web {

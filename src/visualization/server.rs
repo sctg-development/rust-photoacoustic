@@ -115,7 +115,7 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
 
     // Use a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    
+
     // Create OAuth2 state with the test secret
     let oxide_state = super::oxide_auth::OxideState::preconfigured(test_hmac_secret);
 

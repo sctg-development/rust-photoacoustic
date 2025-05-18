@@ -147,7 +147,7 @@ async fn test_jwt_token_introspection() {
             if let Err(e) = result {
                 panic!("Test failed: {:?}", e);
             }
-        },
+        }
         Err(_) => {
             println!("Test timed out after 5 seconds");
         }
@@ -232,7 +232,7 @@ async fn test_expired_token_introspection() {
             if let Err(e) = result {
                 panic!("Test failed: {:?}", e);
             }
-        },
+        }
         Err(_) => {
             println!("Test timed out after 5 seconds");
         }
@@ -297,7 +297,7 @@ async fn test_invalid_token_introspection() {
             if let Err(e) = result {
                 panic!("Test failed: {:?}", e);
             }
-        },
+        }
         Err(_) => {
             println!("Test timed out after 5 seconds");
         }
@@ -398,7 +398,7 @@ async fn test_oxide_auth_token_introspection() {
             if let Err(e) = result {
                 panic!("Test failed: {:?}", e);
             }
-        },
+        }
         Err(_) => {
             println!("Test timed out after 5 seconds");
         }

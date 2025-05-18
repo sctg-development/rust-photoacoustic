@@ -1,4 +1,3 @@
-
 mod debug_test {
     #[test]
     fn test_debug_cert_without_key() -> anyhow::Result<()> {
@@ -24,19 +23,21 @@ visualization:
         // This should fail validation with a specific error message
         println!("Missing key path: {:?}", missing_key_path);
         let result = Config::from_file(&missing_key_path);
-        
+
         assert!(
             result.is_err(),
             "YAML with certificate but no key should fail validation"
         );
-        
+
         match &result {
             Ok(_) => println!("Result: OK (unexpected)"),
             Err(e) => {
                 println!("Result: Err with message: {}", e);
                 assert!(
-                    e.to_string().contains("SSL certificate provided without a key"),
-                    "Expected error about missing key, got: {}", e
+                    e.to_string()
+                        .contains("SSL certificate provided without a key"),
+                    "Expected error about missing key, got: {}",
+                    e
                 );
             }
         }
@@ -44,4 +45,3 @@ visualization:
         Ok(())
     }
 }
-

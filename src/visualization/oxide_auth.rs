@@ -20,7 +20,7 @@ pub struct OxideState {
     registrar: Arc<Mutex<ClientMap>>,
     authorizer: Arc<Mutex<AuthMap<RandomGenerator>>>,
     pub issuer: Arc<Mutex<JwtIssuer>>, // Wrap JwtIssuer in Arc<Mutex<>> for shared mutability
-    pub hmac_secret: String, // HMAC secret for JWT validation
+    pub hmac_secret: String,           // HMAC secret for JWT validation
 }
 
 // Implement Clone for OxideState

@@ -6,7 +6,8 @@
 
 use anyhow::{Context, Result};
 use rcgen::{
-    Certificate, CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose, SanType, PKCS_ECDSA_P256_SHA256
+    Certificate, CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose,
+    SanType, PKCS_ECDSA_P256_SHA256,
 };
 use std::fs::{self, File};
 use std::io::Write;
@@ -59,7 +60,9 @@ pub fn create_self_signed_cert(
                     .subject_alt_names
                     .push(SanType::IpAddress(name.parse().unwrap()));
             } else {
-                params.subject_alt_names.push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
+                params
+                    .subject_alt_names
+                    .push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
             }
         }
     } else {
@@ -85,11 +88,12 @@ pub fn create_self_signed_cert(
     ];
 
     let key_pair = KeyPair::generate().unwrap();
-    let cert = params.self_signed(&key_pair).context("Failed to generate certificate")?;
+    let cert = params
+        .self_signed(&key_pair)
+        .context("Failed to generate certificate")?;
 
     // Get the certificate and private key in PEM format
-    let cert_pem = cert
-        .pem();
+    let cert_pem = cert.pem();
     let key_pem = key_pair.serialize_pem();
 
     // Write certificate to file

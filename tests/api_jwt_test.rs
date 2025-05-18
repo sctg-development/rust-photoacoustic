@@ -17,7 +17,9 @@ fn get_figment() -> rocket::figment::Figment {
 async fn test_protected_api_with_jwt() {
     // Initialize the Rocket instance with a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment(), test_hmac_secret).await;
+    let rocket =
+        rust_photoacoustic::visualization::server::build_rocket(get_figment(), test_hmac_secret)
+            .await;
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

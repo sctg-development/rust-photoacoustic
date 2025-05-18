@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-use anyhow::{Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -149,12 +149,12 @@ impl Default for PackageJson {
 mod certificate_utils {
     use anyhow::{Context, Result};
     use rcgen::{
-        CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose, SanType
+        CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose, SanType,
     };
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::Path;
-    
+
     pub fn create_self_signed_cert(
         days: u32,
         cert_path: &str,
@@ -169,55 +169,71 @@ mod certificate_utils {
         if let Some(parent) = Path::new(key_path).parent() {
             fs::create_dir_all(parent)?;
         }
-        
+
         // Set up certificate parameters
         let mut params = CertificateParams::new(vec![String::from(common_name)])?;
         params.not_before = time::OffsetDateTime::now_utc();
         params.not_after = time::OffsetDateTime::now_utc() + time::Duration::days(days as i64);
-        params.distinguished_name.push(DnType::CommonName, DnValue::from(common_name));
-        
+        params
+            .distinguished_name
+            .push(DnType::CommonName, DnValue::from(common_name));
+
         // Add Subject Alternative Names if provided
         if let Some(names) = alt_names {
             for name in names {
                 if name.parse::<std::net::IpAddr>().is_ok() {
-                    params.subject_alt_names.push(SanType::IpAddress(name.parse().unwrap()));
+                    params
+                        .subject_alt_names
+                        .push(SanType::IpAddress(name.parse().unwrap()));
                 } else {
-                    params.subject_alt_names.push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
+                    params
+                        .subject_alt_names
+                        .push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
                 }
             }
         } else {
             // Default SAN entries
-            params.subject_alt_names.push(SanType::DnsName(Ia5String::try_from("localhost").unwrap()));
-            params.subject_alt_names.push(SanType::IpAddress("127.0.0.1".parse().unwrap()));
-            params.subject_alt_names.push(SanType::IpAddress("::1".parse().unwrap()));
+            params
+                .subject_alt_names
+                .push(SanType::DnsName(Ia5String::try_from("localhost").unwrap()));
+            params
+                .subject_alt_names
+                .push(SanType::IpAddress("127.0.0.1".parse().unwrap()));
+            params
+                .subject_alt_names
+                .push(SanType::IpAddress("::1".parse().unwrap()));
         }
-        
+
         // Set to not be a CA certificate
         params.is_ca = IsCa::NoCa;
-        
+
         // Set key usage
         params.key_usages = vec![
             KeyUsagePurpose::DigitalSignature,
             KeyUsagePurpose::KeyEncipherment,
         ];
-        
+
         let key_pair = KeyPair::generate().unwrap();
-        let cert = params.self_signed(&key_pair).context("Failed to generate certificate")?;
-        
+        let cert = params
+            .self_signed(&key_pair)
+            .context("Failed to generate certificate")?;
+
         // Get the certificate and private key in PEM format
         let cert_pem = cert.pem();
         let key_pem = key_pair.serialize_pem();
-        
+
         // Write certificate to file
         let mut cert_file = File::create(cert_path).context("Failed to create certificate file")?;
-        cert_file.write_all(cert_pem.as_bytes())
+        cert_file
+            .write_all(cert_pem.as_bytes())
             .context("Failed to write certificate to file")?;
-        
+
         // Write private key to file
         let mut key_file = File::create(key_path).context("Failed to create key file")?;
-        key_file.write_all(key_pem.as_bytes())
+        key_file
+            .write_all(key_pem.as_bytes())
             .context("Failed to write key to file")?;
-        
+
         Ok(())
     }
 }
@@ -253,8 +269,8 @@ fn create_certificate_files_if_needed() -> Result<()> {
         Some(vec![
             "localhost".to_string(),
             "127.0.0.1".to_string(),
-            "::1".to_string()
-        ])
+            "::1".to_string(),
+        ]),
     )?;
 
     println!("cargo:warning=Self-signed certificate and key generated successfully");

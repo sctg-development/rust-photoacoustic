@@ -46,7 +46,10 @@ fn test_config_load_and_save() -> Result<()> {
     let mut config = Config::default();
     assert_eq!(config.visualization.port, 8080);
     assert_eq!(config.visualization.address, "127.0.0.1");
-    assert_eq!(config.visualization.hmac_secret, "my-super-secret-jwt-key-for-photoacoustic-app");
+    assert_eq!(
+        config.visualization.hmac_secret,
+        "my-super-secret-jwt-key-for-photoacoustic-app"
+    );
 
     // Apply command-line arguments without HMAC secret
     config.apply_args(9000, "192.168.0.1".to_string(), None);
@@ -54,11 +57,18 @@ fn test_config_load_and_save() -> Result<()> {
     // Verify values were overridden
     assert_eq!(config.visualization.port, 9000);
     assert_eq!(config.visualization.address, "192.168.0.1");
-    assert_eq!(config.visualization.hmac_secret, "my-super-secret-jwt-key-for-photoacoustic-app");
-    
+    assert_eq!(
+        config.visualization.hmac_secret,
+        "my-super-secret-jwt-key-for-photoacoustic-app"
+    );
+
     // Apply command-line arguments with HMAC secret
-    config.apply_args(9000, "192.168.0.1".to_string(), Some("new-secret-key".to_string()));
-    
+    config.apply_args(
+        9000,
+        "192.168.0.1".to_string(),
+        Some("new-secret-key".to_string()),
+    );
+
     // Verify HMAC secret was overridden
     assert_eq!(config.visualization.hmac_secret, "new-secret-key");
 
@@ -290,8 +300,10 @@ visualization:
     );
     if let Err(e) = result {
         assert!(
-            e.to_string().contains("SSL certificate provided without a key"),
-            "Expected error about missing key, got: {}", e
+            e.to_string()
+                .contains("SSL certificate provided without a key"),
+            "Expected error about missing key, got: {}",
+            e
         );
     }
 
