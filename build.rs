@@ -317,14 +317,14 @@ fn create_rs256_key_pair_if_needed() -> Result<()> {
         .context("Failed to encode public key to PEM")?;
 
     // Write private key to file
-    let mut private_file = File::create(&priv_key_path)
+    let mut private_file = File::create(priv_key_path)
         .with_context(|| format!("Failed to create private key file at {:?}", priv_key_path))?;
     private_file
         .write_all(private_pem.as_bytes())
         .context("Failed to write private key to file")?;
 
     // Write public key to file
-    let mut public_file = File::create(&pub_key_path)
+    let mut public_file = File::create(pub_key_path)
         .with_context(|| format!("Failed to create public key file at {:?}", pub_key_path))?;
     public_file
         .write_all(public_pem.as_bytes())
