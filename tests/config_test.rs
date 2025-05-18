@@ -1,7 +1,7 @@
 use anyhow::Result;
+use base64::Engine;
 use rust_photoacoustic::config::{Config, VisualizationConfig};
 use std::fs;
-use base64::Engine;
 use tempfile::tempdir;
 
 #[test]
@@ -19,8 +19,10 @@ fn test_config_load_and_save() -> Result<()> {
             cert: None,
             key: None,
             hmac_secret: "test-secret".to_string(),
-            rs256_private_key: base64::engine::general_purpose::STANDARD.encode((include_str!("../resources/private.key")).as_bytes()),
-            rs256_public_key: base64::engine::general_purpose::STANDARD.encode((include_str!("../resources/pub.key")).as_bytes()),
+            rs256_private_key: base64::engine::general_purpose::STANDARD
+                .encode((include_str!("../resources/private.key")).as_bytes()),
+            rs256_public_key: base64::engine::general_purpose::STANDARD
+                .encode((include_str!("../resources/pub.key")).as_bytes()),
         },
     };
 

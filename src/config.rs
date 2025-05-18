@@ -261,11 +261,11 @@ impl Config {
 
         // Validate the rs256_private_key and rs256_public_key they should some valid base64 encoded strings
         let _ = base64::engine::general_purpose::STANDARD
-                .decode(&config.visualization.rs256_private_key)
-                .context("RS256 private key is not valid base64")?;
+            .decode(&config.visualization.rs256_private_key)
+            .context("RS256 private key is not valid base64")?;
         let _ = base64::engine::general_purpose::STANDARD
-                .decode(&config.visualization.rs256_public_key)
-                .context("RS256 public key is not valid base64")?;
+            .decode(&config.visualization.rs256_public_key)
+            .context("RS256 public key is not valid base64")?;
 
         Ok(())
     }

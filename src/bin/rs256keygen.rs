@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -28,9 +32,6 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     println!("Generating RSA key pair with {} bits...", args.length);
-
-    // Use OsRng to seed a ChaCha20Rng which implements CryptoRngCore
-    let mut seed = [0u8; 32];
 
     let mut rng = rsa::rand_core::OsRng;
 
