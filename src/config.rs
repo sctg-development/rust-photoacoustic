@@ -6,7 +6,6 @@ use anyhow::{Context, Result};
 use base64::Engine;
 use jsonschema;
 use log::{debug, error};
-use rand::rand_core::le;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
@@ -43,6 +42,12 @@ pub struct VisualizationConfig {
     /// HMAC secret for JWT signing
     #[serde(default = "default_hmac_secret")]
     pub hmac_secret: String,
+    /// RS256 private key PEM data (Base64 encoded)
+    #[serde(default = "default_rs256_private_key")]
+    pub rs256_private_key: String,
+    /// RS256 public key PEM data (Base64 encoded)
+    #[serde(default = "default_rs256_public_key")]
+    pub rs256_public_key: String,
 }
 
 fn default_port() -> u16 {
@@ -81,6 +86,23 @@ fn default_key() -> Option<String> {
 fn default_hmac_secret() -> String {
     "my-super-secret-jwt-key-for-photoacoustic-app".to_string()
 }
+
+fn default_rs256_private_key() -> String {
+    let key_str = include_str!("../resources/private.key");
+    if key_str.is_empty() {
+        String::new()
+    } else {
+        base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
+    }
+}
+fn default_rs256_public_key() -> String {
+    let key_str = include_str!("../resources/pub.key");
+    if key_str.is_empty() {
+        String::new()
+    } else {
+        base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
+    }
+}
 impl Default for VisualizationConfig {
     fn default() -> Self {
         Self {
@@ -90,6 +112,8 @@ impl Default for VisualizationConfig {
             cert: default_cert(),
             key: default_key(),
             hmac_secret: default_hmac_secret(),
+            rs256_private_key: default_rs256_private_key(),
+            rs256_public_key: default_rs256_public_key(),
         }
     }
 }
@@ -234,6 +258,14 @@ impl Config {
             );
             // Just issue a warning but don't block
         }
+
+        // Validate the rs256_private_key and rs256_public_key they should some valid base64 encoded strings
+        let _ = base64::engine::general_purpose::STANDARD
+                .decode(&config.visualization.rs256_private_key)
+                .context("RS256 private key is not valid base64")?;
+        let _ = base64::engine::general_purpose::STANDARD
+                .decode(&config.visualization.rs256_public_key)
+                .context("RS256 public key is not valid base64")?;
 
         Ok(())
     }

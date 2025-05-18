@@ -19,7 +19,8 @@
             {
               "format": "ipv6"
             }
-          ]
+          ],
+          "description": "IPv4 or IPv6 address to bind the visualization service to."
         },
         "name": {
           "type": "string"
@@ -28,23 +29,42 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "PEM TLS certificate file (base64 encoded)"
         },
         "key": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "PEM TLS private key file (base64 encoded)"
         },
         "hmac_secret": {
           "type": "string",
           "description": "HMAC secret for JWT token signing"
+        },
+        "rs256_private_key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "RS256 private key for JWT token signing (base64 encoded)"
+        },
+        "rs256_public_key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "RS256 public key for JWT token verification (base64 encoded)"
         }
       },
       "required": [
         "port",
         "address",
-        "name"
+        "name",
+        "hmac_secret",
+        "rs256_private_key",
+        "rs256_public_key"
       ]
     }
   },
