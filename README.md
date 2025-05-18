@@ -1,5 +1,22 @@
 # Water Vapor Analyzer by Laser Photoacoustic Spectroscopy
 
+## Development Philosophy & Disclaimer
+
+This project follows a true continuous integration approach where development happens transparently in the main branch. This allows anyone to observe the real-time evolution of a complex scientific application from early stages through completion.
+
+**Current Status:** This project is actively under development and not yet ready for production use. You're seeing the unfiltered development process - including experiments, refactoring, and iterative improvements.
+
+**What This Means:**
+
+- The codebase may be incomplete or contain non-working components
+- APIs and architecture may change significantly between commits
+- Tests may occasionally fail as new features are integrated
+- Documentation is being written alongside the code and evolves with it
+
+Rather than hiding work-in-progress behind feature branches, this approach demonstrates how modern software development progresses through incremental improvements, refactoring, and testing. Feel free to watch, star, or fork this repository to follow its evolution from prototype to working application.
+
+**License Note:** This code is provided as-is, without warranty, under the terms specified in the LICENSE file.
+
 ## Configuration
 
 The application can be configured using a YAML configuration file. By default, it looks for `config.yaml` in the current directory.
@@ -31,6 +48,7 @@ visualization:
 ### Command Line Overrides
 
 Command line arguments take precedence over configuration file values:
+
 - `--web-port` overrides `visualization.port`
 - `--web-address` overrides `visualization.address`
 
