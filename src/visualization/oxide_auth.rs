@@ -86,19 +86,19 @@ pub struct OxideState {
     /// - Allowed scopes
     /// - Client type (public/confidential)
     registrar: Arc<Mutex<ClientMap>>,
-    
+
     /// Authorization state storage
     ///
     /// Manages authorization grants and authorization codes during
     /// the OAuth flow. Uses a random generator for creating secure codes.
     authorizer: Arc<Mutex<AuthMap<RandomGenerator>>>,
-    
+
     /// JWT token issuer
     ///
     /// Responsible for generating JWT access tokens with embedded claims.
     /// This is wrapped in Arc<Mutex<>> to allow shared mutable access.
     pub issuer: Arc<Mutex<JwtIssuer>>,
-    
+
     /// HMAC secret for JWT validation
     ///
     /// The secret key used for signing and validating JWT tokens.
@@ -347,7 +347,7 @@ impl OxideState {
     /// # use rust_photoacoustic::visualization::oxide_auth::{OxideState, OAuthRequest};
     /// # let state = OxideState::preconfigured("secret");
     /// # let oauth_request = OAuthRequest::default(); // Not a real constructor
-    /// 
+    ///
     /// // Configure and execute an authorization flow
     /// let result = state
     ///     .endpoint()

@@ -22,7 +22,7 @@
 //! // Generate a simple self-signed certificate for localhost
 //! let result = create_self_signed_cert(
 //!     365,                           // Valid for 365 days
-//!     "path/to/certificate.pem",     // Certificate output path 
+//!     "path/to/certificate.pem",     // Certificate output path
 //!     "path/to/private_key.pem",     // Private key output path
 //!     "localhost",                   // Common name
 //!     None,                          // Use default key length
@@ -179,7 +179,7 @@ pub fn create_self_signed_cert(
             // The rcgen crate doesn't directly expose key length configuration,
             // so we're using the default for now
             KeyPair::generate().context("Failed to generate key pair")?
-        },
+        }
         None => KeyPair::generate().context("Failed to generate key pair")?,
     };
 

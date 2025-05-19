@@ -6,7 +6,7 @@
 //!
 //! This module implements RFC 7662 OAuth 2.0 Token Introspection, providing
 //! functionality to validate tokens and retrieve metadata about them.
-//! 
+//!
 //! ## Features
 //!
 //! * Token validation against both the OAuth issuer and JWT signatures
@@ -53,7 +53,7 @@ use std::collections::HashMap;
 ///
 /// This struct mirrors the structure of the JWT claims issued by the authorization
 /// server, enabling validation and extraction of token information.
-/// 
+///
 /// # Fields
 ///
 /// All standard JWT claims are supported, along with a scope claim for OAuth 2.0
@@ -114,7 +114,7 @@ pub struct IntrospectionRequest {
 /// # Optional Fields
 ///
 /// All other fields are only included when the token is active.
-/// 
+///
 /// # References
 ///
 /// * [RFC 7662 Section 2.2](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2)

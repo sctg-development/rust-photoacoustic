@@ -5,7 +5,7 @@
 //! # Audio Filter Utility
 //!
 //! This binary tool applies various digital signal processing filters to WAV audio files.
-//! It's particularly useful for processing photoacoustic measurements to isolate relevant 
+//! It's particularly useful for processing photoacoustic measurements to isolate relevant
 //! frequency components and reduce noise.
 //!
 //! ## Available Filters
@@ -55,13 +55,13 @@ enum FilterType {
     /// A bandpass filter allows signals between two specific frequencies to pass through
     /// while attenuating frequencies outside that range. This is useful for isolating
     /// a specific frequency component, such as the resonance frequency in photoacoustic cells.
-    /// 
+    ///
     /// Parameters:
     /// - Center frequency (Hz)
     /// - Bandwidth (Hz)
     /// - Filter order (must be even)
     Bandpass,
-    
+
     /// Lowpass filter - allows low frequencies to pass through while attenuating higher frequencies.
     ///
     /// A lowpass filter attenuates frequencies higher than the cutoff frequency.

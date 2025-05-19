@@ -4,7 +4,7 @@
 
 //! # Tests for Differential Signal Calculation
 //!
-//! This module contains test cases that validate the differential signal calculation 
+//! This module contains test cases that validate the differential signal calculation
 //! functionality in the photoacoustic signal processing pipeline.
 //!
 //! ## Test Coverage:

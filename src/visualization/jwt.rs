@@ -27,15 +27,15 @@
 //! ```
 //! use rust_photoacoustic::visualization::jwt::JwtIssuer;
 //! use chrono::Duration;
-//! 
+//!
 //! // Create a new JWT issuer with a secret key
 //! let mut issuer = JwtIssuer::new(b"your-secret-key");
-//! 
+//!
 //! // Configure the issuer
 //! issuer
 //!     .with_issuer("my-application")
 //!     .valid_for(Duration::hours(2));
-//! 
+//!
 //! // The issuer can now be used with oxide_auth to issue OAuth tokens
 //! ```
 //!
@@ -67,56 +67,56 @@ use url::Url;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct JwtClaims {
     /// Subject (typically user ID)
-    /// 
+    ///
     /// Identifies the principal that is the subject of the JWT.
     /// In this application, it contains the authenticated user's ID.
     sub: String,
-    
+
     /// Issued at timestamp
-    /// 
+    ///
     /// The time at which the JWT was issued, represented as Unix time
     /// (seconds since 1970-01-01T00:00:00Z UTC).
     iat: i64,
-    
+
     /// Expiration timestamp
-    /// 
+    ///
     /// The expiration time after which the JWT must not be accepted for processing,
     /// represented as Unix time (seconds since 1970-01-01T00:00:00Z UTC).
     exp: i64,
-    
+
     /// Not before timestamp (when the token becomes valid)
-    /// 
+    ///
     /// The time before which the JWT must not be accepted for processing,
     /// represented as Unix time (seconds since 1970-01-01T00:00:00Z UTC).
     nbf: i64,
-    
+
     /// JWT ID (unique identifier for the token)
-    /// 
+    ///
     /// A unique identifier for the JWT, which can be used to prevent the JWT
     /// from being replayed (that is, to prevent attackers from reusing a JWT
     /// that they have intercepted).
     jti: String,
-    
+
     /// Audience (client ID)
-    /// 
+    ///
     /// Identifies the recipients that the JWT is intended for.
     /// In this application, it contains the OAuth client ID.
     aud: String,
-    
+
     /// Issuer
-    /// 
+    ///
     /// Identifies the principal that issued the JWT.
     /// Usually contains a string or URI that uniquely identifies the issuer.
     iss: String,
-    
+
     /// Scope
-    /// 
+    ///
     /// Space-delimited string of permissions that the token grants.
     /// This is a common extension for OAuth 2.0 access tokens.
     scope: String,
-    
+
     /// Additional metadata
-    /// 
+    ///
     /// Custom claims containing additional information about the user
     /// or authentication context. May include fields like email, name,
     /// or other user attributes.
@@ -138,20 +138,20 @@ struct TokenEntry {
     ///
     /// The JWT string that the client uses to access protected resources.
     access_token: String,
-    
+
     /// Optional refresh token
     ///
     /// A token that clients can use to obtain a new access token without
     /// requiring the user to be redirected. May be None if refresh tokens
     /// are not enabled or not issued for this particular grant.
     refresh_token: Option<String>,
-    
+
     /// The grant used to create this token
     ///
     /// Contains information about the authorization grant that led to this token,
     /// including the client ID, user ID (owner), scope, and redirect URI.
     grant: Grant,
-    
+
     /// Expiration time for the token
     ///
     /// The time at which this token will expire and no longer be valid for use.
@@ -191,49 +191,49 @@ pub struct JwtTokenMap {
     /// Maps access token strings to their corresponding token entries.
     /// Used for token validation and introspection.
     access_tokens: HashMap<String, Arc<TokenEntry>>,
-    
+
     /// Map of refresh tokens
     ///
     /// Maps refresh token strings to their corresponding token entries.
     /// Used during token refresh operations.
     refresh_tokens: HashMap<String, Arc<TokenEntry>>,
-    
+
     /// JWT signing key
     ///
     /// The key used to sign JWT tokens. For symmetric algorithms like HS256,
     /// this is derived from the secret. For asymmetric algorithms like RS256,
     /// this contains the private key.
     signing_key: EncodingKey,
-    
+
     /// JWT verification key
     ///
     /// The key used to verify JWT signatures. For symmetric algorithms like HS256,
-    /// this is derived from the same secret as the signing key. For asymmetric 
+    /// this is derived from the same secret as the signing key. For asymmetric
     /// algorithms like RS256, this contains the public key.
     verification_key: DecodingKey,
-    
+
     /// Random generator for refresh tokens
     ///
     /// Generates cryptographically secure random tokens for use as refresh tokens.
     refresh_generator: RandomGenerator,
-    
+
     /// Token validity duration
     ///
     /// Specifies how long issued tokens remain valid before expiring.
     /// If None, tokens do not expire by default.
     token_duration: Option<Duration>,
-    
+
     /// Issuer name for JWT
     ///
     /// A string identifier for the token issuer, included in the "iss" claim
     /// of generated JWT tokens.
     issuer: String,
-    
+
     /// Counter for token generation
     ///
     /// Used to ensure unique token identifiers (JTI claim) across token generation.
     usage_counter: u64,
-    
+
     /// JWT signing algorithm
     ///
     /// The algorithm used to sign and verify JWT tokens.

@@ -45,17 +45,17 @@ use std::path::PathBuf;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum DifferentialMode {
     /// Left channel minus Right channel (for stereo files).
-    /// 
+    ///
     /// This mode is useful when the left channel contains signal+noise and
     /// the right channel contains a reference noise recording.
     LeftMinusRight,
-    
+
     /// Right channel minus Left channel (for stereo files).
     ///
     /// This mode is useful when the right channel contains signal+noise and
     /// the left channel contains a reference noise recording.
     RightMinusLeft,
-    
+
     /// First file minus Second file (for two mono files).
     ///
     /// This mode allows processing two separate recordings, such as with/without

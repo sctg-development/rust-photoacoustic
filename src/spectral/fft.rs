@@ -3,53 +3,53 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 //! Fast Fourier Transform (FFT) implementation for spectral analysis
-//! 
+//!
 //! This module provides functionality for analyzing signals in the frequency domain
 //! using Fast Fourier Transform (FFT). It includes:
-//! 
+//!
 //! - A trait-based approach for spectral analysis with the `SpectralAnalyzer` trait
 //! - An FFT-based implementation `FFTAnalyzer` using the rustfft library
 //! - Support for different window functions to reduce spectral leakage
 //! - Capability for spectral averaging to improve signal-to-noise ratio
 //! - Amplitude and phase extraction from frequency-domain signals
-//! 
+//!
 //! # Example
-//! 
+//!
 //! ```
 //! use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer, WindowFunction};
-//! 
+//!
 //! // Create a test signal (a sine wave at 1000 Hz)
 //! let sample_rate = 44100;
 //! let frequency = 1000.0;
 //! let duration = 1.0; // seconds
 //! let num_samples = (sample_rate as f32 * duration) as usize;
-//! 
+//!
 //! let mut signal = vec![0.0; num_samples];
 //! for i in 0..num_samples {
 //!     let t = i as f32 / sample_rate as f32;
 //!     signal[i] = (2.0 * std::f32::consts::PI * frequency * t).sin();
 //! }
-//! 
+//!
 //! // Create an FFT analyzer with a window size of 4096 and 3 averages
 //! let mut analyzer = FFTAnalyzer::new(4096, 3);
-//! 
+//!
 //! // Analyze the signal
 //! let spectrum = analyzer.analyze(&signal, sample_rate).unwrap();
-//! 
+//!
 //! // Get the amplitude at the expected frequency
 //! let amplitude = analyzer.get_amplitude_at(frequency).unwrap();
 //! println!("Amplitude at {} Hz: {}", frequency, amplitude);
-//! 
+//!
 //! // Print the first few frequency bins
 //! for i in 0..10 {
-//!     println!("Frequency: {:.2} Hz, Amplitude: {:.6}", 
-//!              spectrum.frequencies[i], 
+//!     println!("Frequency: {:.2} Hz, Amplitude: {:.6}",
+//!              spectrum.frequencies[i],
 //!              spectrum.amplitudes[i]);
 //! }
 //! ```
-//! 
+//!
 //! # Spectral Analysis Process
-//! 
+//!
 //! 1. Window the time-domain signal to reduce spectral leakage
 //! 2. Compute the FFT of the windowed signal
 //! 3. Average multiple FFTs if enabled (to reduce noise)
@@ -144,27 +144,27 @@ pub trait SpectralAnalyzer: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct SpectrumData {
     /// Vector of frequency values in Hz
-    /// 
+    ///
     /// Each element corresponds to a frequency bin in the spectrum,
     /// starting from 0 Hz (DC) and increasing linearly up to the
     /// Nyquist frequency (sample_rate / 2).
     pub frequencies: Vec<f32>,
-    
+
     /// Vector of amplitude values
-    /// 
+    ///
     /// Each element represents the amplitude (magnitude) of the corresponding
     /// frequency component. For a real signal, these are normalized such that
     /// a pure sine wave with amplitude 1.0 will have a spectral peak of 1.0.
     pub amplitudes: Vec<f32>,
-    
+
     /// Vector of phase values in radians
-    /// 
+    ///
     /// Each element represents the phase angle (in radians) of the corresponding
     /// frequency component. The range is typically from -π to π.
     pub phases: Vec<f32>,
-    
+
     /// Sample rate of the original signal in Hz
-    /// 
+    ///
     /// This is preserved to allow conversion between bin indices and actual
     /// frequencies, and to determine the frequency resolution of the analysis.
     pub sample_rate: u32,
@@ -215,25 +215,25 @@ pub struct FFTAnalyzer {
     /// For best performance, this should be a power of 2.
     /// Larger windows provide better frequency resolution but worse time resolution.
     window_size: usize,
-    
+
     /// Number of FFT frames to average
     ///
     /// Higher values improve signal-to-noise ratio but increase computation time.
     /// A value of 1 means no averaging is performed.
     averages: usize,
-    
+
     /// Window function to apply before FFT computation
     ///
     /// Window functions reduce spectral leakage by tapering the signal
     /// at the edges of each analysis frame.
     window_function: WindowFunction,
-    
+
     /// Cache of the most recent spectrum analysis result
     ///
     /// This allows the `get_amplitude_at` method to work without
     /// recomputing the entire spectrum.
     spectrum_data: Option<SpectrumData>,
-    
+
     /// Storage for previous FFT outputs for averaging
     ///
     /// This vector stores the complex FFT outputs from previous frames

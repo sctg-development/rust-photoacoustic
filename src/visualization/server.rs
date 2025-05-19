@@ -11,12 +11,12 @@
 //! - Cross-Origin Resource Sharing (CORS) support
 //! - API endpoints for retrieving photoacoustic data
 //!
-//! The server is designed to serve both static content (the web client) and 
+//! The server is designed to serve both static content (the web client) and
 //! dynamic API endpoints. It integrates with the OAuth authentication system
 //! to secure API access.
 //!
 //! ## Architecture
-//! 
+//!
 //! The server consists of the following main components:
 //!
 //! - **Static File Server**: Serves the web client interface files
@@ -38,7 +38,7 @@
 //! ```
 //! use rocket::figment::Figment;
 //! use rust_photoacoustic::visualization::server;
-//! 
+//!
 //! async fn start_server() {
 //!     let config = Figment::from(rocket::Config::default())
 //!         .merge(("address", "127.0.0.1"))
@@ -148,16 +148,16 @@ impl Fairing for CORS {
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
         // Allow requests from any origin
         response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
-        
+
         // Allow common HTTP methods
         response.set_header(Header::new(
             "Access-Control-Allow-Methods",
             "POST, GET, PUT, DELETE, OPTIONS",
         ));
-        
+
         // Allow all headers
         response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
-        
+
         // Allow credentials (cookies, etc.)
         response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
     }

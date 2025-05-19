@@ -31,7 +31,7 @@
 //! ```
 //! use rust_photoacoustic::{config::Config, AnalysisResult};
 //! use rust_photoacoustic::visualization;
-//! 
+//!
 //! async fn example() -> anyhow::Result<()> {
 //!     // Load configuration
 //!     let config = Config::new("config.yaml")?;
@@ -113,7 +113,7 @@ use rocket::{
 ///
 /// ```
 /// use rust_photoacoustic::{config::Config, AnalysisResult};
-/// 
+///
 /// async fn run_server() -> anyhow::Result<()> {
 ///     let config = Config::new("config.yaml")?;
 ///     let analysis_data = AnalysisResult::default(); // Replace with actual analysis

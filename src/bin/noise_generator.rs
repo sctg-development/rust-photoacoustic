@@ -34,7 +34,7 @@
 //! ## Applications in Photoacoustic Analysis
 //!
 //! White noise signals are useful in photoacoustic applications for:
-//! 
+//!
 //! * System calibration and response testing
 //! * SNR evaluation and performance benchmarking
 //! * Measuring frequency response of photoacoustic cells

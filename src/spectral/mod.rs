@@ -45,7 +45,7 @@
 //!
 //! // Extract information from the spectrum
 //! println!("Number of frequency bins: {}", spectrum.frequencies.len());
-//! println!("Frequency resolution: {:.2} Hz", 
+//! println!("Frequency resolution: {:.2} Hz",
 //!          spectrum.frequencies[1] - spectrum.frequencies[0]);
 //! ```
 
@@ -53,7 +53,7 @@
 mod fft;
 
 // Re-export key types and functions for public use
-pub use fft::{SpectralAnalyzer, SpectrumData, WindowFunction, FFTAnalyzer};
+pub use fft::{FFTAnalyzer, SpectralAnalyzer, SpectrumData, WindowFunction};
 
 /// Create a new spectral analyzer with the given window size and averaging
 ///

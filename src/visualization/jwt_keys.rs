@@ -76,14 +76,14 @@ pub enum KeyType {
     /// Uses the same key for both signing and verification.
     /// Suitable algorithms: HS256, HS384, HS512
     Symmetric,
-    
+
     /// RSA key pair
     ///
     /// Uses an asymmetric RSA key pair where the private key is used for signing
     /// and the public key is used for verification.
     /// Suitable algorithms: RS256, RS384, RS512, PS256, PS384, PS512
     RSA,
-    
+
     /// Elliptic Curve key pair
     ///
     /// Uses an asymmetric Elliptic Curve key pair where the private key is used for signing
@@ -109,19 +109,19 @@ pub struct JwtKeyConfig {
     /// The JWT signing algorithm determines how tokens are signed and verified.
     /// Make sure to choose an algorithm compatible with your key type.
     pub algorithm: Algorithm,
-    
+
     /// Key type
     ///
     /// Indicates whether this configuration uses symmetric or asymmetric keys,
     /// and which asymmetric key type (RSA or EC) if applicable.
     pub key_type: KeyType,
-    
+
     /// Encoding key for signing tokens
     ///
     /// This key is used to sign JWT tokens. For symmetric keys, this is derived from
     /// the secret. For asymmetric keys, this is the private key.
     pub encoding_key: EncodingKey,
-    
+
     /// Decoding key for verifying tokens
     ///
     /// This key is used to verify JWT token signatures. For symmetric keys, this is

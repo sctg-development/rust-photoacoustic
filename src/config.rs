@@ -65,7 +65,7 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Settings for the visualization web server component.
-    /// 
+    ///
     /// These settings control how the visualization server behaves, including
     /// network binding, security, and authentication mechanisms.
     /// If not specified in the configuration file, default values are used.
@@ -97,54 +97,54 @@ pub struct Config {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VisualizationConfig {
     /// The TCP port the visualization server will listen on.
-    /// 
+    ///
     /// Valid range is 1-65534. Default value is 8080.
     #[serde(default = "default_port")]
     pub port: u16,
-    
+
     /// The network address the server will bind to.
-    /// 
+    ///
     /// Can be an IPv4/IPv6 address or a hostname. Default is "127.0.0.1".
     /// Use "0.0.0.0" to bind to all IPv4 interfaces.
     #[serde(default = "default_address")]
     pub address: String,
-    
+
     /// The server name reported in HTTP headers and logs.
-    /// 
+    ///
     /// Default is "LaserSmartApiServer/" followed by the package version.
     #[serde(default = "default_name")]
     pub name: String,
-    
+
     /// SSL/TLS certificate in PEM format, Base64 encoded.
-    /// 
+    ///
     /// If provided, `key` must also be supplied. For development,
     /// defaults to the certificate in the resources directory.
     #[serde(default = "default_cert")]
     pub cert: Option<String>,
-    
+
     /// SSL/TLS private key in PEM format, Base64 encoded.
-    /// 
+    ///
     /// If provided, `cert` must also be supplied. For development,
     /// defaults to the key in the resources directory.
     #[serde(default = "default_key")]
     pub key: Option<String>,
-    
+
     /// Secret key for HMAC-based JWT token signing and verification.
-    /// 
+    ///
     /// Used when RS256 keys are not available or for simpler deployments.
     /// Not recommended for production environments.
     #[serde(default = "default_hmac_secret")]
     pub hmac_secret: String,
-    
+
     /// RS256 private key in PEM format, Base64 encoded.
-    /// 
+    ///
     /// Used for signing JWT tokens with the RS256 algorithm.
     /// Can be generated with the `rs256keygen` binary.
     #[serde(default = "default_rs256_private_key")]
     pub rs256_private_key: String,
-    
+
     /// RS256 public key in PEM format, Base64 encoded.
-    /// 
+    ///
     /// Used for verifying JWT tokens signed with the RS256 algorithm.
     /// Can be generated with the `rs256keygen` binary.
     #[serde(default = "default_rs256_public_key")]

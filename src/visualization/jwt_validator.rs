@@ -6,7 +6,7 @@
 //!
 //! This module provides functionality to validate JWT (JSON Web Tokens) and extract
 //! user information from them. It includes:
-//! 
+//!
 //! - A configurable JWT validator that can validate tokens with different algorithms and requirements
 //! - User information extraction from validated tokens
 //! - Scope validation and token expiration utilities
@@ -15,7 +15,7 @@
 //!
 //! ```
 //! use rust_photoacoustic::visualization::jwt_validator::{JwtValidator, UserInfo};
-//! 
+//!
 //! // Create a validator with a secret key
 //! let secret = b"your-secret-key";
 //! let validator = JwtValidator::new(secret)
@@ -60,58 +60,58 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtClaims {
     /// Subject (typically user ID)
-    /// 
+    ///
     /// The "sub" (subject) claim identifies the principal that is the
     /// subject of the JWT. In this application, it typically contains the user ID.
     pub sub: String,
-    
+
     /// Issued at timestamp
-    /// 
+    ///
     /// The "iat" (issued at) claim identifies the time at which the JWT was
     /// issued, represented as the number of seconds from 1970-01-01T00:00:00Z UTC.
     pub iat: i64,
-    
+
     /// Expiration timestamp
-    /// 
+    ///
     /// The "exp" (expiration time) claim identifies the expiration time on
     /// or after which the JWT MUST NOT be accepted for processing.
     /// Represented as the number of seconds from 1970-01-01T00:00:00Z UTC.
     pub exp: i64,
-    
+
     /// Not before timestamp (when the token becomes valid)
-    /// 
+    ///
     /// The "nbf" (not before) claim identifies the time before which the JWT
     /// MUST NOT be accepted for processing.
     /// Represented as the number of seconds from 1970-01-01T00:00:00Z UTC.
     pub nbf: i64,
-    
+
     /// JWT ID (unique identifier for the token)
-    /// 
+    ///
     /// The "jti" (JWT ID) claim provides a unique identifier for the JWT.
     /// This can be used to prevent the JWT from being replayed.
     pub jti: String,
-    
+
     /// Audience (client ID)
-    /// 
+    ///
     /// The "aud" (audience) claim identifies the recipients that the JWT is
     /// intended for. In this application, it typically contains the client ID.
     pub aud: String,
-    
+
     /// Issuer
-    /// 
+    ///
     /// The "iss" (issuer) claim identifies the principal that issued the
     /// JWT. This is typically a URL or domain name.
     pub iss: String,
-    
+
     /// Scope
-    /// 
+    ///
     /// Space-delimited list of permissions that the token grants.
     /// This is not part of the standard JWT claims but is commonly used
     /// for OAuth 2.0 access tokens.
     pub scope: String,
-    
+
     /// Additional metadata
-    /// 
+    ///
     /// Custom claims that can contain additional information about the user
     /// or the context. Commonly used for storing email, name, and other user
     /// attributes that don't fit into the standard claims.
@@ -164,13 +164,13 @@ pub struct JwtClaims {
 pub struct JwtValidator {
     /// The key used to verify the token signature
     verification_key: DecodingKey,
-    
+
     /// The algorithm used to verify the token signature
     algorithm: Algorithm,
-    
+
     /// The expected issuer of the token, if any
     expected_issuer: Option<String>,
-    
+
     /// The expected audience of the token, if any
     expected_audience: Option<String>,
 }
@@ -476,40 +476,40 @@ pub struct UserInfo {
     /// This is typically a unique identifier for the user in your system,
     /// extracted from the "sub" claim of the JWT.
     pub user_id: String,
-    
+
     /// Client ID from the audience claim
     ///
     /// Identifies the intended recipient of the token (usually your application),
     /// extracted from the "aud" claim of the JWT.
     pub client_id: String,
-    
+
     /// Scopes granted to this token
     ///
     /// A list of permission scopes that were granted to this token.
     /// These determine what actions the token allows the user to perform.
     pub scopes: Vec<String>,
-    
+
     /// Optional email address
     ///
     /// The user's email address, if provided in the token metadata.
     pub email: Option<String>,
-    
+
     /// Optional user name
     ///
     /// The user's display name, if provided in the token metadata.
     pub name: Option<String>,
-    
+
     /// Unique token identifier
     ///
     /// A unique ID for this specific token, extracted from the "jti" claim.
     /// This can be used for token revocation or tracking.
     pub token_id: String,
-    
+
     /// When the token was issued
     ///
     /// The timestamp when the token was created, extracted from the "iat" claim.
     pub issued_at: DateTime<Utc>,
-    
+
     /// When the token expires
     ///
     /// The timestamp when the token will expire, extracted from the "exp" claim.
@@ -537,15 +537,15 @@ impl UserInfo {
     /// ```
     /// # use rust_photoacoustic::visualization::jwt_validator::UserInfo;
     /// # let user_info = get_user_info(); // Assume this function exists
-    /// 
+    ///
     /// if user_info.has_scope("read:data") {
     ///     // Allow reading data
     /// }
-    /// 
+    ///
     /// if user_info.has_scope("write:data") {
     ///     // Allow writing data
     /// }
-    /// 
+    ///
     /// # fn get_user_info() -> UserInfo {
     /// #     // This is a mock function for the example
     /// #     unimplemented!()
@@ -569,15 +569,15 @@ impl UserInfo {
     /// ```
     /// # use rust_photoacoustic::visualization::jwt_validator::UserInfo;
     /// # let user_info = get_user_info(); // Assume this function exists
-    /// 
+    ///
     /// let remaining = user_info.validity_remaining_secs();
-    /// 
+    ///
     /// if remaining < 60 {
     ///     println!("Warning: Token will expire in less than a minute");
     /// } else {
     ///     println!("Token valid for {} more seconds", remaining);
     /// }
-    /// 
+    ///
     /// # fn get_user_info() -> UserInfo {
     /// #     // This is a mock function for the example
     /// #     unimplemented!()

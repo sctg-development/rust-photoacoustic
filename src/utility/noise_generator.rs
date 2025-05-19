@@ -217,7 +217,7 @@ impl NoiseGenerator {
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
     ///
     /// let mut generator = NoiseGenerator::new(12345);
-    /// 
+    ///
     /// // Generate 1 second of mono noise at 48kHz with 50% amplitude
     /// let samples = generator.generate_mono(48000, 0.5);
     /// assert_eq!(samples.len(), 48000);
@@ -261,7 +261,7 @@ impl NoiseGenerator {
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
     ///
     /// let mut generator = NoiseGenerator::new(12345);
-    /// 
+    ///
     /// // Generate 1 second of stereo noise at 44.1kHz with 70% amplitude
     /// let samples = generator.generate_stereo(44100, 0.7);
     /// assert_eq!(samples.len(), 88200); // 2 channels * 44100 samples
@@ -322,7 +322,7 @@ impl NoiseGenerator {
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
     ///
     /// let mut generator = NoiseGenerator::new(12345);
-    /// 
+    ///
     /// // Generate 1 second of stereo noise at 48kHz with 50% amplitude
     /// // and 0.8 correlation between channels
     /// let samples = generator.generate_correlated_stereo(48000, 0.5, 0.8);
