@@ -22,3 +22,9 @@ target/
 out/
 .DS_Store
 config.yaml
+cert.pem
+key.pem
+server.crt
+server.key
+path/to/certificate.pem
+path/to/private_key.pem

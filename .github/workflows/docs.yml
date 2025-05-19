@@ -42,9 +42,15 @@ jobs:
             
       - name: Build documentation
         run: |
-          # Build documentation with all features and include private items
+          # Build documentation with all features
           cargo doc --no-deps --all-features --document-private-items
-      
+          
+          # Create an index.html that redirects to the main crate documentation
+          echo '<meta http-equiv="refresh" content="0; url=rust_photoacoustic">' > target/doc/index.html
+          
+          # Copy the documentation to the GitHub Pages directory
+          mkdir -p public
+          cp -r target/doc/* public/
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
