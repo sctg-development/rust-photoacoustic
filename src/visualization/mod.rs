@@ -1,19 +1,82 @@
 // Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
-//!
-//! Visualization module
-//!
-//! This module handles visualization and data presentation,
-//! including a web server for interactive visualization.
 
+//! # Visualization Module
+//!
+//! The visualization module provides a comprehensive web-based interface for
+//! presenting and interacting with photoacoustic data analysis results. It enables
+//! researchers and clinicians to view, explore, and interpret complex photoacoustic
+//! measurements through an interactive dashboard.
+//!
+//! ## Key Features
+//!
+//! - **Interactive Web Interface**: A modern web server for visualizing data
+//! - **Secure Authentication**: OAuth 2.0 compatible JWT-based authentication
+//! - **API Access**: RESTful API for programmatic data access
+//! - **TLS Support**: Optional encrypted connections for enhanced security
+//! - **Customizable**: Configurable server settings through the application config
+//!
+//! ## Architecture
+//!
+//! The visualization system is built on the Rocket web framework and consists of:
+//!
+//! - **Server**: Core HTTP/HTTPS server implementation
+//! - **API**: RESTful endpoints for data access
+//! - **Authentication**: JWT token generation, validation and introspection
+//! - **OAuth Integration**: Support for standard OAuth 2.0 workflows
+//!
+//! ## Usage
+//!
+//! ```
+//! use rust_photoacoustic::{config::Config, AnalysisResult};
+//! use rust_photoacoustic::visualization;
+//! 
+//! async fn example() -> anyhow::Result<()> {
+//!     // Load configuration
+//!     let config = Config::new("config.yaml")?;
+//!     
+//!     // Prepare analysis results (simplified example)
+//!     let analysis_result = AnalysisResult::default();
+//!     
+//!     // Start the visualization server
+//!     visualization::start_server(analysis_result, &config).await?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Security
+//!
+//! The module implements several security features:
+//!
+//! - JWT token-based authentication
+//! - Configurable TLS/HTTPS
+//! - OAuth 2.0 token introspection
+//! - Scope-based authorization
+
+/// API implementation modules
 pub mod api;
+
+/// API authentication mechanisms
 pub mod api_auth;
+
+/// Token introspection functionality for validating OAuth tokens
 pub mod introspection;
+
+/// JWT token generation and management
 pub mod jwt;
+
+/// RSA key management for JWT signing and verification
 pub mod jwt_keys;
+
+/// JWT token validation and user information extraction
 pub mod jwt_validator;
+
+/// OAuth integration with Oxide Auth library
 pub mod oxide_auth;
+
+/// Web server implementation
 pub mod server;
 
 use crate::{config::Config, AnalysisResult};
@@ -24,7 +87,41 @@ use rocket::{
     data::{Limits, ToByteUnit},
 };
 
-/// Start the visualization web server
+/// Start the visualization web server with the provided analysis data and configuration
+///
+/// This function initializes and launches a web server for visualizing photoacoustic
+/// analysis results. It configures the server based on the provided configuration
+/// and sets up all necessary components for the web interface.
+///
+/// # Parameters
+///
+/// * `data` - The analysis results to be visualized
+/// * `config` - Application configuration containing server settings
+///
+/// # Returns
+///
+/// * `Result<()>` - Success or error status from the server initialization
+///
+/// # Errors
+///
+/// This function can fail if:
+/// * TLS certificate decoding fails
+/// * Writing temporary certificate files fails
+/// * Server initialization fails
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::{config::Config, AnalysisResult};
+/// 
+/// async fn run_server() -> anyhow::Result<()> {
+///     let config = Config::new("config.yaml")?;
+///     let analysis_data = AnalysisResult::default(); // Replace with actual analysis
+///     
+///     rust_photoacoustic::visualization::start_server(analysis_data, &config).await?;
+///     Ok(())
+/// }
+/// ```
 pub async fn start_server(data: AnalysisResult, config: &Config) -> Result<()> {
     log::info!("Starting visualization server with data: {:?}", data);
 

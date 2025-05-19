@@ -13,7 +13,7 @@ use std::path::Path;
 /// Represents an audio source (either live or from file)
 pub trait AudioSource: Send {
     /// Read the next frame of audio data from both channels
-    /// Returns a tuple containing (channel_A, channel_B) data as Vec<f32>
+    /// Returns a tuple containing (channel_A, channel_B) data as `Vec<f32>`
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)>;
 
     /// Get the sample rate of this audio source

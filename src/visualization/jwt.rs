@@ -2,6 +2,49 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+//! JWT token generation and management for OAuth authentication
+//!
+//! This module implements a JWT-based token issuer that integrates with the Oxide Auth
+//! framework. It provides functionality for:
+//!
+//! - Creating and managing JWT access tokens
+//! - Generating refresh tokens
+//! - Token validation and verification
+//! - OAuth 2.0 token issuance and refresh workflows
+//!
+//! The JWT tokens are signed using configurable algorithms (default: HS256) and include
+//! standard claims like subject, audience, and expiration time.
+//!
+//! # Architecture
+//!
+//! The module consists of three main components:
+//! - `JwtTokenMap`: Core implementation of token management
+//! - `JwtIssuer`: Thread-safe wrapper around `JwtTokenMap` with Mutex
+//! - `JwtClaims`: Structure representing the claims in a JWT token
+//!
+//! # Example Usage
+//!
+//! ```
+//! use rust_photoacoustic::visualization::jwt::JwtIssuer;
+//! use chrono::Duration;
+//! 
+//! // Create a new JWT issuer with a secret key
+//! let mut issuer = JwtIssuer::new(b"your-secret-key");
+//! 
+//! // Configure the issuer
+//! issuer
+//!     .with_issuer("my-application")
+//!     .valid_for(Duration::hours(2));
+//! 
+//! // The issuer can now be used with oxide_auth to issue OAuth tokens
+//! ```
+//!
+//! # Security Considerations
+//!
+//! - Use appropriate key sizes for the chosen algorithm
+//! - For production, consider using RS256 with separate signing and verification keys
+//! - Store secrets securely and never expose them in client-side code
+
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use oxide_auth::primitives::generator::{RandomGenerator, TagGrant};
@@ -13,60 +56,188 @@ use std::sync::{Arc, Mutex};
 use url::Url;
 
 /// Custom JWT claims structure
+///
+/// This structure defines the claims included in JSON Web Tokens (JWT) generated
+/// by this module. It follows the standard JWT claims as defined in RFC 7519,
+/// plus additional custom fields for OAuth 2.0 integration.
+///
+/// The structure is serialized to JSON when creating tokens and deserialized
+/// when validating them. The claims provide information about the token's
+/// subject (user), issuer, expiration, and granted permissions (scope).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct JwtClaims {
     /// Subject (typically user ID)
+    /// 
+    /// Identifies the principal that is the subject of the JWT.
+    /// In this application, it contains the authenticated user's ID.
     sub: String,
+    
     /// Issued at timestamp
+    /// 
+    /// The time at which the JWT was issued, represented as Unix time
+    /// (seconds since 1970-01-01T00:00:00Z UTC).
     iat: i64,
+    
     /// Expiration timestamp
+    /// 
+    /// The expiration time after which the JWT must not be accepted for processing,
+    /// represented as Unix time (seconds since 1970-01-01T00:00:00Z UTC).
     exp: i64,
+    
     /// Not before timestamp (when the token becomes valid)
+    /// 
+    /// The time before which the JWT must not be accepted for processing,
+    /// represented as Unix time (seconds since 1970-01-01T00:00:00Z UTC).
     nbf: i64,
+    
     /// JWT ID (unique identifier for the token)
+    /// 
+    /// A unique identifier for the JWT, which can be used to prevent the JWT
+    /// from being replayed (that is, to prevent attackers from reusing a JWT
+    /// that they have intercepted).
     jti: String,
+    
     /// Audience (client ID)
+    /// 
+    /// Identifies the recipients that the JWT is intended for.
+    /// In this application, it contains the OAuth client ID.
     aud: String,
+    
     /// Issuer
+    /// 
+    /// Identifies the principal that issued the JWT.
+    /// Usually contains a string or URI that uniquely identifies the issuer.
     iss: String,
+    
     /// Scope
+    /// 
+    /// Space-delimited string of permissions that the token grants.
+    /// This is a common extension for OAuth 2.0 access tokens.
     scope: String,
+    
     /// Additional metadata
+    /// 
+    /// Custom claims containing additional information about the user
+    /// or authentication context. May include fields like email, name,
+    /// or other user attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
     metadata: Option<HashMap<String, String>>,
 }
 
 /// Token entry storing both access and refresh tokens
+///
+/// This structure represents a complete token set in the token store,
+/// including the access token, optional refresh token, and associated metadata.
+/// Each entry is associated with a specific OAuth grant and has a defined
+/// expiration time.
+///
+/// Token entries are stored in the `JwtTokenMap` and are used to track
+/// active tokens for validation, refreshing, and token introspection.
 struct TokenEntry {
     /// Access token data
+    ///
+    /// The JWT string that the client uses to access protected resources.
     access_token: String,
+    
     /// Optional refresh token
+    ///
+    /// A token that clients can use to obtain a new access token without
+    /// requiring the user to be redirected. May be None if refresh tokens
+    /// are not enabled or not issued for this particular grant.
     refresh_token: Option<String>,
+    
     /// The grant used to create this token
+    ///
+    /// Contains information about the authorization grant that led to this token,
+    /// including the client ID, user ID (owner), scope, and redirect URI.
     grant: Grant,
+    
     /// Expiration time for the token
+    ///
+    /// The time at which this token will expire and no longer be valid for use.
+    /// Both access and refresh tokens share the same expiration time in this implementation.
     expiry: DateTime<Utc>,
 }
 
 /// A custom JWT token issuer implementation
+///
+/// `JwtTokenMap` is the core implementation of the JWT token issuing and
+/// management functionality. It maintains in-memory maps of active tokens
+/// and implements the Oxide Auth `Issuer` trait to integrate with the OAuth 2.0
+/// workflow.
+///
+/// This struct is responsible for:
+/// - Creating and signing JWT tokens with appropriate claims
+/// - Generating secure refresh tokens
+/// - Storing and retrieving active tokens
+/// - Verifying token validity
+/// - Refreshing expired tokens
+///
+/// The implementation is not thread-safe on its own, which is why it's
+/// typically wrapped in the `JwtIssuer` struct that provides thread safety
+/// through a mutex.
+///
+/// # Token Storage
+///
+/// Tokens are stored in two hash maps:
+/// - `access_tokens`: Maps access token strings to token entries
+/// - `refresh_tokens`: Maps refresh token strings to the same token entries
+///
+/// This allows efficient lookup of tokens by either the access token or
+/// refresh token value.
 pub struct JwtTokenMap {
     /// Map of access tokens
+    ///
+    /// Maps access token strings to their corresponding token entries.
+    /// Used for token validation and introspection.
     access_tokens: HashMap<String, Arc<TokenEntry>>,
+    
     /// Map of refresh tokens
+    ///
+    /// Maps refresh token strings to their corresponding token entries.
+    /// Used during token refresh operations.
     refresh_tokens: HashMap<String, Arc<TokenEntry>>,
+    
     /// JWT signing key
+    ///
+    /// The key used to sign JWT tokens. For symmetric algorithms like HS256,
+    /// this is derived from the secret. For asymmetric algorithms like RS256,
+    /// this contains the private key.
     signing_key: EncodingKey,
+    
     /// JWT verification key
+    ///
+    /// The key used to verify JWT signatures. For symmetric algorithms like HS256,
+    /// this is derived from the same secret as the signing key. For asymmetric 
+    /// algorithms like RS256, this contains the public key.
     verification_key: DecodingKey,
+    
     /// Random generator for refresh tokens
+    ///
+    /// Generates cryptographically secure random tokens for use as refresh tokens.
     refresh_generator: RandomGenerator,
+    
     /// Token validity duration
+    ///
+    /// Specifies how long issued tokens remain valid before expiring.
+    /// If None, tokens do not expire by default.
     token_duration: Option<Duration>,
+    
     /// Issuer name for JWT
+    ///
+    /// A string identifier for the token issuer, included in the "iss" claim
+    /// of generated JWT tokens.
     issuer: String,
+    
     /// Counter for token generation
+    ///
+    /// Used to ensure unique token identifiers (JTI claim) across token generation.
     usage_counter: u64,
+    
     /// JWT signing algorithm
+    ///
+    /// The algorithm used to sign and verify JWT tokens.
+    /// Default is HS256 (HMAC with SHA-256).
     algorithm: Algorithm,
 }
 
@@ -355,7 +526,7 @@ impl Issuer for JwtTokenMap {
     }
 }
 
-/// A wrapper around Arc<Mutex<JwtTokenMap>> that implements the Issuer trait
+/// A wrapper around `Arc<Mutex<JwtTokenMap>>` that implements the Issuer trait
 pub struct JwtIssuer(pub Arc<Mutex<JwtTokenMap>>);
 
 // Implement Clone for JwtIssuer

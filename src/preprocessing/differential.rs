@@ -72,8 +72,8 @@ use anyhow::Result;
 /// # Overflow Behavior
 ///
 /// When subtraction would cause an integer overflow/underflow:
-/// - If signal_a[i] < signal_b[i] and the result would be below i16::MIN, the result is clamped to i16::MIN
-/// - If signal_a[i] > signal_b[i] and the result would be above i16::MAX, the result is clamped to i16::MAX
+/// - If signal_a\[i\] < signal_b\[i\] and the result would be below i16::MIN, the result is clamped to i16::MIN
+/// - If signal_a\[i\] > signal_b\[i\] and the result would be above i16::MAX, the result is clamped to i16::MAX
 ///
 /// # Examples
 ///
