@@ -237,6 +237,7 @@ pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> 
         .mount(
             "/",
             routes![
+                options,
                 favicon,
                 webclient,
                 authorize,
