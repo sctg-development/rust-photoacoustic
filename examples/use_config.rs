@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     // Add a custom HMAC secret for JWT tokens
     let hmac_secret = Some("custom-jwt-secret-from-cmdline".to_string());
 
-    config.apply_args(web_port, web_address.to_string(), hmac_secret);
+    config.apply_args(web_port, web_address.to_string(), hmac_secret, true);
     println!(
         "Configuration after applying command line arguments: {:?}",
         config

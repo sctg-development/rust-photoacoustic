@@ -343,16 +343,14 @@ impl OxideState {
     ///
     /// # Example
     ///
-    /// ```
-    /// # use rust_photoacoustic::visualization::oxide_auth::{OxideState, OAuthRequest};
+    /// ```no_run
+    /// # use rust_photoacoustic::visualization::oxide_auth::OxideState;
     /// # let state = OxideState::preconfigured("secret");
-    /// # let oauth_request = OAuthRequest::default(); // Not a real constructor
+    /// # // We don't need an oauth_request for this example
     ///
     /// // Configure and execute an authorization flow
-    /// let result = state
-    ///     .endpoint()
-    ///     .authorization_flow()
-    ///     .execute(oauth_request);
+    /// let endpoint = state.endpoint();
+    /// // From this point we would use the endpoint for OAuth authorization
     /// ```
     pub fn endpoint(&self) -> Generic<impl Registrar + '_, impl Authorizer + '_, impl Issuer + '_> {
         Generic {

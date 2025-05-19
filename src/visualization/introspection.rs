@@ -19,12 +19,12 @@
 //! The introspection endpoint can be mounted in a Rocket application:
 //!
 //! ```rust
-//! use rocket::build;
+//! use rocket::{build, routes};
 //! use rust_photoacoustic::visualization::introspection::introspect;
 //! use rust_photoacoustic::visualization::oxide_auth::OxideState;
 //!
 //! fn main() {
-//!     let state = OxideState::new("your-secret", "your-issuer");
+//!     let state = OxideState::preconfigured("your-secret");
 //!     
 //!     let rocket = rocket::build()
 //!         .manage(state)
@@ -186,7 +186,7 @@ pub struct IntrospectionResponse {
 ///
 /// # Example Request
 ///
-/// ```
+/// ```text
 /// POST /introspect HTTP/1.1
 /// Host: server.example.com
 /// Content-Type: application/x-www-form-urlencoded

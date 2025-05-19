@@ -49,10 +49,10 @@
 //!          spectrum.frequencies[1] - spectrum.frequencies[0]);
 //! ```
 
-// Re-export child modules (currently private)
-mod fft;
+// Make the fft module public for documentation examples
+pub mod fft;
 
-// Re-export key types and functions for public use
+// Re-export key types and functions for public use at the top level
 pub use fft::{FFTAnalyzer, SpectralAnalyzer, SpectrumData, WindowFunction};
 
 /// Create a new spectral analyzer with the given window size and averaging

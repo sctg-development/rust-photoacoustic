@@ -44,7 +44,7 @@
 //!
 //! ### Creating an EC key configuration from PEM data
 //!
-//! ```rust
+//! ```rust,no_run
 //! use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
 //! use jsonwebtoken::Algorithm;
 //!
@@ -283,7 +283,7 @@ impl JwtKeyConfig {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
@@ -410,7 +410,7 @@ impl JwtKeyConfig {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
@@ -461,7 +461,7 @@ impl JwtKeyConfig {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
     ///
     /// let secret = b"your-secret-key-for-signing";

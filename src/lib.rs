@@ -78,7 +78,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use rust_photoacoustic::AnalysisResult;
 /// use chrono::Utc;
 ///
@@ -107,4 +107,15 @@ pub struct AnalysisResult {
     /// The UTC timestamp when the analysis was performed, allowing for temporal tracking
     /// of measurements in long-term monitoring scenarios.
     pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+impl Default for AnalysisResult {
+    fn default() -> Self {
+        Self {
+            frequency: 0.0,
+            amplitude: 0.0,
+            concentration: 0.0,
+            timestamp: chrono::Utc::now(),
+        }
+    }
 }

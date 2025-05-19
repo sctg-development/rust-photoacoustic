@@ -66,6 +66,56 @@
         "rs256_private_key",
         "rs256_public_key"
       ]
+    },
+    "modbus": {
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65534
+        },
+        "address": {
+          "type": "string",
+          "anyOf": [
+            {
+              "format": "ipv4"
+            },
+            {
+              "format": "ipv6"
+            }
+          ],
+          "description": "IPv4 or IPv6 address to bind the Modbus service to."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Modbus TCP server"
+        }
+      },
+      "required": [
+        "port",
+        "address"
+      ]
+    },
+    "acquisition": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable data acquisition"
+        },
+        "interval_ms": {
+          "type": "integer",
+          "minimum": 10,
+          "default": 1000,
+          "description": "Data acquisition interval in milliseconds"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
     }
   },
   "required": [

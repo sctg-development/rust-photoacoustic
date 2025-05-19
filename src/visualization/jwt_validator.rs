@@ -517,6 +517,52 @@ pub struct UserInfo {
 }
 
 impl UserInfo {
+    /// Create a new UserInfo instance from a JSON claims object (for documentation examples)
+    ///
+    /// This method is used primarily in documentation examples to create a UserInfo instance
+    /// from JSON data representing JWT claims.
+    ///
+    /// # Parameters
+    ///
+    /// * `claims` - A JSON value representing the JWT claims
+    ///
+    /// # Returns
+    ///
+    /// A new UserInfo instance with data from the claims
+    #[doc(hidden)]
+    pub fn from_claims(claims: &serde_json::Value) -> Self {
+        use chrono::TimeZone;
+
+        let scopes = claims["scope"]
+            .as_str()
+            .unwrap_or("")
+            .split_whitespace()
+            .map(String::from)
+            .collect();
+
+        let exp = claims["exp"]
+            .as_i64()
+            .unwrap_or_else(|| Utc::now().timestamp() + 3600);
+
+        Self {
+            user_id: claims["sub"].as_str().unwrap_or("unknown").to_string(),
+            client_id: claims["aud"].as_str().unwrap_or("unknown").to_string(),
+            scopes,
+            email: claims["email"].as_str().map(String::from),
+            name: claims["name"].as_str().map(String::from),
+            token_id: claims
+                .get("jti")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            issued_at: Utc::now() - chrono::Duration::hours(1),
+            expiry: Utc
+                .timestamp_opt(exp, 0)
+                .single()
+                .unwrap_or_else(|| Utc::now() + chrono::Duration::hours(1)),
+        }
+    }
+
     /// Check if the token has a specific scope
     ///
     /// This method checks if the user has been granted a specific permission
@@ -534,9 +580,17 @@ impl UserInfo {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// # use rust_photoacoustic::visualization::jwt_validator::UserInfo;
-    /// # let user_info = get_user_info(); // Assume this function exists
+    /// # use serde_json::json;
+    /// # let claims = serde_json::from_value(json!({
+    /// #     "sub": "user123",
+    /// #     "name": "Test User",
+    /// #     "email": "test@example.com",
+    /// #     "scope": "read:data write:data",
+    /// #     "exp": 1719619200
+    /// # })).unwrap();
+    /// # let user_info = UserInfo::from_claims(&claims);
     ///
     /// if user_info.has_scope("read:data") {
     ///     // Allow reading data
@@ -545,11 +599,6 @@ impl UserInfo {
     /// if user_info.has_scope("write:data") {
     ///     // Allow writing data
     /// }
-    ///
-    /// # fn get_user_info() -> UserInfo {
-    /// #     // This is a mock function for the example
-    /// #     unimplemented!()
-    /// # }
     /// ```
     pub fn has_scope(&self, scope: &str) -> bool {
         self.scopes.iter().any(|s| s == scope)
@@ -566,9 +615,16 @@ impl UserInfo {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// # use rust_photoacoustic::visualization::jwt_validator::UserInfo;
-    /// # let user_info = get_user_info(); // Assume this function exists
+    /// # use serde_json::json;
+    /// # let claims = serde_json::from_value(json!({
+    /// #     "sub": "user123",
+    /// #     "name": "Test User",
+    /// #     "email": "test@example.com",
+    /// #     "exp": 1719619200
+    /// # })).unwrap();
+    /// # let user_info = UserInfo::from_claims(&claims);
     ///
     /// let remaining = user_info.validity_remaining_secs();
     ///

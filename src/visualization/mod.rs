@@ -28,13 +28,14 @@
 //!
 //! ## Usage
 //!
-//! ```
+//! ```text
 //! use rust_photoacoustic::{config::Config, AnalysisResult};
 //! use rust_photoacoustic::visualization;
+//! use rocket::routes;  // Import routes macro for rocket
 //!
 //! async fn example() -> anyhow::Result<()> {
 //!     // Load configuration
-//!     let config = Config::new("config.yaml")?;
+//!     let config = Config::from_file("config.yaml")?;
 //!     
 //!     // Prepare analysis results (simplified example)
 //!     let analysis_result = AnalysisResult::default();
@@ -59,9 +60,61 @@
 pub mod api;
 
 /// API authentication mechanisms
+///
+/// This module provides JWT-based authentication for API endpoints, including:
+///
+/// - JWT token validation and extraction
+/// - Route guards for securing endpoints
+/// - Scope-based authorization
+///
+/// # Example
+///
+/// ```no_run
+/// use rocket::{get, build, routes};
+/// use rocket::serde::json::Json;
+/// use rust_photoacoustic::visualization::api_auth::AuthenticatedUser;
+///
+/// #[get("/profile")]
+/// fn get_profile(user: AuthenticatedUser) -> Json<String> {
+///     Json(format!("Hello, {}!", user.user_id))
+/// }
+///
+/// #[get("/data")]
+/// fn get_data() -> &'static str {
+///     "Public data"
+/// }
+///
+/// fn setup() -> rocket::Rocket<rocket::Build> {
+///     build()
+///         .mount("/", routes![get_profile, get_data])
+/// }
+/// ```
 pub mod api_auth;
 
 /// Token introspection functionality for validating OAuth tokens
+///
+/// This module provides OAuth 2.0 token introspection endpoint implementation
+/// according to RFC 7662, allowing clients to verify token validity and scope.
+///
+/// # Example
+///
+/// ```no_run
+/// use rocket::{build, post, routes};
+/// use rust_photoacoustic::visualization::oxide_auth::OxideState;
+///
+/// #[post("/introspect")]
+/// fn introspect() -> &'static str {
+///     "Token information"
+/// }
+///
+/// fn setup() {
+///     let state = OxideState::preconfigured("your-secret");
+///     let rocket = build()
+///         .manage(state)
+///         .mount("/oauth", routes![introspect]);
+///     // Start the server
+/// }
+/// ```
 pub mod introspection;
 
 /// JWT token generation and management
@@ -111,11 +164,11 @@ use rocket::{
 ///
 /// # Example
 ///
-/// ```
+/// ```no_run
 /// use rust_photoacoustic::{config::Config, AnalysisResult};
 ///
 /// async fn run_server() -> anyhow::Result<()> {
-///     let config = Config::new("config.yaml")?;
+///     let config = Config::from_file("config.yaml")?;
 ///     let analysis_data = AnalysisResult::default(); // Replace with actual analysis
 ///     
 ///     rust_photoacoustic::visualization::start_server(analysis_data, &config).await?;

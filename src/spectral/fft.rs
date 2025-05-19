@@ -312,7 +312,7 @@ impl FFTAnalyzer {
     /// assert!(windowed_signal[0] < signal[0]);
     /// assert!(windowed_signal[signal.len() - 1] < signal[signal.len() - 1]);
     /// ```
-    fn apply_window(&self, signal: &[f32]) -> Vec<f32> {
+    pub fn apply_window(&self, signal: &[f32]) -> Vec<f32> {
         let mut windowed = Vec::with_capacity(signal.len());
 
         for (i, &sample) in signal.iter().enumerate() {

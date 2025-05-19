@@ -29,7 +29,7 @@
 //! let mut config = Config::from_file(Path::new("config.yaml")).unwrap();
 //!
 //! // Apply command line overrides if needed
-//! config.apply_args(8081, "0.0.0.0".to_string(), None);
+//! config.apply_args(8081, "0.0.0.0".to_string(), None, false);
 //!
 //! // Access configuration values
 //! println!("Server port: {}", config.visualization.port);
@@ -46,6 +46,53 @@ use std::{
     path::Path,
 };
 
+/// Configuration for the data acquisition process.
+///
+/// This structure contains settings that control how data is acquired
+/// from the photoacoustic sensor, including timing parameters and
+/// whether the acquisition system is enabled.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AcquisitionConfig {
+    /// Enable or disable data acquisition.
+    ///
+    /// When set to `false`, the system will not perform any data acquisition
+    /// operations. Default is `true`.
+    pub enabled: bool,
+
+    /// Time interval between consecutive data acquisitions in milliseconds.
+    ///
+    /// This controls how frequently the system samples data from the sensor.
+    /// Lower values provide more frequent updates but may increase system load.
+    /// Default value is 1000ms (1 second).
+    pub interval_ms: u64,
+    // Other acquisition settings
+}
+// implement Default for AcquisitionConfig
+impl Default for AcquisitionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_ms: 1000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModbusConfig {
+    pub enabled: bool,
+    pub port: u16,
+    pub address: String,
+}
+// implement Default for ModbusConfig
+impl Default for ModbusConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: 502,
+            address: "127.0.0.1".to_string(),
+        }
+    }
+}
 /// Root configuration structure for the photoacoustic application.
 ///
 /// This structure serves as the main container for all configuration sections
@@ -71,6 +118,22 @@ pub struct Config {
     /// If not specified in the configuration file, default values are used.
     #[serde(default)]
     pub visualization: VisualizationConfig,
+
+    /// Acquisition settings for the photoacoustic application.
+    ///
+    /// This section controls parameters related to the data acquisition process,
+    /// such as enabling/disabling acquisition, and the interval between acquisitions.
+    /// If not specified, default values will be used.
+    #[serde(default)]
+    pub acquisition: AcquisitionConfig,
+
+    /// Modbus settings for the photoacoustic application.
+    ///
+    /// This section controls parameters related to the Modbus communication,
+    /// such as enabling/disabling Modbus, the port to use, and the address.
+    /// If not specified, default values will be used.
+    #[serde(default)]
+    pub modbus: ModbusConfig,
 }
 
 /// Configuration for the visualization web server.
@@ -149,6 +212,13 @@ pub struct VisualizationConfig {
     /// Can be generated with the `rs256keygen` binary.
     #[serde(default = "default_rs256_public_key")]
     pub rs256_public_key: String,
+
+    /// Enable or disable the visualization server.
+    ///
+    /// This flag can be used to easily enable or disable the server
+    /// without removing the configuration. Default is `true`.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 
 /// Provides the default TCP port (8080) for the visualization server.
@@ -197,10 +267,22 @@ fn default_key() -> Option<String> {
     }
 }
 
+/// Provides the default HMAC secret key for JWT token signing.
+///
+/// This key is used for HMAC-based JWT authentication. It should be kept secret
+/// and not shared publicly. The default value is a placeholder and should be
+/// replaced with a strong, randomly generated key in production environments.
+/// The key should be at least 256 bits (32 bytes) long for security.
 fn default_hmac_secret() -> String {
     "my-super-secret-jwt-key-for-photoacoustic-app".to_string()
 }
 
+/// Provides the default RS256 private key for JWT token signing.
+///
+/// This key is used for RS256-based JWT authentication. It should be kept secret
+/// and not shared publicly. The default value is a placeholder and should be
+/// replaced with a strong, randomly generated key in production environments.
+/// The key should be in PEM format and Base64 encoded.
 fn default_rs256_private_key() -> String {
     let key_str = include_str!("../resources/private.key");
     if key_str.is_empty() {
@@ -209,6 +291,14 @@ fn default_rs256_private_key() -> String {
         base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
     }
 }
+
+/// Provides the default RS256 public key for JWT token verification.
+///
+/// This key is used for verifying JWT tokens signed with the RS256 algorithm.
+/// It should be shared publicly to allow clients to verify the tokens.
+/// The default value is a placeholder and should be replaced with a strong,
+/// randomly generated key in production environments.
+/// The key should be in PEM format and Base64 encoded.
 fn default_rs256_public_key() -> String {
     let key_str = include_str!("../resources/pub.key");
     if key_str.is_empty() {
@@ -217,6 +307,16 @@ fn default_rs256_public_key() -> String {
         base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
     }
 }
+
+/// Provides the default enabled state for the visualization server.
+///
+/// This flag indicates whether the server should be started by default.
+/// The default value is `true`, meaning the server will be enabled unless
+/// explicitly disabled in the configuration file.
+fn default_enabled() -> bool {
+    true
+}
+
 impl Default for VisualizationConfig {
     fn default() -> Self {
         Self {
@@ -228,6 +328,7 @@ impl Default for VisualizationConfig {
             hmac_secret: default_hmac_secret(),
             rs256_private_key: default_rs256_private_key(),
             rs256_public_key: default_rs256_public_key(),
+            enabled: default_enabled(),
         }
     }
 }
@@ -236,6 +337,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             visualization: VisualizationConfig::default(),
+            acquisition: AcquisitionConfig {
+                enabled: true,
+                interval_ms: 1000,
+            },
+            modbus: ModbusConfig::default(),
         }
     }
 }
@@ -314,7 +420,13 @@ impl Config {
     }
 
     /// Apply command line arguments to override configuration values
-    pub fn apply_args(&mut self, web_port: u16, web_address: String, hmac_secret: Option<String>) {
+    pub fn apply_args(
+        &mut self,
+        web_port: u16,
+        web_address: String,
+        hmac_secret: Option<String>,
+        daemon_mode: bool, // New parameter
+    ) {
         // Only override if command-line arguments are provided
         if web_port != default_port() {
             debug!("Overriding port from command line: {}", web_port);
@@ -329,6 +441,11 @@ impl Config {
         if let Some(secret) = hmac_secret {
             debug!("Overriding HMAC secret from command line");
             self.visualization.hmac_secret = secret;
+        }
+
+        // Enable visualization in daemon mode
+        if daemon_mode {
+            self.visualization.enabled = true;
         }
     }
 

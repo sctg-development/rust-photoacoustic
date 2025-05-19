@@ -5,23 +5,19 @@
 // Main entry point for the photoacoustic water vapor analyzer
 mod acquisition;
 mod config;
+mod daemon;
 mod preprocessing;
 mod spectral;
 mod utility;
 mod visualization;
 
 use anyhow::Result;
-use base64;
-use base64::prelude::*;
 use clap::Parser;
 use config::Config;
 use log::{debug, info};
-use rocket::{
-    config::LogLevel,
-    data::{Limits, ToByteUnit},
-};
+
 use std::path::PathBuf;
-use visualization::server::build_rocket;
+use tokio::signal;
 
 /// Water vapor analyzer using photoacoustic spectroscopy
 #[derive(Debug, Parser)]
@@ -55,9 +51,9 @@ pub struct Args {
     #[arg(long, default_value_t = 10)]
     averages: usize,
 
-    /// Start web server for visualization
+    /// Start in server mode
     #[arg(long)]
-    web: bool,
+    server: bool,
 
     /// Web server port (default: 8080) only used if --web is set
     #[arg(short = 'p', long, default_value_t = 8080)]
@@ -93,41 +89,30 @@ async fn main() -> Result<()> {
         args.web_port,
         args.web_address.clone(),
         args.hmac_secret.clone(),
+        args.server,
     );
 
     // Configure Rocket
-    if args.web {
-        info!(
-            "Web server enabled on {}:{}",
-            config.visualization.address, config.visualization.port
-        );
+    if args.server {
+        info!("Starting in daemon mode");
+        let mut daemon = daemon::launch_daemon::Daemon::new();
 
-        let mut figment = rocket::Config::figment()
-            .merge(("ident", config.visualization.name.clone()))
-            .merge(("limits", Limits::new().limit("json", 2.mebibytes())))
-            .merge(("address", config.visualization.address.clone()))
-            .merge(("port", config.visualization.port))
-            .merge(("log_level", LogLevel::Normal));
+        // Launch all configured tasks
+        daemon.launch(&config).await?;
 
-        // Configure TLS if certificates are provided
-        if let (Some(cert), Some(key)) = (&config.visualization.cert, &config.visualization.key) {
-            debug!("SSL certificates found in configuration, enabling TLS");
-
-            // Decode base64 certificates
-            let cert_data = BASE64_STANDARD.decode(cert)?;
-            let key_data = BASE64_STANDARD.decode(key)?;
-
-            // Configure TLS
-            figment = figment
-                .merge(("tls.certs", cert_data))
-                .merge(("tls.key", key_data));
-
-            info!("TLS enabled for web server");
+        // Wait for termination signal
+        match signal::ctrl_c().await {
+            Ok(()) => {
+                info!("Received shutdown signal, terminating daemon");
+                daemon.shutdown();
+                daemon.join().await?;
+            }
+            Err(err) => {
+                eprintln!("Error waiting for shutdown signal: {}", err);
+            }
         }
 
-        let _rocket = build_rocket(figment, &config.visualization.hmac_secret).await;
-        let _rocket_ignite = _rocket.ignite().await?;
-        let _rocket_instance = _rocket_ignite.launch().await?;
+        return Ok(());
     } else {
         println!("Web server disabled");
     }

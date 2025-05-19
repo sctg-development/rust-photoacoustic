@@ -1,6 +1,6 @@
 use anyhow::Result;
 use base64::Engine;
-use rust_photoacoustic::config::{Config, VisualizationConfig};
+use rust_photoacoustic::config::{AcquisitionConfig, Config, ModbusConfig, VisualizationConfig};
 use std::fs;
 use tempfile::tempdir;
 
@@ -13,6 +13,7 @@ fn test_config_load_and_save() -> Result<()> {
     // Create a custom config
     let config = Config {
         visualization: VisualizationConfig {
+            enabled: true,
             port: 8081,
             address: "192.168.1.1".to_string(),
             name: "TestServer".to_string(),
@@ -23,6 +24,15 @@ fn test_config_load_and_save() -> Result<()> {
                 .encode((include_str!("../resources/private.key")).as_bytes()),
             rs256_public_key: base64::engine::general_purpose::STANDARD
                 .encode((include_str!("../resources/pub.key")).as_bytes()),
+        },
+        acquisition: AcquisitionConfig {
+            enabled: false,
+            interval_ms: 1000,
+        },
+        modbus: ModbusConfig {
+            enabled: false,
+            port: 502,
+            address: "127.0.0.1".to_string(),
         },
     };
 
@@ -56,7 +66,7 @@ fn test_config_load_and_save() -> Result<()> {
     );
 
     // Apply command-line arguments without HMAC secret
-    config.apply_args(9000, "192.168.0.1".to_string(), None);
+    config.apply_args(9000, "192.168.0.1".to_string(), None, true);
 
     // Verify values were overridden
     assert_eq!(config.visualization.port, 9000);
@@ -71,6 +81,7 @@ fn test_config_load_and_save() -> Result<()> {
         9000,
         "192.168.0.1".to_string(),
         Some("new-secret-key".to_string()),
+        true,
     );
 
     // Verify HMAC secret was overridden

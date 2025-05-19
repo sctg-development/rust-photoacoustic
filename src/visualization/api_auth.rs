@@ -18,7 +18,7 @@
 //! ## Usage Example
 //!
 //! ```rust,no_run
-//! use rocket::launch;
+//! use rocket::{launch, routes};
 //! use std::sync::Arc;
 //! use rust_photoacoustic::visualization::api_auth::{init_jwt_validator, get_profile, get_data};
 //!
