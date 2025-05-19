@@ -93,7 +93,7 @@ impl Daemon {
     ///
     /// ```
     /// use rust_photoacoustic::daemon::Daemon;
-    /// 
+    ///
     /// let daemon = Daemon::new();
     /// // Daemon is now ready to launch tasks
     /// ```
@@ -134,7 +134,7 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::Daemon};
-    /// 
+    ///
     /// async fn start_daemon() -> anyhow::Result<Daemon> {
     ///     let config = Config::from_file("config.yaml")?;
     ///     let mut daemon = Daemon::new();
@@ -319,12 +319,12 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::daemon::Daemon;
-    /// 
+    ///
     /// # async fn example() -> anyhow::Result<()> {
     /// # let daemon = Daemon::new();
     /// // Signal all tasks to stop
     /// daemon.shutdown();
-    /// 
+    ///
     /// // Wait for all tasks to complete
     /// daemon.join().await?;
     /// # Ok(())
@@ -340,8 +340,8 @@ impl Daemon {
     ///
     /// Consumes the daemon and waits for all spawned tasks to finish execution.
     /// This method should be called after `shutdown()` to ensure a clean application exit.
-    /// 
-    /// If any task panics, the error is logged but this method will still wait for 
+    ///
+    /// If any task panics, the error is logged but this method will still wait for
     /// all other tasks to complete.
     ///
     /// # Returns
@@ -357,12 +357,12 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::daemon::Daemon;
-    /// 
+    ///
     /// # async fn example() -> anyhow::Result<()> {
     /// # let daemon = Daemon::new();
     /// // First signal shutdown
     /// daemon.shutdown();
-    /// 
+    ///
     /// // Then wait for all tasks to finish
     /// daemon.join().await?;
     /// println!("All daemon tasks have completed");
