@@ -65,6 +65,8 @@ impl tokio_modbus::server::Service for PhotoacousticModbusServer {
     }
 }
 
+/// Create a new Modbus server instance with some test data.
+/// This function initializes the server with some default input and holding registers.
 impl PhotoacousticModbusServer {
     fn new() -> Self {
         // Insert some test data as register values.
