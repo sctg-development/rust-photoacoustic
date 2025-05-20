@@ -395,7 +395,10 @@ impl Config {
             // for the user to edit
             let sample_config = Self::default();
             sample_config.save_to_file(path.with_extension("sample.yaml"))?;
-            error!("Sample configuration file created at {:?}\nPlease edit and rename it", path.with_extension("sample.yaml"));
+            error!(
+                "Sample configuration file created at {:?}\nPlease edit and rename it",
+                path.with_extension("sample.yaml")
+            );
             anyhow::bail!("Configuration validation failed: {}", error);
         }
 
