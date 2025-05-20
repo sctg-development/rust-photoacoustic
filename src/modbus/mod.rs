@@ -23,7 +23,7 @@
 //!
 //! let config = Config::default();
 //! let mut daemon = Daemon::new();
-//! daemon.start(config).await.unwrap();
+//! daemon.launch(&config); //  might await
 //! ```
 //!
 //! ## Register Map

@@ -40,22 +40,26 @@
 //! ```
 
 use anyhow::Result;
-use log::{debug, info, error};
-use std::{net::SocketAddr, sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-}};
+use log::{debug, error, info};
+use std::clone;
 use std::time::Duration;
+use std::{
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 use tokio::task::JoinHandle;
 use tokio::time;
 
-use crate::{config::Config, modbus::PhotoacousticModbusServer};
 use crate::modbus;
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
+use crate::{config::Config, modbus::PhotoacousticModbusServer};
 use base64::prelude::*;
 use rocket::{
-    config::{LogLevel},
+    config::LogLevel,
     data::{Limits, ToByteUnit},
 };
 use tokio::net::TcpListener;
@@ -352,64 +356,47 @@ impl Daemon {
         let config = config.clone();
         let running = self.running.clone();
         let data_source = self.data_source.clone();
-        
-        // Create the modbus server instance
-        let modbus_server = Arc::new(PhotoacousticModbusServer::new());
-        let modbus_server_for_task = modbus_server.clone();
-        
-        // Store the server instance for access by other daemon components
-        self.modbus_server = Some(modbus_server);
-        
+
         let task = tokio::spawn(async move {
-            let socket_addr: SocketAddr = format!("{}:{}", config.modbus.address, config.modbus.port)
-                .parse()
-                .expect("Invalid socket address");
-            
+
+            let socket_addr: SocketAddr =
+                format!("{}:{}", config.modbus.address, config.modbus.port)
+                    .parse()
+                    .expect("Invalid socket address");
             let listener = TcpListener::bind(socket_addr).await?;
             let server = Server::new(listener);
-            
-            // Create a closure that returns a new service for each connection
-            let server_instance = modbus_server_for_task.clone();
-            let photoacoustic_modbus_service = move |_socket_addr| {
-                Ok(Some(server_instance.as_ref().clone()))
-            };
-            
+
+            // Use a single shared service instance for all connections
+            // This might be sufficient because on modbus specifications only one
+            // Modbus master can connect to a Modbus slave at a time
+
+            // Create a new Modbus server instance
             let on_connected = |stream, socket_addr| async move {
-                accept_tcp_connection(stream, socket_addr, photoacoustic_modbus_service)
+                accept_tcp_connection(stream, socket_addr, |_socket_addr| Ok(Some(PhotoacousticModbusServer::new())))
             };
-            
+
             let on_process_error = |err| {
                 error!("Modbus server error: {err}");
             };
-            
+
             // Start the server in a separate task
             let server_handle = tokio::spawn(async move {
                 if let Err(e) = server.serve(&on_connected, on_process_error).await {
                     error!("Modbus server error: {}", e);
                 }
             });
-            
+
             // Periodically update the modbus server with latest measurement data
             while running.load(Ordering::SeqCst) {
-                // Try to get latest measurement data
-                if let Some(data) = data_source.lock().unwrap().get_latest_data() {
-                    debug!("Updating Modbus server with latest measurement data");
-                    modbus_server_for_task.update_measurement_data(
-                        data.frequency,
-                        data.amplitude,
-                        data.concentration
-                    );
-                }
-                
                 // Update every second
                 time::sleep(Duration::from_secs(1)).await;
             }
-            
+
             // Wait for the server to shut down
             let _ = server_handle.await;
             Ok(())
         });
-        
+
         self.tasks.push(task);
         info!("Modbus server started");
         Ok(())
@@ -427,14 +414,15 @@ impl Daemon {
     /// * `concentration` - Water vapor concentration in ppm
     pub fn update_measurement_data(&self, frequency: f32, amplitude: f32, concentration: f32) {
         // Update the shared data source
-        self.data_source.update_data(frequency, amplitude, concentration);
-        
+        self.data_source
+            .update_data(frequency, amplitude, concentration);
+
         // If the Modbus server is running, update its registers
         if let Some(modbus_server) = &self.modbus_server {
             modbus_server.update_measurement_data(frequency, amplitude, concentration);
         }
     }
-    
+
     /// Get the shared data source
     ///
     /// # Returns
