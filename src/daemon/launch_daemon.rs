@@ -40,9 +40,10 @@
 //! ```
 
 use anyhow::Result;
+use chrono::Timelike;
 use log::{debug, error, info};
 use std::clone;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{
     net::SocketAddr,
     sync::{
@@ -272,13 +273,26 @@ impl Daemon {
         info!("Starting data acquisition task");
 
         let running = self.running.clone();
+        let data_source_clone = self.data_source.clone();
+
         let task = tokio::spawn(async move {
+            let now = SystemTime::now();
             while running.load(Ordering::SeqCst) {
                 // Perform data acquisition
                 // This would integrate with our acquisition module
 
                 // Example: wait 60 second between acquisitions
                 debug!("Acquiring data...");
+                // Simulate data acquisition
+                let timestamp = SystemTime::now()
+                    .duration_since(now)
+                    .expect("Time went backwards")
+                    .as_secs();
+                data_source_clone.update_data(
+                    (1234 + timestamp) as f32,
+                    (5678 + timestamp) as f32,
+                    (1000 + timestamp) as f32,
+                );
                 time::sleep(Duration::from_secs(60)).await;
             }
             Ok(())
@@ -355,10 +369,11 @@ impl Daemon {
         );
         let config = config.clone();
         let running = self.running.clone();
-        let data_source = self.data_source.clone();
+        // Create a clone of the data source to share with the server
+        let data_source = self.get_data_source();
+        // Create another clone for the server task
 
         let task = tokio::spawn(async move {
-
             let socket_addr: SocketAddr =
                 format!("{}:{}", config.modbus.address, config.modbus.port)
                     .parse()
@@ -371,8 +386,25 @@ impl Daemon {
             // Modbus master can connect to a Modbus slave at a time
 
             // Create a new Modbus server instance
-            let on_connected = |stream, socket_addr| async move {
-                accept_tcp_connection(stream, socket_addr, |_socket_addr| Ok(Some(PhotoacousticModbusServer::new())))
+            let on_connected = move |stream, socket_addr| {
+                // Clone the Arc to avoid moving the original
+                let data_source_clone = data_source.clone();
+                let current_data_clone = data_source_clone.get_latest_data().unwrap();
+                debug!(
+                    "Data are now frequency:{} amplitude:{} concentration:{}",
+                    current_data_clone.frequency,
+                    current_data_clone.amplitude,
+                    current_data_clone.concentration
+                );
+
+                async move {
+                    accept_tcp_connection(stream, socket_addr, move |_socket_addr| {
+                        // Use the cloned Arc in this inner closure
+                        Ok(Some(PhotoacousticModbusServer::with_data_source(
+                            &data_source_clone,
+                        )))
+                    })
+                }
             };
 
             let on_process_error = |err| {
@@ -400,27 +432,6 @@ impl Daemon {
         self.tasks.push(task);
         info!("Modbus server started");
         Ok(())
-    }
-
-    /// Update the photoacoustic measurement data
-    ///
-    /// This method updates the shared data source with new measurement values
-    /// and also updates the Modbus server if it's running.
-    ///
-    /// # Parameters
-    ///
-    /// * `frequency` - Resonance frequency in Hz
-    /// * `amplitude` - Signal amplitude (dimensionless)
-    /// * `concentration` - Water vapor concentration in ppm
-    pub fn update_measurement_data(&self, frequency: f32, amplitude: f32, concentration: f32) {
-        // Update the shared data source
-        self.data_source
-            .update_data(frequency, amplitude, concentration);
-
-        // If the Modbus server is running, update its registers
-        if let Some(modbus_server) = &self.modbus_server {
-            modbus_server.update_measurement_data(frequency, amplitude, concentration);
-        }
     }
 
     /// Get the shared data source
