@@ -1,6 +1,6 @@
 //! # Daemon Management Module
 //!
-//! This module provides functionality for running and managing long-running background
+//! This module provides functionality for running and manageing background
 //! tasks (daemons) in the photoacoustic application. It handles the lifecycle of various
 //! services including:
 //!
@@ -40,22 +40,26 @@
 //! ```
 
 use anyhow::Result;
-use log::{debug, info};
-use std::sync::{
+use log::{debug, info, error};
+use std::{net::SocketAddr, sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
-};
+}};
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time;
 
-use crate::config::Config;
+use crate::{config::Config, modbus::PhotoacousticModbusServer};
+use crate::modbus;
+use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
 use base64::prelude::*;
 use rocket::{
-    config::LogLevel,
+    config::{LogLevel},
     data::{Limits, ToByteUnit},
 };
+use tokio::net::TcpListener;
+use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
 
 /// Represents a daemon task manager that coordinates multiple background services
 ///
@@ -73,9 +77,14 @@ use rocket::{
 /// The `running` flag is wrapped in an `Arc` (Atomic Reference Counter) to allow
 /// safe sharing between multiple tasks. Each task checks this flag periodically
 /// to determine if it should continue running or gracefully terminate.
+///
+/// The `data_source` provides measurement data that can be accessed by multiple
+/// components including the web API, visualizations, and Modbus server.
 pub struct Daemon {
     tasks: Vec<JoinHandle<Result<()>>>,
     running: Arc<AtomicBool>,
+    data_source: Arc<PhotoacousticDataSource>,
+    modbus_server: Option<Arc<PhotoacousticModbusServer>>,
 }
 
 impl Daemon {
@@ -100,6 +109,8 @@ impl Daemon {
         Daemon {
             tasks: Vec::new(),
             running: Arc::new(AtomicBool::new(true)),
+            data_source: Arc::new(PhotoacousticDataSource::new()),
+            modbus_server: None,
         }
     }
 
@@ -154,7 +165,7 @@ impl Daemon {
 
         // Start modbus server if enabled
         if config.modbus.enabled {
-            self.start_modbus_server(config)?;
+            self.start_modbus_server(config).await?;
         }
 
         // Add additional tasks here as needed
@@ -311,14 +322,126 @@ impl Daemon {
     }
 
     /// Launch the modbus server daemon
-    fn start_modbus_server(&mut self, config: &Config) -> Result<()> {
+    ///
+    /// Initializes and launches a Modbus TCP server that allows external systems
+    /// to access photoacoustic data using the Modbus protocol. The server is
+    /// configured according to the provided configuration, including address and port.
+    ///
+    /// This method spawns an asynchronous task that runs the Modbus server in the background.
+    /// The server will continue running until the daemon's `running` flag is set to `false`.
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Application configuration containing Modbus server settings
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Success if the server started successfully, or error details
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// * The server fails to bind to the specified address/port
+    /// * The socket address is invalid
+    /// * The Modbus server fails to initialize for any other reason
+    async fn start_modbus_server(&mut self, config: &Config) -> Result<()> {
         info!(
             "Starting modbus server on {}:{}",
             config.modbus.address, config.modbus.port
         );
-        // Placeholder for modbus server launch
-        // This would be implemented in the future
+        let config = config.clone();
+        let running = self.running.clone();
+        let data_source = self.data_source.clone();
+        
+        // Create the modbus server instance
+        let modbus_server = Arc::new(PhotoacousticModbusServer::new());
+        let modbus_server_for_task = modbus_server.clone();
+        
+        // Store the server instance for access by other daemon components
+        self.modbus_server = Some(modbus_server);
+        
+        let task = tokio::spawn(async move {
+            let socket_addr: SocketAddr = format!("{}:{}", config.modbus.address, config.modbus.port)
+                .parse()
+                .expect("Invalid socket address");
+            
+            let listener = TcpListener::bind(socket_addr).await?;
+            let server = Server::new(listener);
+            
+            // Create a closure that returns a new service for each connection
+            let server_instance = modbus_server_for_task.clone();
+            let photoacoustic_modbus_service = move |_socket_addr| {
+                Ok(Some(server_instance.as_ref().clone()))
+            };
+            
+            let on_connected = |stream, socket_addr| async move {
+                accept_tcp_connection(stream, socket_addr, photoacoustic_modbus_service)
+            };
+            
+            let on_process_error = |err| {
+                error!("Modbus server error: {err}");
+            };
+            
+            // Start the server in a separate task
+            let server_handle = tokio::spawn(async move {
+                if let Err(e) = server.serve(&on_connected, on_process_error).await {
+                    error!("Modbus server error: {}", e);
+                }
+            });
+            
+            // Periodically update the modbus server with latest measurement data
+            while running.load(Ordering::SeqCst) {
+                // Try to get latest measurement data
+                if let Some(data) = data_source.lock().unwrap().get_latest_data() {
+                    debug!("Updating Modbus server with latest measurement data");
+                    modbus_server_for_task.update_measurement_data(
+                        data.frequency,
+                        data.amplitude,
+                        data.concentration
+                    );
+                }
+                
+                // Update every second
+                time::sleep(Duration::from_secs(1)).await;
+            }
+            
+            // Wait for the server to shut down
+            let _ = server_handle.await;
+            Ok(())
+        });
+        
+        self.tasks.push(task);
+        info!("Modbus server started");
         Ok(())
+    }
+
+    /// Update the photoacoustic measurement data
+    ///
+    /// This method updates the shared data source with new measurement values
+    /// and also updates the Modbus server if it's running.
+    ///
+    /// # Parameters
+    ///
+    /// * `frequency` - Resonance frequency in Hz
+    /// * `amplitude` - Signal amplitude (dimensionless)
+    /// * `concentration` - Water vapor concentration in ppm
+    pub fn update_measurement_data(&self, frequency: f32, amplitude: f32, concentration: f32) {
+        // Update the shared data source
+        self.data_source.update_data(frequency, amplitude, concentration);
+        
+        // If the Modbus server is running, update its registers
+        if let Some(modbus_server) = &self.modbus_server {
+            modbus_server.update_measurement_data(frequency, amplitude, concentration);
+        }
+    }
+    
+    /// Get the shared data source
+    ///
+    /// # Returns
+    ///
+    /// A reference to the shared data source that can be used by other components
+    pub fn get_data_source(&self) -> Arc<PhotoacousticDataSource> {
+        self.data_source.clone()
     }
 
     /// Stop all running tasks gracefully

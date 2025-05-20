@@ -6,6 +6,7 @@
 mod acquisition;
 mod config;
 mod daemon;
+mod modbus;
 mod preprocessing;
 mod spectral;
 mod utility;

@@ -5,6 +5,8 @@
 //! Utility module for common utilities used throughout the project
 
 pub mod certificate_utilities;
+pub mod data_source;
 pub mod noise_generator;
 
-// Re-export the NoiseGenerator for use in other modules
+// Re-exports for use in other modules
+pub use data_source::{PhotoacousticDataSource, PhotoacousticMeasurement};

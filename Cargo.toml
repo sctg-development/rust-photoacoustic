@@ -1,5 +1,5 @@
 [package]
-name = "rust-photoacoustic"
+name = "rust_photoacoustic"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ronan Le Meillat"]
@@ -51,7 +51,8 @@ url = "2.5.4"                                                                   
 rcgen = "0.13.2"                                                                        # Certificate generation
 time = "0.3.41"                                                                          # Time handling for certificates
 rsa = "0.9.8"
-tokio = "1.45.0"
+tokio = { version = "1.45.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
+tokio-modbus = { version = "0.16.1", features = ["tcp", "tcp-server", "server"] }
 
 [dev-dependencies]
 criterion = "0.6"                                   # Benchmarking
