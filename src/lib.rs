@@ -70,21 +70,9 @@ pub mod visualization;
 
 /// Daemon process for background analysis and service management.
 ///
-/// The `daemon` module provides functionality for running the photoacoustic analysis
-/// system as a background service. It is responsible for orchestrating continuous data
-/// acquisition, periodic analysis, and automatic reporting, as well as managing the
-/// lifecycle of long-running server or worker processes.
-///
-/// Key features of the daemon module include:
-/// - Background monitoring and scheduling of analysis tasks
-/// - Integration with system process management (e.g., for Unix daemons or Windows services)
-/// - Graceful startup and shutdown handling
-/// - Logging, diagnostics, and error recovery mechanisms
-/// - Secure management of credentials and configuration for unattended operation
-///
-/// This module is intended for scenarios where the photoacoustic system must operate
-/// autonomously, such as in industrial monitoring, environmental sensing stations, or
-/// deployments requiring persistent, headless operation.
+/// The daemon module provides functionality for running and managing background
+/// services in the photoacoustic application. This includes the web server for
+/// visualization, data acquisition tasks, and system monitoring.
 pub mod daemon;
 
 use serde::{Deserialize, Serialize};
