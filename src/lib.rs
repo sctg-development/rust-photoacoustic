@@ -32,6 +32,7 @@
 //! - **debug_config**: Tool for debugging configuration files
 //! - **differential**: Utility for differential signal analysis
 //! - **filters**: Tool for testing signal filtering operations
+//! - **modbus_client**: Tool for testing the Modbus slave included in **main**
 
 /// Module for handling audio signal acquisition from various sources.
 ///
