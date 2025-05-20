@@ -75,6 +75,12 @@ pub mod visualization;
 /// visualization, data acquisition tasks, and system monitoring.
 pub mod daemon;
 
+/// Modbus communication for interfacing with external devices.
+///
+/// This module provides functionality for Modbus communication, allowing
+/// interaction with external devices and systems that support the Modbus protocol.
+pub mod modbus;
+
 use serde::{Deserialize, Serialize};
 
 /// Result of a photoacoustic analysis operation.
