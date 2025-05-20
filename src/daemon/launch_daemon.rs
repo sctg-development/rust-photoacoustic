@@ -41,7 +41,7 @@
 
 use anyhow::Result;
 use chrono::Timelike;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use std::clone;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{
@@ -379,6 +379,7 @@ impl Daemon {
                     .parse()
                     .expect("Invalid socket address");
             let listener = TcpListener::bind(socket_addr).await?;
+
             let server = Server::new(listener);
 
             // Use a single shared service instance for all connections
@@ -418,14 +419,30 @@ impl Daemon {
                 }
             });
 
+            // Create a cancellation token for the server task
+            let running_clone = running.clone();
+
             // Periodically update the modbus server with latest measurement data
             while running.load(Ordering::SeqCst) {
-                // Update every second
+                // Check every second if we should continue running
                 time::sleep(Duration::from_secs(1)).await;
             }
 
-            // Wait for the server to shut down
-            let _ = server_handle.await;
+            // The running flag is now false, which means we need to shut down
+            info!("Shutting down Modbus server...");
+
+            // Explicitly abort the server task if it's still running
+            server_handle.abort();
+
+            // Wait for the server to shut down with a timeout
+            match tokio::time::timeout(Duration::from_secs(5), server_handle).await {
+                Ok(_) => info!("Modbus server shut down successfully"),
+                Err(_) => {
+                    // If it times out, just log and continue - we don't want to block shutdown
+                    warn!("Modbus server shutdown timed out, forcing termination");
+                }
+            }
+
             Ok(())
         });
 
