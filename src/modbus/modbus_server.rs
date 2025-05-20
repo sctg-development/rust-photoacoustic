@@ -3,13 +3,13 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 //! Modbus server implementation for the photoacoustic water vapor analyzer
-//! 
+//!
 //! For avoiding confusion with the Modbus master/slave terminology, this module uses
 //! the terms "server" and "client" instead. The server is the device that provides data,
 //! while the client is the device that requests data.
-//! 
-//! The Modbus master is the device that requests data, while the Modbus slave is the device 
-//! that provides data. In other words, the Modbus master is here the client and the 
+//!
+//! The Modbus master is the device that requests data, while the Modbus slave is the device
+//! that provides data. In other words, the Modbus master is here the client and the
 //! Modbus slave is here the server.
 //!
 //! ## Register Map
@@ -49,13 +49,15 @@ use std::{
     time::Duration,
 };
 
-use log::{error, debug};
+use log::{debug, error};
 use tokio::net::TcpListener;
 
 use tokio_modbus::{
     prelude::*,
     server::tcp::{accept_tcp_connection, Server},
 };
+
+use crate::utility::PhotoacousticDataSource;
 
 /// A Modbus TCP server implementation specific to the photoacoustic water vapor analyzer.
 ///
@@ -94,7 +96,7 @@ use tokio_modbus::{
 pub struct PhotoacousticModbusServer {
     /// Input registers (read-only values like measurements)
     pub input_registers: Arc<Mutex<HashMap<u16, u16>>>,
-    
+
     /// Holding registers (read-write configuration values)
     pub holding_registers: Arc<Mutex<HashMap<u16, u16>>>,
 }
@@ -116,20 +118,30 @@ impl tokio_modbus::server::Service for PhotoacousticModbusServer {
     /// Any other function code will return an IllegalFunction exception.
     fn call(&self, req: Self::Request) -> Self::Future {
         debug!("Received Modbus request: {:?}", req);
-        
+
         let res = match req {
             Request::ReadInputRegisters(addr, cnt) => {
-                debug!("Reading {} input registers starting from address {}", cnt, addr);
+                debug!(
+                    "Reading {} input registers starting from address {}",
+                    cnt, addr
+                );
                 register_read(&self.input_registers.lock().unwrap(), addr, cnt)
                     .map(Response::ReadInputRegisters)
             }
             Request::ReadHoldingRegisters(addr, cnt) => {
-                debug!("Reading {} holding registers starting from address {}", cnt, addr);
+                debug!(
+                    "Reading {} holding registers starting from address {}",
+                    cnt, addr
+                );
                 register_read(&self.holding_registers.lock().unwrap(), addr, cnt)
                     .map(Response::ReadHoldingRegisters)
             }
             Request::WriteMultipleRegisters(addr, values) => {
-                debug!("Writing {} values to holding registers starting from address {}", values.len(), addr);
+                debug!(
+                    "Writing {} values to holding registers starting from address {}",
+                    values.len(),
+                    addr
+                );
                 register_write(&mut self.holding_registers.lock().unwrap(), addr, &values)
                     .map(|_| Response::WriteMultipleRegisters(addr, values.len() as u16))
             }
@@ -141,18 +153,20 @@ impl tokio_modbus::server::Service for PhotoacousticModbusServer {
                     std::slice::from_ref(&value),
                 )
                 .map(|_| Response::WriteSingleRegister(addr, value))
-            },
+            }
             _ => {
-                error!("Exception::IllegalFunction - Unimplemented function code in request: {req:?}");
+                error!(
+                    "Exception::IllegalFunction - Unimplemented function code in request: {req:?}"
+                );
                 Err(ExceptionCode::IllegalFunction)
             }
         };
-        
+
         // Log the result
         if let Err(e) = &res {
             error!("Modbus request error: {:?}", e);
         }
-        
+
         future::ready(res)
     }
 }
@@ -180,35 +194,62 @@ impl PhotoacousticModbusServer {
     pub fn new() -> Self {
         // Initialize input registers with measurement values (with proper scaling)
         let mut input_registers = HashMap::new();
-        input_registers.insert(0, 1234 * 10);  // Frequency in Hz × 10
-        input_registers.insert(1, 5678);       // Amplitude × 1000
-        input_registers.insert(2, 1000 * 10);  // Concentration in ppm × 10
-        
+        input_registers.insert(0, 1234 * 10); // Frequency in Hz × 10
+        input_registers.insert(1, 5678); // Amplitude × 1000
+        input_registers.insert(2, 1000 * 10); // Concentration in ppm × 10
+
         // Store current timestamp in two 16-bit registers
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as u32;
-        
-        input_registers.insert(3, (now & 0xFFFF) as u16);       // Low word
+
+        input_registers.insert(3, (now & 0xFFFF) as u16); // Low word
         input_registers.insert(4, ((now >> 16) & 0xFFFF) as u16); // High word
-        
+
         // Status register - 0 means normal operation
         input_registers.insert(5, 0);
-        
+
         // Initialize holding registers with configuration values
         let mut holding_registers = HashMap::new();
-        holding_registers.insert(0, 10);  // Measurement interval (seconds)
-        holding_registers.insert(1, 20);  // Averaging count (samples)
-        holding_registers.insert(2, 30);  // Gain setting
-        holding_registers.insert(3, 40);  // Filter strength
-        
+        holding_registers.insert(0, 10); // Measurement interval (seconds)
+        holding_registers.insert(1, 20); // Averaging count (samples)
+        holding_registers.insert(2, 30); // Gain setting
+        holding_registers.insert(3, 40); // Filter strength
+
         Self {
             input_registers: Arc::new(Mutex::new(input_registers)),
             holding_registers: Arc::new(Mutex::new(holding_registers)),
         }
     }
-    
+
+    /// Create a new Modbus server instance with a data source
+    ///
+    /// Similar to `new()`, but initializes the server with data from the provided
+    /// data source instead of static test values.
+    ///
+    /// # Parameters
+    ///
+    /// * `data_source` - A shared data source containing photoacoustic measurements
+    ///
+    /// # Returns
+    ///
+    /// A new `PhotoacousticModbusServer` instance ready to be used with a TCP server.
+    pub fn with_data_source(data_source: &Arc<PhotoacousticDataSource>) -> Self {
+        let mut server = Self::new();
+
+        // Initialize with data from the data source if available
+        if let Some(measurement) = data_source.get_latest_data() {
+            server.update_measurement_data(
+                measurement.frequency,
+                measurement.amplitude,
+                measurement.concentration,
+            );
+        }
+
+        server
+    }
+
     /// Update the measurement data in the input registers
     ///
     /// This method allows updating the sensor measurement values that are
@@ -234,36 +275,38 @@ impl PhotoacousticModbusServer {
     /// * Concentration: multiplied by 10 (0.1 ppm resolution)
     pub fn update_measurement_data(&self, frequency: f32, amplitude: f32, concentration: f32) {
         let mut input_regs = self.input_registers.lock().unwrap();
-        
+
         // Scale and update the registers with the new data
         // For frequency, we want 0.1 Hz resolution, so multiply by 10
         let freq_scaled = (frequency * 10.0).round() as u16;
         input_regs.insert(0, freq_scaled);
-        
+
         // For amplitude, we want 0.001 resolution, so multiply by 1000
         let amp_scaled = (amplitude * 1000.0).round() as u16;
         input_regs.insert(1, amp_scaled);
-        
+
         // For concentration, we want 0.1 ppm resolution, so multiply by 10
         let conc_scaled = (concentration * 10.0).round() as u16;
         input_regs.insert(2, conc_scaled);
-        
+
         // Update the timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as u32;
-        
-        input_regs.insert(3, (now & 0xFFFF) as u16);       // Low word
+
+        input_regs.insert(3, (now & 0xFFFF) as u16); // Low word
         input_regs.insert(4, ((now >> 16) & 0xFFFF) as u16); // High word
-        
+
         // Add status register - 0 means normal operation
         input_regs.insert(5, 0);
-        
-        debug!("Updated Modbus input registers with new measurement data: freq={}, amp={}, conc={}", 
-               frequency, amplitude, concentration);
+
+        debug!(
+            "Updated Modbus input registers with new measurement data: freq={}, amp={}, conc={}",
+            frequency, amplitude, concentration
+        );
     }
-    
+
     /// Get the current configuration from holding registers
     ///
     /// # Returns
@@ -275,12 +318,12 @@ impl PhotoacousticModbusServer {
     /// * Filter strength
     pub fn get_configuration(&self) -> (u16, u16, u16, u16) {
         let regs = self.holding_registers.lock().unwrap();
-        
+
         let interval = *regs.get(&0).unwrap_or(&10);
         let averaging = *regs.get(&1).unwrap_or(&20);
         let gain = *regs.get(&2).unwrap_or(&30);
         let filter = *regs.get(&3).unwrap_or(&40);
-        
+
         (interval, averaging, gain, filter)
     }
 }
@@ -313,14 +356,17 @@ fn register_read(
 ) -> Result<Vec<u16>, ExceptionCode> {
     // Preallocate response vector with zeros
     let mut response_values = vec![0; cnt.into()];
-    
+
     // Check and copy each register value
     for i in 0..cnt {
         let reg_addr = addr + i;
         if let Some(r) = registers.get(&reg_addr) {
             response_values[i as usize] = *r;
         } else {
-            error!("Exception::IllegalDataAddress - Register {} not found", reg_addr);
+            error!(
+                "Exception::IllegalDataAddress - Register {} not found",
+                reg_addr
+            );
             return Err(ExceptionCode::IllegalDataAddress);
         }
     }
@@ -362,11 +408,18 @@ fn register_write(
             *r = *value;
             debug!("Written value {} to register {}", value, reg_addr);
         } else {
-            error!("Exception::IllegalDataAddress - Register {} not found", reg_addr);
+            error!(
+                "Exception::IllegalDataAddress - Register {} not found",
+                reg_addr
+            );
             return Err(ExceptionCode::IllegalDataAddress);
         }
     }
 
-    debug!("Successfully wrote {} values starting at register {}", values.len(), addr);
+    debug!(
+        "Successfully wrote {} values starting at register {}",
+        values.len(),
+        addr
+    );
     Ok(())
 }
