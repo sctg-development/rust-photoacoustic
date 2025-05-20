@@ -349,6 +349,50 @@ The CI workflow includes:
 
 You can see the workflow status in the GitHub repository under the Actions tab.
 
+## Modbus Client Utility
+
+The project includes a Modbus client utility located at `src/bin/modbus_client.rs`. This tool allows you to interact with the Modbus TCP server component of the photoacoustic analyzer, reading sensor values and configuration parameters via the Modbus protocol.
+
+### Usage
+
+You can run the Modbus client from the command line:
+
+```bash
+cargo run --bin modbus_client [OPTIONS]
+```
+
+### Command Line Options
+
+- `--address <IP>`: The IP address of the Modbus server (default: 127.0.0.1)
+- `--port <PORT>`: The port number of the Modbus server (default: 502)
+- `--input-register <ADDRESS>`: Starting input register address to read from (default: 0)
+- `--quantity <NUMBER>`: Number of registers to read (default: 6)
+
+### Example Usage
+
+```bash
+# Read the default registers from a local Modbus server
+cargo run --bin modbus_client
+
+# Connect to a remote server on a non-standard port
+cargo run --bin modbus_client -- --address 192.168.1.100 --port 1502
+
+# Read a specific range of registers
+cargo run --bin modbus_client -- --input-register 2 --quantity 3
+```
+
+### Understanding Register Values
+
+The raw register values may need interpretation according to the Modbus server's register map:
+
+- Register 0: Resonance frequency (Hz × 10, divide by 10.0 for actual value)
+- Register 1: Signal amplitude (× 1000, divide by 1000.0 for actual value)
+- Register 2: Water vapor concentration (ppm × 10, divide by 10.0 for actual value)
+- Registers 3-4: Timestamp as low and high words of a 32-bit UNIX timestamp
+- Register 5: Status code (0=normal, 1=warning, 2=error)
+
+For more comprehensive interaction with the Modbus server, refer to the example at `examples/modbus_client.rs`.
+
 ## Utility Functions
 
 ### Certificate Utilities
