@@ -18,13 +18,13 @@ use std::sync::{Arc, Mutex};
 pub struct PhotoacousticMeasurement {
     /// Resonance frequency in Hz
     pub frequency: f32,
-    
+
     /// Signal amplitude (dimensionless)
     pub amplitude: f32,
-    
+
     /// Water vapor concentration in ppm
     pub concentration: f32,
-    
+
     /// Timestamp of the measurement (UNIX timestamp in seconds)
     pub timestamp: u64,
 }
@@ -60,7 +60,7 @@ impl PhotoacousticDataSource {
             latest_data: Arc::new(Mutex::new(None)),
         }
     }
-    
+
     /// Update the data source with new measurement data
     ///
     /// # Parameters
@@ -73,18 +73,18 @@ impl PhotoacousticDataSource {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-            
+
         let measurement = PhotoacousticMeasurement {
             frequency,
             amplitude,
             concentration,
             timestamp,
         };
-        
+
         let mut latest = self.latest_data.lock().unwrap();
         *latest = Some(measurement);
     }
-    
+
     /// Get the latest measurement data, if available
     ///
     /// # Returns
