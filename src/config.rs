@@ -391,6 +391,11 @@ impl Config {
         debug!("Validating {} configuration against schema", path.display());
         if let Err(error) = validator.validate(&json_value) {
             error!("Configuration validation error before deserialization");
+            // We generate a config.sample.yaml file with the default values
+            // for the user to edit
+            let sample_config = Self::default();
+            sample_config.save_to_file(path.with_extension("sample.yaml"))?;
+            error!("Sample configuration file created at {:?}\nPlease edit and rename it", path.with_extension("sample.yaml"));
             anyhow::bail!("Configuration validation failed: {}", error);
         }
 

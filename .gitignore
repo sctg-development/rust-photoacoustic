@@ -28,3 +28,4 @@ server.crt
 server.key
 path/to/certificate.pem
 path/to/private_key.pem
+config.sample.yaml

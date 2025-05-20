@@ -310,7 +310,7 @@ impl Daemon {
     /// In a production environment, these heartbeat messages could be monitored by
     /// an external system to detect if the daemon has stopped functioning properly.
     fn start_heartbeat(&mut self) -> Result<()> {
-        debug!("Starting heartbeat monitor");
+        info!("Starting heartbeat monitor");
 
         let running = self.running.clone();
         let task = tokio::spawn(async move {
