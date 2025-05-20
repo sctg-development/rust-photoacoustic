@@ -40,10 +40,8 @@
 //! ```
 
 use anyhow::Result;
-use chrono::Timelike;
 use log::{debug, error, info, warn};
-use std::clone;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 use std::{
     net::SocketAddr,
     sync::{
@@ -54,7 +52,6 @@ use std::{
 use tokio::task::JoinHandle;
 use tokio::time;
 
-use crate::modbus;
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
 use crate::{config::Config, modbus::PhotoacousticModbusServer};
