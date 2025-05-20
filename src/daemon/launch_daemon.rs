@@ -41,7 +41,6 @@
 
 use anyhow::Result;
 use log::{debug, info};
-use serde::de;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -151,6 +150,11 @@ impl Daemon {
         // Start data acquisition task if enabled
         if config.acquisition.enabled {
             self.start_data_acquisition(config)?;
+        }
+
+        // Start modbus server if enabled
+        if config.modbus.enabled {
+            self.start_modbus_server(config)?;
         }
 
         // Add additional tasks here as needed
@@ -303,6 +307,17 @@ impl Daemon {
         });
 
         self.tasks.push(task);
+        Ok(())
+    }
+
+    /// Launch the modbus server daemon
+    fn start_modbus_server(&mut self, config: &Config) -> Result<()> {
+        info!(
+            "Starting modbus server on {}:{}",
+            config.modbus.address, config.modbus.port
+        );
+        // Placeholder for modbus server launch
+        // This would be implemented in the future
         Ok(())
     }
 
