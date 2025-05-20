@@ -271,6 +271,7 @@ impl Daemon {
 
         let running = self.running.clone();
         let data_source_clone = self.data_source.clone();
+        let config = config.clone();
 
         let task = tokio::spawn(async move {
             let now = SystemTime::now();
@@ -278,8 +279,8 @@ impl Daemon {
                 // Perform data acquisition
                 // This would integrate with our acquisition module
 
-                // Example: wait 60 second between acquisitions
-                debug!("Acquiring data...");
+                // Example: wait 610 second between acquisitions
+                debug!("Acquiring data... currently simulated");
                 // Simulate data acquisition
                 let timestamp = SystemTime::now()
                     .duration_since(now)
@@ -290,7 +291,7 @@ impl Daemon {
                     (5678 + timestamp) as f32,
                     (1000 + timestamp) as f32,
                 );
-                time::sleep(Duration::from_secs(60)).await;
+                time::sleep(Duration::from_secs(config.acquisition.interval_ms / 1000)).await;
             }
             Ok(())
         });
@@ -522,8 +523,16 @@ impl Daemon {
     /// ```
     pub async fn join(self) -> Result<()> {
         for task in self.tasks {
-            if let Err(e) = task.await {
-                log::error!("Task panicked: {}", e);
+            match tokio::time::timeout(Duration::from_secs(10), task).await {
+                Ok(result) => {
+                    if let Err(e) = result {
+                        log::error!("Task panicked: {}", e);
+                    }
+                }
+                Err(_) => {
+                    // Task didn't complete within timeout
+                    log::warn!("Task did not complete within timeout period, may be hung");
+                }
             }
         }
         Ok(())
