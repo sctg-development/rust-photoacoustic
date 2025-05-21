@@ -39,6 +39,10 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::io::{self, Write as IoWrite};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -102,6 +106,24 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     println!("Generating RSA key pair with {} bits...", args.length);
+    
+    // Flag to indicate when key generation is complete
+    let generating = Arc::new(AtomicBool::new(true));
+    let generating_clone = generating.clone();
+    
+    // Spawn a thread to display a spinner while generating keys
+    let spinner_handle = thread::spawn(move || {
+        let spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        let mut i = 0;
+        while generating_clone.load(Ordering::Relaxed) {
+            print!("\r{} Generating RSA key... ", spinner_chars[i]);
+            io::stdout().flush().ok();
+            i = (i + 1) % spinner_chars.len();
+            thread::sleep(Duration::from_millis(100));
+        }
+        print!("\r                                  \r"); // Clear the spinner line
+        io::stdout().flush().ok();
+    });
 
     // Use OsRng directly to avoid dependency version conflicts
     let mut rng = rsa::rand_core::OsRng;
@@ -109,6 +131,14 @@ fn main() -> Result<()> {
     // Generate a new random RSA key pair with the specified bits
     let private_key =
         RsaPrivateKey::new(&mut rng, args.length).context("Failed to generate RSA private key")?;
+    
+    // Signal that generation is complete
+    generating.store(false, Ordering::Relaxed);
+    // Wait for spinner thread to finish
+    spinner_handle.join().ok();
+    
+    println!("RSA key pair generation completed successfully.");
+    
     let public_key = RsaPublicKey::from(&private_key);
 
     // Convert keys to PKCS#1 PEM format
