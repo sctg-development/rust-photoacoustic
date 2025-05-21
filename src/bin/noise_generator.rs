@@ -54,7 +54,7 @@ use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
 /// the generation of white noise audio files. It uses clap's derive feature
 /// for convenient command-line parsing.
 #[derive(Debug, Parser)]
-#[command(author, version, about = "Generates white noise WAV files for audio testing and calibration", long_about = None)]
+#[command(author, version, about = "Generates white noise and mock photoacoustic signals for testing and calibration", long_about = None)]
 struct Args {
     /// Output file path (.wav)
     ///
@@ -113,6 +113,42 @@ struct Args {
     /// This parameter only has an effect when --correlated is set and channels = 2.
     #[arg(short = 'r', long, default_value_t = 0.0)]
     correlation: f32,
+
+    /// Noise type to generate (white or mock)
+    ///
+    /// Specifies the type of noise to generate:
+    /// - "white": pure white noise (default)
+    /// - "mock": mock photoacoustic signal with pulses over white noise
+    #[arg(long, default_value = "white")]
+    noise_type: String,
+    
+    /// Pulse frequency in Hz for mock signal (only used with --noise-type=mock)
+    ///
+    /// Frequency of the pulsed sinusoidal signal to add to the white noise.
+    /// This simulates the fundamental frequency of a photoacoustic excitation signal.
+    #[arg(long, default_value_t = 2000.0)]
+    pulse_frequency: f32,
+    
+    /// Pulse width in seconds for mock signal (only used with --noise-type=mock)
+    ///
+    /// Duration of each pulse in the mock signal, specified in seconds.
+    /// Controls how long each pulse lasts within a signal cycle.
+    #[arg(long, default_value_t = 0.04)]
+    pulse_width: f32,
+    
+    /// Minimum pulse amplitude for mock signal (only used with --noise-type=mock)
+    ///
+    /// The minimum amplitude of the random pulse signal, in the range [0.0, 1.0].
+    /// Together with max_pulse_amplitude, this defines the range for random pulse amplitudes.
+    #[arg(long, default_value_t = 0.8)]
+    min_pulse_amplitude: f32,
+    
+    /// Maximum pulse amplitude for mock signal (only used with --noise-type=mock)
+    ///
+    /// The maximum amplitude of the random pulse signal, in the range [0.0, 1.0].
+    /// Must be greater than or equal to min_pulse_amplitude.
+    #[arg(long, default_value_t = 1.0)]
+    max_pulse_amplitude: f32,
 }
 
 /// Main entry point for the noise generator utility.
@@ -161,6 +197,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
+    // Validate noise type
+    if args.noise_type != "white" && args.noise_type != "mock" {
+        eprintln!("Error: Noise type must be 'white' or 'mock'");
+        std::process::exit(1);
+    }
+    
+    // Validate pulse parameters if using mock signal
+    if args.noise_type == "mock" {
+        if args.min_pulse_amplitude < 0.0 || args.min_pulse_amplitude > 1.0 {
+            eprintln!("Error: Minimum pulse amplitude must be between 0.0 and 1.0");
+            std::process::exit(1);
+        }
+        
+        if args.max_pulse_amplitude < 0.0 || args.max_pulse_amplitude > 1.0 {
+            eprintln!("Error: Maximum pulse amplitude must be between 0.0 and 1.0");
+            std::process::exit(1);
+        }
+        
+        if args.min_pulse_amplitude > args.max_pulse_amplitude {
+            eprintln!("Error: Minimum pulse amplitude must be less than or equal to maximum pulse amplitude");
+            std::process::exit(1);
+        }
+        
+        if args.pulse_width <= 0.0 {
+            eprintln!("Error: Pulse width must be greater than 0");
+            std::process::exit(1);
+        }
+        
+        if args.pulse_frequency <= 0.0 {
+            eprintln!("Error: Pulse frequency must be greater than 0");
+            std::process::exit(1);
+        }
+    }
+
     // Create WAV file specification
     let spec = WavSpec {
         channels: args.channels,
@@ -169,35 +239,76 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sample_format: SampleFormat::Int,
     };
 
-    println!("Generating {} seconds of white noise...", args.duration);
+    if args.noise_type == "white" {
+        println!("Generating {} seconds of white noise...", args.duration);
+    } else {
+        println!("Generating {} seconds of mock photoacoustic signal...", args.duration);
+        println!("Pulse frequency: {} Hz", args.pulse_frequency);
+        println!("Pulse width: {} ms", args.pulse_width * 1000.0);
+        println!("Pulse amplitude range: {:.1} to {:.1}", args.min_pulse_amplitude, args.max_pulse_amplitude);
+    }
+    
     println!("Sample rate: {} Hz", args.sample_rate);
     println!("Channels: {}", args.channels);
-    println!("Amplitude: {}", args.amplitude);
+    println!("Background noise amplitude: {}", args.amplitude);
+    
+    if (args.channels == 2 && args.correlated) {
+        println!("Channel correlation: {}", args.correlation);
+    }
 
     // Open the output file
     let mut writer = WavWriter::create(&args.output, spec)?;
 
-    // Create a noise generator with a seed based on system time
-    // This ensures different noise patterns on each run
-    let mut generator = NoiseGenerator::new_from_system_time();
-
     // Calculate number of samples based on duration and sample rate
     let num_samples = (args.duration * args.sample_rate as f32) as u32;
 
+    // Create a noise generator with a seed based on system time
+    let mut generator = NoiseGenerator::new_from_system_time();
+
     // Generate samples based on the requested configuration
-    let samples = if args.channels == 1 {
-        // Mono white noise - single channel of random samples
-        generator.generate_mono(num_samples, args.amplitude)
-    } else if args.correlated && args.correlation != 0.0 {
-        // Correlated stereo white noise - two channels with specified correlation
-        println!(
-            "Generating correlated channels with correlation coefficient: {}",
-            args.correlation
-        );
-        generator.generate_correlated_stereo(num_samples, args.amplitude, args.correlation)
+    let samples = if args.noise_type == "white" {
+        // White noise generation (original functionality)
+        if args.channels == 1 {
+            generator.generate_mono(num_samples, args.amplitude)
+        } else if args.correlated && args.correlation != 0.0 {
+            generator.generate_correlated_stereo(num_samples, args.amplitude, args.correlation)
+        } else {
+            generator.generate_stereo(num_samples, args.amplitude)
+        }
     } else {
-        // Independent stereo white noise - two channels of independent random samples
-        generator.generate_stereo(num_samples, args.amplitude)
+        // Mock photoacoustic signal generation
+        if args.channels == 1 {
+            generator.generate_mock_photoacoustic_mono(
+                num_samples, 
+                args.sample_rate,
+                args.amplitude,
+                args.pulse_frequency,
+                args.pulse_width,
+                args.min_pulse_amplitude,
+                args.max_pulse_amplitude
+            )
+        } else if args.correlated && args.correlation != 0.0 {
+            generator.generate_mock_photoacoustic_correlated(
+                num_samples,
+                args.sample_rate,
+                args.amplitude,
+                args.pulse_frequency,
+                args.pulse_width,
+                args.min_pulse_amplitude,
+                args.max_pulse_amplitude,
+                args.correlation
+            )
+        } else {
+            generator.generate_mock_photoacoustic_stereo(
+                num_samples,
+                args.sample_rate,
+                args.amplitude,
+                args.pulse_frequency,
+                args.pulse_width,
+                args.min_pulse_amplitude,
+                args.max_pulse_amplitude
+            )
+        }
     };
 
     // Write all samples to the WAV file

@@ -222,7 +222,7 @@ This architecture ensures both interactive visualization and programmatic access
 
 ## Noise Generator Utility
 
-The project includes a standalone noise signal generator utility, located at `src/utility/noise_generator.rs` and available as a binary target. This tool is useful for generating synthetic white noise signals for testing and calibration of the signal processing pipeline.
+The project includes a standalone noise signal generator utility, located at `src/utility/noise_generator.rs` and available as a binary target. This tool is useful for generating synthetic white noise signals or simulated photoacoustic signals for testing and calibration of the signal processing pipeline.
 
 ### Usage
 
@@ -235,20 +235,55 @@ cargo run --bin noise_generator [OPTIONS]
 ### Command Line Options
 
 - `--output <FILE>`: Specify the output WAV file for the generated noise (required).
-- `--duration <SECONDS>`: Duration of the generated noise in seconds (default: 10).
+- `--duration <SECONDS>`: Duration of the generated noise in seconds (default: 5).
 - `--sample-rate <HZ>`: Sampling rate of the output file (default: 48000).
 - `--channels <N>`: Number of audio channels (default: 2).
 - `--correlated`: Set to true to use correlations between channels (default is independent)
-- `--correlation`: Correlation coefficient between channels (-1.0 to 1.0) (default: 0)
-- `--amplitude <VALUE>`: Amplitude of the noise signal (default: 0.5).
+- `--correlation <VALUE>`: Correlation coefficient between channels (-1.0 to 1.0) (default: 0)
+- `--amplitude <VALUE>`: Amplitude of the noise signal (default: 0.3).
+- `--noise-type <TYPE>`: Type of noise to generate (default: "white"):
+  - `white`: Pure Gaussian white noise
+  - `mock`: Mock photoacoustic signal with pulses over white noise
+- `--pulse-frequency <HZ>`: Frequency of pulses for mock signals (default: 2000.0).
+- `--pulse-width <SECONDS>`: Width of each pulse in seconds (default: 0.04).
+- `--min-pulse-amplitude <VALUE>`: Minimum amplitude of pulses (default: 0.8).
+- `--max-pulse-amplitude <VALUE>`: Maximum amplitude of pulses (default: 1.0).
 
-Example:
+### Examples
 
 ```bash
-cargo run --bin noise_generator -- --output test_noise.wav --duration 5 --amplitude 0.3
+# Generate basic white noise
+cargo run --bin noise_generator -- --output white_noise.wav --duration 5 --amplitude 0.5
+
+# Generate a mock photoacoustic signal
+cargo run --bin noise_generator -- --output mock_signal.wav --noise-type mock
+
+# Generate a custom mock signal with specific parameters
+cargo run --bin noise_generator -- --output custom_mock.wav --noise-type mock \
+  --pulse-frequency 1500 --pulse-width 0.05 --min-pulse-amplitude 0.7 \
+  --max-pulse-amplitude 0.9 --amplitude 0.2 --duration 10
+
+# Generate correlated stereo mock signal
+cargo run --bin noise_generator -- --output correlated_mock.wav --noise-type mock \
+  --correlated --correlation 0.8
 ```
 
-This will generate a 5-second stereo pink noise WAV file named `test_noise.wav` with amplitude 0.3.
+### Mock Photoacoustic Signals
+
+The mock signal generator creates synthetic signals that mimic real photoacoustic measurements:
+
+- Base white noise represents background noise in the measurement environment
+- Pulsed sinusoidal signals simulate the photoacoustic response from water vapor 
+- Random amplitude variations simulate fluctuations in absorption strength
+- Configurable parameters allow for testing under different conditions
+
+These signals are particularly useful for:
+
+- Testing and validating signal processing algorithms
+- Calibrating system performance
+- Developing and refining filtering techniques
+- Evaluating correlation effects in differential measurements
+- Benchmarking detection limits under controlled noise conditions
 
 ## Differential Signal Utility
 

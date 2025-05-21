@@ -170,6 +170,10 @@ impl Daemon {
             self.start_modbus_server(config).await?;
         }
 
+        // Start computation task if enabled
+        if true {
+            self.start_computation(config)?;
+        }
         // Add additional tasks here as needed
 
         // Start heartbeat task for monitoring
@@ -270,17 +274,36 @@ impl Daemon {
         info!("Starting data acquisition task");
 
         let running = self.running.clone();
+        let config = config.clone();
+        let task = tokio::spawn(async move {
+            while running.load(Ordering::SeqCst) {
+                // Perform data acquisition
+                // This would integrate with our acquisition module
+                debug!("Acquiring data... currently nothing");
+                time::sleep(Duration::from_millis(1000*60)).await;
+            }
+            Ok(())
+        });
+
+        self.tasks.push(task);
+        Ok(())
+    }
+
+    fn start_computation(&mut self, config: &Config) -> Result<()> {
+        info!("Starting computation task");
+
+        let running = self.running.clone();
         let data_source_clone = self.data_source.clone();
         let config = config.clone();
 
         let task = tokio::spawn(async move {
             let now = SystemTime::now();
             while running.load(Ordering::SeqCst) {
-                // Perform data acquisition
-                // This would integrate with our acquisition module
+                // Perform computation
+                // This would integrate with our computation module
 
-                // Example: wait 610 second between acquisitions
-                debug!("Acquiring data... currently simulated");
+                debug!("Performing computation... currently simulated");
+                // Simulate computation
                 // Simulate data acquisition
                 let timestamp = SystemTime::now()
                     .duration_since(now)
@@ -291,7 +314,7 @@ impl Daemon {
                     (5678 + timestamp) as f32,
                     (1000 + timestamp) as f32,
                 );
-                time::sleep(Duration::from_secs(config.acquisition.interval_ms / 1000)).await;
+                time::sleep(Duration::from_millis(config.acquisition.interval_ms)).await;
             }
             Ok(())
         });
@@ -299,7 +322,6 @@ impl Daemon {
         self.tasks.push(task);
         Ok(())
     }
-
     /// Start a heartbeat task that logs system status periodically
     ///
     /// Initializes and launches a background task that periodically emits a heartbeat
