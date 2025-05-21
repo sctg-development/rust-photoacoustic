@@ -280,7 +280,7 @@ impl Daemon {
                 // Perform data acquisition
                 // This would integrate with our acquisition module
                 debug!("Acquiring data... currently nothing");
-                time::sleep(Duration::from_millis(1000*60)).await;
+                time::sleep(Duration::from_millis(1000 * 60)).await;
             }
             Ok(())
         });

@@ -121,28 +121,28 @@ struct Args {
     /// - "mock": mock photoacoustic signal with pulses over white noise
     #[arg(long, default_value = "white")]
     noise_type: String,
-    
+
     /// Pulse frequency in Hz for mock signal (only used with --noise-type=mock)
     ///
     /// Frequency of the pulsed sinusoidal signal to add to the white noise.
     /// This simulates the fundamental frequency of a photoacoustic excitation signal.
     #[arg(long, default_value_t = 2000.0)]
     pulse_frequency: f32,
-    
+
     /// Pulse width in seconds for mock signal (only used with --noise-type=mock)
     ///
     /// Duration of each pulse in the mock signal, specified in seconds.
     /// Controls how long each pulse lasts within a signal cycle.
     #[arg(long, default_value_t = 0.04)]
     pulse_width: f32,
-    
+
     /// Minimum pulse amplitude for mock signal (only used with --noise-type=mock)
     ///
     /// The minimum amplitude of the random pulse signal, in the range [0.0, 1.0].
     /// Together with max_pulse_amplitude, this defines the range for random pulse amplitudes.
     #[arg(long, default_value_t = 0.8)]
     min_pulse_amplitude: f32,
-    
+
     /// Maximum pulse amplitude for mock signal (only used with --noise-type=mock)
     ///
     /// The maximum amplitude of the random pulse signal, in the range [0.0, 1.0].
@@ -202,29 +202,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Error: Noise type must be 'white' or 'mock'");
         std::process::exit(1);
     }
-    
+
     // Validate pulse parameters if using mock signal
     if args.noise_type == "mock" {
         if args.min_pulse_amplitude < 0.0 || args.min_pulse_amplitude > 1.0 {
             eprintln!("Error: Minimum pulse amplitude must be between 0.0 and 1.0");
             std::process::exit(1);
         }
-        
+
         if args.max_pulse_amplitude < 0.0 || args.max_pulse_amplitude > 1.0 {
             eprintln!("Error: Maximum pulse amplitude must be between 0.0 and 1.0");
             std::process::exit(1);
         }
-        
+
         if args.min_pulse_amplitude > args.max_pulse_amplitude {
             eprintln!("Error: Minimum pulse amplitude must be less than or equal to maximum pulse amplitude");
             std::process::exit(1);
         }
-        
+
         if args.pulse_width <= 0.0 {
             eprintln!("Error: Pulse width must be greater than 0");
             std::process::exit(1);
         }
-        
+
         if args.pulse_frequency <= 0.0 {
             eprintln!("Error: Pulse frequency must be greater than 0");
             std::process::exit(1);
@@ -242,16 +242,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.noise_type == "white" {
         println!("Generating {} seconds of white noise...", args.duration);
     } else {
-        println!("Generating {} seconds of mock photoacoustic signal...", args.duration);
+        println!(
+            "Generating {} seconds of mock photoacoustic signal...",
+            args.duration
+        );
         println!("Pulse frequency: {} Hz", args.pulse_frequency);
         println!("Pulse width: {} ms", args.pulse_width * 1000.0);
-        println!("Pulse amplitude range: {:.1} to {:.1}", args.min_pulse_amplitude, args.max_pulse_amplitude);
+        println!(
+            "Pulse amplitude range: {:.1} to {:.1}",
+            args.min_pulse_amplitude, args.max_pulse_amplitude
+        );
     }
-    
+
     println!("Sample rate: {} Hz", args.sample_rate);
     println!("Channels: {}", args.channels);
     println!("Background noise amplitude: {}", args.amplitude);
-    
+
     if (args.channels == 2 && args.correlated) {
         println!("Channel correlation: {}", args.correlation);
     }
@@ -279,13 +285,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Mock photoacoustic signal generation
         if args.channels == 1 {
             generator.generate_mock_photoacoustic_mono(
-                num_samples, 
+                num_samples,
                 args.sample_rate,
                 args.amplitude,
                 args.pulse_frequency,
                 args.pulse_width,
                 args.min_pulse_amplitude,
-                args.max_pulse_amplitude
+                args.max_pulse_amplitude,
             )
         } else if args.correlated && args.correlation != 0.0 {
             generator.generate_mock_photoacoustic_correlated(
@@ -296,7 +302,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args.pulse_width,
                 args.min_pulse_amplitude,
                 args.max_pulse_amplitude,
-                args.correlation
+                args.correlation,
             )
         } else {
             generator.generate_mock_photoacoustic_stereo(
@@ -306,7 +312,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args.pulse_frequency,
                 args.pulse_width,
                 args.min_pulse_amplitude,
-                args.max_pulse_amplitude
+                args.max_pulse_amplitude,
             )
         }
     };
