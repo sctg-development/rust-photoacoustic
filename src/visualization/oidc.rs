@@ -83,10 +83,16 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
     let mut signing_algs = vec!["HS256".to_string()];
     
     // If we have RS256 keys configured, add RS256
+    log::debug!("RS256 public key length: {}", state.rs256_public_key.len());
+    log::debug!("RS256 private key length: {}", state.rs256_private_key.len());
+    
     if !state.rs256_public_key.is_empty() && !state.rs256_private_key.is_empty() {
         // Add RS256 if we have keys, regardless of whether decoding succeeds
         signing_algs.push("RS256".to_string());
         log::debug!("RS256 signing algorithm added to OpenID configuration");
+    } else {
+        log::warn!("RS256 keys are not properly configured - public key empty: {}, private key empty: {}", 
+                  state.rs256_public_key.is_empty(), state.rs256_private_key.is_empty());
     }
     
     OpenIdConfiguration {
