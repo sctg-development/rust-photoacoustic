@@ -2,13 +2,18 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! # Gaussian Noise Generator
+//! # Photoacoustic Signal Generator
 //!
-//! This module provides a lightweight implementation for generating Gaussian white noise,
-//! which is commonly used in photoacoustic signal processing for:
+//! This module provides implementations for generating:
+//!
+//! 1. Gaussian white noise - for basic testing and calibration
+//! 2. Mock photoacoustic signals - simulated signals with periodic pulses overlaid on white noise
+//!
+//! These signal generators are commonly used in photoacoustic signal processing for:
 //!
 //! - Testing and calibration of signal processing algorithms
 //! - Simulating background noise in photoacoustic signals
+//! - Generating synthetic photoacoustic responses with known parameters
 //! - Evaluating filter performance and signal-to-noise ratio
 //! - Creating test signals with controlled noise characteristics
 //!
@@ -19,8 +24,14 @@
 //! * Support for mono and stereo noise generation
 //! * Configurable amplitude scaling
 //! * Correlated stereo noise generation with adjustable correlation coefficient
+//! * Mock photoacoustic signal generation with:
+//!   * Configurable pulse frequency
+//!   * Adjustable pulse width
+//!   * Random pulse amplitude within a specified range
+//!   * Background white noise with controllable amplitude
+//!   * Support for mono, stereo, and correlated stereo signals
 //!
-//! ## Examples
+//! ## White Noise Examples
 //!
 //! ```rust
 //! use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -33,6 +44,40 @@
 //!
 //! // Generate stereo noise with correlation coefficient of 0.7
 //! let stereo_correlated = generator.generate_correlated_stereo(48000, 0.5, 0.7);
+//! ```
+//!
+//! ## Mock Photoacoustic Signal Examples
+//!
+//! ```rust
+//! use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
+//!
+//! // Create a noise generator with system time as seed
+//! let mut generator = NoiseGenerator::new_from_system_time();
+//!
+//! // Generate 1 second of mono mock photoacoustic signal at 48kHz
+//! // with 30% noise amplitude, 2kHz pulse frequency, 40ms pulse width,
+//! // and pulse amplitude between 80% and 100%
+//! let mono_mock = generator.generate_mock_photoacoustic_mono(
+//!     48000,    // num_samples (1 second at 48kHz)
+//!     48000,    // sample_rate
+//!     0.3,      // noise_amplitude
+//!     2000.0,   // pulse_frequency (Hz)
+//!     0.04,     // pulse_width (seconds)
+//!     0.8,      // min_pulse_amplitude
+//!     1.0       // max_pulse_amplitude
+//! );
+//!
+//! // Generate correlated stereo mock photoacoustic signal
+//! let correlated_mock = generator.generate_mock_photoacoustic_correlated(
+//!     48000,    // num_samples
+//!     48000,    // sample_rate
+//!     0.3,      // noise_amplitude
+//!     2000.0,   // pulse_frequency
+//!     0.04,     // pulse_width
+//!     0.8,      // min_pulse_amplitude
+//!     1.0,      // max_pulse_amplitude
+//!     0.7       // correlation coefficient
+//! );
 //! ```
 
 use std::time::SystemTime;
@@ -354,7 +399,7 @@ impl NoiseGenerator {
         samples
     }
 
-        /// Generates a mono (single channel) mock photoacoustic signal.
+    /// Generates a mono (single channel) mock photoacoustic signal.
     ///
     /// This method creates a vector of 16-bit integer samples representing
     /// a synthetic photoacoustic signal consisting of white noise with
@@ -402,50 +447,51 @@ impl NoiseGenerator {
         pulse_frequency: f32,
         pulse_width: f32,
         min_pulse_amplitude: f32,
-        max_pulse_amplitude: f32
+        max_pulse_amplitude: f32,
     ) -> Vec<i16> {
         // Generate the white noise background
         let mut result = self.generate_mono(num_samples, noise_amplitude);
-        
+
         // Calculate number of samples in one pulse cycle
         let samples_per_cycle = sample_rate as f32 / pulse_frequency;
-        
+
         // Calculate number of samples in the pulse width
         let samples_per_pulse = (pulse_width * sample_rate as f32) as u32;
-        
+
         // Amplitude range for random pulse amplitude
         let pulse_amplitude_range = max_pulse_amplitude - min_pulse_amplitude;
-        
+
         let mut cycle_position: u32 = 0;
         let mut current_pulse_amplitude = 0.0f32;
-        
+
         // Iterate through all samples
         for i in 0..num_samples as usize {
             // Start of a new cycle
             if cycle_position == 0 {
                 // Generate a random pulse amplitude for this cycle
-                current_pulse_amplitude = min_pulse_amplitude + 
-                    pulse_amplitude_range * self.random_float().abs();
+                current_pulse_amplitude =
+                    min_pulse_amplitude + pulse_amplitude_range * self.random_float().abs();
             }
-            
+
             // Check if we're within a pulse
             if cycle_position < samples_per_pulse {
                 // Generate sine wave pulse
-                let phase = 2.0 * std::f32::consts::PI * pulse_frequency * (i as f32) / (sample_rate as f32);
+                let phase = 2.0 * std::f32::consts::PI * pulse_frequency * (i as f32)
+                    / (sample_rate as f32);
                 let pulse = phase.sin() * current_pulse_amplitude;
-                
+
                 // Add pulse to noise
                 let sample_value = result[i] as f32 / 32767.0;
                 let combined = sample_value + pulse;
-                
+
                 // Clamp and convert back to i16
                 result[i] = (combined * 32767.0).clamp(-32768.0, 32767.0) as i16;
             }
-            
+
             // Update cycle position
             cycle_position = (cycle_position + 1) % samples_per_cycle as u32;
         }
-        
+
         result
     }
 
@@ -496,61 +542,62 @@ impl NoiseGenerator {
         pulse_frequency: f32,
         pulse_width: f32,
         min_pulse_amplitude: f32,
-        max_pulse_amplitude: f32
+        max_pulse_amplitude: f32,
     ) -> Vec<i16> {
         // Generate the white noise background (stereo)
         let mut result = self.generate_stereo(num_samples, noise_amplitude);
-        
+
         // Calculate number of samples in one pulse cycle
         let samples_per_cycle = sample_rate as f32 / pulse_frequency;
-        
+
         // Calculate number of samples in the pulse width
         let samples_per_pulse = (pulse_width * sample_rate as f32) as u32;
-        
+
         // Amplitude range for random pulse amplitude
         let pulse_amplitude_range = max_pulse_amplitude - min_pulse_amplitude;
-        
+
         let mut cycle_position: u32 = 0;
         let mut left_pulse_amplitude = 0.0f32;
         let mut right_pulse_amplitude = 0.0f32;
-        
+
         // Iterate through all samples (interleaved L/R)
         for i in 0..num_samples as usize {
             // Start of a new cycle
             if cycle_position == 0 {
                 // Generate random pulse amplitudes for left and right channels
-                left_pulse_amplitude = min_pulse_amplitude + 
-                    pulse_amplitude_range * self.random_float().abs();
-                right_pulse_amplitude = min_pulse_amplitude + 
-                    pulse_amplitude_range * self.random_float().abs();
+                left_pulse_amplitude =
+                    min_pulse_amplitude + pulse_amplitude_range * self.random_float().abs();
+                right_pulse_amplitude =
+                    min_pulse_amplitude + pulse_amplitude_range * self.random_float().abs();
             }
-            
+
             // Check if we're within a pulse
             if cycle_position < samples_per_pulse {
                 // Generate sine wave pulse
-                let phase = 2.0 * std::f32::consts::PI * pulse_frequency * (i as f32) / (sample_rate as f32);
+                let phase = 2.0 * std::f32::consts::PI * pulse_frequency * (i as f32)
+                    / (sample_rate as f32);
                 let pulse_shape = phase.sin();
-                
+
                 // Add pulse to both left and right channels
                 // Left channel (even indices)
                 let left_index = i * 2;
                 let left_value = result[left_index] as f32 / 32767.0;
                 let combined_left = left_value + pulse_shape * left_pulse_amplitude;
                 result[left_index] = (combined_left * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                
+
                 // Right channel (odd indices)
                 let right_index = left_index + 1;
                 let right_value = result[right_index] as f32 / 32767.0;
                 let combined_right = right_value + pulse_shape * right_pulse_amplitude;
                 result[right_index] = (combined_right * 32767.0).clamp(-32768.0, 32767.0) as i16;
             }
-            
+
             // Update cycle position - once per stereo pair
             if i % 2 == 1 {
                 cycle_position = (cycle_position + 1) % samples_per_cycle as u32;
             }
         }
-        
+
         result
     }
 
@@ -603,78 +650,76 @@ impl NoiseGenerator {
         pulse_width: f32,
         min_pulse_amplitude: f32,
         max_pulse_amplitude: f32,
-        correlation: f32
+        correlation: f32,
     ) -> Vec<i16> {
         // Generate the correlated white noise background
         let mut result = self.generate_correlated_stereo(num_samples, noise_amplitude, correlation);
-        
+
         // Calculate number of samples in one pulse cycle
         let samples_per_cycle = sample_rate as f32 / pulse_frequency;
-        
+
         // Calculate number of samples in the pulse width
         let samples_per_pulse = (pulse_width * sample_rate as f32) as u32;
-        
+
         // Amplitude range for random pulse amplitude
         let pulse_amplitude_range = max_pulse_amplitude - min_pulse_amplitude;
-        
+
         // Square root term used in correlation calculation
         let sqrt_one_minus_corr_squared = (1.0 - correlation * correlation).sqrt();
-        
+
         let mut cycle_position: u32 = 0;
         let mut base_pulse_amplitude = 0.0f32;
-        
+
         // Iterate through all samples (by sample pairs)
         for i in 0..num_samples as usize {
             // Start of a new cycle
             if cycle_position == 0 {
                 // Generate a base random pulse amplitude
-                base_pulse_amplitude = min_pulse_amplitude + 
-                    pulse_amplitude_range * self.random_float().abs();
+                base_pulse_amplitude =
+                    min_pulse_amplitude + pulse_amplitude_range * self.random_float().abs();
             }
-            
+
             // Check if we're within a pulse
             if cycle_position < samples_per_pulse {
                 // Generate sine wave pulse with correlation
-                let phase = 2.0 * std::f32::consts::PI * pulse_frequency * (i as f32) / (sample_rate as f32);
+                let phase = 2.0 * std::f32::consts::PI * pulse_frequency * (i as f32)
+                    / (sample_rate as f32);
                 let pulse_shape = phase.sin();
-                
+
                 // Generate correlated pulse amplitudes
                 let left_pulse_amplitude = base_pulse_amplitude;
-                
+
                 // Generate an independent component for right channel
-                let independent_component = 
-                    pulse_amplitude_range * self.random_float().abs();
-                
+                let independent_component = pulse_amplitude_range * self.random_float().abs();
+
                 // Apply correlation to right channel amplitude
-                let right_pulse_amplitude = correlation * base_pulse_amplitude + 
-                    sqrt_one_minus_corr_squared * independent_component;
-                
+                let right_pulse_amplitude = correlation * base_pulse_amplitude
+                    + sqrt_one_minus_corr_squared * independent_component;
+
                 // Clamp to valid range
-                let right_pulse_amplitude = right_pulse_amplitude.clamp(
-                    min_pulse_amplitude, 
-                    max_pulse_amplitude
-                );
-                
+                let right_pulse_amplitude =
+                    right_pulse_amplitude.clamp(min_pulse_amplitude, max_pulse_amplitude);
+
                 // Add pulse to both left and right channels
                 // Left channel (even indices)
                 let left_index = i * 2;
                 let left_value = result[left_index] as f32 / 32767.0;
                 let combined_left = left_value + pulse_shape * left_pulse_amplitude;
                 result[left_index] = (combined_left * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                
+
                 // Right channel (odd indices)
                 let right_index = left_index + 1;
                 let right_value = result[right_index] as f32 / 32767.0;
                 let combined_right = right_value + pulse_shape * right_pulse_amplitude;
                 result[right_index] = (combined_right * 32767.0).clamp(-32768.0, 32767.0) as i16;
             }
-            
+
             // Update cycle position - once per stereo pair
             if i % 2 == 1 {
                 cycle_position = (cycle_position + 1) % samples_per_cycle as u32;
             }
         }
-        
+
         result
     }
 }
