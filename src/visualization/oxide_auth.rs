@@ -104,6 +104,16 @@ pub struct OxideState {
     /// The secret key used for signing and validating JWT tokens.
     /// This is stored here for reference by other components.
     pub hmac_secret: String,
+
+    /// RS256 private key in base64 encoded PEM format
+    ///
+    /// Used for signing JWT tokens with the RS256 algorithm.
+    pub rs256_private_key: String,
+
+    /// RS256 public key in base64 encoded PEM format
+    ///
+    /// Used for verifying JWT tokens signed with the RS256 algorithm.
+    pub rs256_public_key: String,
 }
 
 /// Implementation of Clone for OxideState
@@ -118,6 +128,8 @@ impl Clone for OxideState {
             authorizer: Arc::clone(&self.authorizer),
             issuer: Arc::clone(&self.issuer),
             hmac_secret: self.hmac_secret.clone(),
+            rs256_private_key: self.rs256_private_key.clone(),
+            rs256_public_key: self.rs256_public_key.clone(),
         }
     }
 }
@@ -322,6 +334,9 @@ impl OxideState {
             issuer: Arc::new(Mutex::new(jwt_issuer)),
             // Store the HMAC secret for validation elsewhere
             hmac_secret: hmac_secret.to_string(),
+            // Add RS256 keys (to be set later)
+            rs256_private_key: String::new(),
+            rs256_public_key: String::new(),
         }
     }
 

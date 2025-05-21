@@ -30,12 +30,10 @@ macro_rules! include_png_as_base64 {
 /// It is useful for embedding SVG images directly into web pages or stylesheets.
 #[macro_export]
 macro_rules! include_svg_as_base64 {
-    ($path:expr) => {
-        {
-            use ::base64::prelude::{Engine as _, BASE64_STANDARD};
-            let svg_data = include_bytes!($path);
-            let base64 = BASE64_STANDARD.encode(svg_data);
-            format!("data:image/svg+xml;base64,{}", base64)
-        }
-    };
+    ($path:expr) => {{
+        use ::base64::prelude::{Engine as _, BASE64_STANDARD};
+        let svg_data = include_bytes!($path);
+        let base64 = BASE64_STANDARD.encode(svg_data);
+        format!("data:image/svg+xml;base64,{}", base64)
+    }};
 }

@@ -51,7 +51,9 @@
 //! ```
 
 use crate::include_png_as_base64;
+use base64::Engine;
 use crate::visualization::oxide_auth::{authorize, authorize_consent, refresh, token};
+use crate::visualization::oidc::{openid_configuration, jwks}; // Add this import
 use include_dir::{include_dir, Dir};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::figment::Figment;
@@ -218,7 +220,28 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 /// ```
 pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> {
     // Create OAuth2 state with the HMAC secret from config
-    let oxide_state = OxideState::preconfigured(hmac_secret);
+    let mut oxide_state = OxideState::preconfigured(hmac_secret);
+    
+    // Extract RS256 keys from figment if present
+    if let Some(private_key) = figment.extract_inner::<String>("rs256_private_key").ok() {
+        oxide_state.rs256_private_key = private_key;
+    }
+    
+    if let Some(public_key) = figment.extract_inner::<String>("rs256_public_key").ok() {
+        oxide_state.rs256_public_key = public_key;
+        
+        // If we have RS256 keys, update the JWT issuer
+        if !oxide_state.rs256_public_key.is_empty() && !oxide_state.rs256_private_key.is_empty() {
+            if let Ok(decoded_private) = base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_private_key) {
+                if let Ok(decoded_public) = base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key) {
+                    // Create a new JWT issuer with RS256 keys
+                    if let Ok(jwt_issuer) = super::jwt::JwtIssuer::with_rs256_pem(&decoded_private, &decoded_public) {
+                        oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
+                    }
+                }
+            }
+        }
+    }
 
     // Initialize JWT validator for API authentication with the HMAC secret
     let jwt_validator = match super::api_auth::init_jwt_validator(hmac_secret) {
@@ -245,6 +268,8 @@ pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> 
                 token,
                 refresh,
                 super::introspection::introspect,
+                openid_configuration, // Add OIDC configuration endpoint
+                jwks, // Add JWKS endpoint
             ],
         )
         .mount(
@@ -335,6 +360,8 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
                 authorize_consent,
                 token,
                 refresh,
+                openid_configuration, // Add OIDC configuration endpoint
+                jwks, // Add JWKS endpoint
                 // TODO: Add introspection endpoint once fixed
                 // super::introspection::introspect,
             ],
@@ -501,7 +528,6 @@ async fn favicon() -> Option<StaticFileResponse> {
     });
     file
 }
-
 
 /// Serve the helper.min.js file for rapidoc
 #[get("/helper.min.js")]

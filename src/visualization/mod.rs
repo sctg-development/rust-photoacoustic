@@ -132,6 +132,9 @@ pub mod oxide_auth;
 /// Web server implementation
 pub mod server;
 
+/// OIDC discovery and configuration
+pub mod oidc;
+
 use crate::{config::Config, AnalysisResult};
 use anyhow::Result;
 use base64::{self, Engine};

@@ -59,8 +59,18 @@
 //! ).unwrap();
 //! ```
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::prelude::*;
+use jsonwebtoken::jwk::{Jwk, PublicKeyUse};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey};
+use rsa::pkcs1::DecodeRsaPublicKey;
+use rsa::traits::PublicKeyParts;
+use rsa::RsaPublicKey;
+use rsa::sha2::Sha256;
+use rsa::sha2::Digest;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -504,5 +514,117 @@ impl JwtKeyConfig {
             b"test-secret-key-for-jwt-token-testing-only",
             Algorithm::HS256,
         )
+    }
+}
+
+/// JSON Web Key Set
+///
+/// This structure represents a set of JSON Web Keys (JWKs) as defined in RFC 7517.
+/// It can be used to generate and manipulate JWK representations of RSA keys for
+/// use with OpenID Connect discovery endpoints.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JwkKeySet {
+    /// The set of JWKs
+    pub keys: Vec<Jwk>,
+}
+
+impl JwkKeySet {
+    /// Create a new JWK from a PEM encoded RSA public key
+    ///
+    /// This function converts a PEM encoded RSA public key to a JWK (JSON Web Key)
+    /// representation suitable for use with OpenID Connect discovery endpoints.
+    ///
+    /// # Parameters
+    ///
+    /// * `pem_data` - The PEM encoded RSA public key as bytes
+    ///
+    /// # Returns
+    ///
+    /// A JWK representing the RSA public key, or an error if parsing fails
+    pub fn create_jwk_from_pem(pem_data: &[u8]) -> Result<Jwk> {
+        // Parse the PEM key
+        let public_key = DecodeRsaPublicKey::from_pkcs1_pem(std::str::from_utf8(pem_data)?)
+            .context("Failed to parse RSA public key from PEM")?;
+
+        // Convert to JWK
+        Self::create_jwk_from_public_key(&public_key)
+    }
+
+    /// Create a JWK from an RSA public key
+    ///
+    /// Converts an RSA public key to a JWK representation with the necessary
+    /// parameters for use with OpenID Connect.
+    ///
+    /// # Parameters
+    ///
+    /// * `public_key` - The RSA public key
+    ///
+    /// # Returns
+    ///
+    /// A JWK representing the RSA public key
+    pub fn create_jwk_from_public_key(public_key: &RsaPublicKey) -> Result<Jwk> {
+        // Get the modulus (n) and exponent (e) from the public key
+        let n = public_key.n();
+        let n = BASE64_STANDARD.encode(&public_key.n().to_bytes_be());
+        let e = BASE64_STANDARD.encode(&public_key.e().to_bytes_be());
+
+        // Calculate the key ID (kid) as a SHA-256 thumbprint
+        let jwk_thumbprint = Self::calculate_jwk_thumbprint(&n, &e)?;
+
+        // Build the JWK
+        let jwk = Jwk {
+            common: jsonwebtoken::jwk::CommonParameters {
+                public_key_use: Some(PublicKeyUse::Signature),
+                key_id: Some(jwk_thumbprint),
+                key_algorithm: Some(jsonwebtoken::jwk::KeyAlgorithm::RS256), // Correct field name and type
+                ..Default::default()
+            },
+            algorithm: jsonwebtoken::jwk::AlgorithmParameters::RSA(
+                jsonwebtoken::jwk::RSAKeyParameters {
+                    key_type: jsonwebtoken::jwk::RSAKeyType::RSA,
+                    n,
+                    e,
+                    ..Default::default()
+                },
+            ),
+        };
+
+        Ok(jwk)
+    }
+
+    /// Calculate a JWK thumbprint according to RFC 7638
+    ///
+    /// This function calculates a thumbprint for a JWK which can be used as
+    /// a key ID (kid) parameter. The thumbprint is a SHA-256 hash of the
+    /// canonical JSON representation of the JWK.
+    ///
+    /// # Parameters
+    ///
+    /// * `n` - Base64URL encoded modulus
+    /// * `e` - Base64URL encoded exponent
+    ///
+    /// # Returns
+    ///
+    /// Base64URL encoded SHA-256 thumbprint
+    fn calculate_jwk_thumbprint(n: &str, e: &str) -> Result<String> {
+        // Create canonical JWK representation
+        let canonical = json!({
+            "e": e,
+            "kty": "RSA",
+            "n": n
+        });
+
+        // Serialize to bytes in lexicographic order
+        let canonical_bytes = serde_json::to_vec(&canonical)?;
+
+        // Calculate SHA-256 hash
+        let mut hasher = Sha256::new();
+        hasher.update(&canonical_bytes);
+        let hash = hasher.finalize();
+
+        // Encode as Base64URL
+        let thumbprint = URL_SAFE_NO_PAD.encode(hash);
+
+        Ok(thumbprint)
     }
 }

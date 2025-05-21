@@ -276,6 +276,36 @@ impl JwtTokenMap {
         }
     }
 
+    /// Create a new JWT token issuer with RS256 algorithm using PEM encoded keys
+    ///
+    /// # Parameters
+    ///
+    /// * `private_key_pem` - PEM encoded private key
+    /// * `public_key_pem` - PEM encoded public key
+    ///
+    /// # Returns
+    ///
+    /// A new JwtTokenMap configured to use RS256 algorithm with the provided keys
+    pub fn with_rs256_pem(
+        private_key_pem: &[u8],
+        public_key_pem: &[u8],
+    ) -> Result<Self, jsonwebtoken::errors::Error> {
+        let encoding_key = EncodingKey::from_rsa_pem(private_key_pem)?;
+        let decoding_key = DecodingKey::from_rsa_pem(public_key_pem)?;
+
+        Ok(JwtTokenMap {
+            access_tokens: HashMap::new(),
+            refresh_tokens: HashMap::new(),
+            signing_key: encoding_key,
+            verification_key: decoding_key,
+            refresh_generator: RandomGenerator::new(16),
+            token_duration: Some(Duration::hours(1)), // Default 1 hour
+            issuer: "rust-photoacoustic".to_string(),
+            usage_counter: 0,
+            algorithm: Algorithm::RS256,
+        })
+    }
+
     /// Sets the JWT signing algorithm
     pub fn with_algorithm(mut self, algorithm: Algorithm) -> Self {
         self.algorithm = algorithm;
@@ -540,6 +570,24 @@ impl JwtIssuer {
     /// Create a new JwtIssuer with the given secret
     pub fn new(secret: &[u8]) -> Self {
         JwtIssuer(Arc::new(Mutex::new(JwtTokenMap::new(secret))))
+    }
+
+    /// Create a new JwtIssuer with RS256 algorithm using PEM encoded keys
+    ///
+    /// # Parameters
+    ///
+    /// * `private_key_pem` - PEM encoded private key
+    /// * `public_key_pem` - PEM encoded public key
+    ///
+    /// # Returns
+    ///
+    /// A new JwtIssuer configured to use RS256 algorithm with the provided keys
+    pub fn with_rs256_pem(
+        private_key_pem: &[u8],
+        public_key_pem: &[u8],
+    ) -> Result<Self, jsonwebtoken::errors::Error> {
+        let token_map = JwtTokenMap::with_rs256_pem(private_key_pem, public_key_pem)?;
+        Ok(JwtIssuer(Arc::new(Mutex::new(token_map))))
     }
 
     /// Sets the JWT signing algorithm

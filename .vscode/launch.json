@@ -99,9 +99,9 @@
             "cargo": {
                 "args": [
                     "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=rust-photoacoustic"
+                    "--test", 
+                    "rs256_jwt_test",
+                    "test_rs256_jwt_token_generation_and_validation"
                 ],
                 "filter": {
                     "name": "rust-photoacoustic",
