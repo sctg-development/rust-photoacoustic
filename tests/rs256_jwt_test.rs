@@ -96,9 +96,12 @@ fn test_rs256_jwt_token_generation_and_validation() {
 
     let mut validation = jsonwebtoken::Validation::new(Algorithm::RS256);
     validation.validate_exp = false; // Skip expiration validation for testing
-
+    validation.set_audience(&["test_client"]); // Set expected audience to match the token
 
     let token_data = jsonwebtoken::decode::<serde_json::Value>(&token, &decoding_key, &validation);
+    if let Err(err) = &token_data {
+        println!("JWT Verification Error: {:?}", err);
+    }
     assert!(token_data.is_ok(), "Should be able to verify the token");
     let claims = token_data.unwrap().claims;
 
@@ -111,7 +114,8 @@ fn test_rs256_jwt_token_generation_and_validation() {
     let (_, wrong_public_key_bytes, _, _) = generate_test_rs256_keys();
     let wrong_decoding_key = DecodingKey::from_rsa_pem(&wrong_public_key_bytes)
         .expect("Failed to create wrong decoding key");
-
+    
+    // The validation settings remain the same as above, with audience already set
     let wrong_verify_result =
         jsonwebtoken::decode::<serde_json::Value>(&token, &wrong_decoding_key, &validation);
 
