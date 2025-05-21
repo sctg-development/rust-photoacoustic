@@ -219,11 +219,19 @@ impl Daemon {
             .merge(("log_level", LogLevel::Normal));
 
         // Add RS256 keys to figment
-        if !config.visualization.rs256_public_key.is_empty() && !config.visualization.rs256_private_key.is_empty() {
+        if !config.visualization.rs256_public_key.is_empty()
+            && !config.visualization.rs256_private_key.is_empty()
+        {
             debug!("RS256 keys found in configuration");
             figment = figment
-                .merge(("rs256_public_key", config.visualization.rs256_public_key.clone()))
-                .merge(("rs256_private_key", config.visualization.rs256_private_key.clone()));
+                .merge((
+                    "rs256_public_key",
+                    config.visualization.rs256_public_key.clone(),
+                ))
+                .merge((
+                    "rs256_private_key",
+                    config.visualization.rs256_private_key.clone(),
+                ));
         }
 
         // Configure TLS if certificates are provided

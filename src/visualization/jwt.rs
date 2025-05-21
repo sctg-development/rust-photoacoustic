@@ -483,13 +483,13 @@ impl Issuer for JwtTokenMap {
             return Ok(Some(entry.grant.clone()));
         }
 
-    // Create custom validation
-    let mut validation = Validation::new(self.algorithm);
-    validation.validate_exp = true;
-    validation.validate_nbf = true;
-    validation.set_issuer(&[&self.issuer]);
-    // We should extract the audience from the token first and then validate it
-    // This approach is needed because we may not know the audience in advance
+        // Create custom validation
+        let mut validation = Validation::new(self.algorithm);
+        validation.validate_exp = true;
+        validation.validate_nbf = true;
+        validation.set_issuer(&[&self.issuer]);
+        // We should extract the audience from the token first and then validate it
+        // This approach is needed because we may not know the audience in advance
 
         let token_data = match decode::<JwtClaims>(token, &self.verification_key, &validation) {
             Ok(data) => data,

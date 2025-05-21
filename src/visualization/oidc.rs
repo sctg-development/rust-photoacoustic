@@ -16,12 +16,12 @@
 //! capabilities and configuration, including supported signing algorithms and endpoints.
 
 use base64::Engine;
-use rocket::serde::json::{Json, Value, json};
+use rocket::serde::json::{json, Json, Value};
 use rocket::{get, State};
 use serde::{Deserialize, Serialize};
 
-use crate::visualization::jwt_keys::JwkKeySet;
 use super::oxide_auth::OxideState;
+use crate::visualization::jwt_keys::JwkKeySet;
 
 /// OpenID Connect Discovery Configuration
 ///
@@ -32,34 +32,34 @@ use super::oxide_auth::OxideState;
 pub struct OpenIdConfiguration {
     /// URL using the https scheme with no query or fragment component that the OP asserts as its Issuer Identifier
     pub issuer: String,
-    
+
     /// URL of the OP's OAuth 2.0 Authorization Endpoint
     pub authorization_endpoint: String,
-    
+
     /// URL of the OP's OAuth 2.0 Token Endpoint
     pub token_endpoint: String,
-    
+
     /// URL of the OP's JSON Web Key Set document
     pub jwks_uri: String,
-    
+
     /// JSON array containing a list of the OAuth 2.0 response_type values that this server supports
     pub response_types_supported: Vec<String>,
-    
+
     /// JSON array containing a list of the OAuth 2.0 Grant Type values that this server supports
     pub grant_types_supported: Vec<String>,
-    
+
     /// JSON array containing a list of the Subject Identifier types that this server supports
     pub subject_types_supported: Vec<String>,
-    
+
     /// JSON array containing a list of the JWS signing algorithms supported by this server for the ID Token
     pub id_token_signing_alg_values_supported: Vec<String>,
-    
+
     /// JSON array containing a list of the JWS algorithms that this server supports for the UserInfo Endpoint
     pub userinfo_signing_alg_values_supported: Vec<String>,
-    
+
     /// JSON array containing the scopes that this server supports
     pub scopes_supported: Vec<String>,
-    
+
     /// JSON array containing a list of the claim names of the Claims that the OpenID Provider supports
     pub claims_supported: Vec<String>,
 }
@@ -81,20 +81,26 @@ pub struct OpenIdConfiguration {
 fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdConfiguration {
     // Determine which signing algorithms are supported
     let mut signing_algs = vec!["HS256".to_string()];
-    
+
     // If we have RS256 keys configured, add RS256
     log::debug!("RS256 public key length: {}", state.rs256_public_key.len());
-    log::debug!("RS256 private key length: {}", state.rs256_private_key.len());
-    
+    log::debug!(
+        "RS256 private key length: {}",
+        state.rs256_private_key.len()
+    );
+
     if !state.rs256_public_key.is_empty() && !state.rs256_private_key.is_empty() {
         // Add RS256 if we have keys, regardless of whether decoding succeeds
         signing_algs.push("RS256".to_string());
         log::debug!("RS256 signing algorithm added to OpenID configuration");
     } else {
-        log::warn!("RS256 keys are not properly configured - public key empty: {}, private key empty: {}", 
-                  state.rs256_public_key.is_empty(), state.rs256_private_key.is_empty());
+        log::warn!(
+            "RS256 keys are not properly configured - public key empty: {}, private key empty: {}",
+            state.rs256_public_key.is_empty(),
+            state.rs256_private_key.is_empty()
+        );
     }
-    
+
     OpenIdConfiguration {
         issuer: base_url.to_string(),
         authorization_endpoint: format!("{}/authorize", base_url),
@@ -149,10 +155,10 @@ pub async fn openid_configuration(state: &State<OxideState>) -> Json<OpenIdConfi
     // In a production environment, you would want to get the base URL from the request
     // or configuration. For simplicity, we're using a hardcoded value here.
     let base_url = "http://localhost:8080";
-    
+
     // Generate the configuration document
     let config = generate_openid_configuration(base_url, state);
-    
+
     Json(config)
 }
 
@@ -164,9 +170,9 @@ pub async fn openid_configuration(state: &State<OxideState>) -> Json<OpenIdConfi
 /// issued by this server.
 ///
 /// # URL
-/// 
-/// 
-/// 
+///
+///
+///
 ///
 /// `GET /.well-known/jwks.json`
 ///
@@ -177,9 +183,11 @@ pub async fn openid_configuration(state: &State<OxideState>) -> Json<OpenIdConfi
 pub async fn jwks(state: &State<OxideState>) -> Json<Value> {
     // Create a key set for our public keys
     let mut keys = vec![];
-    
+
     // If we have an RS256 public key, add it to the key set
-    if let Ok(rs256_pub_key) = base64::engine::general_purpose::STANDARD.decode(&state.rs256_public_key) {
+    if let Ok(rs256_pub_key) =
+        base64::engine::general_purpose::STANDARD.decode(&state.rs256_public_key)
+    {
         if !rs256_pub_key.is_empty() {
             // Parse the PEM encoded public key
             if let Ok(jwk) = JwkKeySet::create_jwk_from_pem(&rs256_pub_key) {
@@ -187,7 +195,7 @@ pub async fn jwks(state: &State<OxideState>) -> Json<Value> {
             }
         }
     }
-    
+
     // Return the key set
     Json(json!({
         "keys": keys

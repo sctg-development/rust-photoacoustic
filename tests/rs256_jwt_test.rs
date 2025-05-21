@@ -4,15 +4,15 @@
 
 use base64::Engine;
 use jsonwebtoken::jwk::AlgorithmParameters;
+use jsonwebtoken::jwk::PublicKeyUse;
 use jsonwebtoken::{Algorithm, DecodingKey};
 use log::debug;
+use oxide_auth::endpoint::Issuer;
+use rocket::config::LogLevel;
 use rocket::http::{ContentType, Status};
-use rocket::{config::LogLevel};
-use jsonwebtoken::jwk::PublicKeyUse;
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rust_photoacoustic::visualization::jwt::JwtIssuer;
 use rust_photoacoustic::visualization::jwt_keys::JwkKeySet;
-use oxide_auth::endpoint::Issuer;
 use serde::de;
 use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -114,7 +114,7 @@ fn test_rs256_jwt_token_generation_and_validation() {
     let (_, wrong_public_key_bytes, _, _) = generate_test_rs256_keys();
     let wrong_decoding_key = DecodingKey::from_rsa_pem(&wrong_public_key_bytes)
         .expect("Failed to create wrong decoding key");
-    
+
     // The validation settings remain the same as above, with audience already set
     let wrong_verify_result =
         jsonwebtoken::decode::<serde_json::Value>(&token, &wrong_decoding_key, &validation);
@@ -263,7 +263,7 @@ async fn test_jwk_key_generation_from_public_key() {
     );
 
     assert!(
-        matches!(jwk.common.public_key_use,Some(PublicKeyUse::Signature)),
+        matches!(jwk.common.public_key_use, Some(PublicKeyUse::Signature)),
         "JWK key use should be 'sig' (signature)"
     );
 
