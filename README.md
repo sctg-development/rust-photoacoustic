@@ -2,7 +2,7 @@
 
 ## Development Philosophy & Disclaimer
 
-This project follows a true continuous integration approach where development happens transparently in the main branch. This allows anyone to observe the real-time evolution of a complex scientific application from early stages through completion.
+This project follows a true continuous integration approach where development happens transparently in the main branch. This allows anyone to observe the real-time evolution of a complex scientific application from early stages through completion. Tests are designed and implemented in real-time with the code. This ensures that the continuous integration process not only verifies code functionality but also guarantees that development consistently aligns with the project's objectives.
 
 **Current Status:** This project is actively under development and not yet ready for production use. You're seeing the unfiltered development process - including experiments, refactoring, and iterative improvements.
 
@@ -10,7 +10,7 @@ This project follows a true continuous integration approach where development ha
 
 - The codebase may be incomplete or contain non-working components
 - APIs and architecture may change significantly between commits
-- Tests may occasionally fail as new features are integrated
+- Tests are an integral part of development and may occasionally fail as new features are integrated or refactored, reflecting the ongoing alignment with project goals.
 - Documentation is being written alongside the code and evolves with it
 
 Rather than hiding work-in-progress behind feature branches, this approach demonstrates how modern software development progresses through incremental improvements, refactoring, and testing. Feel free to watch, star, or fork this repository to follow its evolution from prototype to working application.
