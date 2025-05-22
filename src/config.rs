@@ -745,7 +745,31 @@ impl Config {
         }
     }
 
-    /// Validate additional rules that aren't covered by the JSON schema
+    /// Validates the configuration against additional rules that aren't covered by the JSON schema.
+    ///
+    /// This method performs deeper validation checks that can't be easily expressed in a JSON schema,
+    /// such as verifying that certificate and key pairs are both present, validating base64 encoding
+    /// of cryptographic material, and checking user password hashes.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration object to validate
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all validations pass
+    /// * `Err(anyhow::Error)` with descriptive message if any validation fails
+    ///
+    /// # Validation Rules
+    ///
+    /// This function validates:
+    ///
+    /// - **SSL Configuration**: Ensures that if a certificate is provided, a key is also provided (and vice versa)
+    /// - **Base64 Encoding**: Validates that certificates, keys, and RS256 keys are valid base64-encoded strings
+    /// - **Port Range**: Ensures the visualization port is within a valid range (1-65534)
+    /// - **IP Address Format**: Checks if the provided address is a valid IP address or special value
+    /// - **User Credentials**: Validates that user password hashes are properly base64-encoded and follow
+    ///   the expected format from `openssl passwd`
     fn validate_specific_rules(config: &Config) -> Result<()> {
         debug!("Performing additional validation checks");
 
@@ -794,6 +818,27 @@ impl Config {
             .decode(&config.visualization.rs256_public_key)
             .context("RS256 public key is not valid base64")?;
 
+        // if AccessConfig contains users, validate their credentials
+        // User password should be a valid base64 string
+        // the decoded string should be a valid password hash conforming to the openssl passwd -1 format
+        for user in &config.access.0 {
+            if !user.pass.is_empty() {
+                let decoded_pass = base64::engine::general_purpose::STANDARD
+                    .decode(&user.pass)
+                    .context("User password is not valid base64")?;
+                // Check if the decoded password is a valid hash
+                // Password hash should start with $1$, $5$, $6$, $apr1$
+                // Next contains the salt
+                // The rest is the hash
+                if !decoded_pass.starts_with(b"$1$")
+                    && !decoded_pass.starts_with(b"$5$")
+                    && !decoded_pass.starts_with(b"$6$")
+                    && !decoded_pass.starts_with(b"$apr1$")
+                {
+                    anyhow::bail!("User password is not a valid hash, you should use openssl passwd -5 <password> | base64 -w0");
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -863,14 +908,14 @@ pub fn output_config_schema() -> Result<()> {
 pub struct User {
     /// The username used for authentication
     pub user: String,
-    
+
     /// Base64-encoded password hash
-    /// 
+    ///
     /// This should be created using: `openssl passwd -1 <password> | base64 -w0`
     pub pass: String,
-    
+
     /// List of permission strings that define what actions the user can perform
-    /// 
+    ///
     /// Common permissions include:
     /// * "read:api" - Allows read-only access to API endpoints
     /// * "write:api" - Allows modification operations on API endpoints
@@ -883,6 +928,10 @@ pub struct User {
 /// This structure defines the users who can access the application
 /// and their associated permissions. Each user has a username, password hash,
 /// and a list of permissions that control what actions they can perform.
+/// A valid password hash is generated using the `openssl` command:
+/// ```bash
+/// openssl passwd -5 admin123 | base64 -w0
+/// ```
 ///
 /// # Example
 ///
@@ -910,7 +959,7 @@ impl Default for User {
         Self {
             user: "admin".to_string(),
             // Default password hash for "admin123" (should be changed in production)
-            pass: "JDEkcEdsUXY1d1gkcEoyaloyY1BRQmI4Qy5NUUZnTzZqLwo=".to_string(),
+            pass: "JDUkM2E2OUZwQW0xejZBbWV2QSRvMlhhN0lxcVdVU1VPTUh6UVJiM3JjRlRhZy9WYjdpSWJtZUJFaXA3Y1ZECg==".to_string(),
             permissions: vec![
                 "read:api".to_string(), 
                 "write:api".to_string(), 
@@ -922,8 +971,6 @@ impl Default for User {
 
 impl Default for AccessConfig {
     fn default() -> Self {
-        Self(vec![
-            User::default(),
-        ])
+        Self(vec![User::default()])
     }
 }
