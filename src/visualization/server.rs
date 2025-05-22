@@ -57,13 +57,16 @@ use base64::Engine;
 use include_dir::{include_dir, Dir};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::figment::Figment;
-use rocket::http::{ContentType, Header};
+use rocket::http::{ContentType, Header, HeaderMap};
+use rocket::request::FromRequest;
 use rocket::response::{Redirect, Responder};
 use rocket::{async_trait, get, options, routes, uri, Build, Rocket};
 use rocket::{Request, Response};
 use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
 use std::env;
+use std::fmt::Debug;
 use std::io::Cursor;
+use std::ops::Deref;
 use std::path::PathBuf;
 
 use super::oxide_auth::OxideState;
@@ -104,6 +107,76 @@ impl<'r> Responder<'r, 'r> for StaticFileResponse {
             })
             .sized_body(self.0.len(), Cursor::new(self.0))
             .ok()
+    }
+}
+
+/// Request guard for accessing HTTP headers in a route
+///
+/// This struct acts as a wrapper around Rocket's `HeaderMap`, providing a
+/// type-safe way to access the HTTP headers of an incoming request. It can be
+/// used directly as a parameter in route handlers to access all request headers.
+///
+/// # Usage in Routes
+///
+/// ```
+/// use rocket::get;
+/// use rust_photoacoustic::visualization::server::Headers;
+/// #[get("/example")]
+/// fn example_route(headers: Headers<'_>) -> String {
+///     // Check if a specific header exists
+///     let has_auth = headers.contains("Authorization");
+///     
+///     // Get a specific header value
+///     let user_agent = headers.get_one("User-Agent").unwrap_or("Unknown");
+///     
+///     format!("Has Auth: {}, User-Agent: {}", has_auth, user_agent)
+/// }
+/// ```
+///
+/// # Implementation Details
+///
+/// This struct implements Rocket's `FromRequest` trait, allowing it to be used
+/// as a request guard in route handlers. When a route with this parameter is invoked,
+/// Rocket will automatically extract the request headers and make them available
+/// through this struct.
+pub struct Headers<'r>(pub &'r HeaderMap<'r>);
+
+impl<'r> Deref for Headers<'r> {
+    type Target = HeaderMap<'r>;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for Headers<'r> {
+    type Error = ();
+
+    /// Extracts the HTTP headers from the request
+    ///
+    /// This implementation always succeeds and provides access to the request's
+    /// headers through the `Headers` struct.
+    ///
+    /// # Parameters
+    ///
+    /// * `req` - The incoming HTTP request
+    ///
+    /// # Returns
+    ///
+    /// A successful outcome containing the headers from the request
+    async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        rocket::request::Outcome::Success(Headers(req.headers()))
+    }
+}
+
+impl<'r> Debug for Headers<'r> {
+    /// Formats the Headers for debug output
+    ///
+    /// This implementation allows the Headers struct to be used with
+    /// debug formatting macros like `println!("{:?}", headers)`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Headers").field(self.0).finish()
     }
 }
 
