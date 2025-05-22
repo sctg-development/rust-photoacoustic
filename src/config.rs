@@ -29,7 +29,21 @@
 //! let mut config = Config::from_file(Path::new("config.yaml")).unwrap();
 //!
 //! // Apply command line overrides if needed
-//! config.apply_args(8081, "0.0.0.0".to_string(), None, false);
+//! config.apply_args(
+//!     Some(8081),                     // Web port
+//!     Some("0.0.0.0".to_string()),    // Web address
+//!     Some("new_secret".to_string()), // HMAC secret
+//!     true,                           // Daemon mode
+//!     Some("hw:0,0".to_string()),     // Input device
+//!     None,                           // Input file
+//!     Some(1000.0),                   // Frequency
+//!     Some(50.0),                     // Bandwidth
+//!     Some(2048),                     // Window size
+//!     Some(5),                        // Averages
+//!     Some(true),                     // Enable Modbus
+//!     Some("0.0.0.0".to_string()),    // Modbus address
+//!     Some(502),                      // Modbus port  
+//! );
 //!
 //! // Access configuration values
 //! println!("Server port: {}", config.visualization.port);
@@ -43,7 +57,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 /// Configuration for the data acquisition process.
@@ -388,6 +402,51 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Helper method to create a sample config file when validation fails
+    fn create_sample_config<P: AsRef<Path>>(path: P) -> Result<()> {
+        let path = path.as_ref();
+        debug!("Creating sample configuration file at {:?}", path);
+        let sample_path = path.with_extension("sample.yaml");
+
+        // Print more debug information
+        debug!("Original path: {:?}, Sample path: {:?}", path, sample_path);
+
+        // Create parent directories if they don't exist
+        if let Some(parent) = sample_path.parent() {
+            if !parent.exists() {
+                debug!("Creating parent directory: {:?}", parent);
+                std::fs::create_dir_all(parent).with_context(|| {
+                    format!(
+                        "Failed to create directory for sample config at {:?}",
+                        parent
+                    )
+                })?;
+            }
+        }
+
+        let sample_config = Self::default();
+        debug!("About to save sample config to {:?}", sample_path);
+        sample_config
+            .save_to_file(&sample_path)
+            .with_context(|| format!("Failed to save sample config to {:?}", sample_path))?;
+
+        debug!("Sample config file created successfully, checking if it exists");
+        if sample_path.exists() {
+            debug!("Confirmed sample file exists at {:?}", sample_path);
+        } else {
+            error!(
+                "Sample file was supposedly created but doesn't exist at {:?}",
+                sample_path
+            );
+        }
+
+        error!(
+            "Sample configuration file created at {:?}\nPlease edit and rename it",
+            sample_path
+        );
+        Ok(())
+    }
+
     /// Load configuration from a file
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
@@ -434,22 +493,43 @@ impl Config {
             error!("Configuration validation error before deserialization");
             // We generate a config.sample.yaml file with the default values
             // for the user to edit
-            let sample_config = Self::default();
-            sample_config.save_to_file(path.with_extension("sample.yaml"))?;
-            error!(
-                "Sample configuration file created at {:?}\nPlease edit and rename it",
-                path.with_extension("sample.yaml")
-            );
+            Self::create_sample_config(path)?;
             anyhow::bail!("Configuration validation failed: {}", error);
         }
 
         // Now that YAML has been validated, deserialize to Config
         debug!("Schema validation passed, deserializing into Config structure");
-        let config: Config = serde_yml::from_str(&contents)
-            .with_context(|| format!("Failed to deserialize validated YAML from {:?}", path))?;
+        let config: Config = match serde_yml::from_str(&contents) {
+            Ok(config) => config,
+            Err(err) => {
+                error!("Configuration deserialization error: {}", err);
+                // Generate a sample config file just like we do for schema validation failures
+
+                // Log the path for debugging
+                debug!("About to create sample config for path: {:?}", path);
+
+                // Create the sample file
+                match Self::create_sample_config(path) {
+                    Ok(_) => debug!("Successfully created sample config"),
+                    Err(e) => error!("Failed to create sample config: {}", e),
+                }
+
+                // Return the original error enhanced with context
+                return Err(anyhow::anyhow!(
+                    "Failed to deserialize configuration from {}: {}",
+                    path.display(),
+                    err
+                ));
+            }
+        };
 
         // Perform additional specific validations
-        Self::validate_specific_rules(&config)?;
+        if let Err(err) = Self::validate_specific_rules(&config) {
+            error!("Configuration specific validation error: {}", err);
+            // Generate a sample config file
+            Self::create_sample_config(path)?;
+            return Err(err);
+        }
 
         Ok(config)
     }
@@ -468,21 +548,72 @@ impl Config {
         Ok(())
     }
 
-    /// Apply command line arguments to override configuration values
+    /// Apply command line arguments to override configuration values.
+    ///
+    /// This method allows configuration values to be overridden with command line arguments.
+    /// Only values that differ from defaults or are explicitly provided will override
+    /// the existing configuration.
+    ///
+    /// # Parameters
+    ///
+    /// * `web_port` - TCP port for the visualization server
+    /// * `web_address` - Network address for the visualization server to bind to
+    /// * `hmac_secret` - Optional HMAC secret for JWT token signing
+    /// * `daemon_mode` - If true, ensures visualization server is enabled
+    /// * `input_device` - Optional audio input device for photoacoustic analysis
+    /// * `input_file` - Optional input file path for photoacoustic analysis
+    /// * `frequency` - Optional excitation frequency in Hz
+    /// * `bandwidth` - Optional filter bandwidth in Hz
+    /// * `window_size` - Optional FFT window size
+    /// * `averages` - Optional number of spectra to average
+    /// * `modbus_enabled` - Optional flag to enable/disable Modbus server
+    /// * `modbus_port` - Optional TCP port for Modbus server
+    /// * `modbus_address` - Optional network address for Modbus server
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rust_photoacoustic::config::Config;
+    /// let mut config = Config::from_file("config.yaml").unwrap();
+    /// config.apply_args(
+    ///     Some(8081),                     // Web port
+    ///     Some("0.0.0.0".to_string()),    // Web address
+    ///     Some("new_secret".to_string()), // HMAC secret
+    ///     true,                           // Daemon mode
+    ///     Some("hw:0,0".to_string()),     // Input device
+    ///     None,                           // Input file
+    ///     Some(1000.0),                   // Frequency
+    ///     Some(50.0),                     // Bandwidth
+    ///     Some(2048),                     // Window size
+    ///     Some(5),                        // Averages
+    ///     Some(true),                     // Enable Modbus
+    ///     Some("0.0.0.0".to_string()),    // Modbus address
+    ///     Some(502),                      // Modbus port  
+    /// );
+    /// ```
     pub fn apply_args(
         &mut self,
-        web_port: u16,
-        web_address: String,
+        web_port: Option<u16>,
+        web_address: Option<String>,
         hmac_secret: Option<String>,
-        daemon_mode: bool, // New parameter
+        daemon_mode: bool,
+        input_device: Option<String>,
+        input_file: Option<PathBuf>,
+        frequency: Option<f32>,
+        bandwidth: Option<f32>,
+        window_size: Option<u16>,
+        averages: Option<u16>,
+        modbus_enabled: Option<bool>,
+        modbus_address: Option<String>,
+        modbus_port: Option<u16>,
     ) {
         // Only override if command-line arguments are provided
-        if web_port != default_port() {
+        if let Some(web_port) = web_port {
             debug!("Overriding port from command line: {}", web_port);
             self.visualization.port = web_port;
         }
 
-        if web_address != default_address() {
+        if let Some(web_address) = web_address {
             debug!("Overriding address from command line: {}", web_address);
             self.visualization.address = web_address; // Use the field directly
         }
@@ -495,6 +626,44 @@ impl Config {
         // Enable visualization in daemon mode
         if daemon_mode {
             self.visualization.enabled = true;
+        }
+        // Apply photoacoustic settings
+        if let Some(device) = input_device {
+            debug!("Overriding input device from command line: {}", device);
+            self.photoacoustic.input_device = Some(device);
+        }
+        if let Some(file) = input_file {
+            debug!("Overriding input file from command line: {:?}", file);
+            self.photoacoustic.input_file = Some(file.to_string_lossy().to_string());
+        }
+        if let Some(freq) = frequency {
+            debug!("Overriding frequency from command line: {}", freq);
+            self.photoacoustic.frequency = freq;
+        }
+        if let Some(band) = bandwidth {
+            debug!("Overriding bandwidth from command line: {}", band);
+            self.photoacoustic.bandwidth = band;
+        }
+        if let Some(size) = window_size {
+            debug!("Overriding window size from command line: {}", size);
+            self.photoacoustic.window_size = size;
+        }
+        if let Some(avg) = averages {
+            debug!("Overriding averages from command line: {}", avg);
+            self.photoacoustic.averages = avg;
+        }
+        // Apply Modbus settings
+        if let Some(enabled) = modbus_enabled {
+            debug!("Overriding Modbus enabled from command line: {}", enabled);
+            self.modbus.enabled = enabled;
+        }
+        if let Some(port) = modbus_port {
+            debug!("Overriding Modbus port from command line: {}", port);
+            self.modbus.port = port;
+        }
+        if let Some(address) = modbus_address {
+            debug!("Overriding Modbus address from command line: {}", address);
+            self.modbus.address = address;
         }
     }
 
@@ -559,4 +728,33 @@ fn is_valid_ip_address(addr: &str) -> bool {
 
     // Special cases
     matches!(addr, "localhost" | "::" | "::0" | "0.0.0.0")
+}
+
+/// Output the embedded JSON schema to the console.
+///
+/// This function is called when the `--show-config-schema` flag is provided
+/// on the command line. It outputs the full JSON schema for the configuration
+/// to stdout, formatted for readability.
+///
+/// # Example
+///
+/// ```bash
+/// ./rust_photoacoustic --show-config-schema > config_schema.json
+/// ```
+pub fn output_config_schema() -> Result<()> {
+    // Load the schema from the embedded string
+    let schema_str = include_str!("../resources/config.schema.json");
+
+    // Parse the schema to a JSON Value to pretty-format it
+    let schema: serde_json::Value =
+        serde_json::from_str(schema_str).context("Failed to parse JSON schema")?;
+
+    // Pretty-print the schema
+    let formatted_schema =
+        serde_json::to_string_pretty(&schema).context("Failed to format JSON schema")?;
+
+    // Output to stdout
+    println!("{}", formatted_schema);
+
+    Ok(())
 }

@@ -33,36 +33,36 @@ pub struct Args {
     input_file: Option<PathBuf>,
 
     /// Excitation frequency in Hz
-    #[arg(long, default_value_t = 2000.0)]
-    frequency: f32,
+    #[arg(long)]
+    frequency: Option<f32>,
 
     /// Filter bandwidth in Hz
-    #[arg(long, default_value_t = 100.0)]
-    bandwidth: f32,
+    #[arg(long)]
+    bandwidth: Option<f32>,
 
     /// Output file for results (JSON)
     #[arg(long)]
     output: Option<PathBuf>,
 
     /// Window size for FFT analysis
-    #[arg(long, default_value_t = 4096)]
-    window_size: usize,
+    #[arg(long)]
+    window_size: Option<u16>,
 
     /// Number of spectra to average
-    #[arg(long, default_value_t = 10)]
-    averages: usize,
+    #[arg(long)]
+    averages: Option<u16>,
 
     /// Start in server mode
     #[arg(long, default_value_t = true)]
     server: bool,
 
     /// Web server port (default: 8080) only used if --web is set
-    #[arg(short = 'p', long, default_value_t = 8080)]
-    web_port: u16,
+    #[arg(short = 'p')]
+    web_port: Option<u16>,
 
     /// Web server address (default: localhost) only used if --web is set
-    #[arg(short, long, default_value = "127.0.0.1")]
-    web_address: String,
+    #[arg(short)]
+    web_address: Option<String>,
 
     /// HMAC secret for JWT signing
     #[arg(long)]
@@ -71,12 +71,33 @@ pub struct Args {
     /// Path to configuration file (YAML format)
     #[arg(long)]
     config: Option<PathBuf>,
+    
+    /// Output the configuration schema as JSON and exit
+    #[arg(long)]
+    show_config_schema: bool,
+
+    /// Modbus enabled
+    #[arg(long)]
+    modbus_enabled: Option<bool>,
+
+    /// Modbus server address
+    #[arg(long)]
+    modbus_address: Option<String>,
+
+    /// Modbus server port
+    #[arg(long)]
+    modbus_port: Option<u16>,
 }
 
 #[rocket::main]
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
+    
+    // Check if --show-config-schema flag is set
+    if args.show_config_schema {
+        return config::output_config_schema();
+    }
 
     // Load configuration
     let config_path = args
@@ -91,6 +112,15 @@ async fn main() -> Result<()> {
         args.web_address.clone(),
         args.hmac_secret.clone(),
         args.server,
+        args.input_device.clone(),
+        args.input_file.clone(),
+        args.frequency,
+        args.bandwidth,
+        args.window_size,
+        args.averages,
+        args.modbus_enabled,
+        args.modbus_address.clone(),
+        args.modbus_port,
     );
 
     // Configure Rocket

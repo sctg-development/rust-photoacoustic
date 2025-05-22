@@ -69,7 +69,21 @@ fn test_config_load_and_save() -> Result<()> {
     );
 
     // Apply command-line arguments without HMAC secret
-    config.apply_args(9000, "192.168.0.1".to_string(), None, true);
+    config.apply_args(
+        Some(9000),
+        Some("192.168.0.1".to_string()),
+        None,
+        true,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
 
     // Verify values were overridden
     assert_eq!(config.visualization.port, 9000);
@@ -81,10 +95,19 @@ fn test_config_load_and_save() -> Result<()> {
 
     // Apply command-line arguments with HMAC secret
     config.apply_args(
-        9000,
-        "192.168.0.1".to_string(),
+        Some(9000),
+        Some("192.168.0.1".to_string()),
         Some("new-secret-key".to_string()),
         true,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
     );
 
     // Verify HMAC secret was overridden
