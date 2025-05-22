@@ -91,10 +91,45 @@ impl Default for AcquisitionConfig {
     }
 }
 
+/// Configuration for the Modbus TCP server component.
+///
+/// This structure contains settings that control the Modbus TCP server functionality,
+/// including network binding parameters and whether the server is enabled.
+///
+/// # Fields
+///
+/// * `enabled` - Flag to enable or disable the Modbus server
+/// * `port` - TCP port number for the Modbus server (default: 502)
+/// * `address` - Network address for the Modbus server to bind to (default: 127.0.0.1)
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::ModbusConfig;
+///
+/// let modbus_config = ModbusConfig {
+///     enabled: true,
+///     port: 503,
+///     address: "0.0.0.0".to_string(),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModbusConfig {
+    /// Enable or disable the Modbus TCP server.
+    ///
+    /// When set to `false`, the Modbus server will not be started.
+    /// Default is `false`.
     pub enabled: bool,
+
+    /// The TCP port the Modbus server will listen on.
+    ///
+    /// Valid range is 1-65534. Default value is 502, which is the standard Modbus TCP port.
     pub port: u16,
+
+    /// The network address the Modbus server will bind to.
+    ///
+    /// Can be an IPv4/IPv6 address or a hostname. Default is "127.0.0.1".
+    /// Use "0.0.0.0" to bind to all IPv4 interfaces.
     pub address: String,
 }
 // implement Default for ModbusConfig
@@ -108,6 +143,40 @@ impl Default for ModbusConfig {
     }
 }
 
+/// Configuration for the photoacoustic measurement system.
+///
+/// This structure contains settings that control the photoacoustic measurement process,
+/// including input sources, signal processing parameters, and analysis settings.
+///
+/// # Input Sources
+///
+/// The configuration supports two mutually exclusive input sources:
+/// * `input_device` - A hardware audio device (e.g., "hw:0,0" for ALSA)
+/// * `input_file` - A path to a WAV file for offline analysis
+///
+/// One of these must be specified, but not both simultaneously.
+///
+/// # Signal Processing Parameters
+///
+/// * `frequency` - The primary excitation frequency in Hz
+/// * `bandwidth` - Filter bandwidth in Hz around the excitation frequency
+/// * `window_size` - FFT window size (power of 2 recommended)
+/// * `averages` - Number of spectra to average for noise reduction
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::PhotoacousticConfig;
+///
+/// let pa_config = PhotoacousticConfig {
+///     input_device: Some("hw:0,0".to_string()),
+///     input_file: None,
+///     frequency: 1000.0,
+///     bandwidth: 50.0,
+///     window_size: 4096,
+///     averages: 10,
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhotoacousticConfig {
     /// The input device to use for data acquisition
@@ -303,7 +372,7 @@ fn default_name() -> String {
 // Use if exists the ../resources/cert.pem file converted to base64 at build time
 fn default_cert() -> Option<String> {
     let cert_str = include_str!("../resources/cert.pem");
-    if cert_str.is_empty() {
+    if (cert_str.is_empty()) {
         None
     } else {
         let cert_b64 = base64::engine::general_purpose::STANDARD.encode(cert_str.as_bytes());
@@ -313,7 +382,7 @@ fn default_cert() -> Option<String> {
 // Use if exists the ../resources/cert.key file converted to base64 at build time
 fn default_key() -> Option<String> {
     let key_str = include_str!("../resources/cert.key");
-    if key_str.is_empty() {
+    if (key_str.is_empty()) {
         None
     } else {
         let key_b64 = base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes());
@@ -339,7 +408,7 @@ fn default_hmac_secret() -> String {
 /// The key should be in PEM format and Base64 encoded.
 fn default_rs256_private_key() -> String {
     let key_str = include_str!("../resources/private.key");
-    if key_str.is_empty() {
+    if (key_str.is_empty()) {
         String::new()
     } else {
         base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
@@ -355,7 +424,7 @@ fn default_rs256_private_key() -> String {
 /// The key should be in PEM format and Base64 encoded.
 fn default_rs256_public_key() -> String {
     let key_str = include_str!("../resources/pub.key");
-    if key_str.is_empty() {
+    if (key_str.is_empty()) {
         String::new()
     } else {
         base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
