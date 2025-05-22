@@ -92,6 +92,13 @@ pub struct AuthenticatedUser(pub UserSession);
 impl<'r> FromRequest<'r> for AuthenticatedUser {
     type Error = ();
 
+    /// Extracts an `AuthenticatedUser` from the request if a valid session cookie is present.
+    ///
+    /// This function checks for a private cookie named "user_session". If the cookie
+    /// exists and can be successfully parsed into a `UserSession` (containing username
+    /// and permissions), it returns `Outcome::Success` with the `AuthenticatedUser`.
+    /// If the cookie is missing or invalid, it returns `Outcome::Forward(())` to
+    /// allow the request to continue without authentication.
     async fn from_request(request: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
         // Check for user session cookie
         let cookies = request.cookies();
@@ -110,7 +117,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             }
         }
 
-        Outcome::Forward(())
+        Outcome::Forward(Status::Unauthorized)
     }
 }
 
@@ -380,8 +387,8 @@ pub fn authorize_consent(
     // Ensure user is authenticated
     if authenticated_user.is_none() {
         return Err(OAuthFailure::from(
-            oxide_auth::endpoint::OAuthError::MissingParameter("User not authenticated".into()),
-        ));
+            oxide_auth::endpoint::OAuthError::BadRequest),
+        );
     }
 
     let user = authenticated_user.unwrap();
@@ -424,52 +431,45 @@ pub async fn token<'r>(
     mut oauth: OAuthRequest<'r>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
-    // Get a copy of the raw body content to inspect the grant_type
     let body = oauth.urlbody()?;
     let grant_type = body.unique_value("grant_type");
-    debug!("grant_type: {:?}", body.unique_value("grant_type"));
+    debug!("grant_type: {:?}", grant_type);
 
-    // Before executing the token flow, we'll set up a hook to enrich tokens with user info
-    let token_hook = |token: &mut oxide_auth::code_grant::accesstoken::TokenResponse| {
-        // Get the user ID from the token grant
-        if let Some(owner_id) = token.owner_id() {
-            let username = owner_id.to_string();
+    // Extract username from the OAuth request if available
+    let username = body.unique_value("username")
+        .or_else(|| {
+            // Try to extract from other sources if needed
+            // This might need adjustment based on your OAuth flow
+            None
+        });
 
-            // Find the user in our access config
-            for user in &state.access_config.0 {
-                if user.user == username {
-                    // Get a mutable reference to the issuer to add user claims
-                    if let Ok(mut issuer) = state.issuer.lock() {
-                        issuer.add_user_claims(&username, &user.permissions);
-                    }
-                    break;
+    // If we have a username, add user claims before token issuance
+    if let Some(username_cow) = username {
+        let username_str = username_cow.as_ref();
+        
+        // Find the user in our access config and add claims
+        for user in &state.access_config.0 {
+            if user.user == username_str {
+                if let Ok(mut issuer) = state.issuer.lock() {
+                    issuer.add_user_claims(&username_str, &user.permissions);
                 }
+                break;
             }
         }
-    };
+    }
 
     if grant_type == Some(std::borrow::Cow::Borrowed("refresh_token")) {
-        // Handle refresh token flow with hook
+        // Handle refresh token flow
         let mut endpoint = state.endpoint().refresh_flow();
-        
-        // Get a mutable reference to the issuer and set the token hook
-        let mut issuer = endpoint.issuer_mut();
-        issuer.set_token_hook(Box::new(token_hook));
-        
-        return endpoint
+        endpoint
             .execute(oauth)
-            .map_err(|err| err.pack::<OAuthFailure>());
+            .map_err(|err| err.pack::<OAuthFailure>())
     } else {
-        // Handle authorization code flow with hook
+        // Handle authorization code flow
         let mut endpoint = state.endpoint().access_token_flow();
-        
-        // Get a mutable reference to the issuer and set the token hook
-        let mut issuer = endpoint.issuer_mut();
-        issuer.set_token_hook(Box::new(token_hook));
-        
-        return endpoint
+        endpoint
             .execute(oauth)
-            .map_err(|err| err.pack::<OAuthFailure>());
+            .map_err(|err| err.pack::<OAuthFailure>())
     }
 }
 

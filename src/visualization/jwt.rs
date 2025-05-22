@@ -239,18 +239,12 @@ pub struct JwtTokenMap {
     /// The algorithm used to sign and verify JWT tokens.
     /// Default is HS256 (HMAC with SHA-256).
     algorithm: Algorithm,
-    
+
     /// Additional claims to include in tokens
     ///
     /// This allows adding extra claims to the JWT tokens being generated.
     /// Used for including user-specific information in tokens.
     claims: HashMap<String, Value>,
-    
-    /// Token hook for extensibility
-    ///
-    /// A callback function that allows modifying token responses during issuance.
-    /// Used for enriching tokens with additional data.
-    token_hook: Option<Box<dyn FnMut(&mut oxide_auth::code_grant::accesstoken::TokenResponse) + Send>>,
 }
 
 impl JwtTokenMap {
@@ -267,7 +261,6 @@ impl JwtTokenMap {
             usage_counter: 0,
             algorithm: Algorithm::HS256, // Default to HMAC-SHA256
             claims: HashMap::new(),
-            token_hook: None,
         }
     }
 
@@ -288,7 +281,6 @@ impl JwtTokenMap {
             usage_counter: 0,
             algorithm,
             claims: HashMap::new(),
-            token_hook: None,
         }
     }
 
@@ -320,7 +312,6 @@ impl JwtTokenMap {
             usage_counter: 0,
             algorithm: Algorithm::RS256,
             claims: HashMap::new(),
-            token_hook: None,
         })
     }
 
@@ -342,9 +333,40 @@ impl JwtTokenMap {
         self
     }
 
-    /// Create JWT claims from a grant
+    /// Add user information to token claims that will be included in the next issued token
+    pub fn add_user_claims(&mut self, username: &str, permissions: &[String]) -> &mut Self {
+        // Clear previous user claims to avoid accumulation
+        self.claims.retain(|key, _| !key.starts_with("user_"));
+        
+        // Add user information to claims that will be included in JWT
+        self.claims.insert(
+            "user_id".to_string(), 
+            Value::public(Some(username.to_string()))
+        );
+        
+        // Add permissions as a space-separated string
+        let perms_str = permissions.join(" ");
+        self.claims.insert(
+            "user_permissions".to_string(), 
+            Value::public(Some(perms_str))
+        );
+        
+        // Common identity claims
+        self.claims.insert(
+            "preferred_username".to_string(),
+            Value::public(Some(username.to_string())),
+        );
+        self.claims.insert(
+            "user_name".to_string(),
+            Value::public(Some(username.to_string())),
+        );
+
+        self
+    }
+
+    /// Create JWT claims from a grant, including any additional user claims
     fn create_claims(&self, grant: &Grant, now: DateTime<Utc>, expiry: DateTime<Utc>) -> JwtClaims {
-        // Create a map for any public extensions
+        // Create a map for any public extensions and additional claims
         let mut metadata = HashMap::new();
 
         // Add grant extensions to metadata
@@ -356,12 +378,18 @@ impl JwtTokenMap {
             }
         }
 
-        // Add any additional claims
+        // Add any additional claims (including user claims)
         for (key, value) in &self.claims {
-            if let Some(val) = value {
-                metadata.insert(key.to_string(), val.to_string());
-            } else {
-                metadata.insert(key.to_string(), "true".to_string());
+            match value {
+                Value::Public(Some(val)) => {
+                    metadata.insert(key.to_string(), val.to_string());
+                }
+                Value::Public(None) => {
+                    metadata.insert(key.to_string(), "true".to_string());
+                }
+                Value::Private(_) => {
+                    // Skip private values
+                }
             }
         }
 
@@ -387,27 +415,6 @@ impl JwtTokenMap {
             },
         }
     }
-
-    /// Add user information to token claims
-    pub fn add_user_claims(&mut self, username: &str, permissions: &[String]) -> &mut Self {
-        // Add user information to claims
-        self.claims.insert("sub".to_string(), Value::public(Some(username.to_string())));
-        
-        // Add permissions as a space-separated string
-        let perms_str = permissions.join(" ");
-        self.claims.insert("permissions".to_string(), Value::public(Some(perms_str)));
-        
-        // Common identity claims
-        self.claims.insert("preferred_username".to_string(), Value::public(Some(username.to_string())));
-        self.claims.insert("name".to_string(), Value::public(Some(username.to_string())));
-        
-        self
-    }
-    
-    /// Set a token hook function
-    pub fn set_token_hook(&mut self, hook: Box<dyn FnMut(&mut oxide_auth::code_grant::accesstoken::TokenResponse) + Send>) {
-        self.token_hook = Some(hook);
-    }
 }
 
 impl Issuer for JwtTokenMap {
@@ -418,7 +425,7 @@ impl Issuer for JwtTokenMap {
             grant.until = now + duration;
         }
 
-        // Generate claims
+        // Generate claims (this now includes user claims automatically)
         let claims = self.create_claims(&grant, now, grant.until);
 
         // Create JWT token with specific algorithm
@@ -446,25 +453,16 @@ impl Issuer for JwtTokenMap {
         }
 
         // Create the token response
-        let mut token = IssuedToken {
+        let token = IssuedToken {
             token: access_token,
             refresh: refresh_token,
             until: grant.until,
             token_type: TokenType::Bearer,
         };
 
-        // Apply token hook if present
-        if let Some(hook) = &mut self.token_hook {
-            // Convert IssuedToken to TokenResponse for the hook
-            let mut token_response = oxide_auth::code_grant::accesstoken::TokenResponse::from(token.clone());
-            
-            // Call the hook with our token response
-            hook(&mut token_response);
-            
-            // No need to convert back as we already have our IssuedToken
-        }
+        // Clear user claims after use to prevent them from being included in subsequent tokens
+        self.claims.retain(|key, _| !key.starts_with("user_"));
 
-        // Return the issued token
         Ok(token)
     }
 
@@ -527,25 +525,16 @@ impl Issuer for JwtTokenMap {
         }
 
         // Create the refreshed token
-        let mut token = RefreshedToken {
+        let token = RefreshedToken {
             token: new_access_token,
             refresh: new_refresh_token,
             until: grant.until,
             token_type: TokenType::Bearer,
         };
 
-        // Apply token hook if present
-        if let Some(hook) = &mut self.token_hook {
-            // Convert RefreshedToken to TokenResponse for the hook
-            let mut token_response = oxide_auth::code_grant::accesstoken::TokenResponse::from(token.clone());
-            
-            // Call the hook with our token response
-            hook(&mut token_response);
-            
-            // No need to convert back as we already have our RefreshedToken
-        }
+        // Clear user claims after use
+        self.claims.retain(|key, _| !key.starts_with("user_"));
 
-        // Return the refreshed token
         Ok(token)
     }
 
@@ -710,12 +699,6 @@ impl JwtIssuer {
             map.add_user_claims(username, permissions);
         }
         self
-    }
-    
-    /// Set a token hook function
-    pub fn set_token_hook(&mut self, hook: Box<dyn FnMut(&mut oxide_auth::code_grant::accesstoken::TokenResponse) + Send>) {
-        let mut map = self.0.lock().unwrap();
-        map.set_token_hook(hook);
     }
 
     /// Print the decoded contents of a JWT token for debugging purposes
