@@ -53,12 +53,12 @@ photoacoustic:
 access:
   users:
   - user: administrator
-    pass: JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo= # openssl passwd -1 password | base64 -w0
+    pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg== # openssl passwd -5 password | base64 -w0
     permissions:
       - "read:api"
       - "write:api"
       - "admin:api"
   - user: reader
-    pass: JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo= # openssl passwd -1 123445678 | base64 -w0
+    pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
     permissions:
       - "read:api"
