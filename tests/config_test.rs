@@ -1,7 +1,7 @@
 use anyhow::Result;
 use base64::Engine;
 use rust_photoacoustic::config::{
-    AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig, VisualizationConfig,
+    AccessConfig, AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig, VisualizationConfig
 };
 use std::fs;
 use tempfile::tempdir;
@@ -37,6 +37,7 @@ fn test_config_load_and_save() -> Result<()> {
             address: "127.0.0.1".to_string(),
         },
         photoacoustic: PhotoacousticConfig::default(),
+        access: AccessConfig::default(),
     };
 
     // Save config to file

@@ -167,6 +167,33 @@
           "required": ["input_file"]
         }
       ]
+    },
+    "access": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Username for authentication"
+          },
+          "pass": {
+            "type": "string",
+            "description": "Base64-encoded password hash (created with openssl passwd -1 | base64 -w0)"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["read:api", "write:api", "admin:api"]
+            },
+            "minItems": 1,
+            "description": "List of permissions granted to the user"
+          }
+        },
+        "required": ["user", "pass", "permissions"]
+      },
+      "description": "List of users with their credentials and permissions"
     }
   },
   "required": [

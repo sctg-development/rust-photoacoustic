@@ -257,6 +257,14 @@ pub struct Config {
     /// If not specified, default values will be used.
     #[serde(default)]
     pub photoacoustic: PhotoacousticConfig,
+
+    /// User access and permissions settings for the photoacoustic application.
+    ///
+    /// This section controls parameters related to user authentication and
+    /// authorization, such as the list of users, their credentials, and
+    /// associated permissions. If not specified, default values will be used.
+    #[serde(default)]
+    pub access: AccessConfig,
 }
 
 /// Configuration for the visualization web server.
@@ -466,6 +474,7 @@ impl Default for Config {
             },
             modbus: ModbusConfig::default(),
             photoacoustic: PhotoacousticConfig::default(),
+            access: AccessConfig::default(),
         }
     }
 }
@@ -519,7 +528,7 @@ impl Config {
     /// Load configuration from a file
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        if !path.exists() {
+        if (!path.exists()) {
             debug!(
                 "Configuration file not found at {:?}, creating default",
                 path
@@ -826,4 +835,95 @@ pub fn output_config_schema() -> Result<()> {
     println!("{}", formatted_schema);
 
     Ok(())
+}
+
+/// User definition for authentication and authorization
+///
+/// This structure represents a user with authentication credentials and
+/// associated permissions for controlling access to API endpoints.
+///
+/// # Fields
+///
+/// * `user` - The username used for authentication
+/// * `pass` - Base64-encoded password hash (created with openssl passwd -1 | base64 -w0)
+/// * `permissions` - List of permission strings that define what actions the user can perform
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::User;
+///
+/// let user = User {
+///     user: "admin".to_string(),
+///     pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
+///     permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    /// The username used for authentication
+    pub user: String,
+    
+    /// Base64-encoded password hash
+    /// 
+    /// This should be created using: `openssl passwd -1 <password> | base64 -w0`
+    pub pass: String,
+    
+    /// List of permission strings that define what actions the user can perform
+    /// 
+    /// Common permissions include:
+    /// * "read:api" - Allows read-only access to API endpoints
+    /// * "write:api" - Allows modification operations on API endpoints
+    /// * "admin:api" - Allows administrative operations
+    pub permissions: Vec<String>,
+}
+
+/// Configuration for user access and permissions
+///
+/// This structure defines the users who can access the application
+/// and their associated permissions. Each user has a username, password hash,
+/// and a list of permissions that control what actions they can perform.
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::{AccessConfig, User};
+///
+/// let access_config = AccessConfig(vec![
+///     User {
+///         user: "admin".to_string(),
+///         pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
+///         permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
+///     },
+///     User {
+///         user: "reader".to_string(),
+///         pass: "JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo=".to_string(),
+///         permissions: vec!["read:api".to_string()],
+///     }
+/// ]);
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccessConfig(pub Vec<User>);
+
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            user: "admin".to_string(),
+            // Default password hash for "admin123" (should be changed in production)
+            pass: "JDEkcEdsUXY1d1gkcEoyaloyY1BRQmI4Qy5NUUZnTzZqLwo=".to_string(),
+            permissions: vec![
+                "read:api".to_string(), 
+                "write:api".to_string(), 
+                "admin:api".to_string()
+            ],
+        }
+    }
+}
+
+impl Default for AccessConfig {
+    fn default() -> Self {
+        Self(vec![
+            User::default(),
+        ])
+    }
 }

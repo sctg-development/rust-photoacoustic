@@ -48,3 +48,17 @@ photoacoustic:
 
   # number of spectra to average
   averages: 10
+
+# control the access to the visualization server
+access:
+  users:
+  - user: administrator
+    pass: JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo= # openssl passwd -1 password | base64 -w0
+    permissions:
+      - "read:api"
+      - "write:api"
+      - "admin:api"
+  - user: reader
+    pass: JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo= # openssl passwd -1 123445678 | base64 -w0
+    permissions:
+      - "read:api"
