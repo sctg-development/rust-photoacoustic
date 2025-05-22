@@ -46,7 +46,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use oxide_auth::endpoint::{OwnerConsent, Solicitation};
+use log::debug;
+use oxide_auth::endpoint::{OwnerConsent, Solicitation, WebRequest};
 use oxide_auth::frontends::simple::endpoint::{FnSolicitor, Generic, Vacant};
 use oxide_auth::primitives::prelude::*;
 use oxide_auth::primitives::registrar::RegisteredUrl;
@@ -234,14 +235,28 @@ pub fn authorize_consent(
 /// - On error: An OAuth error response
 #[post("/token", data = "<oauth>")]
 pub async fn token<'r>(
-    oauth: OAuthRequest<'r>,
+    mut oauth: OAuthRequest<'r>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
-    state
-        .endpoint()
-        .access_token_flow()
-        .execute(oauth)
-        .map_err(|err| err.pack::<OAuthFailure>())
+    // Get a copy of the raw body content to inspect the grant_type
+    let body = oauth.urlbody()?;
+    let grant_type = body.unique_value("grant_type");
+    debug!("grant_type: {:?}", body.unique_value("grant_type"));
+    if grant_type == Some(std::borrow::Cow::Borrowed("refresh_token")) {
+        // Handle refresh token flow
+        return state
+            .endpoint()
+            .refresh_flow()
+            .execute(oauth)
+            .map_err(|err| err.pack::<OAuthFailure>());
+    } else {
+        // Handle authorization code flow
+        return state
+            .endpoint()
+            .access_token_flow()
+            .execute(oauth)
+            .map_err(|err| err.pack::<OAuthFailure>());
+    }
 }
 
 /// OAuth 2.0 token refresh endpoint
@@ -267,7 +282,7 @@ pub async fn token<'r>(
 /// - On error: An OAuth error response
 #[post("/refresh", data = "<oauth>")]
 pub async fn refresh<'r>(
-    oauth: OAuthRequest<'r>,
+    mut oauth: OAuthRequest<'r>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
     state
