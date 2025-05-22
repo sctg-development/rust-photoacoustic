@@ -732,7 +732,9 @@ async fn favicon() -> Option<StaticFileResponse> {
     file
 }
 
-/// Serve the helper.min.js file for rapidoc
+/// Serve the helper.min.js file for rapidoc 
+/// It is comming from SCTG Development SCTGDesk server
+/// see https://github.com/sctg-development/sctgdesk-api-server/tree/main/rapidoc
 #[get("/helper.min.js")]
 async fn helper_min_js() -> Option<StaticFileResponse> {
     let file_content = include_str!("../../resources/rapidoc/helper.min.js");
