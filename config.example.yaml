@@ -9,6 +9,12 @@ visualization:
   address: 127.0.0.1
   # The server name
   name: LaserSmartApiServer/0.1.0
+
+  # The session secret key for the visualization server
+  # This key is used to sign the session cookie
+  # It can be securely generated with `openssl rand -base64 32`
+  session_secret: 6wcVSUhxt1+YPEondChFXtesCL1boh57gqHv2gnEH7U=
+  
   # SSL certificate PEM data (Base64 encoded) - Optional
   # generated with `cat rust-photoacoustic.local.pem | base64 -w0`
   # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...

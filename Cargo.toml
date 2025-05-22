@@ -21,7 +21,7 @@ dasp_ring_buffer = "0.11.0" # Ring buffer for audio
 clap = { version = "4.5.38", features = ["derive"] }
 
 # Web interface
-rocket = { version = "0.5", features = ["json", "tls"] }
+rocket = { version = "0.5", features = ["json", "tls", "secrets"] }
 rocket_cors = "0.6.0"
 rocket_okapi = { version = "0.9.0", features = [
     "rapidoc",
@@ -53,6 +53,7 @@ time = "0.3.41"                                                                 
 rsa = {version = "0.9.8", features=["pem","sha2"]}
 tokio = { version = "1.45.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
 tokio-modbus = { version = "0.16.1", features = ["tcp", "tcp-server", "server"] }
+pwhash = "1.0.0"  # Add this dependency for password hashing
 
 [dev-dependencies]
 criterion = "0.6"                                   # Benchmarking

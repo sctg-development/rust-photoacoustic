@@ -58,6 +58,82 @@ use rocket::{get, post};
 
 use super::jwt::JwtIssuer;
 
+use crate::config::{AccessConfig, Config, User};
+use base64::Engine;
+use rocket::form::{Form, FromForm};
+use rocket::http::{Cookie, CookieJar, Status};
+use rocket::request::{FromRequest, Outcome};
+use rocket::time::{Duration, OffsetDateTime};
+use std::collections::HashMap;
+
+/// Form data for user authentication
+#[derive(FromForm)]
+pub struct AuthForm {
+    username: String,
+    password: String,
+    // Preserve OAuth parameters
+    response_type: String,
+    client_id: String,
+    redirect_uri: String,
+    state: Option<String>,
+    scope: Option<String>,
+}
+
+/// Session information for authenticated users
+pub struct UserSession {
+    pub username: String,
+    pub permissions: Vec<String>,
+}
+
+/// Request guard to check for authenticated user session
+pub struct AuthenticatedUser(pub UserSession);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AuthenticatedUser {
+    type Error = ();
+
+    async fn from_request(request: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
+        // Check for user session cookie
+        let cookies = request.cookies();
+
+        if let Some(cookie) = cookies.get_private("user_session") {
+            // Parse the cookie value (format: "username:permission1,permission2")
+            let parts: Vec<&str> = cookie.value().split(':').collect();
+            if parts.len() == 2 {
+                let username = parts[0].to_string();
+                let permissions: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
+
+                return Outcome::Success(AuthenticatedUser(UserSession {
+                    username,
+                    permissions,
+                }));
+            }
+        }
+
+        Outcome::Forward(())
+    }
+}
+
+/// Validates user credentials against the AccessConfig
+fn validate_user(username: &str, password: &str, access_config: &AccessConfig) -> Option<User> {
+    for user in &access_config.0 {
+        if user.user == username {
+            // Decode the base64 password hash
+            if let Ok(hash_bytes) = base64::engine::general_purpose::STANDARD.decode(&user.pass) {
+                if let Ok(stored_hash) = String::from_utf8(hash_bytes) {
+                    // Use pwhash to verify the password
+                    // The stored hash is in the format $algo$salt$hash
+                    if pwhash::unix::verify(password, &stored_hash) {
+                        return Some(user.clone());
+                    }
+                }
+            }
+            break; // Username matched but password didn't, don't check other users
+        }
+    }
+    None
+}
+
 /// Main state container for the OAuth 2.0 server implementation
 ///
 /// `OxideState` encapsulates all the components needed for the OAuth 2.0 server:
@@ -69,7 +145,7 @@ use super::jwt::JwtIssuer;
 ///
 /// # Components
 ///
-/// * `registrar` - Stores registered OAuth clients and their configurations
+/// * `registrar` - Stores registered OAuth clients
 /// * `authorizer` - Manages authorization grants and codes
 /// * `issuer` - JWT token issuer for generating access tokens
 /// * `hmac_secret` - Shared secret for JWT token validation
@@ -115,6 +191,12 @@ pub struct OxideState {
     ///
     /// Used for verifying JWT tokens signed with the RS256 algorithm.
     pub rs256_public_key: String,
+
+    /// User access configuration
+    ///
+    /// Contains the list of users and their permissions used for authentication
+    /// and authorization in the OAuth flow.
+    pub access_config: AccessConfig,
 }
 
 /// Implementation of Clone for OxideState
@@ -131,6 +213,7 @@ impl Clone for OxideState {
             hmac_secret: self.hmac_secret.clone(),
             rs256_private_key: self.rs256_private_key.clone(),
             rs256_public_key: self.rs256_public_key.clone(),
+            access_config: self.access_config.clone(),
         }
     }
 }
@@ -162,15 +245,107 @@ impl Clone for OxideState {
 /// - On error: An OAuth error response
 #[get("/authorize")]
 pub fn authorize(
-    oauth: OAuthRequest<'_>,
+    mut oauth: OAuthRequest<'_>,
+    authenticated_user: Option<AuthenticatedUser>,
     state: &State<OxideState>,
+    cookies: &CookieJar<'_>,
 ) -> Result<OAuthResponse, OAuthFailure> {
-    state
-        .endpoint()
-        .with_solicitor(FnSolicitor(consent_form))
-        .authorization_flow()
-        .execute(oauth)
-        .map_err(|err| err.pack::<OAuthFailure>())
+    // If user is already authenticated, proceed to consent
+    if authenticated_user.is_some() {
+        return state
+            .endpoint()
+            .with_solicitor(FnSolicitor(consent_form))
+            .authorization_flow()
+            .execute(oauth)
+            .map_err(|err| err.pack::<OAuthFailure>());
+    }
+
+    // Otherwise show login form
+    let query = oauth.query().unwrap_or_default();
+
+    // Extract OAuth parameters for the login form
+    let response_type = query
+        .unique_value("response_type")
+        .unwrap_or(std::borrow::Cow::Borrowed("code"));
+    let client_id = query
+        .unique_value("client_id")
+        .unwrap_or(std::borrow::Cow::Borrowed(""));
+    let redirect_uri = query
+        .unique_value("redirect_uri")
+        .unwrap_or(std::borrow::Cow::Borrowed(""));
+    let state_param = query.unique_value("state").map(|s| s.to_string());
+    let scope = query.unique_value("scope").map(|s| s.to_string());
+
+    let output = login_page_html(
+        response_type.to_string(),
+        client_id.to_string(),
+        redirect_uri.to_string(),
+        state_param,
+        scope,
+        Some("Error: You must be logged in to authorize this client."),
+    );
+
+    Ok(OAuthResponse::new().body_html(&output).set_status(Status::Ok).clone())
+}
+
+/// Handles user login credentials and sets session if valid
+#[post("/login", data = "<form>")]
+pub fn login(
+    form: Form<AuthForm>,
+    state: &State<OxideState>,
+    cookies: &CookieJar<'_>,
+) -> Result<OAuthResponse, OAuthFailure> {
+    // Get access config from state
+    let access_config = &state.access_config;
+
+    // Validate user credentials
+    if let Some(user) = validate_user(&form.username, &form.password, access_config) {
+        // Set authenticated session cookie
+        let permissions_str = user.permissions.join(",");
+        let cookie_value = format!("{}:{}", user.user, permissions_str);
+
+        let mut cookie = Cookie::new("user_session", cookie_value);
+        cookie.set_http_only(true);
+        cookie.set_path("/");
+        cookie.set_max_age(Duration::hours(1));
+        cookies.add_private(cookie);
+
+        // Redirect back to authorize endpoint with original parameters
+        let mut query_params = HashMap::new();
+        query_params.insert("response_type", form.response_type.clone());
+        query_params.insert("client_id", form.client_id.clone());
+        query_params.insert("redirect_uri", form.redirect_uri.clone());
+
+        if let Some(state) = &form.state {
+            query_params.insert("state", state.clone());
+        }
+
+        if let Some(scope) = &form.scope {
+            query_params.insert("scope", scope.clone());
+        }
+
+        let query_string =
+            serde_urlencoded::to_string(&query_params).unwrap_or_else(|_| String::new());
+
+        return Ok(OAuthResponse::new()
+            .set_location(Some(format!("/authorize?{}", query_string).as_str()))
+            .set_status(Status::Found)
+            .clone());
+    }
+
+    // Authentication failed, show login form again with error
+    let output = login_page_html(
+        form.response_type.clone(),
+        form.client_id.clone(),
+        form.redirect_uri.clone(),
+        form.state.clone(),
+        form.scope.clone(),
+        Some("Invalid username or password"),
+    );
+    Ok(OAuthResponse::new()
+        .body_html(&output)
+        .set_status(Status::Unauthorized)
+        .clone())
 }
 
 /// OAuth 2.0 authorization consent handling endpoint
@@ -197,13 +372,24 @@ pub fn authorize(
 pub fn authorize_consent(
     oauth: OAuthRequest<'_>,
     allow: Option<bool>,
+    authenticated_user: Option<AuthenticatedUser>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
     let allowed = allow.unwrap_or(false);
+
+    // Ensure user is authenticated
+    if authenticated_user.is_none() {
+        return Err(OAuthFailure::from(
+            oxide_auth::endpoint::OAuthError::MissingParameter("User not authenticated".into()),
+        ));
+    }
+
+    let user = authenticated_user.unwrap();
+
     state
         .endpoint()
         .with_solicitor(FnSolicitor(move |_: &mut _, grant: Solicitation<'_>| {
-            consent_decision(allowed, grant)
+            consent_decision(allowed, grant, user.0.username.clone())
         }))
         .authorization_flow()
         .execute(oauth)
@@ -242,18 +428,46 @@ pub async fn token<'r>(
     let body = oauth.urlbody()?;
     let grant_type = body.unique_value("grant_type");
     debug!("grant_type: {:?}", body.unique_value("grant_type"));
+
+    // Before executing the token flow, we'll set up a hook to enrich tokens with user info
+    let token_hook = |token: &mut oxide_auth::code_grant::accesstoken::TokenResponse| {
+        // Get the user ID from the token grant
+        if let Some(owner_id) = token.owner_id() {
+            let username = owner_id.to_string();
+
+            // Find the user in our access config
+            for user in &state.access_config.0 {
+                if user.user == username {
+                    // Get a mutable reference to the issuer to add user claims
+                    if let Ok(mut issuer) = state.issuer.lock() {
+                        issuer.add_user_claims(&username, &user.permissions);
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
     if grant_type == Some(std::borrow::Cow::Borrowed("refresh_token")) {
-        // Handle refresh token flow
-        return state
-            .endpoint()
-            .refresh_flow()
+        // Handle refresh token flow with hook
+        let mut endpoint = state.endpoint().refresh_flow();
+        
+        // Get a mutable reference to the issuer and set the token hook
+        let mut issuer = endpoint.issuer_mut();
+        issuer.set_token_hook(Box::new(token_hook));
+        
+        return endpoint
             .execute(oauth)
             .map_err(|err| err.pack::<OAuthFailure>());
     } else {
-        // Handle authorization code flow
-        return state
-            .endpoint()
-            .access_token_flow()
+        // Handle authorization code flow with hook
+        let mut endpoint = state.endpoint().access_token_flow();
+        
+        // Get a mutable reference to the issuer and set the token hook
+        let mut issuer = endpoint.issuer_mut();
+        issuer.set_token_hook(Box::new(token_hook));
+        
+        return endpoint
             .execute(oauth)
             .map_err(|err| err.pack::<OAuthFailure>());
     }
@@ -352,6 +566,8 @@ impl OxideState {
             // Add RS256 keys (to be set later)
             rs256_private_key: String::new(),
             rs256_public_key: String::new(),
+            // Initialize access config with default values
+            access_config: AccessConfig::default(),
         }
     }
 
@@ -430,6 +646,7 @@ fn consent_form(
 ///
 /// * `allowed` - Whether the user granted permission (true) or denied it (false)
 /// * `_` - The solicitation details (unused in this implementation)
+/// * `username` - The authenticated user's username
 ///
 /// # Returns
 ///
@@ -440,9 +657,13 @@ fn consent_form(
 ///
 /// In a production system, this would typically identify the actual user
 /// instead of using "dummy user" as the owner ID.
-fn consent_decision<'r>(allowed: bool, _: Solicitation) -> OwnerConsent<OAuthResponse> {
+fn consent_decision<'r>(
+    allowed: bool,
+    _: Solicitation,
+    username: String,
+) -> OwnerConsent<OAuthResponse> {
     if allowed {
-        OwnerConsent::Authorized("dummy user".into())
+        OwnerConsent::Authorized(username)
     } else {
         OwnerConsent::Denied
     }
@@ -509,4 +730,145 @@ fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
         serde_urlencoded::to_string(extra).unwrap(),
         &route,
     )
+}
+
+/// Generate a login form for user authentication
+fn login_page_html(
+    response_type: String,
+    client_id: String,
+    redirect_uri: String,
+    state: Option<String>,
+    scope: Option<String>,
+    error_msg: Option<&str>,
+) -> String {
+    let error_html = if let Some(msg) = error_msg {
+        format!("<div style=\"color: red;\">{}</div>", msg)
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Photoacoustic Login</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }}
+        .login-container {{
+            background-color: white;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 350px;
+        }}
+        h2 {{
+            margin-top: 0;
+            color: #333;
+            text-align: center;
+        }}
+        label {{
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }}
+        input[type="text"], input[type="password"] {{
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }}
+        input[type="submit"] {{
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+        }}
+        input[type="submit"]:hover {{
+            background-color: #3e8e41;
+        }}
+        .client-info {{
+            margin-bottom: 20px;
+            text-align: center;
+            color: #666;
+        }}
+        .error {{
+            color: red;
+            margin-bottom: 15px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Photoacoustic Login</h2>
+        <div class="client-info">
+            Sign in to authorize <strong>'{}'</strong>
+        </div>
+        {}
+        <form method="post" action="/login">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            
+            <input type="hidden" name="response_type" value="{}">
+            <input type="hidden" name="client_id" value="{}">
+            <input type="hidden" name="redirect_uri" value="{}">
+            {}
+            {}
+            
+            <input type="submit" value="Login">
+        </form>
+    </div>
+</body>
+</html>"#,
+        client_id, // For client-info display
+        error_html,
+        response_type,
+        client_id,
+        redirect_uri,
+        state.map_or(String::new(), |s| format!(
+            r#"<input type="hidden" name="state" value="{}">"#,
+            s
+        )),
+        scope.map_or(String::new(), |s| format!(
+            r#"<input type="hidden" name="scope" value="{}">"#,
+            s
+        )),
+    )
+}
+
+/// Format scope string into HTML list items
+fn format_scopes(scope: &str) -> String {
+    scope
+        .split_whitespace()
+        .map(|s| {
+            let (icon, description) = match s {
+                "openid" => ("🔑", "Verify your identity"),
+                "profile" => ("👤", "Access your profile information"),
+                "email" => ("📧", "Access your email address"),
+                "read:api" => ("📖", "Read access to API data"),
+                "write:api" => ("✏️", "Write access to API data"),
+                "admin:api" => ("⚙️", "Administrative access"),
+                _ => ("🔒", s),
+            };
+            format!("<div class=\"scope-item\">{} {}</div>", icon, description)
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
 }

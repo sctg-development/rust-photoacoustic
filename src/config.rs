@@ -350,6 +350,10 @@ pub struct VisualizationConfig {
     /// without removing the configuration. Default is `true`.
     #[serde(default = "default_enabled")]
     pub enabled: bool,
+
+    /// Session secret key for cookie-based authentication.
+    #[serde(default = "default_session_secret")]
+    pub session_secret: String,
 }
 
 /// Provides the default TCP port (8080) for the visualization server.
@@ -448,6 +452,14 @@ fn default_enabled() -> bool {
     true
 }
 
+/// Generate a random session secret key for cookie-based authentication.
+fn default_session_secret() -> String {
+    use rand::Rng;
+    let mut rng = rand::rng();
+    let secret: [u8; 32] = rng.random();
+    base64::engine::general_purpose::STANDARD.encode(&secret)
+}
+
 impl Default for VisualizationConfig {
     fn default() -> Self {
         Self {
@@ -460,6 +472,7 @@ impl Default for VisualizationConfig {
             rs256_private_key: default_rs256_private_key(),
             rs256_public_key: default_rs256_public_key(),
             enabled: default_enabled(),
+            session_secret: default_session_secret(),
         }
     }
 }

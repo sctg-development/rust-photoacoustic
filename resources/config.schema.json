@@ -56,6 +56,12 @@
             "null"
           ],
           "description": "RS256 public key for JWT token verification (base64 encoded)"
+        },
+        "session_secret": {
+          "type": [
+            "string"
+          ],
+          "description": "Session secret for cookie signing (base64 encoded) can be generated with openssl rand -base64 32"
         }
       },
       "required": [
@@ -64,7 +70,8 @@
         "name",
         "hmac_secret",
         "rs256_private_key",
-        "rs256_public_key"
+        "rs256_public_key",
+        "session_secret"
       ]
     },
     "modbus": {

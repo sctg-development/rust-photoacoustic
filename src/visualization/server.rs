@@ -50,6 +50,7 @@
 //! }
 //! ```
 
+use crate::config::AccessConfig;
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
 use crate::visualization::oxide_auth::{authorize, authorize_consent, refresh, token};
@@ -71,7 +72,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::PathBuf;
 
-use super::oxide_auth::OxideState;
+use super::oxide_auth::{login, OxideState};
 
 /// Static directory containing the web client files
 ///
@@ -445,6 +446,11 @@ pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> 
             }
         }
     }
+    
+    // Extract user access configuration from figment
+    if let Some(access_config) = figment.extract_inner::<AccessConfig>("access").ok() {
+        oxide_state.access_config = access_config;
+    }
 
     // Initialize JWT validator for API authentication with the HMAC secret
     let jwt_validator = match super::api_auth::init_jwt_validator(hmac_secret) {
@@ -468,11 +474,12 @@ pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> 
                 webclient,
                 authorize,
                 authorize_consent,
+                login,
                 token,
                 refresh,
                 super::introspection::introspect,
-                openid_configuration, // Add OIDC configuration endpoint
-                jwks, // Add JWKS endpoint
+                openid_configuration,
+                jwks,
             ],
         )
         .mount(

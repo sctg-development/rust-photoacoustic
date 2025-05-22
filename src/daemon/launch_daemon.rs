@@ -216,7 +216,8 @@ impl Daemon {
             .merge(("limits", Limits::new().limit("json", 2.mebibytes())))
             .merge(("address", config.visualization.address.clone()))
             .merge(("port", config.visualization.port))
-            .merge(("log_level", LogLevel::Normal));
+            .merge(("log_level", LogLevel::Normal))
+            .merge(("secret_key", config.visualization.session_secret.clone()));
 
         // Add RS256 keys to figment
         if !config.visualization.rs256_public_key.is_empty()
