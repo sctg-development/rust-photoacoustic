@@ -71,7 +71,7 @@ pub struct Args {
     /// Path to configuration file (YAML format)
     #[arg(long)]
     config: Option<PathBuf>,
-    
+
     /// Output the configuration schema as JSON and exit
     #[arg(long)]
     show_config_schema: bool,
@@ -93,7 +93,7 @@ pub struct Args {
 async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    
+
     // Check if --show-config-schema flag is set
     if args.show_config_schema {
         return config::output_config_schema();

@@ -13,7 +13,7 @@ fn test_config_schema_output() -> Result<()> {
 
     // Test that the function executes without errors
     config::output_config_schema()?;
-    
+
     // If we got here without errors, the test passes
     Ok(())
 }

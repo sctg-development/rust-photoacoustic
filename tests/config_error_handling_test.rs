@@ -1,10 +1,10 @@
 use anyhow::Result;
+use env_logger;
 use rust_photoacoustic::config::Config;
 use std::fs;
 use std::path::Path;
-use tempfile::tempdir;
 use std::sync::Once;
-use env_logger;
+use tempfile::tempdir;
 
 static INIT: Once = Once::new();
 
@@ -43,13 +43,16 @@ visualization:
 
     // Try to load the config, which should fail but create a sample file
     let result = Config::from_file(&config_path);
-    
+
     // Assert loading failed
     assert!(result.is_err(), "Config loading should have failed");
-    
+
     // Assert sample file was created
     let sample_path = config_path.with_extension("sample.yaml");
-    assert!(Path::new(&sample_path).exists(), "Sample config file was not created");
+    assert!(
+        Path::new(&sample_path).exists(),
+        "Sample config file was not created"
+    );
 
     // Load and verify the sample file is valid
     let sample_config = Config::from_file(&sample_path)?;
@@ -80,13 +83,16 @@ visualization:
 
     // Try to load the config, which should fail but create a sample file
     let result = Config::from_file(&config_path);
-    
+
     // Assert loading failed
     assert!(result.is_err(), "Config loading should have failed");
-    
+
     // Assert sample file was created
     let sample_path = config_path.with_extension("sample.yaml");
-    assert!(Path::new(&sample_path).exists(), "Sample config file was not created");
+    assert!(
+        Path::new(&sample_path).exists(),
+        "Sample config file was not created"
+    );
 
     // Load and verify the sample file is valid
     let sample_config = Config::from_file(&sample_path)?;
