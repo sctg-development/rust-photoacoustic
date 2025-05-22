@@ -1,7 +1,7 @@
 use anyhow::Result;
 use base64::Engine;
 use rust_photoacoustic::config::{
-    AccessConfig, AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig, VisualizationConfig
+    AccessConfig, AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig, VisualizationConfig,
 };
 use std::fs;
 use tempfile::tempdir;
@@ -26,6 +26,7 @@ fn test_config_load_and_save() -> Result<()> {
                 .encode((include_str!("../resources/private.key")).as_bytes()),
             rs256_public_key: base64::engine::general_purpose::STANDARD
                 .encode((include_str!("../resources/pub.key")).as_bytes()),
+            session_secret: "session-secret".to_string(),
         },
         acquisition: AcquisitionConfig {
             enabled: false,
