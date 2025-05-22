@@ -13,9 +13,21 @@ use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rust_photoacoustic::visualization::jwt::JwtIssuer;
 use rust_photoacoustic::visualization::jwt_keys::JwkKeySet;
-use serde::de;
 use serde_json::Value;
+use std::sync::Once;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static INIT: Once = Once::new();
+
+/// Setup logger for tests
+fn setup() {
+    INIT.call_once(|| {
+        env_logger::builder()
+            .filter_level(log::LevelFilter::Debug)
+            .is_test(true)
+            .init();
+    });
+}
 
 /// Generate a test configuration for Rocket
 fn get_test_figment() -> rocket::figment::Figment {
@@ -148,6 +160,8 @@ fn test_rs256_jwt_token_generation_and_validation() {
 
 #[rocket::async_test]
 async fn test_oidc_endpoints_with_rs256() {
+    // Initialize the logger
+    setup();
     // Generate test RS256 key pair
     let (_, _, private_base64, public_base64) = generate_test_rs256_keys();
 

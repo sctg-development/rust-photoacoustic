@@ -57,6 +57,7 @@ use base64::Engine;
 use include_dir::{include_dir, Dir};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::figment::Figment;
+use rocket::http::uri::{Host, Origin};
 use rocket::http::{ContentType, Header, HeaderMap};
 use rocket::request::FromRequest;
 use rocket::response::{Redirect, Responder};
@@ -66,6 +67,7 @@ use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject}
 use std::env;
 use std::fmt::Debug;
 use std::io::Cursor;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -180,6 +182,128 @@ impl<'r> Debug for Headers<'r> {
     }
 }
 
+/// Request guard for accessing detailed connection information from the client
+///
+/// This struct provides comprehensive information about the incoming HTTP connection,
+/// including host, IP addresses, URL structure, and connection scheme (HTTP/HTTPS).
+/// It can be used in route handlers to obtain details about how a client is connecting
+/// to the server, which is useful for logging, analytics, and generating absolute URLs.
+///
+/// # Fields
+///
+/// * `host_port` - The host and port as a string (e.g., "example.com:8080")
+/// * `origin` - The normalized URI origin from the request
+/// * `ip` - The client's IP address, or 127.0.0.1 if unavailable
+/// * `real_ip` - The client's real IP address from X-Forwarded-For header if available
+/// * `remote` - The client's socket address if available
+/// * `scheme` - The URL scheme ("http" or "https")
+/// * `base_url_with_port` - The base URL including the port (e.g., "https://example.com:8080")
+/// * `base_url` - The base URL without the port if standard (e.g., "https://example.com")
+///
+/// # Usage in Routes
+///
+/// ```
+/// use rocket::get;
+/// use rust_photoacoustic::visualization::server::ConnectionInfo;
+///
+/// #[get("/connection-info")]
+/// fn show_connection_info(conn_info: ConnectionInfo<'_>) -> String {
+///     format!(
+///         "Connected via: {}\nYour IP: {}\nBase URL: {}",
+///         conn_info.scheme, conn_info.ip, conn_info.base_url
+///     )
+/// }
+/// ```
+///
+/// # Security Considerations
+///
+/// This struct provides information that could be useful for logging and debugging,
+/// but care should be taken when exposing client IP addresses or other connection
+/// details in responses, as this could have privacy implications. Additionally, in
+/// production environments with reverse proxies, ensure proper configuration of
+/// the X-Forwarded-For and related headers for accurate client IP detection.
+pub struct ConnectionInfo<'r> {
+    pub host_port: String,
+    pub origin: Origin<'r>,
+    pub ip: IpAddr,
+    pub real_ip: Option<IpAddr>,
+    pub remote: Option<SocketAddr>,
+    pub scheme: String,
+    pub base_url_with_port: String,
+    pub base_url: String,
+}
+/// Request guard for accessing connection information
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for ConnectionInfo<'r> {
+    type Error = ();
+
+    /// Extracts connection information from the request
+    ///
+    /// This implementation provides access to the host, port, scheme,
+    /// and path of the incoming request.
+    /// NOTE: if the host is not set in the request, it will use localhost:8080 hardcoded
+    ///
+    /// # Parameters
+    ///
+    /// * `req` - The incoming HTTP request
+    ///
+    /// # Returns
+    ///
+    /// A successful outcome containing the connection information
+    async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        let default_host_string = env::var("HOST").unwrap_or_else(|_| "localhost:8080".to_string());
+        let default_host = Host::parse(default_host_string.as_str()).expect("valid host");
+        let host_port = req.host().unwrap_or(&default_host);
+        let port = host_port.port().unwrap_or(80);
+        let host: &str = host_port.domain().as_str();
+        let origin = req.uri().to_owned().into_normalized();
+        let ip = req
+            .client_ip()
+            .unwrap_or(Ipv4Addr::new(127, 0, 0, 1).into());
+        let real_ip = req.real_ip();
+        let remote = req.remote();
+        let scheme = if req.rocket().config().tls_enabled() {
+            "https".to_string()
+        } else {
+            "http".to_string()
+        };
+        let base_url_with_port = format!("{}://{}", scheme, host_port);
+        let base_url = if port == 80 || port == 443 {
+            format!("{}://{}", scheme, host)
+        } else {
+            format!("{}://{}:{}", scheme, host, port)
+        };
+        rocket::request::Outcome::Success(ConnectionInfo {
+            host_port: host_port.to_string(),
+            origin,
+            ip,
+            real_ip,
+            remote,
+            scheme,
+            base_url_with_port,
+            base_url,
+        })
+    }
+}
+
+impl<'r> Debug for ConnectionInfo<'r> {
+    /// Formats the ConnectionInfo for debug output
+    ///
+    /// This implementation allows the ConnectionInfo struct to be used with
+    /// debug formatting macros like `println!("{:?}", connection_info)`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ConnectionInfo")
+            .field(&self.host_port)
+            .field(&self.origin)
+            .field(&self.ip)
+            .field(&self.real_ip)
+            .field(&self.remote)
+            .field(&self.scheme)
+            .field(&self.base_url)
+            .field(&self.base_url_with_port)
+            .finish()
+    }
+}
 /// Cross-Origin Resource Sharing (CORS) fairing for Rocket
 ///
 /// This fairing adds CORS headers to all responses from the server,
