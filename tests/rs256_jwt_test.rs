@@ -108,7 +108,24 @@ fn test_rs256_jwt_token_generation_and_validation() {
     // Verify the claims
     assert_eq!(claims["sub"], "test_user", "Wrong subject claim");
     assert_eq!(claims["aud"], "test_client", "Wrong audience claim");
-    assert_eq!(claims["scope"], "read:api write:api", "Wrong scope claim");
+    
+    // Compare scopes regardless of order by splitting and checking each scope exists
+    let expected_scopes: Vec<&str> = "read:api write:api".split_whitespace().collect();
+    let actual_scopes_str = claims["scope"].as_str().expect("Scope should be a string");
+    let actual_scopes: Vec<&str> = actual_scopes_str.split_whitespace().collect();
+    
+    // Verify both scope lists have the same length
+    assert_eq!(expected_scopes.len(), actual_scopes.len(), "Scope count mismatch");
+    
+    // Verify each expected scope is in the actual scopes
+    for scope in expected_scopes {
+        assert!(
+            actual_scopes.contains(&scope),
+            "Missing scope: {} in token scopes: {}",
+            scope,
+            actual_scopes_str
+        );
+    }
 
     // Attempt to verify with wrong key should fail
     let (_, wrong_public_key_bytes, _, _) = generate_test_rs256_keys();
