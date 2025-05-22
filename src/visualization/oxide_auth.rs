@@ -292,7 +292,10 @@ pub fn authorize(
         Some("Error: You must be logged in to authorize this client."),
     );
 
-    Ok(OAuthResponse::new().body_html(&output).set_status(Status::Ok).clone())
+    Ok(OAuthResponse::new()
+        .body_html(&output)
+        .set_status(Status::Ok)
+        .clone())
 }
 
 /// Handles user login credentials and sets session if valid
@@ -387,8 +390,8 @@ pub fn authorize_consent(
     // Ensure user is authenticated
     if authenticated_user.is_none() {
         return Err(OAuthFailure::from(
-            oxide_auth::endpoint::OAuthError::BadRequest),
-        );
+            oxide_auth::endpoint::OAuthError::BadRequest,
+        ));
     }
 
     let user = authenticated_user.unwrap();
@@ -436,17 +439,16 @@ pub async fn token<'r>(
     debug!("grant_type: {:?}", grant_type);
 
     // Extract username from the OAuth request if available
-    let username = body.unique_value("username")
-        .or_else(|| {
-            // Try to extract from other sources if needed
-            // This might need adjustment based on your OAuth flow
-            None
-        });
+    let username = body.unique_value("username").or_else(|| {
+        // Try to extract from other sources if needed
+        // This might need adjustment based on your OAuth flow
+        None
+    });
 
     // If we have a username, add user claims before token issuance
     if let Some(username_cow) = username {
         let username_str = username_cow.as_ref();
-        
+
         // Find the user in our access config and add claims
         for user in &state.access_config.0 {
             if user.user == username_str {

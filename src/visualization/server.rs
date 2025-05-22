@@ -446,7 +446,7 @@ pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> 
             }
         }
     }
-    
+
     // Extract user access configuration from figment
     if let Some(access_config) = figment.extract_inner::<AccessConfig>("access").ok() {
         oxide_state.access_config = access_config;
@@ -739,7 +739,7 @@ async fn favicon() -> Option<StaticFileResponse> {
     file
 }
 
-/// Serve the helper.min.js file for rapidoc 
+/// Serve the helper.min.js file for rapidoc
 /// It is comming from SCTG Development SCTGDesk server
 /// see https://github.com/sctg-development/sctgdesk-api-server/tree/main/rapidoc
 #[get("/helper.min.js")]

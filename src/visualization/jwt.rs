@@ -337,20 +337,20 @@ impl JwtTokenMap {
     pub fn add_user_claims(&mut self, username: &str, permissions: &[String]) -> &mut Self {
         // Clear previous user claims to avoid accumulation
         self.claims.retain(|key, _| !key.starts_with("user_"));
-        
+
         // Add user information to claims that will be included in JWT
         self.claims.insert(
-            "user_id".to_string(), 
-            Value::public(Some(username.to_string()))
+            "user_id".to_string(),
+            Value::public(Some(username.to_string())),
         );
-        
+
         // Add permissions as a space-separated string
         let perms_str = permissions.join(" ");
         self.claims.insert(
-            "user_permissions".to_string(), 
-            Value::public(Some(perms_str))
+            "user_permissions".to_string(),
+            Value::public(Some(perms_str)),
         );
-        
+
         // Common identity claims
         self.claims.insert(
             "preferred_username".to_string(),
