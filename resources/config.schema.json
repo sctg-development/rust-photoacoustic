@@ -116,6 +116,57 @@
       "required": [
         "enabled"
       ]
+    },
+    "photoacoustic": {
+      "type": "object",
+      "properties": {
+        "input_device": {
+          "type": ["string", "null"],
+          "description": "The input device to use for data acquisition"
+        },
+        "input_file": {
+          "type": ["string", "null"],
+          "description": "The input file to use for data acquisition (mutually exclusive with input_device)"
+        },
+        "frequency": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 20000,
+          "description": "The excitation frequency in Hz"
+        },
+        "bandwidth": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 250,
+          "description": "Filter bandwidth in Hz"
+        },
+        "window_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096,
+          "description": "Window size for FFT analysis"
+        },
+        "averages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Number of spectra to average"
+        }
+      },
+      "required": [
+        "frequency",
+        "bandwidth",
+        "window_size",
+        "averages"
+      ],
+      "oneOf": [
+        {
+          "required": ["input_device"]
+        },
+        {
+          "required": ["input_file"]
+        }
+      ]
     }
   },
   "required": [

@@ -93,6 +93,37 @@ impl Default for ModbusConfig {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhotoacousticConfig {
+    /// The input device to use for data acquisition
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_device: Option<String>,
+    /// The input file to use for data acquisition mutually exclusive with input_device
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_file: Option<String>,
+    /// The excitation frequency in Hz
+    pub frequency: f32,
+    /// Filter bandwidth in Hz
+    pub bandwidth: f32,
+    /// Window size for FFT analysis
+    pub window_size: u16,
+    /// Number of spectra to average
+    pub averages: u16,
+}
+// implement Default for PhotoacousticConfig
+impl Default for PhotoacousticConfig {
+    fn default() -> Self {
+        Self {
+            input_device: None,
+            input_file: Some("input.wav".to_string()),
+            frequency: 2000.0,
+            bandwidth: 100.0,
+            window_size: 4096,
+            averages: 10,
+        }
+    }
+}
 /// Root configuration structure for the photoacoustic application.
 ///
 /// This structure serves as the main container for all configuration sections
@@ -134,6 +165,15 @@ pub struct Config {
     /// If not specified, default values will be used.
     #[serde(default)]
     pub modbus: ModbusConfig,
+
+    /// Photoacoustic settings for the photoacoustic application.
+    ///
+    /// This section controls parameters related to the photoacoustic
+    /// acquisition, such as the input device, input file, frequency,
+    /// bandwidth, window size, and number of spectra to average.
+    /// If not specified, default values will be used.
+    #[serde(default)]
+    pub photoacoustic: PhotoacousticConfig,
 }
 
 /// Configuration for the visualization web server.
@@ -342,6 +382,7 @@ impl Default for Config {
                 interval_ms: 1000,
             },
             modbus: ModbusConfig::default(),
+            photoacoustic: PhotoacousticConfig::default(),
         }
     }
 }
