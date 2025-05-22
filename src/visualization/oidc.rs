@@ -16,11 +16,13 @@
 //! capabilities and configuration, including supported signing algorithms and endpoints.
 
 use base64::Engine;
+use log::debug;
 use rocket::serde::json::{json, Json, Value};
 use rocket::{get, State};
 use serde::{Deserialize, Serialize};
 
 use super::oxide_auth::OxideState;
+use super::server::ConnectionInfo;
 use crate::visualization::jwt_keys::JwkKeySet;
 
 /// OpenID Connect Discovery Configuration
@@ -151,11 +153,12 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
 ///
 /// JSON object containing OpenID Connect discovery configuration
 #[get("/.well-known/openid-configuration")]
-pub async fn openid_configuration(state: &State<OxideState>) -> Json<OpenIdConfiguration> {
-    // In a production environment, you would want to get the base URL from the request
-    // or configuration. For simplicity, we're using a hardcoded value here.
-    let base_url = "http://localhost:8080";
-
+pub async fn openid_configuration(
+    state: &State<OxideState>,
+    connection: ConnectionInfo<'_>,
+) -> Json<OpenIdConfiguration> {
+    let base_url = &connection.base_url;
+    debug!("Base URL for OpenID configuration: {}", base_url);
     // Generate the configuration document
     let config = generate_openid_configuration(base_url, state);
 
