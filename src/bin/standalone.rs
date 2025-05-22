@@ -2,23 +2,11 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-// Main entry point for the photoacoustic water vapor analyzer
-mod acquisition;
-mod config;
-mod daemon;
-mod modbus;
-mod preprocessing;
-mod spectral;
-mod utility;
-mod visualization;
-
 use anyhow::Result;
 use clap::Parser;
-use config::Config;
-use log::{debug, info};
+use rust_photoacoustic::{acquisition, preprocessing, spectral};
 
 use std::path::PathBuf;
-use tokio::signal;
 
 /// Water vapor analyzer using photoacoustic spectroscopy
 #[derive(Debug, Parser)]
@@ -51,26 +39,6 @@ pub struct Args {
     /// Number of spectra to average
     #[arg(long, default_value_t = 10)]
     averages: usize,
-
-    /// Start in server mode
-    #[arg(long, default_value_t = true)]
-    server: bool,
-
-    /// Web server port (default: 8080) only used if --web is set
-    #[arg(short = 'p', long, default_value_t = 8080)]
-    web_port: u16,
-
-    /// Web server address (default: localhost) only used if --web is set
-    #[arg(short, long, default_value = "127.0.0.1")]
-    web_address: String,
-
-    /// HMAC secret for JWT signing
-    #[arg(long)]
-    hmac_secret: Option<String>,
-
-    /// Path to configuration file (YAML format)
-    #[arg(long)]
-    config: Option<PathBuf>,
 }
 
 #[rocket::main]
@@ -78,44 +46,41 @@ async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    // Load configuration
-    let config_path = args
-        .config
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("config.yaml"));
-    let mut config = Config::from_file(&config_path)?;
+    println!("Water Vapor Analyzer");
+    println!("--------------------");
 
-    // Apply command line overrides
-    config.apply_args(
-        args.web_port,
-        args.web_address.clone(),
-        args.hmac_secret.clone(),
-        args.server,
-    );
-
-    // Configure Rocket
-    if args.server {
-        info!("Starting in daemon mode");
-        let mut daemon = daemon::launch_daemon::Daemon::new();
-
-        // Launch all configured tasks
-        daemon.launch(&config).await?;
-
-        // Wait for termination signal
-        match signal::ctrl_c().await {
-            Ok(()) => {
-                info!("Received shutdown signal, terminating daemon");
-                daemon.shutdown();
-                daemon.join().await?;
-            }
-            Err(err) => {
-                eprintln!("Error waiting for shutdown signal: {}", err);
-            }
-        }
-
-        return Ok(());
+    // Determine input source (device or file)
+    let source = if let Some(device) = &args.input_device {
+        println!("Using audio device: {}", device);
+        acquisition::get_audio_source_from_device(device)?
+    } else if let Some(file_path) = &args.input_file {
+        println!("Using audio file: {}", file_path.display());
+        acquisition::get_audio_source_from_file(file_path)?
     } else {
-        println!("Web server disabled");
+        println!("No input source specified. Using default device.");
+        acquisition::get_default_audio_source()?
+    };
+
+    // Set up processing pipeline
+    let filter = preprocessing::create_bandpass_filter(args.frequency, args.bandwidth);
+    let analyzer = spectral::create_spectral_analyzer(args.window_size, args.averages);
+
+    // Process audio data
+    println!("Processing audio data...");
+    let result = process_audio(source, filter, analyzer)?;
+
+    // Output results
+    if let Some(output_path) = args.output {
+        println!("Saving results to: {}", output_path.display());
+        std::fs::write(output_path, serde_json::to_string_pretty(&result)?)?;
+    } else {
+        println!("Results:");
+        println!("- Frequency: {} Hz", args.frequency);
+        println!("- Amplitude: {:.6}", result.amplitude);
+        println!(
+            "- Water vapor concentration: {:.2} ppm",
+            result.concentration
+        );
     }
 
     Ok(())
