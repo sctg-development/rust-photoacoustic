@@ -159,22 +159,3 @@ struct AnalysisResult {
     timestamp: chrono::DateTime<chrono::Utc>,
 }
 
-/// Process audio data through the signal processing pipeline
-fn process_audio(
-    source: Box<dyn acquisition::AudioSource>,
-    filter: Box<dyn preprocessing::Filter>,
-    analyzer: Box<dyn spectral::SpectralAnalyzer>,
-) -> Result<AnalysisResult> {
-    // Simulate processing
-    // In a real implementation, this would read data from source, apply filter, and perform spectral analysis
-    let frequency = 2000.0;
-    let amplitude = 0.05;
-    let concentration = amplitude * 1000.0; // Simulated conversion factor
-
-    Ok(AnalysisResult {
-        frequency,
-        amplitude,
-        concentration,
-        timestamp: chrono::Utc::now(),
-    })
-}
