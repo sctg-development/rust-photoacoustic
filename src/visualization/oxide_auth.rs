@@ -129,9 +129,22 @@ fn validate_user(username: &str, password: &str, access_config: &AccessConfig) -
         if user.user == username {
             // Decode the base64 password hash
             if let Ok(hash_bytes) = base64::engine::general_purpose::STANDARD.decode(&user.pass) {
-                if let Ok(stored_hash) = String::from_utf8(hash_bytes) {
+                // If last byte is \n, remove it
+                let hash_bytes = if hash_bytes.last() == Some(&b'\n') {
+                    &hash_bytes[..hash_bytes.len() - 1]
+                } else {
+                    &hash_bytes
+                };
+                // if last byte is \r, remove it
+                let hash_bytes = if hash_bytes.last() == Some(&b'\r') {
+                    &hash_bytes[..hash_bytes.len() - 1]
+                } else {
+                    &hash_bytes
+                };
+                if let Ok(stored_hash) = String::from_utf8(hash_bytes.to_vec()) {
                     // Use pwhash to verify the password
                     // The stored hash is in the format $algo$salt$hash
+                    debug!("Verifying password for user: {} hash: {}", username, stored_hash);
                     if pwhash::unix::verify(password, &stored_hash) {
                         return Some(user.clone());
                     }
