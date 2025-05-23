@@ -44,18 +44,12 @@
 use std::{
     collections::HashMap,
     future,
-    net::SocketAddr,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 use log::{debug, error};
-use tokio::net::TcpListener;
 
-use tokio_modbus::{
-    prelude::*,
-    server::tcp::{accept_tcp_connection, Server},
-};
+use tokio_modbus::prelude::*;
 
 use crate::utility::PhotoacousticDataSource;
 
@@ -236,7 +230,7 @@ impl PhotoacousticModbusServer {
     ///
     /// A new `PhotoacousticModbusServer` instance ready to be used with a TCP server.
     pub fn with_data_source(data_source: &Arc<PhotoacousticDataSource>) -> Self {
-        let mut server = Self::new();
+        let server = Self::new();
 
         // Initialize with data from the data source if available
         if let Some(measurement) = data_source.get_latest_data() {

@@ -53,7 +53,7 @@
 pub mod fft;
 
 // Re-export key types and functions for public use at the top level
-pub use fft::{FFTAnalyzer, SpectralAnalyzer, SpectrumData, WindowFunction};
+pub use fft::SpectralAnalyzer;
 
 /// Create a new spectral analyzer with the given window size and averaging
 ///

@@ -39,8 +39,8 @@
 
 use anyhow::{Context, Result};
 use rcgen::{
-    Certificate, CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose,
-    SanType, PKCS_ECDSA_P256_SHA256,
+    CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose,
+    SanType,
 };
 use std::fs::{self, File};
 use std::io::Write;

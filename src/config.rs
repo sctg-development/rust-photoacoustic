@@ -387,7 +387,7 @@ fn default_name() -> String {
 // Use if exists the ../resources/cert.pem file converted to base64 at build time
 fn default_cert() -> Option<String> {
     let cert_str = include_str!("../resources/cert.pem");
-    if (cert_str.is_empty()) {
+    if cert_str.is_empty() {
         None
     } else {
         let cert_b64 = base64::engine::general_purpose::STANDARD.encode(cert_str.as_bytes());
@@ -397,7 +397,7 @@ fn default_cert() -> Option<String> {
 // Use if exists the ../resources/cert.key file converted to base64 at build time
 fn default_key() -> Option<String> {
     let key_str = include_str!("../resources/cert.key");
-    if (key_str.is_empty()) {
+    if key_str.is_empty() {
         None
     } else {
         let key_b64 = base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes());
@@ -423,7 +423,7 @@ fn default_hmac_secret() -> String {
 /// The key should be in PEM format and Base64 encoded.
 fn default_rs256_private_key() -> String {
     let key_str = include_str!("../resources/private.key");
-    if (key_str.is_empty()) {
+    if key_str.is_empty() {
         String::new()
     } else {
         base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
@@ -439,7 +439,7 @@ fn default_rs256_private_key() -> String {
 /// The key should be in PEM format and Base64 encoded.
 fn default_rs256_public_key() -> String {
     let key_str = include_str!("../resources/pub.key");
-    if (key_str.is_empty()) {
+    if key_str.is_empty() {
         String::new()
     } else {
         base64::engine::general_purpose::STANDARD.encode(key_str.as_bytes())
@@ -544,7 +544,7 @@ impl Config {
     /// Load configuration from a file
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        if (!path.exists()) {
+        if !path.exists() {
             debug!(
                 "Configuration file not found at {:?}, creating default",
                 path

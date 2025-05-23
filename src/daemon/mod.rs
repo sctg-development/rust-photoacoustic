@@ -33,6 +33,5 @@
 //! ```
 
 // Re-export the Daemon struct for convenience
-pub use launch_daemon::Daemon;
 
 pub mod launch_daemon;

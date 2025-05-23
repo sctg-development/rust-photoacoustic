@@ -82,7 +82,7 @@ fn test_rs256_jwt_token_generation_and_validation() {
     let expiry = now + 3600; // 1 hour from now
 
     // Create a JWT with test data using our RS256 issuer
-    let mut grant = oxide_auth::primitives::grant::Grant {
+    let grant = oxide_auth::primitives::grant::Grant {
         owner_id: "test_user".to_string(),
         client_id: "test_client".to_string(),
         redirect_uri: "http://localhost/callback".parse().unwrap(),

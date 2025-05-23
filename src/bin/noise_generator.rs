@@ -258,7 +258,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Channels: {}", args.channels);
     println!("Background noise amplitude: {}", args.amplitude);
 
-    if (args.channels == 2 && args.correlated) {
+    if args.channels == 2 && args.correlated {
         println!("Channel correlation: {}", args.correlation);
     }
 

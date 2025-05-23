@@ -9,7 +9,7 @@ pub mod data_source;
 pub mod noise_generator;
 
 // Re-exports for use in other modules
-pub use data_source::{PhotoacousticDataSource, PhotoacousticMeasurement};
+pub use data_source::PhotoacousticDataSource;
 
 /// Macro to include a PNG file as a base64-encoded string
 /// This macro reads a PNG file at compile time and encodes it in base64 format.

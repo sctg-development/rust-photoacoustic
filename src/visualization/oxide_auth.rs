@@ -56,19 +56,18 @@ use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
-use rocket::{figment, State};
+use rocket::State;
 use rocket::{get, post};
 use serde_json::json;
-use serde_urlencoded::de;
 
 use super::jwt::JwtIssuer;
 
-use crate::config::{AccessConfig, Config, User, USER_SESSION_SEPARATOR};
+use crate::config::{AccessConfig, User, USER_SESSION_SEPARATOR};
 use base64::Engine;
 use rocket::form::{Form, FromForm};
 use rocket::http::{Cookie, CookieJar, Status};
 use rocket::request::{FromRequest, Outcome};
-use rocket::time::{Duration, OffsetDateTime};
+use rocket::time::Duration;
 use std::collections::HashMap;
 
 /// Form data for user authentication
@@ -590,7 +589,7 @@ pub async fn token<'r>(
 /// - On error: An OAuth error response
 #[post("/refresh", data = "<oauth>")]
 pub async fn refresh<'r>(
-    mut oauth: OAuthRequest<'r>,
+    oauth: OAuthRequest<'r>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
     state

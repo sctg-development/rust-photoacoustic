@@ -15,7 +15,7 @@ mod visualization;
 use anyhow::Result;
 use clap::Parser;
 use config::Config;
-use log::{debug, info};
+use log::info;
 
 use std::path::PathBuf;
 use tokio::signal;
