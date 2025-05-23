@@ -108,7 +108,8 @@ pub mod api_auth;
 /// }
 ///
 /// fn setup() {
-///     let state = OxideState::preconfigured("your-secret");
+///     let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
+///     let state = OxideState::preconfigured(figment);
 ///     let rocket = build()
 ///         .manage(state)
 ///         .mount("/oauth", routes![introspect]);

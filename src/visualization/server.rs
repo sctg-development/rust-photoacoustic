@@ -422,7 +422,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
     let hmac_secret = figment
         .extract_inner::<String>("hmac_secret").context("Missing HMAC secret in config").unwrap();
     // Create OAuth2 state with the HMAC secret from config
-    let mut oxide_state = OxideState::preconfigured(hmac_secret.clone().as_str());
+    let mut oxide_state = OxideState::preconfigured(figment.clone());
 
     // Extract RS256 keys from figment if present
     if let Some(private_key) = figment.extract_inner::<String>("rs256_private_key").ok() {
@@ -550,9 +550,11 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
 
     // Use a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
+    // Add the test HMAC secret to the configuration
+    let config = config.merge(("hmac_secret", test_hmac_secret.to_string()));
 
     // Create OAuth2 state with the test secret
-    let oxide_state = super::oxide_auth::OxideState::preconfigured(test_hmac_secret);
+    let oxide_state = super::oxide_auth::OxideState::preconfigured(config.clone());
 
     // Initialize JWT validator with the test secret
     let jwt_validator = match super::api_auth::init_jwt_validator(test_hmac_secret) {

@@ -24,7 +24,9 @@
 //! use rust_photoacoustic::visualization::oxide_auth::OxideState;
 //!
 //! fn main() {
-//!     let state = OxideState::preconfigured("your-secret");
+//!     let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
+//!
+//!     let state = OxideState::preconfigured(figment);
 //!     
 //!     let rocket = rocket::build()
 //!         .manage(state)

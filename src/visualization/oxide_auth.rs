@@ -30,7 +30,8 @@
 //! use rust_photoacoustic::visualization::oxide_auth::{OxideState, authorize, token, refresh};
 //!
 //! // Create preconfigured OAuth state
-//! let state = OxideState::preconfigured("your-secret-key");
+//! let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
+//! let state = OxideState::preconfigured(figment);
 //!
 //! // Configure Rocket with OAuth routes
 //! let rocket = build()
@@ -53,7 +54,8 @@ use oxide_auth::primitives::prelude::*;
 use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
-use rocket::State;
+use rocket::figment::Figment;
+use rocket::{figment, State};
 use rocket::{get, post};
 
 use super::jwt::JwtIssuer;
@@ -531,9 +533,16 @@ impl OxideState {
     /// use rust_photoacoustic::visualization::oxide_auth::OxideState;
     ///
     /// // Create the OAuth state with a secret key
-    /// let state = OxideState::preconfigured("your-secret-key-here");
+    /// let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
+    /// let state = OxideState::preconfigured(figment);
     /// ```
-    pub fn preconfigured(hmac_secret: &str) -> Self {
+    pub fn preconfigured(figment: Figment) -> Self {
+        // Extract the HMAC secret from the configuration
+        let hmac_secret = figment
+            .extract_inner::<String>("hmac_secret")
+            .unwrap_or_else(|_| {
+                panic!("Missing hmac_secret in configuration");
+            });
         // Use the HMAC secret from configuration
         let jwt_secret = hmac_secret.as_bytes();
 
@@ -592,8 +601,9 @@ impl OxideState {
     /// # Example
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::oxide_auth::OxideState;
-    /// # let state = OxideState::preconfigured("secret");
+    /// use rust_photoacoustic::visualization::oxide_auth::OxideState;
+    /// let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret"));
+    /// let state = OxideState::preconfigured(figment);
     /// # // We don't need an oauth_request for this example
     ///
     /// // Configure and execute an authorization flow
@@ -821,7 +831,7 @@ fn login_page_html(
             Sign in to authorize <strong>'{}'</strong>
         </div>
         {}
-        <form method="post" action="/login">
+        <form method="post">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required>
             
@@ -834,7 +844,7 @@ fn login_page_html(
             {}
             {}
             
-            <input type="submit" value="Login">
+            <input type="submit" value="Login" formaction="/login">
         </form>
     </div>
 </body>
