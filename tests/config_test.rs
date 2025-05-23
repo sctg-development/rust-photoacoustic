@@ -260,7 +260,7 @@ visualization:
         result.is_err(),
         "Valid YAML with bracketed IPv6 should not pass validation"
     );
-.
+
     // Test 2: Invalid YAML - missing required field
     let missing_field_path = temp_dir.path().join("missing_field.yaml");
     let missing_field_yaml = r#"

@@ -1,0 +1,47 @@
+{
+  "name": "rust-photoacoustic-rapidoc",
+  "version": "1.0.0",
+  "description": "webpacked snippets for git@github.com:sctg-development/sctgdesk-api-server.git api documentation",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack",
+    "test": "exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sctg-development/sctgdesk-api-server.git"
+  },
+  "author": "Ronan LE MEILLLAT",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/sctg-development/sctgdesk-api-server/issues"
+  },
+  "homepage": "https://github.com/sctg-development/sctgdesk-api-server#readme",
+  "dependencies": {
+    "@sctg/openapi-snippet": "^0.14.0",
+    "@sctg/rapidoc": "9.3.8-a"
+  },
+  "devDependencies": {
+    "@babel/plugin-syntax-import-attributes": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-typescript": "^7.27.1",
+    "babel-loader": "^9.2.1",
+    "buffer": "^6.0.3",
+    "har-validator-compiled": "^1.0.0",
+    "https-browserify": "^1.0.0",
+    "openapi-sampler": "^1.6.1",
+    "openapi-typescript": "^7.8.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "querystring-es3": "^0.2.1",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
+    "webpack": "^5.99.9",
+    "webpack-bundle-analyzer": "^4.10.2",
+    "webpack-cli": "^6.0.1"
+  }
+}
