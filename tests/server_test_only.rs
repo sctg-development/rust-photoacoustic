@@ -75,7 +75,7 @@ async fn test_oauth2_pkce_flow() {
         .merge(("shutdown.mercy", 1))
         .merge(("shutdown.force", true))
         .merge(("hmac_secret", test_hmac_secret))
-        .merge(("access", test_access_config)); // Add access config
+        .merge(("access_config", test_access_config)); // Add access config
 
     let rocket = rust_photoacoustic::visualization::server::build_rocket(figment).await;
     let client = Client::tracked(rocket)

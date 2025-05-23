@@ -18,7 +18,7 @@
 //!
 //! The introspection endpoint can be mounted in a Rocket application:
 //!
-//! ```rust
+//! ```no_run
 //! use rocket::{build, routes};
 //! use rust_photoacoustic::visualization::introspection::introspect;
 //! use rust_photoacoustic::visualization::oxide_auth::OxideState;

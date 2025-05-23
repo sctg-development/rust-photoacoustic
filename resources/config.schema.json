@@ -242,6 +242,10 @@
                 },
                 "minItems": 1,
                 "description": "List of allowed callback URLs for this OAuth2 client"
+              },
+              "default_scope": {
+                "type": "string",
+                "description": "Default scopes granted to this client"
               }
             },
             "required": [

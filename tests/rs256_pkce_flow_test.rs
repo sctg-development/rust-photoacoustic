@@ -115,13 +115,9 @@ async fn test_rs256_pkce_flow() {
     // Initialize Rocket with RS256 keys
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
-        .merge(("rs256_public_key", &public_base64));
-
-    // Add hmac secret and access config to the figment
-    let figment = figment.merge(("hmac_secret", test_hmac_secret.to_string()));
-
-    // Add access config to the figment - fix the key name
-    let figment = figment.merge(("access", test_access_config)); // Changed from "access_config" to "access"
+        .merge(("rs256_public_key", &public_base64))
+        .merge(("hmac_secret", test_hmac_secret.to_string()))
+        .merge(("access_config", test_access_config));
 
     let rocket = server::build_rocket(figment).await;
 
@@ -462,7 +458,8 @@ async fn test_rs256_jwks_endpoint() {
     // Initialize Rocket with RS256 keys
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
-        .merge(("rs256_public_key", &public_base64));
+        .merge(("rs256_public_key", &public_base64))
+        .merge(("access_config", AccessConfig::default()));
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 

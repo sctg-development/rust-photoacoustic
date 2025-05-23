@@ -923,6 +923,7 @@ pub fn output_config_schema() -> Result<()> {
 ///
 /// let client = Client {
 ///     client_id: "LaserSmartClient".to_string(),
+///     default_scope: "openid profile email read:api write:api".to_string(),
 ///     allowed_callbacks: vec![
 ///         "http://localhost:8080/client/".to_string(),
 ///         "https://localhost:8080/client/".to_string(),
@@ -939,6 +940,12 @@ pub struct Client {
     /// These URLs must match exactly during the OAuth2 flow for security.
     /// Both HTTP and HTTPS URLs are supported, but HTTPS is recommended for production.
     pub allowed_callbacks: Vec<String>,
+
+    /// Default scope for the client
+    ///
+    /// This is a space-separated list of scopes that the client can request.
+    /// The default scope is used if the client does not specify a scope during the authorization request.
+    pub default_scope: String,
 }
 
 /// User definition for authentication and authorization
@@ -1009,6 +1016,7 @@ pub struct User {
 ///      clients: vec![
 ///          Client {
 ///              client_id: "LaserSmartClient".to_string(),
+///              default_scope: "openid profile email read:api write:api".to_string(),
 ///              allowed_callbacks: vec![
 ///                  "http://localhost:8080/client/".to_string(),
 ///                  "https://localhost:8080/client/".to_string(),
@@ -1044,6 +1052,7 @@ impl Default for Client {
     fn default() -> Self {
         Self {
             client_id: "LaserSmartClient".to_string(),
+            default_scope: "openid profile email read:api write:api".to_string(),
             allowed_callbacks: vec![
                 "http://localhost:8080/client/".to_string(),
                 "https://localhost:8080/client/".to_string(),

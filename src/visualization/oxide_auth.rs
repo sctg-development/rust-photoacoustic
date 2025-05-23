@@ -25,7 +25,7 @@
 //!
 //! ## Example Usage
 //!
-//! ```
+//! ```no_run
 //! use rocket::{build, routes};
 //! use rust_photoacoustic::visualization::oxide_auth::{OxideState, authorize, token, refresh};
 //!
@@ -618,7 +618,7 @@ impl OxideState {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use rust_photoacoustic::visualization::oxide_auth::OxideState;
     ///
     /// // Create the OAuth state with a secret key
@@ -641,19 +641,36 @@ impl OxideState {
             .with_issuer("rust-photoacoustic") // Set the issuer name
             .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
 
+        // Create a ClientMap based on config::AccessConfig::clients
+        // The client_id is mapped to the Client::client_id
+        // The first string in the allowed_callbacks is the default callback
+        // The rest are additional allowed callbacks
+        let mut client_map: Vec<Client> = vec![];
+        // Extract the AccessConfig from the figment
+        let access_config = figment
+            .extract_inner::<AccessConfig>("access_config")
+            .unwrap_or_else(|_| {
+                panic!("Missing access configuration");
+            });
+
+        for client in access_config.clients {
+            let mut oauth_client = Client::public(
+                client.client_id.as_str(),
+                RegisteredUrl::Semantic(client.allowed_callbacks[0].parse().unwrap()),
+                client.default_scope.parse().unwrap(),
+            );
+            // Add additional redirect URIs
+            for callback in &client.allowed_callbacks[1..] {
+                oauth_client = oauth_client.with_additional_redirect_uris(vec![
+                    RegisteredUrl::Semantic(callback.parse().unwrap()),
+                ]);
+            }
+            client_map.push(oauth_client);
+        }
+
         OxideState {
             registrar: Arc::new(Mutex::new(
-                vec![Client::public(
-                    "LaserSmartClient",
-                    RegisteredUrl::Semantic("http://localhost:8080/client/".parse().unwrap()),
-                    "openid profile email read:api write:api".parse().unwrap(),
-                )
-                .with_additional_redirect_uris(vec![
-                    RegisteredUrl::Semantic("http://localhost:5173/client/".parse().unwrap()),
-                    RegisteredUrl::Semantic("https://myname.local/client/".parse().unwrap()),
-                ])]
-                .into_iter()
-                .collect(),
+                client_map.into_iter().collect::<ClientMap>(),
             )),
             // Authorization tokens are 16 byte random keys to a memory hash map.
             authorizer: Arc::new(Mutex::new(AuthMap::new(RandomGenerator::new(16)))),

@@ -73,6 +73,7 @@ access:
       - "read:api"
   clients:
     - client_id: LaserSmartClient
+      default_scope: "openid profile email read:api write:api"
       allowed_callbacks:
         - 'http://localhost:8080/client/'
         - 'https://localhost:8080/client/'
