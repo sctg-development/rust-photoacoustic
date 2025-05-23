@@ -193,7 +193,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 /// - [`User::new`] - Creates new user objects
 /// - [`pwhash::unix::verify`] - The underlying password verification function
 pub fn validate_user(username: &str, password: &str, access_config: &AccessConfig) -> Option<User> {
-    for user in &access_config.0 {
+    for user in &access_config.users {
         if user.user == username {
             // Decode the base64 password hash
             if let Ok(hash_bytes) = base64::engine::general_purpose::STANDARD.decode(&user.pass) {
@@ -541,7 +541,7 @@ pub async fn token<'r>(
         let username_str = username_cow.as_ref();
 
         // Find the user in our access config and add claims
-        for user in &state.access_config.0 {
+        for user in &state.access_config.users {
             if user.user == username_str {
                 if let Ok(mut issuer) = state.issuer.lock() {
                     issuer.add_user_claims(&username_str, &user.permissions);

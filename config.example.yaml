@@ -58,13 +58,20 @@ photoacoustic:
 # control the access to the visualization server
 access:
   users:
+  # Array of users with their passwords and permissions
+  # user: administrator
   - user: administrator
     pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg== # openssl passwd -5 password | base64 -w0
     permissions:
       - "read:api"
       - "write:api"
       - "admin:api"
+  # user: readder
   - user: reader
     pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
     permissions:
       - "read:api"
+  allowed_callbacks:
+  # Array of allowed callback URLs for Oauth2
+  - 'http://localhost:8080/client/'
+  - 'https://localhost:8080/client/'

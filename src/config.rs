@@ -838,7 +838,7 @@ impl Config {
         // User password should be a valid base64 string
         // the decoded string should be a valid password hash conforming to the openssl passwd -1 format
         // permissions should not contain the char USER_SESSION_SEPARATOR
-        for user in &config.access.0 {
+        for user in &config.access.users {
             if !user.pass.is_empty() {
                 let decoded_pass = base64::engine::general_purpose::STANDARD
                     .decode(&user.pass)
@@ -960,24 +960,32 @@ pub struct User {
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// use rust_photoacoustic::config::{AccessConfig, User};
 ///
-/// let access_config = AccessConfig(vec![
-///     User {
-///         user: "admin".to_string(),
-///         pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
-///         permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
-///     },
-///     User {
-///         user: "reader".to_string(),
-///         pass: "JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo=".to_string(),
-///         permissions: vec!["read:api".to_string()],
-///     }
-/// ]);
+/// let access_config = AccessConfig {
+///     users: vec![
+///          User {
+///              user: "admin".to_string(),
+///              pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
+///              permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
+///          },
+///          User {
+///              user: "reader".to_string(),
+///              pass: "JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo=".to_string(),
+///              permissions: vec!["read:api".to_string()],
+///          }],
+///      allowed_callbacks: vec![
+///          "http://localhost:8080/client/".to_string(),
+///          "https://localhost:8080/client/".to_string(),
+///      ],
+///     };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccessConfig(pub Vec<User>);
+pub struct AccessConfig {
+    pub users: Vec<User>,
+    pub allowed_callbacks: Vec<String>,
+}
 
 impl Default for User {
     fn default() -> Self {
@@ -996,6 +1004,12 @@ impl Default for User {
 
 impl Default for AccessConfig {
     fn default() -> Self {
-        Self(vec![User::default()])
+        Self {
+            users: vec![User::default()],
+            allowed_callbacks: vec![
+                "http://localhost:8080/client/".to_string(),
+                "https://localhost:8080/client/".to_string(),
+            ],
+        }
     }
 }
