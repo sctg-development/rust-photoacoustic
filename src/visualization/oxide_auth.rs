@@ -123,8 +123,65 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
     }
 }
 
-/// Validates user credentials against the AccessConfig
-fn validate_user(username: &str, password: &str, access_config: &AccessConfig) -> Option<User> {
+/// Validates user credentials against the configured user database
+///
+/// This function performs authentication by checking the provided username and password
+/// against the users defined in the [`AccessConfig`]. It uses secure password hashing
+/// verification to ensure credentials are properly validated.
+///
+/// # Authentication Process
+///
+/// 1. **Username Lookup**: Searches for a matching username in the access configuration
+/// 2. **Password Hash Decoding**: Decodes the base64-encoded password hash from storage
+/// 3. **Hash Cleaning**: Removes trailing newline and carriage return characters from the hash
+/// 4. **Password Verification**: Uses `pwhash::unix::verify` to securely compare the provided
+///    password against the stored hash using the appropriate algorithm (bcrypt, scrypt, etc.)
+///
+/// # Security Features
+///
+/// - **Constant-time comparison**: Uses `pwhash` for secure password verification
+/// - **Multiple hash algorithms**: Supports various Unix crypt formats ($algo$salt$hash)
+/// - **Early termination**: Stops checking after finding the username to prevent timing attacks
+/// - **Base64 decoding**: Safely handles base64-encoded password hashes with error checking
+///
+/// # Parameters
+///
+/// * `username` - The username to authenticate
+/// * `password` - The plaintext password provided by the user
+/// * `access_config` - Reference to the [`AccessConfig`] containing user definitions
+///
+/// # Returns
+///
+/// * `Some(User)` - If authentication succeeds, returns a clone of the [`User`] object
+///   containing the username, permissions, and other user metadata
+/// * `None` - If authentication fails (username not found or password incorrect)
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_photoacoustic::config::{AccessConfig, User};
+/// use rust_photoacoustic::visualization::oxide_auth::validate_user;
+///
+/// // Assuming you have an AccessConfig with users
+/// let access_config = AccessConfig::default();
+///
+/// // Validate user credentials
+/// match validate_user("alice", "secret123", &access_config) {
+///     Some(user) => {
+///         println!("User {} authenticated with permissions: {:?}",
+///                  user.user, user.permissions);
+///     }
+///     None => {
+///         println!("Authentication failed");
+///     }
+/// }
+/// ```
+///
+/// # Related Functions
+///
+/// - [`User::new`] - Creates new user objects
+/// - [`pwhash::unix::verify`] - The underlying password verification function
+pub fn validate_user(username: &str, password: &str, access_config: &AccessConfig) -> Option<User> {
     for user in &access_config.0 {
         if user.user == username {
             // Decode the base64 password hash
@@ -144,7 +201,10 @@ fn validate_user(username: &str, password: &str, access_config: &AccessConfig) -
                 if let Ok(stored_hash) = String::from_utf8(hash_bytes.to_vec()) {
                     // Use pwhash to verify the password
                     // The stored hash is in the format $algo$salt$hash
-                    debug!("Verifying password for user: {} hash: {}", username, stored_hash);
+                    debug!(
+                        "Verifying password for user: {} hash: {}",
+                        username, stored_hash
+                    );
                     if pwhash::unix::verify(password, &stored_hash) {
                         return Some(user.clone());
                     }
