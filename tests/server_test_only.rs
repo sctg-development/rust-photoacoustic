@@ -65,8 +65,7 @@ async fn test_oauth2_pkce_flow() {
         .merge(("shutdown.force", true))
         .merge(("hmac_secret", test_hmac_secret));
 
-    let rocket =
-        rust_photoacoustic::visualization::server::build_rocket(figment).await;
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment).await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

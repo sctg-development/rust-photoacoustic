@@ -11,16 +11,17 @@ fn get_figment() -> rocket::figment::Figment {
         .merge(("port", 8080))
         .merge(("address", "127.0.0.1"))
         .merge(("log_level", LogLevel::Debug))
-        .merge(("hmac_secret","test-hmac-secret-key-for-testing".to_string()))
+        .merge((
+            "hmac_secret",
+            "test-hmac-secret-key-for-testing".to_string(),
+        ))
 }
 
 #[rocket::async_test]
 async fn test_protected_api_with_jwt() {
     // Initialize the Rocket instance with a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    let rocket =
-        rust_photoacoustic::visualization::server::build_rocket(get_figment())
-            .await;
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(get_figment()).await;
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

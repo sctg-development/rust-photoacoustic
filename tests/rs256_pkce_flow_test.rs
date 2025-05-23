@@ -14,8 +14,8 @@ use regex::Regex;
 use reqwest::Url;
 use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
-use rust_photoacoustic::{config::AccessConfig, visualization::jwt_keys::JwkKeySet};
 use rust_photoacoustic::visualization::server;
+use rust_photoacoustic::{config::AccessConfig, visualization::jwt_keys::JwkKeySet};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -117,12 +117,10 @@ async fn test_rs256_pkce_flow() {
         .merge(("rs256_public_key", &public_base64));
 
     // Add hmac secret and access config to the figment
-    let figment = figment
-        .merge(("hmac_secret", test_hmac_secret.to_string()));
+    let figment = figment.merge(("hmac_secret", test_hmac_secret.to_string()));
 
     // Add access config to the figment - fix the key name
-    let figment = figment
-        .merge(("access", test_access_config));  // Changed from "access_config" to "access"
+    let figment = figment.merge(("access", test_access_config)); // Changed from "access_config" to "access"
 
     let rocket = server::build_rocket(figment).await;
 
@@ -191,8 +189,8 @@ async fn test_rs256_pkce_flow() {
     // Step 4: Submit the login form (approve access)
     // Simulate user login by submitting the form with test credentials
     let mut form_data = HashMap::new();
-    form_data.insert("username", "admin");  // Use default username from AccessConfig
-    form_data.insert("password", "admin123");  // Use default password from AccessConfig
+    form_data.insert("username", "admin"); // Use default username from AccessConfig
+    form_data.insert("password", "admin123"); // Use default password from AccessConfig
     form_data.insert("scope", "openid read:api");
     form_data.insert("client_id", "LaserSmartClient");
     form_data.insert("redirect_uri", "http://localhost:8080/client/");
@@ -389,8 +387,7 @@ async fn test_rs256_jwks_endpoint() {
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64));
     // Add hmac secret to the figment
-    let figment = figment
-        .merge(("hmac_secret", test_hmac_secret));
+    let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
     let rocket = server::build_rocket(figment).await;
 

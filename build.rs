@@ -346,9 +346,12 @@ fn build_web_console(version_changed: bool) -> Result<()> {
     }
 
     let is_windows = cfg!(target_os = "windows");
-    
+
     // First, print the directory we're in for debugging
-    println!("cargo:warning=Working directory: {}", std::env::current_dir().unwrap().display());
+    println!(
+        "cargo:warning=Working directory: {}",
+        std::env::current_dir().unwrap().display()
+    );
     println!("cargo:warning=Building web console...");
 
     // Platform-specific commands - more direct approach
@@ -396,7 +399,7 @@ fn build_web_console(version_changed: bool) -> Result<()> {
         }
 
         let build_output = Command::new("npm")
-            .args(&["run", "build:env"])  // Use standard build rather than build:env
+            .args(&["run", "build:env"]) // Use standard build rather than build:env
             .current_dir("web")
             .output()
             .context("Failed to execute npm build command")?;
@@ -432,7 +435,7 @@ async fn main() {
     if let Err(e) = create_certificate_files_if_needed() {
         println!("cargo:warning=Failed to generate certificate files: {}", e);
     }
-    
+
     // Generate RS256 key pair if it doesn't exist
     if let Err(e) = create_rs256_key_pair_if_needed() {
         println!("cargo:warning=Failed to generate RS256 key pair: {}", e);
@@ -449,7 +452,7 @@ async fn main() {
         .unwrap_or_else(|_| "/tmp".to_string());
     let mut path = PathBuf::from(tmp_dir);
     path.push("version-1B282C00-C9CC-4C5F-890E-952D88623718.txt");
-    
+
     // Read the version from the file
     let version =
         fs::read_to_string(&path).unwrap_or_else(|_| env::var("CARGO_PKG_VERSION").unwrap());

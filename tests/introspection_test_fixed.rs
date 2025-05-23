@@ -159,7 +159,7 @@ async fn test_jwt_token_introspection() {
 async fn test_expired_token_introspection() {
     let test_future = async {
         // Set up client and state
-        let test_secret = "test-secret-for-introspection-tests".to_string();;        
+        let test_secret = "test-secret-for-introspection-tests".to_string();
 
         let figment = rocket::Config::figment()
             .merge(("port", 0))
