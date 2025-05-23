@@ -248,10 +248,21 @@ impl Daemon {
                 .merge(("tls.certs", cert_data))
                 .merge(("tls.key", key_data));
 
+            // Add the hmac secret to the figment
+            figment = figment.merge((
+                "hmac_secret",
+                config.visualization.hmac_secret.clone(),
+            ));
+
             info!("TLS enabled for web server");
         }
+        // Add the access config to the figment
+        figment = figment.merge((
+            "access_config",
+            config.access.clone(),
+        ));
 
-        let rocket = build_rocket(figment, &config.visualization.hmac_secret).await;
+        let rocket = build_rocket(figment).await;
 
         let _running = self.running.clone();
         let task = tokio::spawn(async move {

@@ -14,7 +14,7 @@ use regex::Regex;
 use reqwest::Url;
 use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
-use rust_photoacoustic::visualization::jwt_keys::JwkKeySet;
+use rust_photoacoustic::{config::AccessConfig, visualization::jwt_keys::JwkKeySet};
 use rust_photoacoustic::visualization::server;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -26,7 +26,7 @@ fn get_test_figment() -> rocket::figment::Figment {
         .merge(("port", 0)) // Use random port for testing
         .merge(("address", "127.0.0.1"))
         .merge(("log_level", rocket::config::LogLevel::Debug))
-        .merge(("secret_key","/qCJ7RyQIugza05wgFNN6R+c2/afrKlG5jJfZ0oQPis="))
+        .merge(("secret_key", "/qCJ7RyQIugza05wgFNN6R+c2/afrKlG5jJfZ0oQPis="))
 }
 
 /// Generate test RS256 key pair for JWT signing and verification
@@ -85,8 +85,9 @@ fn extract_code_from_redirect_url(redirect_url: &str) -> Option<String> {
     code
 }
 
-/// Extract token from HTML response (used in consent form testing)
+/// Extract formaction from HTML response (used in consent form testing)
 fn extract_form_action_from_html(html: &str) -> Option<String> {
+    debug!("HTML content: {}", html);
     let re = Regex::new(r#"formaction="([^"]+)"#).ok()?;
     re.captures(html)
         .and_then(|cap| cap.get(1).map(|m| m.as_str().to_string()))
@@ -106,12 +107,20 @@ async fn test_rs256_pkce_flow() {
     // Test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
 
+    // Test AccessConfig
+    // The default config includes admin / admin123 as test credentials
+    let test_access_config = AccessConfig::default();
+
     // Initialize Rocket with RS256 keys
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64));
 
-    let rocket = server::build_rocket(figment, test_hmac_secret).await;
+    // Add hmac secret and access config to the figment
+    let figment = figment
+        .merge(("hmac_secret", test_hmac_secret));
+
+    let rocket = server::build_rocket(figment).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -160,24 +169,36 @@ async fn test_rs256_pkce_flow() {
 
     assert_eq!(auth_response.status(), Status::Ok);
 
-    // Extract consent form HTML
-    let consent_html = auth_response
+    // Extract login form HTML
+    let login_html = auth_response
         .into_string()
         .await
         .expect("HTML response body");
     assert!(
-        consent_html.contains("<form"),
+        login_html.contains("<form"),
         "Response should contain a form"
     );
 
-    // Extract form action URL for consent
-    let form_action = extract_form_action_from_html(&consent_html)
-        .expect("Should extract form action from consent page");
+    // Extract form action URL for login
+    let form_action = extract_form_action_from_html(&login_html)
+        .expect("Should extract form action from login page");
     debug!("Form action URL: {}", form_action);
 
-    // Step 4: Submit the consent form (approve access)
-    let consent_response = client.post(&form_action).dispatch().await;
-
+    // Step 4: Submit the login form (approve access)
+    // Simulate user login by submitting the form with test credentials
+    let mut form_data = HashMap::new();
+    form_data.insert("username", "test_user");
+    form_data.insert("password", "password");
+    form_data.insert("scope", "openid read:api");
+    form_data.insert("client_id", "LaserSmartClient");
+    form_data.insert("redirect_uri", "http://localhost:8080/client/");
+    form_data.insert("response_type", "code");
+    let consent_response = client
+        .post(&form_action)
+        .header(ContentType::Form)
+        .body(serde_urlencoded::to_string(&form_data).unwrap())
+        .dispatch()
+        .await;
     assert_eq!(consent_response.status(), Status::Found);
 
     // Get the redirect URL that contains the authorization code
@@ -363,8 +384,11 @@ async fn test_rs256_jwks_endpoint() {
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64));
+    // Add hmac secret to the figment
+    let figment = figment
+        .merge(("hmac_secret", test_hmac_secret));
 
-    let rocket = server::build_rocket(figment, test_hmac_secret).await;
+    let rocket = server::build_rocket(figment).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await

@@ -54,6 +54,7 @@ use crate::config::AccessConfig;
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
 use crate::visualization::oxide_auth::{authorize, authorize_consent, refresh, token};
+use anyhow::Context;
 use base64::Engine;
 use include_dir::{include_dir, Dir};
 use rocket::fairing::{Fairing, Info, Kind};
@@ -411,14 +412,17 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 ///
 /// async fn example() {
 ///     let config = Figment::from(rocket::Config::default());
-///     let rocket = server::build_rocket(config, "your-secret-key").await;
+///     let rocket = server::build_rocket(config).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }
 /// ```
-pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> {
+pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
+
+    let hmac_secret = figment
+        .extract_inner::<String>("hmac_secret").context("Missing HMAC secret in config").unwrap();
     // Create OAuth2 state with the HMAC secret from config
-    let mut oxide_state = OxideState::preconfigured(hmac_secret);
+    let mut oxide_state = OxideState::preconfigured(hmac_secret.clone().as_str());
 
     // Extract RS256 keys from figment if present
     if let Some(private_key) = figment.extract_inner::<String>("rs256_private_key").ok() {
@@ -453,7 +457,7 @@ pub async fn build_rocket(figment: Figment, hmac_secret: &str) -> Rocket<Build> 
     }
 
     // Initialize JWT validator for API authentication with the HMAC secret
-    let jwt_validator = match super::api_auth::init_jwt_validator(hmac_secret) {
+    let jwt_validator = match super::api_auth::init_jwt_validator(hmac_secret.clone().as_str()) {
         Ok(validator) => std::sync::Arc::new(validator),
         Err(e) => {
             eprintln!("Failed to initialize JWT validator: {}", e);
