@@ -10,14 +10,14 @@ echo "Details per file:"
 echo "-------------------"
 # Exclude files in the target folder
 # Use find to locate all .rs files
-find . -name "*${FILE_EXTENSION}" -type f | grep -v "./target" | sort | while read file; do
+find . -name "*${FILE_EXTENSION}" -type f | grep -v "/target" | sort | while read file; do
     lines=$(wc -l < "$file")
     echo "$lines lines : $file"
 done
 
 # Calculate the total
-total_lines=$(find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" -exec wc -l {} \; | awk '{total += $1} END {print total}')
-total_files=$(find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" | wc -l)
+total_lines=$(find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" ! -path "./oxide-auth-rocket-patched/target" ! -path "./oxide-auth-rocket-patched/target/*" -exec wc -l {} \; | awk '{total += $1} END {print total}')
+total_files=$(find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" ! -path "./oxide-auth-rocket-patched/target" ! -path "./oxide-auth-rocket-patched/target/*" | wc -l)
 
 echo
 echo "-------------------"
@@ -27,7 +27,7 @@ echo
 # Statistics per folder
 echo "Total per folder:"
 echo "-------------------"
-for dir in $(find . -name "*${FILE_EXTENSION}" -type f | grep -v "./target" | xargs dirname | sort | uniq); do
+for dir in $(find . -name "*${FILE_EXTENSION}" -type f | grep -v "/target" | xargs dirname | sort | uniq); do
     dir_lines=$(find "$dir" -name "*${FILE_EXTENSION}" -type f -exec wc -l {} \; | awk '{total += $1} END {print total}')
     dir_files=$(find "$dir" -name "*${FILE_EXTENSION}" -type f | wc -l | tr -d ' ')
     printf "%5d lines in %2d files : %s\n" "$dir_lines" "$dir_files" "$dir"
@@ -37,11 +37,11 @@ done | sort -nr
 echo
 echo "Lines of code (excluding comments and empty lines):"
 echo "-------------------"
-code_lines=$(find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" -exec grep -v -E '^\s*(//|$)' {} \; | wc -l)
+code_lines=$(find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" ! -path "./oxide-auth-rocket-patched/target" ! -path "./oxide-auth-rocket-patched/target/*" -exec grep -v -E '^\s*(//|$)' {} \; | wc -l)
 echo "$code_lines lines of code (excluding comments and empty lines)"
 
 # Bonus: Top 5 longest files (excluding target)
 echo
 echo "Top 5 longest files:"
 echo "-------------------"
-find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" -exec wc -l {} \; | sort -nr | head -n 5 | sed 's/^\s*//' | sed 's/ /\t/' | awk '{printf "%5d lines : %s\n", $1, $2}'
+find . -name "*${FILE_EXTENSION}" -type f ! -path "./target/*" ! -path "./target" ! -path "./oxide-auth-rocket-patched/target" ! -path "./oxide-auth-rocket-patched/target/*" -exec wc -l {} \; | sort -nr | head -n 5 | sed 's/^\s*//' | sed 's/ /\t/' | awk '{printf "%5d lines : %s\n", $1, $2}'
