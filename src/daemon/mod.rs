@@ -12,7 +12,7 @@
 //! ## Usage
 //!
 //! ```no_run
-//! use rust_photoacoustic::{config::Config, daemon::Daemon};
+//! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
 //!
 //! async fn run() -> anyhow::Result<()> {
 //!     let config = Config::from_file("config.yaml")?;

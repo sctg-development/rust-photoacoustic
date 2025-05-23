@@ -20,7 +20,7 @@
 //! ## Usage
 //!
 //! ```no_run
-//! use rust_photoacoustic::{config::Config, daemon::Daemon};
+//! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
 //!
 //! async fn example() -> anyhow::Result<()> {
 //!     let config = Config::from_file("config.yaml")?;
@@ -102,7 +102,7 @@ impl Daemon {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::daemon::Daemon;
+    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
     /// let daemon = Daemon::new();
     /// // Daemon is now ready to launch tasks
@@ -145,7 +145,7 @@ impl Daemon {
     /// # Examples
     ///
     /// ```no_run
-    /// use rust_photoacoustic::{config::Config, daemon::Daemon};
+    /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
     ///
     /// async fn start_daemon() -> anyhow::Result<Daemon> {
     ///     let config = Config::from_file("config.yaml")?;
@@ -514,7 +514,7 @@ impl Daemon {
     /// # Examples
     ///
     /// ```no_run
-    /// use rust_photoacoustic::daemon::Daemon;
+    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// # let daemon = Daemon::new();
@@ -552,7 +552,7 @@ impl Daemon {
     /// # Examples
     ///
     /// ```no_run
-    /// use rust_photoacoustic::daemon::Daemon;
+    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// # let daemon = Daemon::new();

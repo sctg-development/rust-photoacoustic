@@ -6,6 +6,7 @@ use rocket::{
     http::{ContentType, Status},
     local::asynchronous::Client,
 };
+use rust_photoacoustic::config::AccessConfig;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -55,15 +56,26 @@ fn extract_params_from_url(url: &str) -> HashMap<String, String> {
 
 #[rocket::async_test]
 async fn test_oauth2_pkce_flow() {
-    // Configure the Rocket test client with a test HMAC secret
+    // Initialize the logger for tests
+    let _ = env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Debug)
+        .try_init();
+
+    // Test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    // Add shutdown configuration to ensure proper test cleanup
+    
+    // Test AccessConfig with default admin user
+    let test_access_config = AccessConfig::default();
+
+    // Configure the Rocket test client with additional configuration
     let figment = get_figment()
         .merge(("shutdown.ctrlc", false))
         .merge(("shutdown.grace", 1))
         .merge(("shutdown.mercy", 1))
         .merge(("shutdown.force", true))
-        .merge(("hmac_secret", test_hmac_secret));
+        .merge(("hmac_secret", test_hmac_secret))
+        .merge(("access", test_access_config)); // Add access config
 
     let rocket = rust_photoacoustic::visualization::server::build_rocket(figment).await;
     let client = Client::tracked(rocket)
@@ -92,37 +104,98 @@ async fn test_oauth2_pkce_flow() {
     assert!(response.content_type().unwrap().is_html());
 
     let body = response.into_string().await.expect("Response body");
+    
+    // Should now receive a login form instead of consent form
     assert!(
-        body.contains("Accept"),
-        "The consent page should contain an Accept button"
+        body.contains("Username"),
+        "The login page should contain a Username field"
     );
     assert!(
-        body.contains("Deny"),
-        "The consent page should contain a Deny button"
+        body.contains("Password"),
+        "The login page should contain a Password field"
+    );
+    assert!(
+        body.contains("Login"),
+        "The login page should contain a Login button"
     );
 
-    // Step 2: Simulate user consent (accept)
-    println!("Simulating user consent (Accept)...");
-    let consent_response = client
-        .post(format!("/authorize?{}&allow=true", query_params))
+    // Step 2: Extract form action and submit login credentials
+    println!("Submitting login credentials...");
+    
+    // Submit login form with default admin credentials
+    let mut form_data = HashMap::new();
+    form_data.insert("username", "admin");
+    form_data.insert("password", "admin123");
+    form_data.insert("response_type", "code");
+    form_data.insert("client_id", "LaserSmartClient");
+    form_data.insert("redirect_uri", "http://localhost:8080/client/");
+    form_data.insert("scope", "openid profile email read:api write:api");
+    form_data.insert("state", "test-state");
+
+    let login_response = client
+        .post("/login")
+        .header(ContentType::Form)
+        .body(serde_urlencoded::to_string(&form_data).unwrap())
         .dispatch()
         .await;
 
+    // Should redirect back to /authorize with session established
+    assert_eq!(login_response.status(), Status::Found);
+    
+    let redirect_location = login_response
+        .headers()
+        .get_one("Location")
+        .expect("Should have location header after login");
+    
+    println!("Login redirect location: {}", redirect_location);
+
+    // Step 3: Follow redirect to get consent page
+    let consent_response = client.get(redirect_location).dispatch().await;
+    
+    assert_eq!(consent_response.status(), Status::Ok);
+    assert!(consent_response.content_type().unwrap().is_html());
+
+    let consent_body = consent_response.into_string().await.expect("Consent page body");
+    assert!(
+        consent_body.contains("Accept"),
+        "The consent page should contain an Accept button"
+    );
+    assert!(
+        consent_body.contains("Deny"),
+        "The consent page should contain a Deny button"
+    );
+
+    // Step 4: Extract consent form action and simulate user consent (accept)
+    println!("Simulating user consent (Accept)...");
+    
+    // Extract the form action for the Accept button
+    let accept_form_regex = regex::Regex::new(r#"<form method="post" action="([^"]*allow=true[^"]*)">"#).unwrap();
+    let consent_action = accept_form_regex
+        .captures(&consent_body)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .expect("Should extract form action for consent acceptance");
+
+    println!("Consent form action: {}", consent_action);
+
+    // Submit the consent form
+    let consent_submit_response = client.post(&consent_action).dispatch().await;
+
     // The response should be a redirect to the callback URI with an authorization code
-    assert_eq!(consent_response.status(), Status::Found);
+    assert_eq!(consent_submit_response.status(), Status::Found);
 
     // Extract the redirect URL and authorization code
-    let location_header = consent_response
+    let location_header = consent_submit_response
         .headers()
         .get_one("Location")
         .expect("Location header missing in response");
-    println!("Redirect URL: {}", location_header);
+    println!("Final redirect URL: {}", location_header);
 
     let params = extract_params_from_url(location_header);
     let authorization_code = params.get("code").expect("Authorization code missing");
     println!("Authorization code: {}", authorization_code);
 
-    // Step 3: Exchange authorization code for tokens
+    // Step 5: Exchange authorization code for tokens
     println!("Exchanging authorization code for tokens...");
     let token_body = format!(
         "grant_type=authorization_code&code={}&redirect_uri=http://localhost:8080/client/&client_id=LaserSmartClient&code_verifier={}&code_challenge_method=S256",
@@ -152,6 +225,7 @@ async fn test_oauth2_pkce_flow() {
         token_json.get("access_token").is_some(),
         "Response should contain an access_token"
     );
+    
     // Note: The token_type case is not standardized, but our implementation uses lowercase
     assert_eq!(
         token_json
@@ -187,6 +261,39 @@ async fn test_oauth2_pkce_flow() {
         // We could decode the payload too, but this is enough to verify it's a JWT
     }
 
+    // Step 6: Test with invalid credentials (should fail)
+    println!("Testing with invalid credentials...");
+    
+    // Make a new authorization request
+    let invalid_auth_response = client
+        .get(format!("/authorize?{}", query_params))
+        .dispatch()
+        .await;
+
+    assert_eq!(invalid_auth_response.status(), Status::Ok);
+
+    // Try to login with invalid credentials
+    let mut invalid_form_data = HashMap::new();
+    invalid_form_data.insert("username", "admin");
+    invalid_form_data.insert("password", "wrongpassword");
+    invalid_form_data.insert("response_type", "code");
+    invalid_form_data.insert("client_id", "LaserSmartClient");
+    invalid_form_data.insert("redirect_uri", "http://localhost:8080/client/");
+
+    let invalid_login_response = client
+        .post("/login")
+        .header(ContentType::Form)
+        .body(serde_urlencoded::to_string(&invalid_form_data).unwrap())
+        .dispatch()
+        .await;
+
+    // Should return unauthorized status or redirect back to login
+    assert!(
+        invalid_login_response.status() == Status::Unauthorized || 
+        invalid_login_response.status() == Status::Ok, // Might return OK with error message
+        "Invalid credentials should be rejected"
+    );
+
     // The complete OAuth2 PKCE flow has been successfully tested
-    println!("OAuth2 PKCE flow test completed successfully!");
+    println!("OAuth2 PKCE flow test with authentication completed successfully!");
 }
