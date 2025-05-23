@@ -59,10 +59,11 @@ use rocket::figment::Figment;
 use rocket::{figment, State};
 use rocket::{get, post};
 use serde_json::json;
+use serde_urlencoded::de;
 
 use super::jwt::JwtIssuer;
 
-use crate::config::{AccessConfig, Config, User};
+use crate::config::{AccessConfig, Config, User, USER_SESSION_SEPARATOR};
 use base64::Engine;
 use rocket::form::{Form, FromForm};
 use rocket::http::{Cookie, CookieJar, Status};
@@ -108,18 +109,27 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         let cookies = request.cookies();
 
         if let Some(cookie) = cookies.get_private("user_session") {
+            debug!("User session cookie found: {:?}", cookie.value());
             // Parse the cookie value (format: "username:permission1,permission2")
-            let parts: Vec<&str> = cookie.value().split(':').collect();
+            let parts: Vec<&str> = cookie.value().split(USER_SESSION_SEPARATOR).collect();
+            debug!("Parsed cookie parts: {:?}", parts);
             if parts.len() == 2 {
                 let username = parts[0].to_string();
                 let permissions: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
+                debug!("Authenticated user: {:?}", username);
+                debug!("User permissions: {:?}", permissions);
 
                 return Outcome::Success(AuthenticatedUser(UserSession {
                     username,
                     permissions,
                 }));
+            } else {
+                debug!("Invalid user session cookie format should be 'username:permission1,permission2'");
             }
+        } else {
+            debug!("No user session cookie found");
         }
+        // No valid session cookie found, return forward outcome
 
         Outcome::Forward(Status::Unauthorized)
     }
@@ -334,6 +344,11 @@ pub fn authorize(
     state: &State<OxideState>,
     cookies: &CookieJar<'_>,
 ) -> Result<OAuthResponse, OAuthFailure> {
+    debug!(
+        "Cookies in /authorize: {:?}",
+        cookies.iter().collect::<Vec<_>>()
+    );
+    debug!("User authenticated: {:?}", authenticated_user.is_some());
     // If user is already authenticated, proceed to consent
     if authenticated_user.is_some() {
         return state
@@ -389,7 +404,7 @@ pub fn login(
     if let Some(user) = validate_user(&form.username, &form.password, access_config) {
         // Set authenticated session cookie
         let permissions_str = user.permissions.join(",");
-        let cookie_value = format!("{}:{}", user.user, permissions_str);
+        let cookie_value = format!("{}{}{}", user.user, USER_SESSION_SEPARATOR, permissions_str);
 
         let mut cookie = Cookie::new("user_session", cookie_value);
         cookie.set_http_only(true);

@@ -1,7 +1,8 @@
 use anyhow::Result;
 use base64::Engine;
 use rust_photoacoustic::config::{
-    AccessConfig, AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig, VisualizationConfig,
+    AccessConfig, AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig,
+    VisualizationConfig, USER_SESSION_SEPARATOR,
 };
 use std::fs;
 use tempfile::tempdir;
@@ -428,6 +429,49 @@ visualization:
     assert!(
         result.is_err(),
         "YAML with invalid IPv6 format should fail validation"
+    );
+
+    Ok(())
+}
+#[test]
+fn test_invalid_permission_separator() -> Result<()> {
+    // Create a temporary directory
+    let temp_dir = tempdir()?;
+    let invalid_permission_path = temp_dir.path().join("invalid_permission.yaml");
+
+    // Create a configuration with a user permission containing the USER_SESSION_SEPARATOR character
+    let invalid_permission_yaml = format!(
+        r#"
+# Configuration with invalid permission containing the session separator character
+visualization:
+  port: 8080
+  address: "127.0.0.1"
+  name: "TestServer"
+  hmac_secret: my-super-secret-jwt-key-for-photoacoustic-app
+  rs256_private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUdyQWdFQUFpRUFyd0FZcXAvdGVvaUE4N2FWQStJTjQ1U1RvMTdMUVZPbGRUT3FJeHhQeElNQ0F3RUFBUUlnCldRVlpodUpYOGE4aXVkYzFNb1o1dldYcmxwdFlEUTQ3RXUwa2pNVVA2T0VDRVFEUjEyN0RsZWNKNU80V3B2VEcKdnQ1YkFoRUExWDZ4ZVVzUXpISkZTYlV4eXZEYStRSVJBS2Z1b05ZbHdTQko5Y0JySExseFJzRUNFUURCcTBOZApqNTMyaUxhWURablV5amNwQWhCSG9CU1JSTS9ESVA5dWE1MDhYMEtOCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+  rs256_public_key: LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2QUJpcW4rMTZpSUR6dHBVRDRnM2psSk9qWHN0QlU2VjFNNm9qSEUvRWd3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0K
+  enabled: true
+  session_secret: /qCJ7RyQIugza05wgFNN6R+c2/afrKlG5jJfZ0oQPis=
+access:
+  - user: "admin"
+    pass: "JDUkM2E2OUZwQW0xejZBbWV2QSRvMlhhN0lxcVdVU1VPTUh6UVJiM3JjRlRhZy9WYjdpSWJtZUJFaXA3Y1ZECg=="
+    permissions: 
+      - "read:api"
+      - "write{}api"
+      - "admin:api"
+"#,
+        USER_SESSION_SEPARATOR
+    );
+
+    fs::write(&invalid_permission_path, invalid_permission_yaml)?;
+
+    // Attempt to load the configuration - this should fail with a specific error
+    let result = Config::from_file(&invalid_permission_path);
+
+    // Verify that the validation failed with the expected error message
+    assert!(
+        result.is_err(),
+        "Config with invalid permission separator should fail validation"
     );
 
     Ok(())

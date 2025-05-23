@@ -60,6 +60,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Separator character used in user session identifiers
+pub const USER_SESSION_SEPARATOR: char = '⛷';
+
 /// Configuration for the data acquisition process.
 ///
 /// This structure contains settings that control how data is acquired
@@ -834,6 +837,7 @@ impl Config {
         // if AccessConfig contains users, validate their credentials
         // User password should be a valid base64 string
         // the decoded string should be a valid password hash conforming to the openssl passwd -1 format
+        // permissions should not contain the char USER_SESSION_SEPARATOR
         for user in &config.access.0 {
             if !user.pass.is_empty() {
                 let decoded_pass = base64::engine::general_purpose::STANDARD
@@ -849,6 +853,14 @@ impl Config {
                     && !decoded_pass.starts_with(b"$apr1$")
                 {
                     anyhow::bail!("User password is not a valid hash, you should use openssl passwd -5 <password> | base64 -w0");
+                }
+            }
+            for permission in &user.permissions {
+                if permission.contains(USER_SESSION_SEPARATOR) {
+                    anyhow::bail!(
+                        "User permission contains invalid character: {}",
+                        USER_SESSION_SEPARATOR
+                    );
                 }
             }
         }
