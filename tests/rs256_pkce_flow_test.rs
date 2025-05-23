@@ -26,6 +26,7 @@ fn get_test_figment() -> rocket::figment::Figment {
         .merge(("port", 0)) // Use random port for testing
         .merge(("address", "127.0.0.1"))
         .merge(("log_level", rocket::config::LogLevel::Debug))
+        .merge(("secret_key","/qCJ7RyQIugza05wgFNN6R+c2/afrKlG5jJfZ0oQPis="))
 }
 
 /// Generate test RS256 key pair for JWT signing and verification
