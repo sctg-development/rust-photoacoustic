@@ -51,7 +51,6 @@
 
 use anyhow::{Context, Result};
 use base64::Engine;
-use jsonschema;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -460,7 +459,7 @@ fn default_session_secret() -> String {
     use rand::Rng;
     let mut rng = rand::rng();
     let secret: [u8; 32] = rng.random();
-    base64::engine::general_purpose::STANDARD.encode(&secret)
+    base64::engine::general_purpose::STANDARD.encode(secret)
 }
 
 impl Default for VisualizationConfig {

@@ -207,7 +207,7 @@ pub fn validate_user(username: &str, password: &str, access_config: &AccessConfi
                 let hash_bytes = if hash_bytes.last() == Some(&b'\r') {
                     &hash_bytes[..hash_bytes.len() - 1]
                 } else {
-                    &hash_bytes
+                    hash_bytes
                 };
                 if let Ok(stored_hash) = String::from_utf8(hash_bytes.to_vec()) {
                     // Use pwhash to verify the password
@@ -530,7 +530,7 @@ pub async fn token<'r>(
     debug!("grant_type: {:?}", grant_type);
 
     // Extract username from the OAuth request if available
-    let username = body.unique_value("username").or_else(|| {
+    let username = body.unique_value("username").or({
         // Try to extract from other sources if needed
         // This might need adjustment based on your OAuth flow
         None
@@ -544,7 +544,7 @@ pub async fn token<'r>(
         for user in &state.access_config.users {
             if user.user == username_str {
                 if let Ok(mut issuer) = state.issuer.lock() {
-                    issuer.add_user_claims(&username_str, &user.permissions);
+                    issuer.add_user_claims(username_str, &user.permissions);
                 }
                 break;
             }

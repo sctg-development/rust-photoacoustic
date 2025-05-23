@@ -89,6 +89,12 @@ pub struct Daemon {
     modbus_server: Option<Arc<PhotoacousticModbusServer>>,
 }
 
+impl Default for Daemon {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Daemon {
     /// Create a new daemon instance
     ///

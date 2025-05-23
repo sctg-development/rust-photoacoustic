@@ -165,6 +165,12 @@ impl tokio_modbus::server::Service for PhotoacousticModbusServer {
     }
 }
 
+impl Default for PhotoacousticModbusServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PhotoacousticModbusServer {
     /// Create a new Modbus server instance with default register values
     ///

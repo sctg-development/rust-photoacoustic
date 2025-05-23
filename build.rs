@@ -377,7 +377,7 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
     println!("cargo:warning=Starting npm install...");
     if is_windows {
         let install_output = Command::new("cmd")
-            .args(&["/C", "npm install --force"])
+            .args(["/C", "npm install --force"])
             .current_dir(&project_path)
             .output()
             .with_context(|| {
@@ -410,7 +410,7 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
         }
     } else {
         let install_output = Command::new("npm")
-            .args(&["install", "--force"])
+            .args(["install", "--force"])
             .current_dir(&project_path)
             .output()
             .with_context(|| {
@@ -451,7 +451,7 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
     println!("cargo:warning=Starting npm build...");
     if is_windows {
         let build_output = Command::new("cmd")
-            .args(&["/C", &format!("npm run {}", build_command)])
+            .args(["/C", &format!("npm run {}", build_command)])
             .current_dir(&project_path)
             .output()
             .with_context(|| {
@@ -481,7 +481,7 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
         }
     } else {
         let build_output = Command::new("npm")
-            .args(&["run", &build_command])
+            .args(["run", &build_command])
             .current_dir(&project_path)
             .output()
             .with_context(|| {

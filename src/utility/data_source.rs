@@ -92,7 +92,7 @@ impl PhotoacousticDataSource {
     /// * `Some(PhotoacousticMeasurement)` if data is available
     /// * `None` if no data has been collected yet
     pub fn get_latest_data(&self) -> Option<PhotoacousticMeasurement> {
-        self.latest_data.lock().unwrap().clone()
+        *self.latest_data.lock().unwrap()
     }
 }
 

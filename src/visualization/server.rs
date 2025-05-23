@@ -174,7 +174,7 @@ impl<'r> FromRequest<'r> for Headers<'r> {
     }
 }
 
-impl<'r> Debug for Headers<'r> {
+impl Debug for Headers<'_> {
     /// Formats the Headers for debug output
     ///
     /// This implementation allows the Headers struct to be used with
@@ -288,7 +288,7 @@ impl<'r> FromRequest<'r> for ConnectionInfo<'r> {
     }
 }
 
-impl<'r> Debug for ConnectionInfo<'r> {
+impl Debug for ConnectionInfo<'_> {
     /// Formats the ConnectionInfo for debug output
     ///
     /// This implementation allows the ConnectionInfo struct to be used with
@@ -426,11 +426,11 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
     let mut oxide_state = OxideState::preconfigured(figment.clone());
 
     // Extract RS256 keys from figment if present
-    if let Some(private_key) = figment.extract_inner::<String>("rs256_private_key").ok() {
+    if let Ok(private_key) = figment.extract_inner::<String>("rs256_private_key") {
         oxide_state.rs256_private_key = private_key;
     }
 
-    if let Some(public_key) = figment.extract_inner::<String>("rs256_public_key").ok() {
+    if let Ok(public_key) = figment.extract_inner::<String>("rs256_public_key") {
         oxide_state.rs256_public_key = public_key;
 
         // If we have RS256 keys, update the JWT issuer
@@ -453,7 +453,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
     }
 
     // Extract user access configuration from figment
-    if let Some(access_config) = figment.extract_inner::<AccessConfig>("access").ok() {
+    if let Ok(access_config) = figment.extract_inner::<AccessConfig>("access") {
         oxide_state.access_config = access_config;
     }
 

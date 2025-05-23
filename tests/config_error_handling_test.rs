@@ -1,5 +1,4 @@
 use anyhow::Result;
-use env_logger;
 use rust_photoacoustic::config::Config;
 use std::fs;
 use std::path::Path;
