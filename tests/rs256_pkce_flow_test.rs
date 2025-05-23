@@ -211,6 +211,59 @@ async fn test_rs256_pkce_flow() {
 
     debug!("Redirect location: {}", redirect_location);
 
+    let consent_page_response = client.get(redirect_location).dispatch().await;
+
+    // The consent page response should be either a redirect or an HTML page
+    // We need to check if it's a consent page or an automatic redirect
+    if consent_page_response.status() == Status::Ok {
+        // C'est une page HTML de consentement - il faut l'analyser et soumettre le consentement
+        let consent_html = consent_page_response
+            .into_string()
+            .await
+            .expect("HTML content from consent page");
+
+        debug!("Consent page HTML: {}", consent_html);
+
+        // Extract form action URL for consent
+        let consent_action = extract_form_action_from_html(&consent_html)
+            .expect("Should extract form action from consent page");
+
+        // Submit the consent form (allow=true)
+        let consent_submit_response = client
+            .post(format!("{}?allow=true", consent_action))
+            .dispatch()
+            .await;
+
+        assert_eq!(consent_submit_response.status(), Status::Found);
+
+        // Extract the redirect URL that contains the authorization code
+        let final_redirect = consent_submit_response
+            .headers()
+            .get_one("Location")
+            .expect("Should have location header after consent");
+
+        debug!("Final redirect with code: {}", final_redirect);
+
+        let auth_code = extract_code_from_redirect_url(final_redirect)
+            .expect("Should extract authorization code from redirect URL");
+    } else if consent_page_response.status() == Status::Found {
+        // Automatic redirection with consent already given
+        let final_redirect = consent_page_response
+            .headers()
+            .get_one("Location")
+            .expect("Should have location header after auto-consent");
+
+        debug!("Auto-consent redirect with code: {}", final_redirect);
+
+        let auth_code = extract_code_from_redirect_url(final_redirect)
+            .expect("Should extract authorization code from redirect URL");
+    } else {
+        panic!(
+            "Unexpected response status: {:?}",
+            consent_page_response.status()
+        );
+    }
+
     let auth_code = extract_code_from_redirect_url(redirect_location)
         .expect("Should extract authorization code from redirect URL");
     debug!("Authorization code: {}", auth_code);
