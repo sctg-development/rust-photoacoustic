@@ -219,249 +219,43 @@ This architecture ensures both interactive visualization and programmatic access
 - `--output`: Output file for results (JSON)
 - `--window-size`: Analysis window size in samples (default: 4096)
 - `--averages`: Number of spectra to average (default: 10)
+- `--server`: Start in server mode (default: true)
+- `--web-port`, `-p`: Web server port (default: 8080)
+- `--web-address`: Web server address (default: localhost)
+- `--hmac-secret`: HMAC secret for JWT signing
+- `--config`: Path to configuration file (YAML format)
+- `--show-config-schema`: Output the configuration schema as JSON and exit
+- `--modbus-enabled`: Enable Modbus functionality
+- `--modbus-address`: Modbus server address
+- `--modbus-port`: Modbus server port
+- `--verbose`, `-v`: Enable verbose logging (debug level)
+- `--quiet`, `-q`: Disable all logging output
 
-## Noise Generator Utility
+### Logging Options
 
-The project includes a standalone noise signal generator utility, located at `src/utility/noise_generator.rs` and available as a binary target. This tool is useful for generating synthetic white noise signals or simulated photoacoustic signals for testing and calibration of the signal processing pipeline.
-
-### Usage
-
-You can run the noise generator from the command line:
-
-```bash
-cargo run --bin noise_generator [OPTIONS]
-```
-
-### Command Line Options
-
-- `--output <FILE>`: Specify the output WAV file for the generated noise (required).
-- `--duration <SECONDS>`: Duration of the generated noise in seconds (default: 5).
-- `--sample-rate <HZ>`: Sampling rate of the output file (default: 48000).
-- `--channels <N>`: Number of audio channels (default: 2).
-- `--correlated`: Set to true to use correlations between channels (default is independent)
-- `--correlation <VALUE>`: Correlation coefficient between channels (-1.0 to 1.0) (default: 0)
-- `--amplitude <VALUE>`: Amplitude of the noise signal (default: 0.3).
-- `--noise-type <TYPE>`: Type of noise to generate (default: "white"):
-  - `white`: Pure Gaussian white noise
-  - `mock`: Mock photoacoustic signal with pulses over white noise
-- `--pulse-frequency <HZ>`: Frequency of pulses for mock signals (default: 2000.0).
-- `--pulse-width <SECONDS>`: Width of each pulse in seconds (default: 0.04).
-- `--min-pulse-amplitude <VALUE>`: Minimum amplitude of pulses (default: 0.8).
-- `--max-pulse-amplitude <VALUE>`: Maximum amplitude of pulses (default: 1.0).
-
-### Examples
+The application provides flexible logging control through command line options:
 
 ```bash
-# Generate basic white noise
-cargo run --bin noise_generator -- --output white_noise.wav --duration 5 --amplitude 0.5
+# Default logging (info level)
+cargo run
 
-# Generate a mock photoacoustic signal
-cargo run --bin noise_generator -- --output mock_signal.wav --noise-type mock
+# Enable verbose logging for debugging
+cargo run -- --verbose
+# or
+cargo run -- -v
 
-# Generate a custom mock signal with specific parameters
-cargo run --bin noise_generator -- --output custom_mock.wav --noise-type mock \
-  --pulse-frequency 1500 --pulse-width 0.05 --min-pulse-amplitude 0.7 \
-  --max-pulse-amplitude 0.9 --amplitude 0.2 --duration 10
-
-# Generate correlated stereo mock signal
-cargo run --bin noise_generator -- --output correlated_mock.wav --noise-type mock \
-  --correlated --correlation 0.8
+# Disable all logging output
+cargo run -- --quiet
+# or
+cargo run -- -q
 ```
 
-### Mock Photoacoustic Signals
+The logging levels are:
 
-The mock signal generator creates synthetic signals that mimic real photoacoustic measurements:
+- **Default (info)**: Shows general information about application operation
+- **Verbose (debug)**: Shows detailed debugging information for troubleshooting
+- **Quiet (off)**: Suppresses all log output
 
-- Base white noise represents background noise in the measurement environment
-- Pulsed sinusoidal signals simulate the photoacoustic response from water vapor 
-- Random amplitude variations simulate fluctuations in absorption strength
-- Configurable parameters allow for testing under different conditions
+Note: If both `--verbose` and `--quiet` are specified, `--quiet` takes precedence and disables all logging.
 
-These signals are particularly useful for:
-
-- Testing and validating signal processing algorithms
-- Calibrating system performance
-- Developing and refining filtering techniques
-- Evaluating correlation effects in differential measurements
-- Benchmarking detection limits under controlled noise conditions
-
-## Differential Signal Utility
-
-The project includes a differential signal processing utility, located at `src/bin/differential.rs`. This tool enables you to create differential signals from WAV files in several ways:
-
-1. Process a stereo WAV file to output the difference between left and right channels (L-R or R-L)
-2. Process two mono WAV files to output their difference (file1-file2)
-
-### Usage
-
-You can run the differential processor from the command line:
-
-```bash
-cargo run --bin differential [OPTIONS]
-```
-
-### Command Line Options
-
-- `--input <FILE>`: Input WAV file (stereo for channel differencing, mono for file differencing).
-- `--input2 <FILE>`: Second input WAV file (required for file1-minus-file2 mode).
-- `--output <FILE>`: Output WAV file (mono).
-- `--mode <MODE>`: Differential mode:
-  - `left-minus-right` (default): Left minus Right for stereo files
-  - `right-minus-left`: Right minus Left for stereo files
-  - `file1-minus-file2`: First file minus second file for mono files
-- `--gain <VALUE>`: Gain to apply to the output signal (default: 1.0).
-
-Example:
-
-```bash
-# Process a stereo file to get L-R
-cargo run --bin differential -- --input stereo_file.wav --output lr_diff.wav --mode LeftMinusRleft-minus-right
-
-# Subtract one mono file from another
-cargo run --bin differential -- --input first.wav --input2 second.wav --output diff.wav --mode file1-minus-file2 --gain 1.5
-```
-
-This utility is particularly useful for testing the differential signal processing algorithms or preparing test files.
-
-## Audio Filter Utility
-
-The project includes a standalone audio filter utility, located at `src/bin/filters.rs`. This tool allows for the application of different digital filters to WAV files for signal processing and analysis.
-
-### Usage
-
-You can run the filter processor from the command line:
-
-```bash
-cargo run --bin filters [OPTIONS]
-```
-
-### Command Line Options
-
-- `--input`, `-i <FILE>`: Input WAV file.
-- `--output`, `-o <FILE>`: Output WAV file.
-- `--filter-type`, `-t <TYPE>`: Filter type to apply (default: bandpass):
-  - `bandpass`: Bandpass filter around a center frequency
-  - `lowpass`: Lowpass filter with specific cutoff
-- `--center-freq`, `-f <HZ>`: Center frequency in Hz for bandpass filter (default: 2000.0).
-- `--bandwidth`, `-b <HZ>`: Bandwidth in Hz for bandpass filter (default: 100.0).
-- `--cutoff-freq`, `-c <HZ>`: Cutoff frequency in Hz for lowpass filter (default: 5000.0).
-- `--order`, `-n <ORDER>`: Filter order for bandpass filter, must be even (default: 4).
-- `--channel`, `-l <NUMBER>`: Apply filter to specific channel only (default: all channels).
-- `--gain`, `-g <VALUE>`: Gain to apply to the output signal (default: 1.0).
-
-### Examples
-
-```bash
-# Apply a bandpass filter centered at 1000 Hz with 50 Hz bandwidth
-cargo run --bin filters -- -i input.wav -o output.wav -t bandpass -f 1000 -b 50
-
-# Apply a lowpass filter with 3000 Hz cutoff
-cargo run --bin filters -- -i input.wav -o output.wav -t lowpass -c 3000
-
-# Filter only the left channel of a stereo file
-cargo run --bin filters -- -i stereo.wav -o filtered.wav -l 0
-
-# Use a higher-order filter for sharper cutoff
-cargo run --bin filters -- -i input.wav -o output.wav -n 8 -f 2000 -b 200
-```
-
-This utility is useful for isolating specific frequency components in your audio signals or removing unwanted noise before analysis.
-
-## Continuous Integration
-
-This project uses GitHub Actions for continuous integration. The CI pipeline automatically builds and tests the code on multiple platforms:
-
-- Windows (x86_64)
-- Ubuntu Linux (x86_64 and ARM64)
-- macOS (x86_64 and ARM64)
-
-The CI workflow includes:
-
-- Building the project for all target platforms
-- Running tests
-- Special handling for tests that require specific timeouts (like introspection tests)
-- Code quality checks (formatting and linting)
-
-You can see the workflow status in the GitHub repository under the Actions tab.
-
-## Modbus Client Utility
-
-The project includes a Modbus client utility located at `src/bin/modbus_client.rs`. This tool allows you to interact with the Modbus TCP server component of the photoacoustic analyzer, reading sensor values and configuration parameters via the Modbus protocol.
-
-### Usage
-
-You can run the Modbus client from the command line:
-
-```bash
-cargo run --bin modbus_client [OPTIONS]
-```
-
-### Command Line Options
-
-- `--address <IP>`: The IP address of the Modbus server (default: 127.0.0.1)
-- `--port <PORT>`: The port number of the Modbus server (default: 502)
-- `--input-register <ADDRESS>`: Starting input register address to read from (default: 0)
-- `--quantity <NUMBER>`: Number of registers to read (default: 6)
-
-### Example Usage
-
-```bash
-# Read the default registers from a local Modbus server
-cargo run --bin modbus_client
-
-# Connect to a remote server on a non-standard port
-cargo run --bin modbus_client -- --address 192.168.1.100 --port 1502
-
-# Read a specific range of registers
-cargo run --bin modbus_client -- --input-register 2 --quantity 3
-```
-
-### Understanding Register Values
-
-The raw register values may need interpretation according to the Modbus server's register map:
-
-- Register 0: Resonance frequency (Hz × 10, divide by 10.0 for actual value)
-- Register 1: Signal amplitude (× 1000, divide by 1000.0 for actual value)
-- Register 2: Water vapor concentration (ppm × 10, divide by 10.0 for actual value)
-- Registers 3-4: Timestamp as low and high words of a 32-bit UNIX timestamp
-- Register 5: Status code (0=normal, 1=warning, 2=error)
-
-For more comprehensive interaction with the Modbus server, refer to the example at `examples/modbus_client.rs`.
-
-## Utility Functions
-
-### Certificate Utilities
-
-The project includes a utility module for generating self-signed SSL certificates at `src/utility/certificate_utilities.rs`. This can be used programmatically:
-
-```rust
-use rust_photoacoustic::utility::certificate_utilities;
-
-// Generate a self-signed certificate
-certificate_utilities::create_self_signed_cert(
-    365,                       // Valid for 365 days
-    "path/to/cert.pem",       // Certificate output path
-    "path/to/cert.key",       // Private key output path
-    "localhost",              // Common name for the certificate
-    None,                     // Optional key length (default: 2048)
-    Some(vec![                // Optional subject alternative names
-        "localhost".to_string(),
-        "127.0.0.1".to_string(),
-        "::1".to_string()
-    ])
-)?;
-```
-
-This utility is used by the build process to automatically generate development certificates, but can also be used in your own code when needed.
-
-### Running Tests Locally
-
-To run the tests locally:
-
-```bash
-# Run all tests
-cargo test
-
-# Run a specific test with output displayed
-cargo test --test introspection_test -- --nocapture
-```
+You can also control logging using the `RUST_LOG` environment variable, which will be respected in addition to these command line options.

@@ -87,12 +87,32 @@ pub struct Args {
     /// Modbus server port
     #[arg(long)]
     modbus_port: Option<u16>,
+
+    /// Enable verbose logging (debug level)
+    #[arg(short = 'v', long = "verbose")]
+    verbose: bool,
+
+    /// Disable all logging output
+    #[arg(short = 'q', long = "quiet")]
+    quiet: bool,
 }
 
 #[rocket::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    // Initialize logger with appropriate level based on verbose and quiet flags
     let args = Args::parse();
+    
+    let log_level = if args.quiet {
+        log::LevelFilter::Off
+    } else if args.verbose {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Info
+    };
+    
+    env_logger::Builder::from_default_env()
+        .filter_level(log_level)
+        .init();
 
     // Check if --show-config-schema flag is set
     if args.show_config_schema {
