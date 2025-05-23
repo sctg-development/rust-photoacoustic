@@ -334,86 +334,200 @@ fn create_rs256_key_pair_if_needed() -> Result<()> {
     Ok(())
 }
 
-fn build_web_console(version_changed: bool) -> Result<()> {
-    // Checks if dist files already exist to avoid unnecessary rebuilds
-    let dist_path = PathBuf::from("./web/dist");
-    let needs_build = !dist_path.exists() || is_web_source_newer_than_dist(&dist_path);
-
-    // If no rebuild is needed, exit early
-    if !needs_build && !version_changed {
-        println!("cargo:warning=No changes detected in web files, skipping vite build");
-        return Ok(());
+/// Build a Node.js project at the specified path
+/// 
+/// This function handles the complete build process for a Node.js project:
+/// - Installs npm dependencies
+/// - Runs the build command
+/// - Validates that the build completed successfully
+/// 
+/// # Arguments
+/// 
+/// * `project_path` - The path to the Node.js project directory (should contain package.json)
+/// 
+/// # Returns
+/// 
+/// * `Ok(())` if the build completed successfully
+/// * `Err(anyhow::Error)` if any step of the build process failed
+fn build_node_project(project_path: PathBuf) -> Result<()> {
+    // Validate that the project path exists and contains package.json
+    if !project_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Project path does not exist: {}",
+            project_path.display()
+        ));
+    }
+    
+    let package_json_path = project_path.join("package.json");
+    if !package_json_path.exists() {
+        return Err(anyhow::anyhow!(
+            "No package.json found at: {}",
+            package_json_path.display()
+        ));
     }
 
     let is_windows = cfg!(target_os = "windows");
-
-    // First, print the directory we're in for debugging
+    
     println!(
-        "cargo:warning=Working directory: {}",
-        std::env::current_dir().unwrap().display()
+        "cargo:warning=Building Node.js project at: {}",
+        project_path.display()
     );
-    println!("cargo:warning=Building web console...");
 
-    // Platform-specific commands - more direct approach
+    // Platform-specific npm install
+    println!("cargo:warning=Starting npm install...");
     if is_windows {
-        // On Windows, use cmd.exe directly
         let install_output = Command::new("cmd")
-            .args(&["/C", "cd web && npm install --force"])
+            .args(&["/C", "npm install --force"])
+            .current_dir(&project_path)
             .output()
-            .context("Failed to execute npm install command")?;
+            .with_context(|| format!("Failed to execute npm install in {}", project_path.display()))?;
+
+        println!("cargo:warning=npm install exit code: {:?}", install_output.status.code());
+        println!("cargo:warning=npm install stdout: {}", str::from_utf8(&install_output.stdout).unwrap_or(""));
+        println!("cargo:warning=npm install stderr: {}", str::from_utf8(&install_output.stderr).unwrap_or(""));
 
         if !install_output.status.success() {
             return Err(anyhow::anyhow!(
-                "Failed to install npm dependencies: {}\n{}",
+                "Failed to install npm dependencies in {}: {}\n{}",
+                project_path.display(),
                 str::from_utf8(&install_output.stdout).unwrap_or(""),
                 str::from_utf8(&install_output.stderr).unwrap_or("")
             ));
         }
-
-        let build_output = Command::new("cmd")
-            .args(&["/C", "cd web && npm run build:env"])
+    } else {
+        let install_output = Command::new("npm")
+            .args(&["install", "--force"])
+            .current_dir(&project_path)
             .output()
-            .context("Failed to execute npm build command")?;
+            .with_context(|| format!("Failed to execute npm install in {}", project_path.display()))?;
+
+        println!("cargo:warning=npm install exit code: {:?}", install_output.status.code());
+        println!("cargo:warning=npm install stdout: {}", str::from_utf8(&install_output.stdout).unwrap_or(""));
+        println!("cargo:warning=npm install stderr: {}", str::from_utf8(&install_output.stderr).unwrap_or(""));
+
+        if !install_output.status.success() {
+            return Err(anyhow::anyhow!(
+                "Failed to install npm dependencies in {}: {}\n{}",
+                project_path.display(),
+                str::from_utf8(&install_output.stdout).unwrap_or(""),
+                str::from_utf8(&install_output.stderr).unwrap_or("")
+            ));
+        }
+    }
+
+    // Determine which build command to use by checking package.json
+    let build_command = determine_build_command(&package_json_path)?;
+    println!("cargo:warning=Using build command: {}", build_command);
+    
+    // Platform-specific npm build
+    println!("cargo:warning=Starting npm build...");
+    if is_windows {
+        let build_output = Command::new("cmd")
+            .args(&["/C", &format!("npm run {}", build_command)])
+            .current_dir(&project_path)
+            .output()
+            .with_context(|| format!("Failed to execute npm build in {}", project_path.display()))?;
+
+        println!("cargo:warning=npm build exit code: {:?}", build_output.status.code());
+        println!("cargo:warning=npm build stdout: {}", str::from_utf8(&build_output.stdout).unwrap_or(""));
+        println!("cargo:warning=npm build stderr: {}", str::from_utf8(&build_output.stderr).unwrap_or(""));
 
         if !build_output.status.success() {
             return Err(anyhow::anyhow!(
-                "Failed to build web: {}\n{}",
+                "Failed to build Node.js project in {}: {}\n{}",
+                project_path.display(),
                 str::from_utf8(&build_output.stdout).unwrap_or(""),
                 str::from_utf8(&build_output.stderr).unwrap_or("")
             ));
         }
     } else {
-        // On Unix systems, use npm directly
-        let install_output = Command::new("npm")
-            .args(&["install", "--force"])
-            .current_dir("web")
-            .output()
-            .context("Failed to execute npm install command")?;
-
-        if !install_output.status.success() {
-            return Err(anyhow::anyhow!(
-                "Failed to install npm dependencies: {}\n{}",
-                str::from_utf8(&install_output.stdout).unwrap_or(""),
-                str::from_utf8(&install_output.stderr).unwrap_or("")
-            ));
-        }
-
         let build_output = Command::new("npm")
-            .args(&["run", "build:env"]) // Use standard build rather than build:env
-            .current_dir("web")
+            .args(&["run", &build_command])
+            .current_dir(&project_path)
             .output()
-            .context("Failed to execute npm build command")?;
+            .with_context(|| format!("Failed to execute npm build in {}", project_path.display()))?;
+
+        println!("cargo:warning=npm build exit code: {:?}", build_output.status.code());
+        println!("cargo:warning=npm build stdout: {}", str::from_utf8(&build_output.stdout).unwrap_or(""));
+        println!("cargo:warning=npm build stderr: {}", str::from_utf8(&build_output.stderr).unwrap_or(""));
 
         if !build_output.status.success() {
             return Err(anyhow::anyhow!(
-                "Failed to build web: {}\n{}",
+                "Failed to build Node.js project in {}: {}\n{}",
+                project_path.display(),
                 str::from_utf8(&build_output.stdout).unwrap_or(""),
                 str::from_utf8(&build_output.stderr).unwrap_or("")
             ));
         }
     }
 
+    println!(
+        "cargo:warning=Node.js project built successfully at: {}",
+        project_path.display()
+    );
+    
+    Ok(())
+}
+
+/// Determine the appropriate build command from package.json
+/// 
+/// Checks the scripts section of package.json to find the appropriate build command.
+/// Prioritizes build:env over build over other variants.
+fn determine_build_command(package_json_path: &PathBuf) -> Result<String> {
+    let package_content = fs::read_to_string(package_json_path)
+        .with_context(|| format!("Failed to read package.json at {}", package_json_path.display()))?;
+    
+    let package: PackageJson = serde_json::from_str(&package_content)
+        .with_context(|| format!("Failed to parse package.json at {}", package_json_path.display()))?;
+    
+    // Priority order for build commands
+    let build_commands = ["build:env", "build", "compile", "dist"];
+    
+    for command in &build_commands {
+        if package.scripts.contains_key(*command) {
+            return Ok(command.to_string());
+        }
+    }
+    
+    // If no standard build command is found, default to "build"
+    println!("cargo:warning=No standard build command found in package.json, defaulting to 'build'");
+    Ok("build".to_string())
+}
+
+/// Build the web console by calling the Node.js build process
+fn build_web_console(version_changed: bool) -> Result<()> {
+    println!("cargo:warning=build_web_console: Starting function");
+    
+    // Checks if dist files already exist to avoid unnecessary rebuilds
+    let dist_path = PathBuf::from("./web/dist");
+    let web_path = PathBuf::from("./web");
+    
+    println!("cargo:warning=build_web_console: dist_path exists: {}", dist_path.exists());
+    println!("cargo:warning=build_web_console: web_path exists: {}", web_path.exists());
+    println!("cargo:warning=build_web_console: version_changed: {}", version_changed);
+    
+    let needs_build = !dist_path.exists() || is_web_source_newer_than_dist(&dist_path);
+    println!("cargo:warning=build_web_console: needs_build: {}", needs_build);
+
+    // If no rebuild is needed, exit early
+    if !needs_build && !version_changed {
+        println!("cargo:warning=No changes detected in web files, skipping build");
+        return Ok(());
+    }
+
+    println!("cargo:warning=build_web_console: Calling build_node_project");
+    
+    // Use the new build_node_project function
+    match build_node_project(web_path) {
+        Ok(()) => println!("cargo:warning=build_web_console: build_node_project completed successfully"),
+        Err(e) => {
+            println!("cargo:warning=build_web_console: build_node_project failed: {}", e);
+            return Err(e);
+        }
+    }
+
     // Verify the dist folder was created
+    println!("cargo:warning=build_web_console: Checking if dist directory was created");
     if !dist_path.exists() {
         return Err(anyhow::anyhow!(
             "Web build completed but dist directory was not created"
@@ -424,6 +538,28 @@ fn build_web_console(version_changed: bool) -> Result<()> {
     Ok(())
 }
 
+/// Biuld the rapidoc by calling the Node.js build process
+fn build_rapidoc() -> Result<()> {
+    println!("cargo:warning=build_rapidoc: Starting function");
+    let dist_path = PathBuf::from("./resources/rapidoc_helper/dist");
+    let web_path = PathBuf::from("./resources/rapidoc_helper");
+
+    // Check if dist files already exist to avoid unnecessary rebuilds
+    if !dist_path.exists() || is_web_source_newer_than_dist(&dist_path) {
+        println!("cargo:warning=build_rapidoc: Calling build_node_project");
+        build_node_project(web_path)?;
+    }
+
+    // Verify the dist folder was created
+    if !dist_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Rapidoc build completed but dist directory was not created"
+        ));
+    }
+
+    println!("cargo:warning=Rapidoc built successfully");
+    Ok(())
+}
 #[tokio::main]
 async fn main() {
     // Tells Cargo to rerun build.rs if any files in the web folder change or certificate files change
@@ -469,7 +605,8 @@ async fn main() {
     if let Err(e) = build_web_console(version_changed) {
         println!("cargo:warning={}", e);
     }
-
-    // // Commented rapidoc build code preserved from original
-    // // ...existing code...
+    // Build the rapidoc helper
+    if let Err(e) = build_rapidoc() {
+        println!("cargo:warning={}", e);
+    }
 }
