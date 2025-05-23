@@ -76,7 +76,8 @@ fn generate_pkce_challenge() -> (String, String, String) {
 }
 
 /// Parse redirect URL to extract authorization code
-fn extract_code_from_redirect_url(redirect_url: &str) -> Option<String> {
+fn extract_code_from_url(redirect_url: &str) -> Option<String> {
+    debug!("Parsing URL for code: {}", redirect_url);
     let url = Url::parse(redirect_url).ok()?;
     let code = url
         .query_pairs()
@@ -195,16 +196,16 @@ async fn test_rs256_pkce_flow() {
     form_data.insert("client_id", "LaserSmartClient");
     form_data.insert("redirect_uri", "http://localhost:8080/client/");
     form_data.insert("response_type", "code");
-    let consent_response = client
+    let login_response = client
         .post(&form_action)
         .header(ContentType::Form)
         .body(serde_urlencoded::to_string(&form_data).unwrap())
         .dispatch()
         .await;
-    assert_eq!(consent_response.status(), Status::Found);
+    assert_eq!(login_response.status(), Status::Found);
 
     // Get the redirect URL that contains the authorization code
-    let redirect_location = consent_response
+    let redirect_location = login_response
         .headers()
         .get_one("Location")
         .expect("Should have location header");
@@ -215,14 +216,34 @@ async fn test_rs256_pkce_flow() {
 
     // The consent page response should be either a redirect or an HTML page
     // We need to check if it's a consent page or an automatic redirect
+    debug!(
+        "Consent page response status: {:?}",
+        consent_page_response.status()
+    );
+
+    // Store the actual authorization code
+    let mut actual_auth_code = String::new();
+
     if consent_page_response.status() == Status::Ok {
-        // C'est une page HTML de consentement - il faut l'analyser et soumettre le consentement
+        // We received the consent page HTML
+        // Extract the form action for the Accept button
         let consent_html = consent_page_response
             .into_string()
             .await
             .expect("HTML content from consent page");
 
         // debug!("Consent page HTML: {}", consent_html);
+        // For validation that we got the consent page extract the title of the page
+        let title_regex = Regex::new(r#"<title>(.*?)</title>"#).unwrap();
+        let title = title_regex
+            .captures(&consent_html)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str())
+            .unwrap_or("No title found");
+        assert_eq!(
+            title, "Photoacoustic Authorization",
+            "Consent page should have title 'Photoacoustic Authorization'"
+        );
 
         // Extract the form action for the Accept button
         let accept_form_regex =
@@ -234,11 +255,8 @@ async fn test_rs256_pkce_flow() {
             .expect("Should extract form action for consent acceptance");
 
         debug!("Consent form action: {}", consent_action);
-        // Submit the consent form (allow=true)
-        let consent_submit_response = client
-            .post(format!("{}?allow=true", consent_action))
-            .dispatch()
-            .await;
+        // Submit the consent form (using the action URL which already includes allow=true)
+        let consent_submit_response = client.post(&consent_action).dispatch().await;
 
         assert_eq!(consent_submit_response.status(), Status::Found);
 
@@ -250,8 +268,9 @@ async fn test_rs256_pkce_flow() {
 
         debug!("Final redirect with code: {}", final_redirect);
 
-        let _auth_code = extract_code_from_redirect_url(final_redirect)
+        let auth_code = extract_code_from_url(final_redirect)
             .expect("Should extract authorization code from redirect URL");
+        actual_auth_code = auth_code;
     } else if consent_page_response.status() == Status::Found {
         // Automatic redirection with consent already given
         let final_redirect = consent_page_response
@@ -261,8 +280,9 @@ async fn test_rs256_pkce_flow() {
 
         debug!("Auto-consent redirect with code: {}", final_redirect);
 
-        let _auth_code = extract_code_from_redirect_url(final_redirect)
+        let auth_code = extract_code_from_url(final_redirect)
             .expect("Should extract authorization code from redirect URL");
+        actual_auth_code = auth_code;
     } else {
         panic!(
             "Unexpected response status: {:?}",
@@ -270,14 +290,12 @@ async fn test_rs256_pkce_flow() {
         );
     }
 
-    let auth_code = extract_code_from_redirect_url(redirect_location)
-        .expect("Should extract authorization code from redirect URL");
-    debug!("Authorization code: {}", auth_code);
+    debug!("Authorization code: {}", actual_auth_code);
 
     // Step 5: Exchange the authorization code for a token using the PKCE verifier
     let mut form_data = HashMap::new();
     form_data.insert("grant_type", "authorization_code");
-    form_data.insert("code", &auth_code);
+    form_data.insert("code", &actual_auth_code);
     form_data.insert("redirect_uri", "http://localhost:8080/client/");
     form_data.insert("client_id", "LaserSmartClient");
     form_data.insert("code_verifier", &code_verifier);
@@ -412,7 +430,7 @@ async fn test_rs256_pkce_flow() {
     let incorrect_verifier = "incorrect_code_verifier_that_wont_match_challenge";
     let mut invalid_form_data = HashMap::new();
     invalid_form_data.insert("grant_type", "authorization_code");
-    invalid_form_data.insert("code", &auth_code);
+    invalid_form_data.insert("code", &actual_auth_code);
     invalid_form_data.insert("redirect_uri", "http://localhost:8080/client/");
     invalid_form_data.insert("client_id", "LaserSmartClient");
     invalid_form_data.insert("code_verifier", incorrect_verifier);
