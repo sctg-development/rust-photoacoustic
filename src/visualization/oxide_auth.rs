@@ -47,6 +47,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use handlebars::Handlebars;
 use log::debug;
 use oxide_auth::endpoint::{OwnerConsent, Solicitation, WebRequest};
 use oxide_auth::frontends::simple::endpoint::{FnSolicitor, Generic, Vacant};
@@ -57,6 +58,7 @@ use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
 use rocket::{figment, State};
 use rocket::{get, post};
+use serde_json::json;
 
 use super::jwt::JwtIssuer;
 
@@ -770,27 +772,13 @@ fn consent_decision<'r>(
 ///
 /// A string containing the HTML for the consent page
 ///
-/// # Example HTML Output
-///
-/// ```html
-/// <html>'client123' (at http://example.com/callback) is requesting permission for 'read:api write:api'
-/// <form method="post">
-///     <input type="submit" value="Accept" formaction="/authorize?response_type=code&client_id=client123&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&allow=true">
-///     <input type="submit" value="Deny" formaction="/authorize?response_type=code&client_id=client123&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&deny=true">
-/// </form>
-/// </html>
-/// ```
 fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
-    macro_rules! template {
-        () => {
-            "<html>'{0:}' (at {1:}) is requesting permission for '{2:}'
-<form method=\"post\">
-    <input type=\"submit\" value=\"Accept\" formaction=\"{4:}?{3:}&allow=true\">
-    <input type=\"submit\" value=\"Deny\" formaction=\"{4:}?{3:}&deny=true\">
-</form>
-</html>"
-        };
-    }
+    let mut handlebars = Handlebars::new();
+
+    // Register the consent template
+    handlebars
+        .register_template_string("consent", include_str!("../../resources/forms/consent.hbs"))
+        .expect("Failed to register consent template");
 
     let grant = solicitation.pre_grant();
     let state = solicitation.state();
@@ -807,14 +795,20 @@ fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
         extra.push(("state", state));
     }
 
-    format!(
-        template!(),
-        grant.client_id,
-        grant.redirect_uri,
-        grant.scope,
-        serde_urlencoded::to_string(extra).unwrap(),
-        &route,
-    )
+    let query_params = serde_urlencoded::to_string(extra).unwrap_or_default();
+    let formatted_scopes = format_scopes(&grant.scope.to_string());
+
+    let data = json!({
+        "client_id": grant.client_id.as_str(),
+        "redirect_uri": grant.redirect_uri.as_str(),
+        "formatted_scopes": formatted_scopes,
+        "route": route,
+        "query_params": query_params
+    });
+
+    handlebars
+        .render("consent", &data)
+        .expect("Failed to render consent template")
 }
 
 /// Generate a login form for user authentication
@@ -826,116 +820,25 @@ fn login_page_html(
     scope: Option<String>,
     error_msg: Option<&str>,
 ) -> String {
-    let error_html = if let Some(msg) = error_msg {
-        format!("<div style=\"color: red;\">{}</div>", msg)
-    } else {
-        String::new()
-    };
+    let mut handlebars = Handlebars::new();
 
-    format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Photoacoustic Login</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }}
-        .login-container {{
-            background-color: white;
-            padding: 30px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 350px;
-        }}
-        h2 {{
-            margin-top: 0;
-            color: #333;
-            text-align: center;
-        }}
-        label {{
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }}
-        input[type="text"], input[type="password"] {{
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            box-sizing: border-box;
-        }}
-        input[type="submit"] {{
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px;
-            width: 100%;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 16px;
-        }}
-        input[type="submit"]:hover {{
-            background-color: #3e8e41;
-        }}
-        .client-info {{
-            margin-bottom: 20px;
-            text-align: center;
-            color: #666;
-        }}
-        .error {{
-            color: red;
-            margin-bottom: 15px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="login-container">
-        <h2>Photoacoustic Login</h2>
-        <div class="client-info">
-            Sign in to authorize <strong>'{}'</strong>
-        </div>
-        {}
-        <form method="post">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-            
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            
-            <input type="hidden" name="response_type" value="{}">
-            <input type="hidden" name="client_id" value="{}">
-            <input type="hidden" name="redirect_uri" value="{}">
-            {}
-            {}
-            
-            <input type="submit" value="Login" formaction="/login">
-        </form>
-    </div>
-</body>
-</html>"#,
-        client_id, // For client-info display
-        error_html,
-        response_type,
-        client_id,
-        redirect_uri,
-        state.map_or(String::new(), |s| format!(
-            r#"<input type="hidden" name="state" value="{}">"#,
-            s
-        )),
-        scope.map_or(String::new(), |s| format!(
-            r#"<input type="hidden" name="scope" value="{}">"#,
-            s
-        )),
-    )
+    // Register the template
+    handlebars
+        .register_template_string("login", include_str!("../../resources/forms/login.hbs"))
+        .expect("Failed to register login template");
+
+    let data = json!({
+        "client_id": client_id,
+        "error_msg": error_msg,
+        "response_type": response_type,
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "scope": scope
+    });
+
+    handlebars
+        .render("login", &data)
+        .expect("Failed to render login template")
 }
 
 /// Format scope string into HTML list items
