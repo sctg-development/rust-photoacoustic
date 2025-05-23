@@ -58,6 +58,7 @@ use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
 use rocket::State;
 use rocket::{get, post};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::jwt::JwtIssuer;
@@ -71,7 +72,7 @@ use rocket::time::Duration;
 use std::collections::HashMap;
 
 /// Form data for user authentication
-#[derive(FromForm)]
+#[derive(FromForm, Debug, Clone, Serialize, Deserialize)]
 pub struct AuthForm {
     username: String,
     password: String,
@@ -81,6 +82,8 @@ pub struct AuthForm {
     redirect_uri: String,
     state: Option<String>,
     scope: Option<String>,
+    code_challenge: Option<String>,
+    code_challenge_method: Option<String>,
 }
 
 /// Session information for authenticated users
@@ -374,12 +377,20 @@ pub fn authorize(
     let state_param = query.unique_value("state").map(|s| s.to_string());
     let scope = query.unique_value("scope").map(|s| s.to_string());
 
+    // Extract PKCE parameters
+    let code_challenge = query.unique_value("code_challenge").map(|s| s.to_string());
+    let code_challenge_method = query
+        .unique_value("code_challenge_method")
+        .map(|s| s.to_string());
+
     let output = login_page_html(
         response_type.to_string(),
         client_id.to_string(),
         redirect_uri.to_string(),
         state_param,
         scope,
+        code_challenge,
+        code_challenge_method,
         Some("Error: You must be logged in to authorize this client."),
     );
 
@@ -396,6 +407,7 @@ pub fn login(
     state: &State<OxideState>,
     cookies: &CookieJar<'_>,
 ) -> Result<OAuthResponse, OAuthFailure> {
+    debug!("Login form data: {:?}", form);
     // Get access config from state
     let access_config = &state.access_config;
 
@@ -425,6 +437,15 @@ pub fn login(
             query_params.insert("scope", scope.clone());
         }
 
+        // Preserve PKCE parameters
+        if let Some(code_challenge) = &form.code_challenge {
+            query_params.insert("code_challenge", code_challenge.clone());
+        }
+
+        if let Some(code_challenge_method) = &form.code_challenge_method {
+            query_params.insert("code_challenge_method", code_challenge_method.clone());
+        }
+
         let query_string =
             serde_urlencoded::to_string(&query_params).unwrap_or_else(|_| String::new());
 
@@ -441,6 +462,8 @@ pub fn login(
         form.redirect_uri.clone(),
         form.state.clone(),
         form.scope.clone(),
+        form.code_challenge.clone(),
+        form.code_challenge_method.clone(),
         Some("Invalid username or password"),
     );
     Ok(OAuthResponse::new()
@@ -661,17 +684,16 @@ impl OxideState {
             );
             // Add additional redirect URIs
             for callback in &client.allowed_callbacks[1..] {
-                oauth_client = oauth_client.with_additional_redirect_uris(vec![
-                    RegisteredUrl::Semantic(callback.parse().unwrap()),
-                ]);
+                oauth_client =
+                    oauth_client.with_additional_redirect_uris(vec![RegisteredUrl::Semantic(
+                        callback.parse().unwrap(),
+                    )]);
             }
             client_map.push(oauth_client);
         }
 
         OxideState {
-            registrar: Arc::new(Mutex::new(
-                client_map.into_iter().collect::<ClientMap>(),
-            )),
+            registrar: Arc::new(Mutex::new(client_map.into_iter().collect::<ClientMap>())),
             // Authorization tokens are 16 byte random keys to a memory hash map.
             authorizer: Arc::new(Mutex::new(AuthMap::new(RandomGenerator::new(16)))),
             // Use JWT issuer for access tokens
@@ -849,6 +871,8 @@ fn login_page_html(
     redirect_uri: String,
     state: Option<String>,
     scope: Option<String>,
+    code_challenge: Option<String>,
+    code_challenge_method: Option<String>,
     error_msg: Option<&str>,
 ) -> String {
     let mut handlebars = Handlebars::new();
@@ -864,7 +888,9 @@ fn login_page_html(
         "response_type": response_type,
         "redirect_uri": redirect_uri,
         "state": state,
-        "scope": scope
+        "scope": scope,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method
     });
 
     handlebars
