@@ -855,7 +855,7 @@ fn login_page_html(
         .expect("Failed to render login template")
 }
 
-/// Format scope string into HTML list items
+/// Format scope string into HTML list items with icons and descriptions
 fn format_scopes(scope: &str) -> String {
     scope
         .split_whitespace()
@@ -869,7 +869,13 @@ fn format_scopes(scope: &str) -> String {
                 "admin:api" => ("⚙️", "Administrative access"),
                 _ => ("🔒", s),
             };
-            format!("<div class=\"scope-item\">{} {}</div>", icon, description)
+            format!(
+                r#"<div class="scope-item">
+    <span class="icon">{}</span>
+    <span class="description">{}</span>
+</div>"#,
+                icon, description
+            )
         })
         .collect::<Vec<String>>()
         .join("\n")

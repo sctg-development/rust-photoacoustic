@@ -136,12 +136,14 @@
             <strong>Security Notice:</strong> By clicking "Accept", you authorize this application to access your account with the permissions listed above. You can revoke this access at any time.
         </div>
 
-        <form method="post">
-            <div class="button-container">
-                <input type="submit" value="Accept" class="btn btn-accept" formaction="{{route}}?{{query_params}}&allow=true">
-                <input type="submit" value="Deny" class="btn btn-deny" formaction="{{route}}?{{query_params}}&deny=true">
-            </div>
-        </form>
+        <div class="button-container">
+            <form method="post" action="{{route}}?{{{query_params}}}&allow=true">
+                <input type="submit" value="Accept" class="btn btn-accept">
+            </form>
+            <form method="post" action="{{route}}?{{{query_params}}}&deny=true">
+                <input type="submit" value="Deny" class="btn btn-deny">
+            </form>
+        </div>
     </div>
 </body>
 

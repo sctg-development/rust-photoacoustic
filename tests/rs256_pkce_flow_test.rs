@@ -87,7 +87,7 @@ fn extract_code_from_redirect_url(redirect_url: &str) -> Option<String> {
 
 /// Extract formaction from HTML response (used in consent form testing)
 fn extract_form_action_from_html(html: &str) -> Option<String> {
-    debug!("HTML content: {}", html);
+    // debug!("HTML content: {}", html);
     let re = Regex::new(r#"formaction="([^"]+)"#).ok()?;
     re.captures(html)
         .and_then(|cap| cap.get(1).map(|m| m.as_str().to_string()))
@@ -222,12 +222,18 @@ async fn test_rs256_pkce_flow() {
             .await
             .expect("HTML content from consent page");
 
-        debug!("Consent page HTML: {}", consent_html);
+        // debug!("Consent page HTML: {}", consent_html);
 
-        // Extract form action URL for consent
-        let consent_action = extract_form_action_from_html(&consent_html)
-            .expect("Should extract form action from consent page");
+        // Extract the form action for the Accept button
+        let accept_form_regex =
+            regex::Regex::new(r#"<form method="post" action="([^"]*allow=true[^"]*)">"#).unwrap();
+        let consent_action = accept_form_regex
+            .captures(&consent_html)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str().to_string())
+            .expect("Should extract form action for consent acceptance");
 
+        debug!("Consent form action: {}", consent_action);
         // Submit the consent form (allow=true)
         let consent_submit_response = client
             .post(format!("{}?allow=true", consent_action))
@@ -244,7 +250,7 @@ async fn test_rs256_pkce_flow() {
 
         debug!("Final redirect with code: {}", final_redirect);
 
-        let auth_code = extract_code_from_redirect_url(final_redirect)
+        let _auth_code = extract_code_from_redirect_url(final_redirect)
             .expect("Should extract authorization code from redirect URL");
     } else if consent_page_response.status() == Status::Found {
         // Automatic redirection with consent already given
@@ -255,7 +261,7 @@ async fn test_rs256_pkce_flow() {
 
         debug!("Auto-consent redirect with code: {}", final_redirect);
 
-        let auth_code = extract_code_from_redirect_url(final_redirect)
+        let _auth_code = extract_code_from_redirect_url(final_redirect)
             .expect("Should extract authorization code from redirect URL");
     } else {
         panic!(
@@ -468,7 +474,7 @@ async fn test_rs256_jwks_endpoint() {
     assert_eq!(jwk["alg"], "RS256", "Algorithm should be RS256");
 
     // Extract modulus (n) and exponent (e)
-    let n = jwk["n"].as_str().expect("Should have modulus");
+    let _n = jwk["n"].as_str().expect("Should have modulus");
     let e = jwk["e"].as_str().expect("Should have exponent");
     assert_eq!(e, "AQAB", "Exponent should be AQAB (65537)");
 
