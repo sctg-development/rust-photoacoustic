@@ -101,7 +101,7 @@ pub struct Args {
 async fn main() -> Result<()> {
     // Initialize logger with appropriate level based on verbose and quiet flags
     let args = Args::parse();
-    
+
     let log_level = if args.quiet {
         log::LevelFilter::Off
     } else if args.verbose {
@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
     } else {
         log::LevelFilter::Info
     };
-    
+
     env_logger::Builder::from_default_env()
         .filter_level(log_level)
         .init();
@@ -178,4 +178,3 @@ struct AnalysisResult {
     concentration: f32,
     timestamp: chrono::DateTime<chrono::Utc>,
 }
-

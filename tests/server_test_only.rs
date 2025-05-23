@@ -64,7 +64,7 @@ async fn test_oauth2_pkce_flow() {
 
     // Test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    
+
     // Test AccessConfig with default admin user
     let test_access_config = AccessConfig::default();
 
@@ -104,7 +104,7 @@ async fn test_oauth2_pkce_flow() {
     assert!(response.content_type().unwrap().is_html());
 
     let body = response.into_string().await.expect("Response body");
-    
+
     // Should now receive a login form instead of consent form
     assert!(
         body.contains("Username"),
@@ -121,7 +121,7 @@ async fn test_oauth2_pkce_flow() {
 
     // Step 2: Extract form action and submit login credentials
     println!("Submitting login credentials...");
-    
+
     // Submit login form with default admin credentials
     let mut form_data = HashMap::new();
     form_data.insert("username", "admin");
@@ -141,21 +141,24 @@ async fn test_oauth2_pkce_flow() {
 
     // Should redirect back to /authorize with session established
     assert_eq!(login_response.status(), Status::Found);
-    
+
     let redirect_location = login_response
         .headers()
         .get_one("Location")
         .expect("Should have location header after login");
-    
+
     println!("Login redirect location: {}", redirect_location);
 
     // Step 3: Follow redirect to get consent page
     let consent_response = client.get(redirect_location).dispatch().await;
-    
+
     assert_eq!(consent_response.status(), Status::Ok);
     assert!(consent_response.content_type().unwrap().is_html());
 
-    let consent_body = consent_response.into_string().await.expect("Consent page body");
+    let consent_body = consent_response
+        .into_string()
+        .await
+        .expect("Consent page body");
     assert!(
         consent_body.contains("Accept"),
         "The consent page should contain an Accept button"
@@ -167,9 +170,10 @@ async fn test_oauth2_pkce_flow() {
 
     // Step 4: Extract consent form action and simulate user consent (accept)
     println!("Simulating user consent (Accept)...");
-    
+
     // Extract the form action for the Accept button
-    let accept_form_regex = regex::Regex::new(r#"<form method="post" action="([^"]*allow=true[^"]*)">"#).unwrap();
+    let accept_form_regex =
+        regex::Regex::new(r#"<form method="post" action="([^"]*allow=true[^"]*)">"#).unwrap();
     let consent_action = accept_form_regex
         .captures(&consent_body)
         .and_then(|caps| caps.get(1))
@@ -225,7 +229,7 @@ async fn test_oauth2_pkce_flow() {
         token_json.get("access_token").is_some(),
         "Response should contain an access_token"
     );
-    
+
     // Note: The token_type case is not standardized, but our implementation uses lowercase
     assert_eq!(
         token_json
@@ -263,7 +267,7 @@ async fn test_oauth2_pkce_flow() {
 
     // Step 6: Test with invalid credentials (should fail)
     println!("Testing with invalid credentials...");
-    
+
     // Make a new authorization request
     let invalid_auth_response = client
         .get(format!("/authorize?{}", query_params))
@@ -289,8 +293,8 @@ async fn test_oauth2_pkce_flow() {
 
     // Should return unauthorized status or redirect back to login
     assert!(
-        invalid_login_response.status() == Status::Unauthorized || 
-        invalid_login_response.status() == Status::Ok, // Might return OK with error message
+        invalid_login_response.status() == Status::Unauthorized
+            || invalid_login_response.status() == Status::Ok, // Might return OK with error message
         "Invalid credentials should be rejected"
     );
 
