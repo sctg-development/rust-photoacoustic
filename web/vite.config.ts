@@ -68,6 +68,9 @@ export function extractPerVendorDependencies(
 console.warn(
   `Launching Vite with\nAUTH0_DOMAIN: ${process.env.AUTH0_DOMAIN}\nAUTH0_CLIENT_ID: ${process.env.AUTH0_CLIENT_ID}\nAUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}\nAUTH0_SCOPE: ${process.env.AUTH0_SCOPE}\nAPI_BASE_URL: ${process.env.API_BASE_URL}`,
 );
+console.warn(
+  `Launching Vite with\nDEX_AUTHORITY: ${process.env.DEX_AUTHORITY}\nDEX_CLIENT_ID: ${process.env.DEX_CLIENT_ID}\nDEX_REDIRECT_URI: ${process.env.DEX_REDIRECT_URI}\nDEX_SCOPE: ${process.env.DEX_SCOPE}\nDEX_AUDIENCE: ${process.env.DEX_AUDIENCE}\nDEX_TOKEN_ISSUER: ${process.env.DEX_TOKEN_ISSUER}\nDEX_JWKS_ENDPOINT: ${process.env.DEX_JWKS_ENDPOINT}\nDEX_DOMAIN: ${process.env.DEX_DOMAIN}`,
+);
 export default defineConfig({
   define: {
     // Get the AUthentication provider type from environment variables
