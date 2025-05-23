@@ -1020,7 +1020,7 @@ pub struct User {
 pub struct AccessConfig {
     /// List of users with their credentials and permissions
     pub users: Vec<User>,
-    
+
     /// List of OAuth2 clients with their identifiers and allowed callback URLs
     pub clients: Vec<Client>,
 }
