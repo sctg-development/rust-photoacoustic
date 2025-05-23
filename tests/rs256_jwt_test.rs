@@ -172,7 +172,7 @@ async fn test_oidc_endpoints_with_rs256() {
     // Initialize Rocket with RS256 keys
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
-        .merge(("access_config",AccessConfig::default()))
+        .merge(("access_config", AccessConfig::default()))
         .merge(("rs256_public_key", &public_base64));
 
     // Add hmac secret to the figment
@@ -252,7 +252,7 @@ async fn test_token_endpoint_with_rs256() {
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64))
-        .merge(("access_config",AccessConfig::default()));
+        .merge(("access_config", AccessConfig::default()));
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 

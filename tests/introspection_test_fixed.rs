@@ -66,7 +66,7 @@ async fn test_jwt_token_introspection() {
     let test_future = async {
         // Set up client and state for testing JWT tokens
         let test_secret = "test-secret-for-introspection-tests".to_string();
-        
+
         // Configure Rocket for testing with explicit shutdown
         let figment = rocket::Config::figment()
             .merge(("port", 0)) // Use a random port for testing
@@ -74,7 +74,7 @@ async fn test_jwt_token_introspection() {
             .merge(("shutdown.ctrlc", false)) // Don't wait for Ctrl+C
             .merge(("shutdown.grace", 1))
             .merge(("shutdown.mercy", 1))
-            .merge(("access_config",AccessConfig::default()))
+            .merge(("access_config", AccessConfig::default()))
             .merge(("hmac_secret", test_secret.clone()))
             .merge(("shutdown.force", true));
 
@@ -171,7 +171,7 @@ async fn test_expired_token_introspection() {
             .merge(("shutdown.grace", 0))
             .merge(("shutdown.mercy", 0))
             .merge(("hmac_secret", test_secret.clone()))
-            .merge(("access_config",AccessConfig::default()))
+            .merge(("access_config", AccessConfig::default()))
             .merge(("shutdown.force", true));
 
         let oxide_state = OxideState::preconfigured(figment.clone());
@@ -259,7 +259,7 @@ async fn test_invalid_token_introspection() {
             .merge(("shutdown.grace", 1))
             .merge(("shutdown.mercy", 1))
             .merge(("hmac_secret", test_secret.clone()))
-            .merge(("access_config",AccessConfig::default()))
+            .merge(("access_config", AccessConfig::default()))
             .merge(("shutdown.force", true)); // Force shutdown
 
         let oxide_state = OxideState::preconfigured(figment.clone());
@@ -327,7 +327,7 @@ async fn test_oxide_auth_token_introspection() {
             .merge(("shutdown.mercy", 1))
             .merge(("shutdown.force", true)) // Force shutdown
             .merge(("hmac_secret", test_secret.clone())) // HMAC secret for JWT
-            .merge(("access_config",AccessConfig::default()))
+            .merge(("access_config", AccessConfig::default()))
             .merge(("log_level", rocket::config::LogLevel::Debug)); // Add debug logging
 
         let oxide_state = OxideState::preconfigured(figment.clone());

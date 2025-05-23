@@ -16,7 +16,7 @@ fn get_figment() -> rocket::figment::Figment {
             "hmac_secret",
             "test-hmac-secret-key-for-testing".to_string(),
         ))
-        .merge(("access_config",AccessConfig::default()))
+        .merge(("access_config", AccessConfig::default()))
 }
 
 #[rocket::async_test]
