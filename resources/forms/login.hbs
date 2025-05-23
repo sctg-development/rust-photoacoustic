@@ -82,7 +82,7 @@
         {{#if error_msg}}
         <div style="color: red;">{{error_msg}}</div>
         {{/if}}
-        <form method="post">
+        <form method="post" action="/login">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required>
 
@@ -105,7 +105,7 @@
             <input type="hidden" name="code_challenge_method" value="{{code_challenge_method}}">
             {{/if}}
 
-            <input type="submit" value="Login" formaction="/login">
+            <input type="submit" value="Login">
         </form>
     </div>
 </body>
