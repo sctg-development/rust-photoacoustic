@@ -209,7 +209,10 @@
                   "enum": [
                     "read:api",
                     "write:api",
-                    "admin:api"
+                    "admin:api",
+                    "openid",
+                    "profile",
+                    "email"
                   ]
                 },
                 "minItems": 1,

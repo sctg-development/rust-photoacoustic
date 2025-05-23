@@ -456,11 +456,16 @@ access:
   - user: "admin"
     pass: "JDUkM2E2OUZwQW0xejZBbWV2QSRvMlhhN0lxcVdVU1VPTUh6UVJiM3JjRlRhZy9WYjdpSWJtZUJFaXA3Y1ZECg=="
     permissions: 
-      - "read:api"
+      - "read{}api"
       - "write{}api"
-      - "admin:api"
+      - "admin{}api"
+      - "openid"
+      - "profile"
+      - "email"
 "#,
-        USER_SESSION_SEPARATOR
+        USER_SESSION_SEPARATOR,
+        USER_SESSION_SEPARATOR,
+        USER_SESSION_SEPARATOR,
     );
 
     fs::write(&invalid_permission_path, invalid_permission_yaml)?;

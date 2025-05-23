@@ -56,6 +56,7 @@ use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
+use rocket::futures::stream::Any;
 use rocket::State;
 use rocket::{get, post};
 use serde::{Deserialize, Serialize};
@@ -351,18 +352,31 @@ pub fn authorize(
         cookies.iter().collect::<Vec<_>>()
     );
     debug!("User authenticated: {:?}", authenticated_user.is_some());
+    
+    // Try to extract query parameters first to debug potential parsing issues
+    let query_result = oauth.query();
+    debug!("OAuth query parsing result: {:?}", query_result.is_ok());
+    if let Err(ref err) = query_result {
+        debug!("OAuth query parsing error: {:?}", err);
+        return Err(OAuthFailure::from(oxide_auth::endpoint::OAuthError::BadRequest));
+    }
+    
     // If user is already authenticated, proceed to consent
     if authenticated_user.is_some() {
+        debug!("User is authenticated, proceeding to consent form");
         return state
             .endpoint()
             .with_solicitor(FnSolicitor(consent_form))
             .authorization_flow()
             .execute(oauth)
-            .map_err(|err| err.pack::<OAuthFailure>());
+            .map_err(|err| {
+                debug!("OAuth authorization flow error occurred");
+                err.pack::<OAuthFailure>()
+            });
     }
 
     // Otherwise show login form
-    let query = oauth.query().unwrap_or_default();
+    let query = query_result.unwrap_or_default();
 
     // Extract OAuth parameters for the login form
     let response_type = query
@@ -774,6 +788,7 @@ fn consent_form(
     solicitation: Solicitation,
 ) -> OwnerConsent<OAuthResponse> {
     let output = consent_page_html("/authorize", solicitation);
+    debug!("Consent form HTML {}", output);
     OwnerConsent::InProgress(OAuthResponse::new().body_html(&output).to_owned())
 }
 

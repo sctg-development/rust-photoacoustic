@@ -1042,7 +1042,10 @@ impl Default for User {
             permissions: vec![
                 "read:api".to_string(), 
                 "write:api".to_string(), 
-                "admin:api".to_string()
+                "admin:api".to_string(),
+                "openid".to_string(),
+                "profile".to_string(),
+                "email".to_string(),
             ],
         }
     }
