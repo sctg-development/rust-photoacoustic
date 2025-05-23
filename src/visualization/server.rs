@@ -42,10 +42,10 @@
 //! async fn start_server() {
 //!     let config = Figment::from(rocket::Config::default())
 //!         .merge(("address", "127.0.0.1"))
-//!         .merge(("port", 8000));
+//!         .merge(("port", 8000))
+//!         .merge(("hmac_secret", "your-secret-key".to_string()));
 //!     
-//!     let secret = "your-secret-key";
-//!     let rocket = server::build_rocket(config, secret).await;
+//!     let rocket = server::build_rocket(config).await;
 //!     rocket.launch().await.expect("Failed to launch server");
 //! }
 //! ```
@@ -418,9 +418,10 @@ async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 /// }
 /// ```
 pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
-
     let hmac_secret = figment
-        .extract_inner::<String>("hmac_secret").context("Missing HMAC secret in config").unwrap();
+        .extract_inner::<String>("hmac_secret")
+        .context("Missing HMAC secret in config")
+        .unwrap();
     // Create OAuth2 state with the HMAC secret from config
     let mut oxide_state = OxideState::preconfigured(figment.clone());
 
