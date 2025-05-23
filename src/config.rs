@@ -906,6 +906,41 @@ pub fn output_config_schema() -> Result<()> {
     Ok(())
 }
 
+/// OAuth2 client configuration for authorization code flow
+///
+/// This structure represents an OAuth2 client that is allowed to use
+/// the authorization code flow with this server.
+///
+/// # Fields
+///
+/// * `client_id` - The unique identifier for the OAuth2 client
+/// * `allowed_callbacks` - List of URLs that this client is allowed to redirect to
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::Client;
+///
+/// let client = Client {
+///     client_id: "LaserSmartClient".to_string(),
+///     allowed_callbacks: vec![
+///         "http://localhost:8080/client/".to_string(),
+///         "https://localhost:8080/client/".to_string(),
+///     ],
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Client {
+    /// The unique identifier for the OAuth2 client
+    pub client_id: String,
+
+    /// List of URLs that this client is allowed to redirect to after authorization
+    ///
+    /// These URLs must match exactly during the OAuth2 flow for security.
+    /// Both HTTP and HTTPS URLs are supported, but HTTPS is recommended for production.
+    pub allowed_callbacks: Vec<String>,
+}
+
 /// User definition for authentication and authorization
 ///
 /// This structure represents a user with authentication credentials and
@@ -914,7 +949,7 @@ pub fn output_config_schema() -> Result<()> {
 /// # Fields
 ///
 /// * `user` - The username used for authentication
-/// * `pass` - Base64-encoded password hash (created with openssl passwd -1 | base64 -w0)
+/// * `pass` - Base64-encoded password hash (created with openssl passwd -5 | base64 -w0)
 /// * `permissions` - List of permission strings that define what actions the user can perform
 ///
 /// # Example
@@ -935,7 +970,7 @@ pub struct User {
 
     /// Base64-encoded password hash
     ///
-    /// This should be created using: `openssl passwd -1 <password> | base64 -w0`
+    /// This should be created using: `openssl passwd -5 <password> | base64 -w0`
     pub pass: String,
 
     /// List of permission strings that define what actions the user can perform
@@ -949,18 +984,15 @@ pub struct User {
 
 /// Configuration for user access and permissions
 ///
-/// This structure defines the users who can access the application
-/// and their associated permissions. Each user has a username, password hash,
-/// and a list of permissions that control what actions they can perform.
-/// A valid password hash is generated using the `openssl` command:
-/// ```bash
-/// openssl passwd -5 admin123 | base64 -w0
-/// ```
+/// This structure defines both users who can access the application directly
+/// and OAuth2 clients that can use the authorization flow. Users have usernames,
+/// password hashes, and permissions, while clients have identifiers and allowed
+/// callback URLs.
 ///
 /// # Example
 ///
 /// ```rust
-/// use rust_photoacoustic::config::{AccessConfig, User};
+/// use rust_photoacoustic::config::{AccessConfig, User, Client};
 ///
 /// let access_config = AccessConfig {
 ///     users: vec![
@@ -974,16 +1006,23 @@ pub struct User {
 ///              pass: "JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo=".to_string(),
 ///              permissions: vec!["read:api".to_string()],
 ///          }],
-///      allowed_callbacks: vec![
-///          "http://localhost:8080/client/".to_string(),
-///          "https://localhost:8080/client/".to_string(),
-///      ],
+///      clients: vec![
+///          Client {
+///              client_id: "LaserSmartClient".to_string(),
+///              allowed_callbacks: vec![
+///                  "http://localhost:8080/client/".to_string(),
+///                  "https://localhost:8080/client/".to_string(),
+///              ],
+///          }],
 ///     };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessConfig {
+    /// List of users with their credentials and permissions
     pub users: Vec<User>,
-    pub allowed_callbacks: Vec<String>,
+    
+    /// List of OAuth2 clients with their identifiers and allowed callback URLs
+    pub clients: Vec<Client>,
 }
 
 impl Default for User {
@@ -1001,14 +1040,23 @@ impl Default for User {
     }
 }
 
-impl Default for AccessConfig {
+impl Default for Client {
     fn default() -> Self {
         Self {
-            users: vec![User::default()],
+            client_id: "LaserSmartClient".to_string(),
             allowed_callbacks: vec![
                 "http://localhost:8080/client/".to_string(),
                 "https://localhost:8080/client/".to_string(),
             ],
+        }
+    }
+}
+
+impl Default for AccessConfig {
+    fn default() -> Self {
+        Self {
+            users: vec![User::default()],
+            clients: vec![Client::default()],
         }
     }
 }

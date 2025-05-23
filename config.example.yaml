@@ -71,7 +71,8 @@ access:
     pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
     permissions:
       - "read:api"
-  allowed_callbacks:
-  # Array of allowed callback URLs for Oauth2
-  - 'http://localhost:8080/client/'
-  - 'https://localhost:8080/client/'
+  clients:
+    - client_id: LaserSmartClient
+      allowed_callbacks:
+        - 'http://localhost:8080/client/'
+        - 'https://localhost:8080/client/'
