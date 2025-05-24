@@ -52,7 +52,7 @@
 use anyhow::{Context, Result};
 use base64::Engine;
 use log::{debug, error};
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::Write,
@@ -563,17 +563,17 @@ impl Config {
 
         // Convert to JSON Value for validation
         let json_value = serde_json::to_value(&yaml_value)
-            .context("Failed to convert YAML to JSON for validation")?;
-
-        debug!(
-            "Raw YAML converted to JSON for validation: {:?}",
-            json_value
-        );
+            .with_context(|| {
+                format!("Failed to convert YAML to JSON for validation: {:?}", path)
+            })?;
 
         // Load and validate with the schema
         let schema_str = include_str!("../resources/config.schema.json");
         let schema: serde_json::Value =
-            serde_json::from_str(schema_str).context("Failed to parse JSON schema")?;
+            serde_json::from_str(schema_str).with_context(|| {
+                debug!("JSON schema string: {}", schema_str);
+                "Failed to parse JSON schema"
+            })?;
 
         // Create the validator
         let validator = jsonschema::draft202012::options()
