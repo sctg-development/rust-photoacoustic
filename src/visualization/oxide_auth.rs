@@ -56,11 +56,11 @@ use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
-use rocket::futures::stream::Any;
 use rocket::State;
 use rocket::{get, post};
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use serde_json::json;
+use url::Url;
 
 use super::jwt::JwtIssuer;
 
@@ -371,7 +371,28 @@ pub fn authorize(
             .execute(oauth)
             .map_err(|err| {
                 debug!("OAuth authorization flow error occurred");
-                err.pack::<OAuthFailure>()
+                match err {
+                    oxide_auth::frontends::simple::endpoint::Error::OAuth(oauth_error) => {
+                        match oauth_error {
+                            oxide_auth::endpoint::OAuthError::BadRequest => {
+                                debug!("Bad request error in authorization flow");
+                                OAuthFailure::from(oxide_auth::endpoint::OAuthError::BadRequest)
+                            }
+                            oxide_auth::endpoint::OAuthError::DenySilently => {
+                                debug!("Deny silently error in authorization flow - For example, this response is given when an incorrect client has been provided in the authorization request in order to avoid potential indirect denial of service vulnerabilities.");
+                                OAuthFailure::from(oxide_auth::endpoint::OAuthError::DenySilently)
+                            }
+                            oxide_auth::endpoint::OAuthError::PrimitiveError => {
+                                debug!("Primitive error in authorization flow - server component failed");
+                                OAuthFailure::from(oxide_auth::endpoint::OAuthError::PrimitiveError)
+                            }
+                        }
+                    }
+                    _ => {
+                        debug!("Other authorization flow error");
+                        OAuthFailure::from(oxide_auth::endpoint::OAuthError::PrimitiveError)
+                    }
+                }
             });
     }
 
@@ -691,18 +712,23 @@ impl OxideState {
             });
 
         for client in access_config.clients {
+            debug!("Adding client to oxide-auth: {:?}", client.client_id);
             let mut oauth_client = Client::public(
                 client.client_id.as_str(),
-                RegisteredUrl::Semantic(client.allowed_callbacks[0].parse().unwrap()),
-                client.default_scope.parse().unwrap(),
+                RegisteredUrl::Semantic(client.allowed_callbacks[0].parse::<Url>().unwrap()),
+                client.default_scope.parse::<Scope>().unwrap(),
             );
+            debug!("  - registered url: {:?}", client.allowed_callbacks[0]);
             // Add additional redirect URIs
             for callback in &client.allowed_callbacks[1..] {
                 oauth_client =
                     oauth_client.with_additional_redirect_uris(vec![RegisteredUrl::Semantic(
                         callback.parse().unwrap(),
                     )]);
+                debug!("  - additional redirect uri: {:?}", callback);
             }
+            // For debuggin purposes, log the default from the Client
+            debug!("  - default scope: {:?}", client.default_scope);
             client_map.push(oauth_client);
         }
 
