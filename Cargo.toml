@@ -44,14 +44,14 @@ tempfile = "3.20.0"                                                             
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
 reqwest = "0.12.15"
-oxide-auth = "0.6.1"
+oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 serde_urlencoded = "0.7.1"
 url = "2.5.4"                                                                           # URL parsing
 rcgen = "0.13.2"                                                                        # Certificate generation
 time = "0.3.41"                                                                          # Time handling for certificates
 rsa = {version = "0.9.8", features=["pem","sha2"]}
-tokio = { version = "1.45.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.45.1", features = ["rt", "macros", "rt-multi-thread", "time"] }
 tokio-modbus = { version = "0.16.1", features = ["tcp", "tcp-server", "server"] }
 pwhash = "1.0.0"  # Add this dependency for password hashing
 handlebars = "6.3.2"
@@ -63,7 +63,7 @@ oauth2 = "5.0.0"                                    # OAuth2 client implementati
 wiremock = "0.6.3"                                  # HTTP mocking
 tokio = { version = "1.45.0", features = ["full"] }
 reqwest = { version = "0.12.15", features = ["json"] }
-uuid = { version = "1.16.0", features = ["v4"] }
+uuid = { version = "1.17.0", features = ["v4"] }
 url = "2.5.4"                                         # URL parsing
 sha2 = "0.10.9"                                       # Pour le hachage SHA-256 utilisé dans PKCE
 base64 = "0.22.1"                                     # Pour l'encodage Base64URL utilisé dans PKCE
@@ -80,4 +80,5 @@ anyhow = "1.0.98"                                  # Error handling
 rsa = "0.9.8"
 
 [patch."https://github.com/197g/oxide-auth"]
-oxide-auth-rocket = { path = "./oxide-auth-rocket-patched" }
+oxide-auth-rocket = { path = "./oxide-auth-patched/oxide-auth-rocket" }
+oxide-auth = { path = "./oxide-auth-patched/oxide-auth" }

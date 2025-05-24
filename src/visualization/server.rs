@@ -53,7 +53,7 @@
 use crate::config::AccessConfig;
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
-use crate::visualization::oxide_auth::{authorize, authorize_consent, refresh, token};
+use crate::visualization::oidc_auth::{authorize, authorize_consent, refresh, token};
 use anyhow::Context;
 use base64::Engine;
 use include_dir::{include_dir, Dir};
@@ -73,7 +73,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::PathBuf;
 
-use super::oxide_auth::{login, OxideState};
+use super::oidc_auth::{login, OxideState};
 
 /// Static directory containing the web client files
 ///
@@ -555,7 +555,7 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
     let config = config.merge(("hmac_secret", test_hmac_secret.to_string()));
 
     // Create OAuth2 state with the test secret
-    let oxide_state = super::oxide_auth::OxideState::preconfigured(config.clone());
+    let oxide_state = super::oidc_auth::OxideState::preconfigured(config.clone());
 
     // Initialize JWT validator with the test secret
     let jwt_validator = match super::api_auth::init_jwt_validator(test_hmac_secret) {

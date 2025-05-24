@@ -21,7 +21,7 @@ use rocket::serde::json::{json, Json, Value};
 use rocket::{get, State};
 use serde::{Deserialize, Serialize};
 
-use super::oxide_auth::OxideState;
+use super::oidc_auth::OxideState;
 use super::server::ConnectionInfo;
 use crate::visualization::jwt_keys::JwkKeySet;
 

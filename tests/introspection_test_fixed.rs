@@ -9,7 +9,7 @@ use oxide_auth::primitives::issuer::Issuer;
 use rocket::http::ContentType;
 use rocket::local::asynchronous::Client;
 use rust_photoacoustic::config::AccessConfig;
-use rust_photoacoustic::visualization::oxide_auth::OxideState;
+use rust_photoacoustic::visualization::oidc_auth::OxideState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration as StdDuration;

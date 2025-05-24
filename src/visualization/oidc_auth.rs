@@ -27,7 +27,7 @@
 //!
 //! ```no_run
 //! use rocket::{build, routes};
-//! use rust_photoacoustic::visualization::oxide_auth::{OxideState, authorize, token, refresh};
+//! use rust_photoacoustic::visualization::oidc_auth::{OxideState, authorize, token, refresh};
 //!
 //! // Create preconfigured OAuth state
 //! let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
@@ -175,7 +175,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 ///
 /// ```rust
 /// use rust_photoacoustic::config::{AccessConfig, User};
-/// use rust_photoacoustic::visualization::oxide_auth::validate_user;
+/// use rust_photoacoustic::visualization::oidc_auth::validate_user;
 ///
 /// // Assuming you have an AccessConfig with users
 /// let access_config = AccessConfig::default();
@@ -717,7 +717,7 @@ impl OxideState {
     /// # Example
     ///
     /// ```no_run
-    /// use rust_photoacoustic::visualization::oxide_auth::OxideState;
+    /// use rust_photoacoustic::visualization::oidc_auth::OxideState;
     ///
     /// // Create the OAuth state with a secret key
     /// let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
@@ -809,7 +809,7 @@ impl OxideState {
     /// # Example
     ///
     /// ```no_run
-    /// use rust_photoacoustic::visualization::oxide_auth::OxideState;
+    /// use rust_photoacoustic::visualization::oidc_auth::OxideState;
     /// let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret"));
     /// let state = OxideState::preconfigured(figment);
     /// # // We don't need an oauth_request for this example

@@ -100,7 +100,7 @@ pub mod api_auth;
 ///
 /// ```no_run
 /// use rocket::{build, post, routes};
-/// use rust_photoacoustic::visualization::oxide_auth::OxideState;
+/// use rust_photoacoustic::visualization::oidc_auth::OxideState;
 ///
 /// #[post("/introspect")]
 /// fn introspect() -> &'static str {
@@ -131,7 +131,7 @@ pub mod jwt_keys;
 pub mod jwt_validator;
 
 /// OAuth integration with Oxide Auth library
-pub mod oxide_auth;
+pub mod oidc_auth;
 
 /// Web server implementation
 pub mod server;
