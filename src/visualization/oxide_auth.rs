@@ -352,18 +352,29 @@ pub fn authorize(
         cookies.iter().collect::<Vec<_>>()
     );
     debug!("User authenticated: {:?}", authenticated_user.is_some());
-    
+
     // Try to extract query parameters first to debug potential parsing issues
     let query_result = oauth.query();
     debug!("OAuth query parsing result: {:?}", query_result.is_ok());
     if let Err(ref err) = query_result {
         debug!("OAuth query parsing error: {:?}", err);
-        return Err(OAuthFailure::from(oxide_auth::endpoint::OAuthError::BadRequest));
+        return Err(OAuthFailure::from(
+            oxide_auth::endpoint::OAuthError::BadRequest,
+        ));
     }
-    
+
     // If user is already authenticated, proceed to consent
     if authenticated_user.is_some() {
         debug!("User is authenticated, proceeding to consent form");
+        let debug_info = match oauth.query() {
+            Ok(query) => {
+                let client_id = query.unique_value("client_id").map(|v| v.to_string());
+                let redirect_uri = query.unique_value("redirect_uri").map(|v| v.to_string());
+                let scope = query.unique_value("scope").map(|v| v.to_string());
+                Some((client_id, redirect_uri, scope))
+            }
+            Err(_) => None,
+        };
         return state
             .endpoint()
             .with_solicitor(FnSolicitor(consent_form))
@@ -380,6 +391,19 @@ pub fn authorize(
                             }
                             oxide_auth::endpoint::OAuthError::DenySilently => {
                                 debug!("Deny silently error in authorization flow - For example, this response is given when an incorrect client has been provided in the authorization request in order to avoid potential indirect denial of service vulnerabilities.");
+                                if let Some((client_id, redirect_uri, scope)) = &debug_info {
+                                    debug!("Requested parameters:");
+                                    if let Some(cid) = client_id {
+                                        debug!("  client_id: {}", cid);
+                                    }
+                                    if let Some(ruri) = redirect_uri {
+                                        debug!("  redirect_uri: {}", ruri);
+                                    }
+                                    if let Some(s) = scope {
+                                        debug!("  scope: {}", s);
+                                    }
+
+                                }
                                 OAuthFailure::from(oxide_auth::endpoint::OAuthError::DenySilently)
                             }
                             oxide_auth::endpoint::OAuthError::PrimitiveError => {
