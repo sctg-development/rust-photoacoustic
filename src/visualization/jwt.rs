@@ -207,7 +207,7 @@ struct IdTokenClaims {
 ///
 /// Token entries are stored in the `JwtTokenMap` and are used to track
 /// active tokens for validation, refreshing, and token introspection.
-struct TokenEntry {
+pub struct TokenEntry {
     /// Access token data
     ///
     /// The JWT string that the client uses to access protected resources.
