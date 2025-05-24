@@ -562,18 +562,16 @@ impl Config {
             .with_context(|| format!("Failed to parse YAML configuration from {:?}", path))?;
 
         // Convert to JSON Value for validation
-        let json_value = serde_json::to_value(&yaml_value)
-            .with_context(|| {
-                format!("Failed to convert YAML to JSON for validation: {:?}", path)
-            })?;
+        let json_value = serde_json::to_value(&yaml_value).with_context(|| {
+            format!("Failed to convert YAML to JSON for validation: {:?}", path)
+        })?;
 
         // Load and validate with the schema
         let schema_str = include_str!("../resources/config.schema.json");
-        let schema: serde_json::Value =
-            serde_json::from_str(schema_str).with_context(|| {
-                debug!("JSON schema string: {}", schema_str);
-                "Failed to parse JSON schema"
-            })?;
+        let schema: serde_json::Value = serde_json::from_str(schema_str).with_context(|| {
+            debug!("JSON schema string: {}", schema_str);
+            "Failed to parse JSON schema"
+        })?;
 
         // Create the validator
         let validator = jsonschema::draft202012::options()
