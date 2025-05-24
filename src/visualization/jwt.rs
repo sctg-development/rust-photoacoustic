@@ -211,32 +211,32 @@ struct TokenEntry {
     /// Access token data
     ///
     /// The JWT string that the client uses to access protected resources.
-    access_token: String,
+    pub access_token: String,
     
     /// ID token for OpenID Connect
     ///
     /// Contains claims about the authentication of an End-User by an Authorization Server.
     /// May be None if not using OpenID Connect or if the scope doesn't include 'openid'.
-    id_token: Option<String>,
+    pub id_token: Option<String>,
 
     /// Optional refresh token
     ///
     /// A token that clients can use to obtain a new access token without
     /// requiring the user to be redirected. May be None if refresh tokens
     /// are not enabled or not issued for this particular grant.
-    refresh_token: Option<String>,
+    pub refresh_token: Option<String>,
 
     /// The grant used to create this token
     ///
     /// Contains information about the authorization grant that led to this token,
     /// including the client ID, user ID (owner), scope, and redirect URI.
-    grant: Grant,
+    pub grant: Grant,
 
     /// Expiration time for the token
     ///
     /// The time at which this token will expire and no longer be valid for use.
     /// Both access and refresh tokens share the same expiration time in this implementation.
-    expiry: DateTime<Utc>,
+    pub expiry: DateTime<Utc>,
 }
 
 /// A custom JWT token issuer implementation
@@ -270,61 +270,61 @@ pub struct JwtTokenMap {
     ///
     /// Maps access token strings to their corresponding token entries.
     /// Used for token validation and introspection.
-    access_tokens: HashMap<String, Arc<TokenEntry>>,
+    pub access_tokens: HashMap<String, Arc<TokenEntry>>,
 
     /// Map of refresh tokens
     ///
     /// Maps refresh token strings to their corresponding token entries.
     /// Used during token refresh operations.
-    refresh_tokens: HashMap<String, Arc<TokenEntry>>,
+    pub refresh_tokens: HashMap<String, Arc<TokenEntry>>,
 
     /// JWT signing key
     ///
     /// The key used to sign JWT tokens. For symmetric algorithms like HS256,
     /// this is derived from the secret. For asymmetric algorithms like RS256,
     /// this contains the private key.
-    signing_key: EncodingKey,
+    pub signing_key: EncodingKey,
 
     /// JWT verification key
     ///
     /// The key used to verify JWT signatures. For symmetric algorithms like HS256,
     /// this is derived from the same secret as the signing key. For asymmetric
     /// algorithms like RS256, this contains the public key.
-    verification_key: DecodingKey,
+    pub verification_key: DecodingKey,
 
     /// Random generator for refresh tokens
     ///
     /// Generates cryptographically secure random tokens for use as refresh tokens.
-    refresh_generator: RandomGenerator,
+    pub refresh_generator: RandomGenerator,
 
     /// Token validity duration
     ///
     /// Specifies how long issued tokens remain valid before expiring.
     /// If None, tokens do not expire by default.
-    token_duration: Option<Duration>,
+    pub token_duration: Option<Duration>,
 
     /// Issuer name for JWT
     ///
     /// A string identifier for the token issuer, included in the "iss" claim
     /// of generated JWT tokens.
-    issuer: String,
+    pub issuer: String,
 
     /// Counter for token generation
     ///
     /// Used to ensure unique token identifiers (JTI claim) across token generation.
-    usage_counter: u64,
+    pub usage_counter: u64,
 
     /// JWT signing algorithm
     ///
     /// The algorithm used to sign and verify JWT tokens.
     /// Default is HS256 (HMAC with SHA-256).
-    algorithm: Algorithm,
+    pub algorithm: Algorithm,
 
     /// Additional claims to include in tokens
     ///
     /// This allows adding extra claims to the JWT tokens being generated.
     /// Used for including user-specific information in tokens.
-    claims: HashMap<String, Value>,
+    pub claims: HashMap<String, Value>,
 }
 
 impl JwtTokenMap {
