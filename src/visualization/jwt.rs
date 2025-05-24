@@ -625,6 +625,7 @@ impl Issuer for JwtTokenMap {
             refresh: refresh_token,
             until: grant.until,
             token_type: TokenType::Bearer,
+            id_token,
         };
 
         // Clear user claims after use to prevent them from being included in subsequent tokens
