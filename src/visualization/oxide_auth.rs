@@ -371,7 +371,17 @@ pub fn authorize(
                 let client_id = query.unique_value("client_id").map(|v| v.to_string());
                 let redirect_uri = query.unique_value("redirect_uri").map(|v| v.to_string());
                 let scope = query.unique_value("scope").map(|v| v.to_string());
-                Some((client_id, redirect_uri, scope))
+                let code_challenge = query.unique_value("code_challenge").map(|v| v.to_string());
+                let code_challenge_method = query
+                    .unique_value("code_challenge_method")
+                    .map(|v| v.to_string());
+                Some((
+                    client_id,
+                    redirect_uri,
+                    scope,
+                    code_challenge,
+                    code_challenge_method,
+                ))
             }
             Err(_) => None,
         };
@@ -391,7 +401,7 @@ pub fn authorize(
                             }
                             oxide_auth::endpoint::OAuthError::DenySilently => {
                                 debug!("Deny silently error in authorization flow - For example, this response is given when an incorrect client has been provided in the authorization request in order to avoid potential indirect denial of service vulnerabilities.");
-                                if let Some((client_id, redirect_uri, scope)) = &debug_info {
+                                if let Some((client_id, redirect_uri, scope, code_challenge, code_challenge_method)) = &debug_info {
                                     debug!("Requested parameters:");
                                     if let Some(cid) = client_id {
                                         debug!("  client_id: {}", cid);
