@@ -463,9 +463,7 @@ access:
       - "profile"
       - "email"
 "#,
-        USER_SESSION_SEPARATOR,
-        USER_SESSION_SEPARATOR,
-        USER_SESSION_SEPARATOR,
+        USER_SESSION_SEPARATOR, USER_SESSION_SEPARATOR, USER_SESSION_SEPARATOR,
     );
 
     fs::write(&invalid_permission_path, invalid_permission_yaml)?;
