@@ -121,6 +121,9 @@ pub mod introspection;
 /// JWT token generation and management
 pub mod jwt;
 
+/// JWT extensions for OpenID Connect support
+pub mod jwt_extension;
+
 /// RSA key management for JWT signing and verification
 pub mod jwt_keys;
 
