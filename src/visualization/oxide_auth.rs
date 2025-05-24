@@ -412,6 +412,12 @@ pub fn authorize(
                                     if let Some(s) = scope {
                                         debug!("  scope: {}", s);
                                     }
+                                    if let Some(cc) = code_challenge {
+                                        debug!("  code_challenge: {}", cc);
+                                    }
+                                    if let Some(ccm) = code_challenge_method {
+                                        debug!("  code_challenge_method: {}", ccm);
+                                    }
 
                                 }
                                 OAuthFailure::from(oxide_auth::endpoint::OAuthError::DenySilently)
