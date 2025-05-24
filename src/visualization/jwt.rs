@@ -124,6 +124,80 @@ struct JwtClaims {
     metadata: Option<HashMap<String, String>>,
 }
 
+/// OIDC ID Token claims structure
+///
+/// This structure defines the claims included in OpenID Connect ID Tokens.
+/// It follows the OpenID Connect Core 1.0 specification for ID Token claims,
+/// including both standard claims and optional user profile information.
+///
+/// ID tokens are specifically designed to provide authentication information
+/// about the user, while access tokens are designed for authorization.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct IdTokenClaims {
+    /// Subject identifier, a unique identifier for the user
+    pub sub: String,
+    
+    /// Issuer identifier, typically the URL of the identity provider
+    pub iss: String,
+    
+    /// Audience, typically the client ID of the application
+    pub aud: String,
+    
+    /// Issued at time (seconds since Unix epoch)
+    pub iat: i64,
+    
+    /// Expiration time (seconds since Unix epoch)
+    pub exp: i64,
+    
+    /// Authentication time (seconds since Unix epoch)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_time: Option<i64>,
+    
+    /// Nonce value used to mitigate replay attacks
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+    
+    /// Session ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sid: Option<String>,
+    
+    /// Authentication context class reference
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acr: Option<String>,
+    
+    /// Authentication methods references
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amr: Option<Vec<String>>,
+    
+    /// Authorized party (the party to which the ID Token was issued)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub azp: Option<String>,
+    
+    /// User's full name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    
+    /// User's preferred username or nickname
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nickname: Option<String>,
+    
+    /// URL to the user's profile picture
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub picture: Option<String>,
+    
+    /// User's email address
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    
+    /// Whether the user's email is verified
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<bool>,
+    
+    /// User's last update timestamp
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+}
+
 /// Token entry storing both access and refresh tokens
 ///
 /// This structure represents a complete token set in the token store,
@@ -138,6 +212,12 @@ struct TokenEntry {
     ///
     /// The JWT string that the client uses to access protected resources.
     access_token: String,
+    
+    /// ID token for OpenID Connect
+    ///
+    /// Contains claims about the authentication of an End-User by an Authorization Server.
+    /// May be None if not using OpenID Connect or if the scope doesn't include 'openid'.
+    id_token: Option<String>,
 
     /// Optional refresh token
     ///
@@ -364,6 +444,73 @@ impl JwtTokenMap {
         self
     }
 
+    /// Create ID token claims for OpenID Connect
+    /// 
+    /// This method generates the claims for an ID token according to the OpenID Connect specification.
+    /// Unlike access tokens, ID tokens contain user profile information and authentication details.
+    fn create_id_token_claims(&self, grant: &Grant, now: DateTime<Utc>, expiry: DateTime<Utc>) -> Option<IdTokenClaims> {
+        // Only create ID token if 'openid' is in the scope
+        if !grant.scope.to_string().split_whitespace().any(|s| s == "openid") {
+            return None;
+        }
+        
+        let mut name = None;
+        let mut nickname = None;
+        let mut picture = None;
+        let mut email = None;
+        let mut email_verified = None;
+        let mut nonce = None;
+        let mut sid = None;
+        
+        // Extract user information from grant extensions and additional claims
+        for (key, value) in grant.extensions.public() {
+            match key {
+                "nonce" => nonce = value.clone(),
+                _ => {}
+            }
+        }
+        
+        // Add user info from claims
+        for (key, value) in &self.claims {
+            if let Value::Public(Some(val)) = value {
+                match key.as_str() {
+                    "user_name" | "name" => name = Some(val.clone()),
+                    "preferred_username" | "nickname" => nickname = Some(val.clone()),
+                    "picture" => picture = Some(val.clone()),
+                    "email" => email = Some(val.clone()),
+                    "email_verified" => email_verified = val.parse().ok(),
+                    "sid" => sid = Some(val.clone()),
+                    _ => {}
+                }
+            }
+        }
+        
+        // Generate a unique session ID if not provided
+        let sid = sid.or_else(|| Some(format!("session-{}", self.usage_counter)));
+        // Convert nonce to a string if it exists
+        let nonce = nonce.map(|n| n.to_string());
+        // Create the ID token claims
+        Some(IdTokenClaims {
+            sub: grant.owner_id.clone(),
+            iss: self.issuer.clone(),
+            aud: grant.client_id.clone(),
+            iat: now.timestamp(),
+            exp: expiry.timestamp(),
+            auth_time: Some(now.timestamp()),
+            nonce,
+            sid,
+            acr: Some("0".to_string()), // Basic level of authentication
+            amr: Some(vec!["pwd".to_string()]), // Password authentication
+            azp: Some(grant.client_id.clone()),
+            name,
+            nickname,
+            picture,
+            email,
+            email_verified,
+            updated_at: Some(now.to_rfc3339()),
+        })
+    }
+
     /// Create JWT claims from a grant, including any additional user claims
     fn create_claims(&self, grant: &Grant, now: DateTime<Utc>, expiry: DateTime<Utc>) -> JwtClaims {
         // Create a map for any public extensions and additional claims
@@ -436,9 +583,19 @@ impl Issuer for JwtTokenMap {
         self.usage_counter += 1;
         let refresh_token = self.refresh_generator.tag(self.usage_counter, &grant).ok();
 
+        // generate ID token claims if 'openid' scope is requested
+        let id_token_claims = self.create_id_token_claims(&grant, now, grant.until);
+        let id_token = if let Some(claims) = id_token_claims {
+            // Create ID token with specific algorithm
+            let id_header = Header::new(self.algorithm);
+            Some(encode(&id_header, &claims, &self.signing_key).map_err(|_| ())?)
+        } else {
+            None // No ID token if 'openid' scope is not requested
+        };
         // Store the token
         let token_entry = Arc::new(TokenEntry {
             access_token: access_token.clone(),
+            id_token: id_token.clone(),
             refresh_token: refresh_token.clone(),
             grant: grant.clone(),
             expiry: grant.until,
@@ -511,6 +668,7 @@ impl Issuer for JwtTokenMap {
         // Create and store the new token
         let new_token_entry = Arc::new(TokenEntry {
             access_token: new_access_token.clone(),
+            id_token: None, // ID token not generated here
             refresh_token: new_refresh_token.clone(),
             grant: grant.clone(),
             expiry: grant.until,
@@ -618,6 +776,55 @@ impl Issuer for JwtTokenMap {
                 }
             }
             None => Ok(None),
+        }
+    }
+}
+
+/// Custom OAuth token response structure with OpenID Connect support
+///
+/// This structure extends the standard OAuth token response to include an ID token
+/// as specified by OpenID Connect. It's used to return authentication and authorization 
+/// tokens to clients after successful token requests.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OidcTokenResponse {
+    /// Access token for accessing protected resources
+    access_token: String,
+    
+    /// Token type, usually "Bearer"
+    token_type: String,
+    
+    /// Number of seconds until the access token expires
+    expires_in: u64,
+    
+    /// Refresh token for obtaining new access tokens
+    #[serde(skip_serializing_if = "Option::is_none")]
+    refresh_token: Option<String>,
+    
+    /// ID token containing authentication information about the user
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id_token: Option<String>,
+    
+    /// Space-delimited list of scopes granted to the client
+    scope: String,
+}
+
+impl OidcTokenResponse {
+    /// Create a new OIDC token response from an issued token
+    pub fn from_issued_token(token: &IssuedToken, id_token: Option<String>, scope: String) -> Self {
+        let now = Utc::now();
+        let expires_in = if token.until > now {
+            (token.until - now).num_seconds() as u64
+        } else {
+            0
+        };
+        
+        OidcTokenResponse {
+            access_token: token.token.clone(),
+            token_type: "Bearer".to_string(),
+            expires_in,
+            refresh_token: token.refresh.clone(),
+            id_token,
+            scope,
         }
     }
 }
