@@ -4,15 +4,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug rust-photoacoustic (web)",
+            "name": "Debug rust_photoacoustic (web)",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rust-photoacoustic",
-                    "--package=rust-photoacoustic"
+                    "--bin=rust_photoacoustic",
+                    "--package=rust_photoacoustic"
                 ],
                 "filter": {
-                    "name": "rust-photoacoustic",
+                    "name": "rust_photoacoustic",
                     "kind": "bin"
                 }
             },
@@ -26,19 +26,19 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug rust-photoacoustic (custom)",
+            "name": "Debug rust_photoacoustic (custom)",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rust-photoacoustic",
-                    "--package=rust-photoacoustic"
+                    "--bin=rust_photoacoustic",
+                    "--package=rust_photoacoustic"
                 ],
                 "filter": {
-                    "name": "rust-photoacoustic",
+                    "name": "rust_photoacoustic",
                     "kind": "bin"
                 }
             },
-            "args": ["--web", "--web-address=127.0.0.1", "--web-port=8888", "--frequency=2000", "--bandwidth=100"],
+            "args": ["--server", "--web-address=127.0.0.1", "--web-port=8888", "--frequency=2000", "--bandwidth=100"],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1",
@@ -49,19 +49,19 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug rust-photoacoustic (config)",
+            "name": "Debug rust_photoacoustic (config)",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rust-photoacoustic",
-                    "--package=rust-photoacoustic"
+                    "--bin=rust_photoacoustic",
+                    "--package=rust_photoacoustic"
                 ],
                 "filter": {
-                    "name": "rust-photoacoustic",
+                    "name": "rust_photoacoustic",
                     "kind": "bin"
                 }
             },
-            "args": ["--web", "--config", "${workspaceFolder}/config.yaml"],
+            "args": ["--server", "--config", "${workspaceFolder}/config.yaml", "-v"],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1",
@@ -77,7 +77,7 @@
                 "args": [
                     "build",
                     "--bin=noise_generator",
-                    "--package=rust-photoacoustic"
+                    "--package=rust_photoacoustic"
                 ],
                 "filter": {
                     "name": "noise_generator",
@@ -104,7 +104,7 @@
                     "test_rs256_jwt_token_generation_and_validation"
                 ],
                 "filter": {
-                    "name": "rust-photoacoustic",
+                    "name": "rust_photoacoustic",
                     "kind": "lib"
                 }
             },
