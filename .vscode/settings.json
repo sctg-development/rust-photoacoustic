@@ -1,0 +1,14 @@
+{
+    "terminal.integrated.env.windows": {
+        "RUSTFLAGS": "${env:RUSTFLAGS} -A unused",
+        "RUST_LOG": "debug"
+    },
+    "terminal.integrated.env.osx": {
+        "RUSTFLAGS": "${env:RUSTFLAGS} -A unused",
+        "RUST_LOG": "debug"
+    },
+    "terminal.integrated.env.linux": {
+        "RUSTFLAGS": "${env:RUSTFLAGS} -A unused",
+        "RUST_LOG": "debug"
+    }
+}
