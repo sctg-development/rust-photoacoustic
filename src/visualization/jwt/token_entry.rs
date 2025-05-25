@@ -9,8 +9,8 @@
 
 use chrono::{DateTime, Utc};
 use oxide_auth::primitives::grant::Grant;
-use std::collections::HashMap;
 use serde_json::Value;
+use std::collections::HashMap;
 
 use super::claims::IdTokenClaims;
 
@@ -54,7 +54,7 @@ pub struct TokenEntry {
     /// The time at which this token will expire and no longer be valid for use.
     /// Both access and refresh tokens share the same expiration time in this implementation.
     pub expiry: DateTime<Utc>,
-    
+
     /// ID token claims stored for reference
     pub id_token_claims: Option<IdTokenClaims>,
 }
@@ -78,12 +78,12 @@ impl TokenEntry {
             id_token_claims,
         }
     }
-    
+
     /// Check if the token has expired
     pub fn is_expired(&self) -> bool {
         self.expiry < Utc::now()
     }
-    
+
     /// Get remaining validity time in seconds
     pub fn valid_for_seconds(&self) -> i64 {
         let now = Utc::now();
@@ -93,17 +93,17 @@ impl TokenEntry {
             (self.expiry - now).num_seconds()
         }
     }
-    
+
     /// Get the user ID (subject) from the grant
     pub fn user_id(&self) -> &str {
         &self.grant.owner_id
     }
-    
+
     /// Get the client ID from the grant
     pub fn client_id(&self) -> &str {
         &self.grant.client_id
     }
-    
+
     /// Get the scope as a space-separated string
     pub fn scope(&self) -> String {
         self.grant.scope.to_string()

@@ -147,7 +147,7 @@ pub struct IdTokenClaims {
     /// Whether the user's email is verified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
-    
+
     /// Additional custom claims
     #[serde(flatten)]
     pub additional_claims: HashMap<String, String>,

@@ -6,9 +6,9 @@
 //!
 //! This module contains the response structures for OAuth token requests.
 
+use chrono::Utc;
 use oxide_auth::primitives::issuer::IssuedToken;
 use serde::{Deserialize, Serialize};
-use chrono::Utc;
 
 /// Custom OAuth token response structure with OpenID Connect support
 ///
@@ -57,7 +57,7 @@ impl OidcTokenResponse {
             scope,
         }
     }
-    
+
     /// Create a new OIDC token response with specified parameters
     pub fn new(
         access_token: String,

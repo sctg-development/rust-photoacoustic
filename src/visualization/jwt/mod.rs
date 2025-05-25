@@ -47,10 +47,10 @@
 
 // Internal modules that are not public
 mod claims;
-mod token_entry;
-mod token_map;
 mod issuer;
 mod responses;
+mod token_entry;
+mod token_map;
 
 // Existing modules that remain public
 /// JWT extensions for OpenID Connect support

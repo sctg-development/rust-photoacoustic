@@ -6,14 +6,14 @@
 //!
 //! This module contains the core implementation of the JWT token store.
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use oxide_auth::primitives::generator::{RandomGenerator, TagGrant};
 use oxide_auth::primitives::grant::{Extensions, Grant, Value};
 use oxide_auth::primitives::issuer::{IssuedToken, Issuer, RefreshedToken, TokenType};
 use serde_json::Value as JsonValue;
+use std::collections::HashMap;
+use std::sync::Arc;
 use url::Url;
 
 use super::claims::{IdTokenClaims, JwtClaims};
@@ -279,22 +279,31 @@ impl JwtTokenMap {
         let sid = sid.or_else(|| Some(format!("session-{}", self.usage_counter)));
         // Convert nonce to a string if it exists
         let nonce = nonce.map(|n| n.to_string());
-        
+
         // Create the ID token claims
         let mut additional_claims = HashMap::new();
-        
+
         // Add any extra claims that weren't explicitly handled
         for (key, value) in &self.claims {
-            if !matches!(key.as_str(), 
-                "user_name" | "name" | "preferred_username" | "nickname" | 
-                "picture" | "email" | "email_verified" | "sid" | 
-                "user_id" | "user_permissions") {
+            if !matches!(
+                key.as_str(),
+                "user_name"
+                    | "name"
+                    | "preferred_username"
+                    | "nickname"
+                    | "picture"
+                    | "email"
+                    | "email_verified"
+                    | "sid"
+                    | "user_id"
+                    | "user_permissions"
+            ) {
                 if let Value::Public(Some(val)) = value {
                     additional_claims.insert(key.clone(), val.clone());
                 }
             }
         }
-        
+
         // Create the ID token claims
         Some(IdTokenClaims {
             sub: grant.owner_id.clone(),
@@ -398,15 +407,15 @@ impl Issuer for JwtTokenMap {
         } else {
             None // No ID token if 'openid' scope is not requested
         };
-        
+
         // Store the token
         let token_entry = Arc::new(TokenEntry::new(
-            access_token.clone(), 
-            id_token.clone(), 
-            refresh_token.clone(), 
-            grant.clone(), 
-            grant.until, 
-            id_token_claims
+            access_token.clone(),
+            id_token.clone(),
+            refresh_token.clone(),
+            grant.clone(),
+            grant.until,
+            id_token_claims,
         ));
 
         // Add to maps

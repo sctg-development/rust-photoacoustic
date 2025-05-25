@@ -442,10 +442,9 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
                     base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key)
                 {
                     // Create a new JWT issuer with RS256 keys
-                    if let Ok(jwt_issuer) = super::jwt::JwtIssuer::with_rs256_pem(
-                        &decoded_private,
-                        &decoded_public,
-                    ) {
+                    if let Ok(jwt_issuer) =
+                        super::jwt::JwtIssuer::with_rs256_pem(&decoded_private, &decoded_public)
+                    {
                         oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
                     }
                 }
