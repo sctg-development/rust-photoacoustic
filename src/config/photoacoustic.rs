@@ -1,0 +1,80 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
+//! Photoacoustic measurement configuration
+//!
+//! This module defines the structures for configuring the photoacoustic
+//! measurement process in the application.
+
+use serde::{Deserialize, Serialize};
+
+/// Configuration for the photoacoustic measurement system.
+///
+/// This structure contains settings that control the photoacoustic measurement process,
+/// including input sources, signal processing parameters, and analysis settings.
+///
+/// # Input Sources
+///
+/// The configuration supports two mutually exclusive input sources:
+/// * `input_device` - A hardware audio device (e.g., "hw:0,0" for ALSA)
+/// * `input_file` - A path to a WAV file for offline analysis
+///
+/// One of these must be specified, but not both simultaneously.
+///
+/// # Signal Processing Parameters
+///
+/// * `frequency` - The primary excitation frequency in Hz
+/// * `bandwidth` - Filter bandwidth in Hz around the excitation frequency
+/// * `window_size` - FFT window size (power of 2 recommended)
+/// * `averages` - Number of spectra to average for noise reduction
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::PhotoacousticConfig;
+///
+/// let pa_config = PhotoacousticConfig {
+///     input_device: Some("hw:0,0".to_string()),
+///     input_file: None,
+///     frequency: 1000.0,
+///     bandwidth: 50.0,
+///     window_size: 4096,
+///     averages: 10,
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhotoacousticConfig {
+    /// The input device to use for data acquisition
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_device: Option<String>,
+    
+    /// The input file to use for data acquisition mutually exclusive with input_device
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_file: Option<String>,
+    
+    /// The excitation frequency in Hz
+    pub frequency: f32,
+    
+    /// Filter bandwidth in Hz
+    pub bandwidth: f32,
+    
+    /// Window size for FFT analysis
+    pub window_size: u16,
+    
+    /// Number of spectra to average
+    pub averages: u16,
+}
+
+impl Default for PhotoacousticConfig {
+    fn default() -> Self {
+        Self {
+            input_device: Some("hw:0,0".to_string()), // Default to first ALSA device
+            input_file: None,                        // No file by default
+            frequency: 1000.0,                       // 1kHz default frequency
+            bandwidth: 50.0,                         // 50Hz bandwidth
+            window_size: 4096,                       // 4K FFT window
+            averages: 10,                            // Average 10 spectra
+        }
+    }
+}

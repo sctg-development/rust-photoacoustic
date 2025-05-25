@@ -1,0 +1,179 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
+//! User access and permissions configuration
+//!
+//! This module defines the structures for managing users, OAuth clients,
+//! and their respective permissions within the application.
+
+use serde::{Deserialize, Serialize};
+
+use super::USER_SESSION_SEPARATOR;
+
+/// OAuth2 client configuration for authorization code flow
+///
+/// This structure represents an OAuth2 client that is allowed to use
+/// the authorization code flow with this server.
+///
+/// # Fields
+///
+/// * `client_id` - The unique identifier for the OAuth2 client
+/// * `allowed_callbacks` - List of URLs that this client is allowed to redirect to
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::Client;
+///
+/// let client = Client {
+///     client_id: "LaserSmartClient".to_string(),
+///     default_scope: "openid profile email read:api write:api".to_string(),
+///     allowed_callbacks: vec![
+///         "http://localhost:8080/client/".to_string(),
+///         "https://localhost:8080/client/".to_string(),
+///     ],
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Client {
+    /// The unique identifier for the OAuth2 client
+    pub client_id: String,
+
+    /// List of URLs that this client is allowed to redirect to after authorization
+    ///
+    /// These URLs must match exactly during the OAuth2 flow for security.
+    /// Both HTTP and HTTPS URLs are supported, but HTTPS is recommended for production.
+    pub allowed_callbacks: Vec<String>,
+
+    /// Default scope for the client
+    ///
+    /// This is a space-separated list of scopes that the client can request.
+    /// The default scope is used if the client does not specify a scope during the authorization request.
+    pub default_scope: String,
+}
+
+/// User definition for authentication and authorization
+///
+/// This structure represents a user with authentication credentials and
+/// associated permissions for controlling access to API endpoints.
+///
+/// # Fields
+///
+/// * `user` - The username used for authentication
+/// * `pass` - Base64-encoded password hash (created with openssl passwd -5 | base64 -w0)
+/// * `permissions` - List of permission strings that define what actions the user can perform
+///
+/// # Example
+///
+/// ```
+/// use rust_photoacoustic::config::User;
+///
+/// let user = User {
+///     user: "admin".to_string(),
+///     pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
+///     permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    /// The username used for authentication
+    pub user: String,
+
+    /// Base64-encoded password hash
+    ///
+    /// This should be created using: `openssl passwd -5 <password> | base64 -w0`
+    pub pass: String,
+
+    /// List of permission strings that define what actions the user can perform
+    ///
+    /// Common permissions include:
+    /// * "read:api" - Allows read-only access to API endpoints
+    /// * "write:api" - Allows modification operations on API endpoints
+    /// * "admin:api" - Allows administrative operations
+    pub permissions: Vec<String>,
+}
+
+/// Configuration for user access and permissions
+///
+/// This structure defines both users who can access the application directly
+/// and OAuth2 clients that can use the authorization flow. Users have usernames,
+/// password hashes, and permissions, while clients have identifiers and allowed
+/// callback URLs.
+///
+/// # Example
+///
+/// ```rust
+/// use rust_photoacoustic::config::{AccessConfig, User, Client};
+///
+/// let access_config = AccessConfig {
+///     users: vec![
+///          User {
+///              user: "admin".to_string(),
+///              pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
+///              permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
+///          },
+///          User {
+///              user: "reader".to_string(),
+///              pass: "JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo=".to_string(),
+///              permissions: vec!["read:api".to_string()],
+///          }],
+///      clients: vec![
+///          Client {
+///              client_id: "LaserSmartClient".to_string(),
+///              default_scope: "openid profile email read:api write:api".to_string(),
+///              allowed_callbacks: vec![
+///                  "http://localhost:8080/client/".to_string(),
+///                  "https://localhost:8080/client/".to_string(),
+///              ],
+///          }],
+///     };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccessConfig {
+    /// List of users with their credentials and permissions
+    pub users: Vec<User>,
+
+    /// List of OAuth2 clients with their identifiers and allowed callback URLs
+    pub clients: Vec<Client>,
+}
+
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            user: "admin".to_string(),
+            // Default password hash for "admin123" (should be changed in production)
+            pass: "JDUkM2E2OUZwQW0xejZBbWV2QSRvMlhhN0lxcVdVU1VPTUh6UVJiM3JjRlRhZy9WYjdpSWJtZUJFaXA3Y1ZECg==".to_string(),
+            permissions: vec![
+                "read:api".to_string(), 
+                "write:api".to_string(), 
+                "admin:api".to_string(),
+                "openid".to_string(),
+                "profile".to_string(),
+                "email".to_string(),
+            ],
+        }
+    }
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        Self {
+            client_id: "LaserSmartClient".to_string(),
+            default_scope: "openid profile email read:api write:api".to_string(),
+            allowed_callbacks: vec![
+                "http://localhost:8080/client/".to_string(),
+                "https://localhost:8080/client/".to_string(),
+            ],
+        }
+    }
+}
+
+impl Default for AccessConfig {
+    fn default() -> Self {
+        Self {
+            users: vec![User::default()],
+            clients: vec![Client::default()],
+        }
+    }
+}
