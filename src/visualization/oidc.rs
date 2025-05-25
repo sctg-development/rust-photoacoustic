@@ -41,6 +41,10 @@ pub struct OpenIdConfiguration {
     /// URL of the OP's OAuth 2.0 Token Endpoint
     pub token_endpoint: String,
 
+    /// URL of the OP's UserInfo Endpoint
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userinfo_endpoint: Option<String>,
+
     /// URL of the OP's JSON Web Key Set document
     pub jwks_uri: String,
 
@@ -107,6 +111,7 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
         issuer: base_url.to_string(),
         authorization_endpoint: format!("{}/authorize", base_url),
         token_endpoint: format!("{}/token", base_url),
+        userinfo_endpoint: Some(format!("{}/userinfo", base_url)),
         jwks_uri: format!("{}/.well-known/jwks.json", base_url),
         response_types_supported: vec!["code".to_string(), "token".to_string()],
         grant_types_supported: vec![
