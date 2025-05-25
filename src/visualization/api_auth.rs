@@ -33,7 +33,7 @@
 //! }
 //! ```
 
-use crate::visualization::jwt_validator::JwtValidator;
+use crate::visualization::jwt::jwt_validator::JwtValidator;
 use anyhow::Result;
 use rocket::serde::json::Json;
 use rocket::{

@@ -25,7 +25,7 @@
 //! # Example Usage
 //!
 //! ```
-//! use rust_photoacoustic::visualization::jwt::JwtIssuer;
+//! use rust_photoacoustic::visualization::jwt_original::JwtIssuer;
 //! use chrono::Duration;
 //!
 //! // Create a new JWT issuer with a secret key

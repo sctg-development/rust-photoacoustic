@@ -20,7 +20,7 @@
 //! ### Creating a symmetric key configuration
 //!
 //! ```rust
-//! use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+//! use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
 //! use jsonwebtoken::Algorithm;
 //!
 //! // Create a new key configuration with HS256 algorithm
@@ -31,7 +31,7 @@
 //! ### Creating an RSA key configuration from files
 //!
 //! ```rust,no_run
-//! use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+//! use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
 //! use jsonwebtoken::Algorithm;
 //!
 //! // Load RSA keys from PEM files
@@ -45,7 +45,7 @@
 //! ### Creating an EC key configuration from PEM data
 //!
 //! ```rust,no_run
-//! use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+//! use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
 //! use jsonwebtoken::Algorithm;
 //!
 //! // EC private and public keys in PEM format
@@ -177,7 +177,7 @@ impl JwtKeyConfig {
     /// # Example
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
     /// let secret = b"your-secure-secret-key";
@@ -227,7 +227,7 @@ impl JwtKeyConfig {
     /// # Example
     ///
     /// ```no_run
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
     /// let key_config = JwtKeyConfig::new_rsa(
@@ -294,7 +294,7 @@ impl JwtKeyConfig {
     /// # Example
     ///
     /// ```no_run
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
     /// let private_key = b"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----";
@@ -359,7 +359,7 @@ impl JwtKeyConfig {
     /// # Example
     ///
     /// ```no_run
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
     /// let key_config = JwtKeyConfig::new_ec(
@@ -421,7 +421,7 @@ impl JwtKeyConfig {
     /// # Example
     ///
     /// ```no_run
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     /// use jsonwebtoken::Algorithm;
     ///
     /// let private_key = b"-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----";
@@ -472,7 +472,7 @@ impl JwtKeyConfig {
     /// # Example
     ///
     /// ```rust
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     ///
     /// let secret = b"your-secret-key-for-signing";
     /// let key_config = JwtKeyConfig::default_from_secret(secret);
@@ -499,7 +499,7 @@ impl JwtKeyConfig {
     ///
     /// ```
     /// #[cfg(test)]
-    /// use rust_photoacoustic::visualization::jwt_keys::JwtKeyConfig;
+    /// use rust_photoacoustic::visualization::jwt::jwt_keys::JwtKeyConfig;
     ///
     /// #[test]
     /// fn test_jwt_operations() {

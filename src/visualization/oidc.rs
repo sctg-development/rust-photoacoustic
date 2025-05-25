@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use super::oidc_auth::OxideState;
 use super::server::ConnectionInfo;
-use crate::visualization::jwt_keys::JwkKeySet;
+use crate::visualization::jwt::jwt_keys::JwkKeySet;
 
 /// OpenID Connect Discovery Configuration
 ///

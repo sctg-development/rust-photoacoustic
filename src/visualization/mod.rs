@@ -119,16 +119,10 @@ pub mod api_auth;
 pub mod introspection;
 
 /// JWT token generation and management
+pub mod jwt_original;
+
+/// JWT related utilities and extensions
 pub mod jwt;
-
-/// JWT extensions for OpenID Connect support
-pub mod jwt_extension;
-
-/// RSA key management for JWT signing and verification
-pub mod jwt_keys;
-
-/// JWT token validation and user information extraction
-pub mod jwt_validator;
 
 /// OAuth integration with Oxide Auth library
 pub mod oidc_auth;

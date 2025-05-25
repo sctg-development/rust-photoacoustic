@@ -14,7 +14,7 @@
 //! # Example
 //!
 //! ```
-//! use rust_photoacoustic::visualization::jwt_validator::{JwtValidator, UserInfo};
+//! use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserInfo};
 //!
 //! // Create a validator with a secret key
 //! let secret = b"your-secret-key";
@@ -137,7 +137,7 @@ pub struct JwtClaims {
 /// Basic setup with HS256 algorithm:
 ///
 /// ```
-/// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
 ///
 /// // Create a validator with a secret key
 /// let validator = JwtValidator::new(b"your-secret-key");
@@ -152,7 +152,7 @@ pub struct JwtClaims {
 /// More advanced configuration:
 ///
 /// ```
-/// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
 /// use jsonwebtoken::Algorithm;
 ///
 /// // Create a validator with custom settings
@@ -193,7 +193,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
     ///
     /// let secret = b"my-super-secret-key";
     /// let validator = JwtValidator::new(secret);
@@ -224,7 +224,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
     ///
     /// let validator = JwtValidator::new(b"secret-key")
     ///     .with_issuer("https://auth.example.com");
@@ -251,7 +251,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
     ///
     /// let validator = JwtValidator::new(b"secret-key")
     ///     .with_audience("web-client");
@@ -278,7 +278,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
     /// use jsonwebtoken::Algorithm;
     ///
     /// let validator = JwtValidator::new(b"secret-key")
@@ -319,7 +319,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
     ///
     /// let validator = JwtValidator::new(b"secret-key");
     ///
@@ -387,7 +387,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
     ///
     /// let validator = JwtValidator::new(b"secret-key");
     ///
@@ -450,7 +450,7 @@ impl JwtValidator {
 /// # Example
 ///
 /// ```
-/// use rust_photoacoustic::visualization::jwt_validator::{JwtValidator, UserInfo};
+/// use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserInfo};
 ///
 /// // After getting the UserInfo from a token
 /// fn process_user_info(user: &UserInfo) {
@@ -581,7 +581,7 @@ impl UserInfo {
     /// # Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::jwt_validator::UserInfo;
+    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserInfo;
     /// # use serde_json::json;
     /// # let claims = serde_json::from_value(json!({
     /// #     "sub": "user123",
@@ -616,7 +616,7 @@ impl UserInfo {
     /// # Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::jwt_validator::UserInfo;
+    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserInfo;
     /// # use serde_json::json;
     /// # let claims = serde_json::from_value(json!({
     /// #     "sub": "user123",
