@@ -119,9 +119,6 @@ pub mod api_auth;
 pub mod introspection;
 
 /// JWT token generation and management
-pub mod jwt_original;
-
-/// JWT related utilities and extensions
 pub mod jwt;
 
 /// OAuth integration with Oxide Auth library

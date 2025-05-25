@@ -17,7 +17,7 @@ pub trait JwtIssuerExtension {
 }
 
 /// Implementation of JwtIssuerExtension for the JwtIssuer struct
-impl JwtIssuerExtension for crate::visualization::jwt_original::JwtIssuer {
+impl JwtIssuerExtension for crate::visualization::jwt::JwtIssuer {
     /// Get the ID token associated with an access token
     ///
     /// This method looks up the access token in the token map and returns

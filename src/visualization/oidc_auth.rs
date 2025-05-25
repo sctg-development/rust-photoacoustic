@@ -62,7 +62,7 @@ use serde::{de, Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
-use super::jwt_original::JwtIssuer;
+use super::jwt::JwtIssuer;
 
 use crate::config::{AccessConfig, User, USER_SESSION_SEPARATOR};
 use base64::Engine;

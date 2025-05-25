@@ -13,7 +13,7 @@ use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rust_photoacoustic::config::AccessConfig;
 use rust_photoacoustic::visualization::jwt::jwt_keys::JwkKeySet;
-use rust_photoacoustic::visualization::jwt_original::JwtIssuer;
+use rust_photoacoustic::visualization::jwt::JwtIssuer;
 use serde_json::Value;
 use std::sync::Once;
 use std::time::{SystemTime, UNIX_EPOCH};

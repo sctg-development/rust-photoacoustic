@@ -2,242 +2,22 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! JWT token generation and management for OAuth authentication
+//! JWT token map for managing OAuth tokens
 //!
-//! This module implements a JWT-based token issuer that integrates with the Oxide Auth
-//! framework. It provides functionality for:
-//!
-//! - Creating and managing JWT access tokens
-//! - Generating refresh tokens
-//! - Token validation and verification
-//! - OAuth 2.0 token issuance and refresh workflows
-//!
-//! The JWT tokens are signed using configurable algorithms (default: HS256) and include
-//! standard claims like subject, audience, and expiration time.
-//!
-//! # Architecture
-//!
-//! The module consists of three main components:
-//! - `JwtTokenMap`: Core implementation of token management
-//! - `JwtIssuer`: Thread-safe wrapper around `JwtTokenMap` with Mutex
-//! - `JwtClaims`: Structure representing the claims in a JWT token
-//!
-//! # Example Usage
-//!
-//! ```
-//! use rust_photoacoustic::visualization::jwt_original::JwtIssuer;
-//! use chrono::Duration;
-//!
-//! // Create a new JWT issuer with a secret key
-//! let mut issuer = JwtIssuer::new(b"your-secret-key");
-//!
-//! // Configure the issuer
-//! issuer
-//!     .with_issuer("my-application")
-//!     .valid_for(Duration::hours(2));
-//!
-//! // The issuer can now be used with oxide_auth to issue OAuth tokens
-//! ```
-//!
-//! # Security Considerations
-//!
-//! - Use appropriate key sizes for the chosen algorithm
-//! - For production, consider using RS256 with separate signing and verification keys
-//! - Store secrets securely and never expose them in client-side code
+//! This module contains the core implementation of the JWT token store.
 
+use std::collections::HashMap;
+use std::sync::Arc;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use oxide_auth::primitives::generator::{RandomGenerator, TagGrant};
 use oxide_auth::primitives::grant::{Extensions, Grant, Value};
 use oxide_auth::primitives::issuer::{IssuedToken, Issuer, RefreshedToken, TokenType};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use serde_json::Value as JsonValue;
 use url::Url;
 
-/// Custom JWT claims structure
-///
-/// This structure defines the claims included in JSON Web Tokens (JWT) generated
-/// by this module. It follows the standard JWT claims as defined in RFC 7519,
-/// plus additional custom fields for OAuth 2.0 integration.
-///
-/// The structure is serialized to JSON when creating tokens and deserialized
-/// when validating them. The claims provide information about the token's
-/// subject (user), issuer, expiration, and granted permissions (scope).
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct JwtClaims {
-    /// Subject (typically user ID)
-    ///
-    /// Identifies the principal that is the subject of the JWT.
-    /// In this application, it contains the authenticated user's ID.
-    sub: String,
-
-    /// Issued at timestamp
-    ///
-    /// The time at which the JWT was issued, represented as Unix time
-    /// (seconds since 1970-01-01T00:00:00Z UTC).
-    iat: i64,
-
-    /// Expiration timestamp
-    ///
-    /// The expiration time after which the JWT must not be accepted for processing,
-    /// represented as Unix time (seconds since 1970-01-01T00:00:00Z UTC).
-    exp: i64,
-
-    /// Not before timestamp (when the token becomes valid)
-    ///
-    /// The time before which the JWT must not be accepted for processing,
-    /// represented as Unix time (seconds since 1970-01-01T00:00:00Z UTC).
-    nbf: i64,
-
-    /// JWT ID (unique identifier for the token)
-    ///
-    /// A unique identifier for the JWT, which can be used to prevent the JWT
-    /// from being replayed (that is, to prevent attackers from reusing a JWT
-    /// that they have intercepted).
-    jti: String,
-
-    /// Audience (client ID)
-    ///
-    /// Identifies the recipients that the JWT is intended for.
-    /// In this application, it contains the OAuth client ID.
-    aud: String,
-
-    /// Issuer
-    ///
-    /// Identifies the principal that issued the JWT.
-    /// Usually contains a string or URI that uniquely identifies the issuer.
-    iss: String,
-
-    /// Scope
-    ///
-    /// Space-delimited string of permissions that the token grants.
-    /// This is a common extension for OAuth 2.0 access tokens.
-    scope: String,
-
-    /// Additional metadata
-    ///
-    /// Custom claims containing additional information about the user
-    /// or authentication context. May include fields like email, name,
-    /// or other user attributes.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    metadata: Option<HashMap<String, String>>,
-}
-
-/// OIDC ID Token claims structure
-///
-/// This structure defines the claims included in OpenID Connect ID Tokens.
-/// It follows the OpenID Connect Core 1.0 specification for ID Token claims,
-/// including both standard claims and optional user profile information.
-///
-/// ID tokens are specifically designed to provide authentication information
-/// about the user, while access tokens are designed for authorization.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct IdTokenClaims {
-    /// Subject identifier, a unique identifier for the user
-    pub sub: String,
-
-    /// Issuer identifier, typically the URL of the identity provider
-    pub iss: String,
-
-    /// Audience, typically the client ID of the application
-    pub aud: String,
-
-    /// Issued at time (seconds since Unix epoch)
-    pub iat: i64,
-
-    /// Expiration time (seconds since Unix epoch)
-    pub exp: i64,
-
-    /// Authentication time (seconds since Unix epoch)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auth_time: Option<i64>,
-
-    /// Nonce value used to mitigate replay attacks
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nonce: Option<String>,
-
-    /// Session ID
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sid: Option<String>,
-
-    /// Authentication context class reference
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub acr: Option<String>,
-
-    /// Authentication methods references
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub amr: Option<Vec<String>>,
-
-    /// Authorized party (the party to which the ID Token was issued)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub azp: Option<String>,
-
-    /// User's full name
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-
-    /// User's preferred username or nickname
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nickname: Option<String>,
-
-    /// URL to the user's profile picture
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub picture: Option<String>,
-
-    /// User's email address
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<String>,
-
-    /// Whether the user's email is verified
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub email_verified: Option<bool>,
-
-    /// User's last update timestamp
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<String>,
-}
-
-/// Token entry storing both access and refresh tokens
-///
-/// This structure represents a complete token set in the token store,
-/// including the access token, optional refresh token, and associated metadata.
-/// Each entry is associated with a specific OAuth grant and has a defined
-/// expiration time.
-///
-/// Token entries are stored in the `JwtTokenMap` and are used to track
-/// active tokens for validation, refreshing, and token introspection.
-pub struct TokenEntry {
-    /// Access token data
-    ///
-    /// The JWT string that the client uses to access protected resources.
-    pub access_token: String,
-
-    /// ID token for OpenID Connect
-    ///
-    /// Contains claims about the authentication of an End-User by an Authorization Server.
-    /// May be None if not using OpenID Connect or if the scope doesn't include 'openid'.
-    pub id_token: Option<String>,
-
-    /// Optional refresh token
-    ///
-    /// A token that clients can use to obtain a new access token without
-    /// requiring the user to be redirected. May be None if refresh tokens
-    /// are not enabled or not issued for this particular grant.
-    pub refresh_token: Option<String>,
-
-    /// The grant used to create this token
-    ///
-    /// Contains information about the authorization grant that led to this token,
-    /// including the client ID, user ID (owner), scope, and redirect URI.
-    pub grant: Grant,
-
-    /// Expiration time for the token
-    ///
-    /// The time at which this token will expire and no longer be valid for use.
-    /// Both access and refresh tokens share the same expiration time in this implementation.
-    pub expiry: DateTime<Utc>,
-}
+use super::claims::{IdTokenClaims, JwtClaims};
+use super::token_entry::TokenEntry;
 
 /// A custom JWT token issuer implementation
 ///
@@ -499,6 +279,22 @@ impl JwtTokenMap {
         let sid = sid.or_else(|| Some(format!("session-{}", self.usage_counter)));
         // Convert nonce to a string if it exists
         let nonce = nonce.map(|n| n.to_string());
+        
+        // Create the ID token claims
+        let mut additional_claims = HashMap::new();
+        
+        // Add any extra claims that weren't explicitly handled
+        for (key, value) in &self.claims {
+            if !matches!(key.as_str(), 
+                "user_name" | "name" | "preferred_username" | "nickname" | 
+                "picture" | "email" | "email_verified" | "sid" | 
+                "user_id" | "user_permissions") {
+                if let Value::Public(Some(val)) = value {
+                    additional_claims.insert(key.clone(), val.clone());
+                }
+            }
+        }
+        
         // Create the ID token claims
         Some(IdTokenClaims {
             sub: grant.owner_id.clone(),
@@ -513,11 +309,11 @@ impl JwtTokenMap {
             amr: Some(vec!["pwd".to_string()]), // Password authentication
             azp: Some(grant.client_id.clone()),
             name,
-            nickname,
+            preferred_username: nickname,
             picture,
             email,
             email_verified,
-            updated_at: Some(now.to_rfc3339()),
+            additional_claims,
         })
     }
 
@@ -595,21 +391,23 @@ impl Issuer for JwtTokenMap {
 
         // generate ID token claims if 'openid' scope is requested
         let id_token_claims = self.create_id_token_claims(&grant, now, grant.until);
-        let id_token = if let Some(claims) = id_token_claims {
+        let id_token = if let Some(claims) = &id_token_claims {
             // Create ID token with specific algorithm
             let id_header = Header::new(self.algorithm);
-            Some(encode(&id_header, &claims, &self.signing_key).map_err(|_| ())?)
+            Some(encode(&id_header, claims, &self.signing_key).map_err(|_| ())?)
         } else {
             None // No ID token if 'openid' scope is not requested
         };
+        
         // Store the token
-        let token_entry = Arc::new(TokenEntry {
-            access_token: access_token.clone(),
-            id_token: id_token.clone(),
-            refresh_token: refresh_token.clone(),
-            grant: grant.clone(),
-            expiry: grant.until,
-        });
+        let token_entry = Arc::new(TokenEntry::new(
+            access_token.clone(), 
+            id_token.clone(), 
+            refresh_token.clone(), 
+            grant.clone(), 
+            grant.until, 
+            id_token_claims
+        ));
 
         // Add to maps
         self.access_tokens
@@ -677,13 +475,14 @@ impl Issuer for JwtTokenMap {
         }
 
         // Create and store the new token
-        let new_token_entry = Arc::new(TokenEntry {
-            access_token: new_access_token.clone(),
-            id_token: None, // ID token not generated here
-            refresh_token: new_refresh_token.clone(),
-            grant: grant.clone(),
-            expiry: grant.until,
-        });
+        let new_token_entry = Arc::new(TokenEntry::new(
+            new_access_token.clone(),
+            None, // ID token not generated here
+            new_refresh_token.clone(),
+            grant.clone(),
+            grant.until,
+            None,
+        ));
 
         // Add to maps
         self.access_tokens
@@ -707,7 +506,7 @@ impl Issuer for JwtTokenMap {
         Ok(token)
     }
 
-    fn recover_token<'a>(&'a self, token: &'a str) -> Result<Option<Grant>, ()> {
+    fn recover_token(&self, token: &str) -> Result<Option<Grant>, ()> {
         // First try to find the token in our map
         if let Some(entry) = self.access_tokens.get(token) {
             // Check if the token has expired
@@ -775,7 +574,7 @@ impl Issuer for JwtTokenMap {
         Ok(Some(grant))
     }
 
-    fn recover_refresh<'a>(&'a self, token: &'a str) -> Result<Option<Grant>, ()> {
+    fn recover_refresh(&self, token: &str) -> Result<Option<Grant>, ()> {
         // Find the refresh token
         match self.refresh_tokens.get(token) {
             Some(entry) => {
@@ -788,230 +587,5 @@ impl Issuer for JwtTokenMap {
             }
             None => Ok(None),
         }
-    }
-}
-
-/// Custom OAuth token response structure with OpenID Connect support
-///
-/// This structure extends the standard OAuth token response to include an ID token
-/// as specified by OpenID Connect. It's used to return authentication and authorization
-/// tokens to clients after successful token requests.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct OidcTokenResponse {
-    /// Access token for accessing protected resources
-    access_token: String,
-
-    /// Token type, usually "Bearer"
-    token_type: String,
-
-    /// Number of seconds until the access token expires
-    expires_in: u64,
-
-    /// Refresh token for obtaining new access tokens
-    #[serde(skip_serializing_if = "Option::is_none")]
-    refresh_token: Option<String>,
-
-    /// ID token containing authentication information about the user
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id_token: Option<String>,
-
-    /// Space-delimited list of scopes granted to the client
-    scope: String,
-}
-
-impl OidcTokenResponse {
-    /// Create a new OIDC token response from an issued token
-    pub fn from_issued_token(token: &IssuedToken, id_token: Option<String>, scope: String) -> Self {
-        let now = Utc::now();
-        let expires_in = if token.until > now {
-            (token.until - now).num_seconds() as u64
-        } else {
-            0
-        };
-
-        OidcTokenResponse {
-            access_token: token.token.clone(),
-            token_type: "Bearer".to_string(),
-            expires_in,
-            refresh_token: token.refresh.clone(),
-            id_token,
-            scope,
-        }
-    }
-}
-
-/// A wrapper around `Arc<Mutex<JwtTokenMap>>` that implements the Issuer trait
-pub struct JwtIssuer(pub Arc<Mutex<JwtTokenMap>>);
-
-// Implement Clone for JwtIssuer
-impl Clone for JwtIssuer {
-    fn clone(&self) -> Self {
-        JwtIssuer(Arc::clone(&self.0))
-    }
-}
-
-impl JwtIssuer {
-    /// Create a new JwtIssuer with the given secret
-    pub fn new(secret: &[u8]) -> Self {
-        JwtIssuer(Arc::new(Mutex::new(JwtTokenMap::new(secret))))
-    }
-
-    /// Create a new JwtIssuer with RS256 algorithm using PEM encoded keys
-    ///
-    /// # Parameters
-    ///
-    /// * `private_key_pem` - PEM encoded private key
-    /// * `public_key_pem` - PEM encoded public key
-    ///
-    /// # Returns
-    ///
-    /// A new JwtIssuer configured to use RS256 algorithm with the provided keys
-    pub fn with_rs256_pem(
-        private_key_pem: &[u8],
-        public_key_pem: &[u8],
-    ) -> Result<Self, jsonwebtoken::errors::Error> {
-        let token_map = JwtTokenMap::with_rs256_pem(private_key_pem, public_key_pem)?;
-        Ok(JwtIssuer(Arc::new(Mutex::new(token_map))))
-    }
-
-    /// Sets the JWT signing algorithm
-    pub fn with_algorithm(&mut self, algorithm: Algorithm) -> &mut Self {
-        // Create a closure to modify the map
-        {
-            let mut map_guard = self.0.lock().unwrap();
-            map_guard.algorithm = algorithm;
-        } // map_guard is dropped here, releasing the lock
-
-        // Return self reference
-        self
-    }
-
-    /// Sets the issuer name used in JWT claims
-    pub fn with_issuer(&mut self, issuer: impl Into<String>) -> &mut Self {
-        // Create a closure to modify the map
-        {
-            let mut map = self.0.lock().unwrap();
-            map.issuer = issuer.into();
-        } // map is dropped here, releasing the lock
-
-        // Return self reference
-        self
-    }
-
-    /// Set the validity duration of all issued tokens
-    pub fn valid_for(&mut self, duration: Duration) -> &mut Self {
-        // Create a closure to modify the map
-        {
-            let mut map = self.0.lock().unwrap();
-            map.token_duration = Some(duration);
-        } // map is dropped here, releasing the lock
-
-        // Return self reference
-        self
-    }
-
-    /// Add user information to token claims
-    pub fn add_user_claims(&mut self, username: &str, permissions: &[String]) -> &mut Self {
-        {
-            let mut map = self.0.lock().unwrap();
-            map.add_user_claims(username, permissions);
-        }
-        self
-    }
-
-    /// Print the decoded contents of a JWT token for debugging purposes
-    /// Returns Ok if the token could be decoded, Err otherwise
-    pub fn debug_token(&self, token: &str) -> Result<JwtClaims, String> {
-        let map = self.map();
-
-        let token_parts: Vec<&str> = token.split('.').collect();
-        if token_parts.len() != 3 {
-            return Err("Invalid JWT token format".to_string());
-        }
-
-        // Try to decode from map first
-        if let Some(entry) = map.access_tokens.get(token) {
-            log::debug!("Found token in map: {:?}", entry.grant);
-        }
-
-        // Try to decode as JWT
-        let validation = Validation::new(map.algorithm);
-        match decode::<JwtClaims>(token, &map.verification_key, &validation) {
-            Ok(token_data) => {
-                log::debug!("JWT Claims: {:?}", token_data.claims);
-
-                // Format expiry time
-                let exp_time = Utc
-                    .timestamp_opt(token_data.claims.exp, 0)
-                    .single()
-                    .ok_or("Invalid expiry time")?;
-                log::debug!("Token expires at: {}", exp_time);
-
-                // Check if token is expired
-                let now = Utc::now();
-                if exp_time < now {
-                    log::debug!("Token is EXPIRED");
-                } else {
-                    let remaining = exp_time.signed_duration_since(now);
-                    log::debug!("Token is valid for: {} seconds", remaining.num_seconds());
-                }
-
-                Ok(token_data.claims)
-            }
-            Err(e) => Err(format!("Failed to decode JWT: {}", e)),
-        }
-    }
-
-    /// Internal helper to get mutex guard
-    fn map_mut(&mut self) -> std::sync::MutexGuard<'_, JwtTokenMap> {
-        self.0.lock().unwrap()
-    }
-
-    /// Internal helper to get mutex guard for reading
-    fn map(&self) -> std::sync::MutexGuard<'_, JwtTokenMap> {
-        self.0.lock().unwrap()
-    }
-}
-
-impl Issuer for JwtIssuer {
-    fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
-        self.map_mut().issue(grant)
-    }
-
-    fn refresh(&mut self, refresh: &str, grant: Grant) -> Result<RefreshedToken, ()> {
-        self.map_mut().refresh(refresh, grant)
-    }
-
-    fn recover_token<'a>(&'a self, token: &'a str) -> Result<Option<Grant>, ()> {
-        self.map().recover_token(token)
-    }
-
-    fn recover_refresh<'a>(&'a self, token: &'a str) -> Result<Option<Grant>, ()> {
-        self.map().recover_refresh(token)
-    }
-}
-
-// Implement Issuer for &JwtIssuer so it can be used in OxideState::endpoint()
-impl Issuer for &JwtIssuer {
-    fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
-        // For an immutable reference, we need to use internal mutability
-        let mut guard = self.0.lock().map_err(|_| ())?;
-        guard.issue(grant)
-    }
-
-    fn refresh(&mut self, refresh: &str, grant: Grant) -> Result<RefreshedToken, ()> {
-        // For an immutable reference, we need to use internal mutability
-        let mut guard = self.0.lock().map_err(|_| ())?;
-        guard.refresh(refresh, grant)
-    }
-
-    fn recover_token<'b>(&'b self, token: &'b str) -> Result<Option<Grant>, ()> {
-        let guard = self.0.lock().map_err(|_| ())?;
-        guard.recover_token(token)
-    }
-
-    fn recover_refresh<'b>(&'b self, token: &'b str) -> Result<Option<Grant>, ()> {
-        let guard = self.0.lock().map_err(|_| ())?;
-        guard.recover_refresh(token)
     }
 }
