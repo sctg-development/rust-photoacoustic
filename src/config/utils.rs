@@ -166,6 +166,6 @@ pub fn validate_specific_rules(config: &Config) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }

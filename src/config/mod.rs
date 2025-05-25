@@ -166,7 +166,10 @@ impl Config {
             if !parent.exists() {
                 debug!("Creating parent directory: {:?}", parent);
                 std::fs::create_dir_all(parent).with_context(|| {
-                    format!("Failed to create parent directory for sample config at {:?}", parent)
+                    format!(
+                        "Failed to create parent directory for sample config at {:?}",
+                        parent
+                    )
                 })?;
             }
         }
@@ -372,7 +375,7 @@ impl Config {
         if daemon_mode {
             self.visualization.enabled = true;
         }
-        
+
         // Apply photoacoustic settings
         if let Some(device) = input_device {
             debug!("Overriding input device from command line: {}", device);
@@ -398,7 +401,7 @@ impl Config {
             debug!("Overriding averages from command line: {}", avg);
             self.photoacoustic.averages = avg;
         }
-        
+
         // Apply Modbus settings
         if let Some(enabled) = modbus_enabled {
             debug!("Overriding Modbus enabled from command line: {}", enabled);

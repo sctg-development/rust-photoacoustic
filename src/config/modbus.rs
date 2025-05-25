@@ -38,7 +38,7 @@ pub struct ModbusConfig {
     /// When enabled, the server will start and respond to Modbus TCP requests.
     /// When disabled, no server will be started and no resources will be used.
     pub enabled: bool,
-    
+
     /// The TCP port the Modbus server will listen on.
     ///
     /// Valid range is 1-65534. Default value is 502, which is the standard Modbus TCP port.
@@ -54,8 +54,8 @@ pub struct ModbusConfig {
 impl Default for ModbusConfig {
     fn default() -> Self {
         Self {
-            enabled: false, // Disabled by default for safety
-            port: 502,      // Standard Modbus TCP port
+            enabled: false,                   // Disabled by default for safety
+            port: 502,                        // Standard Modbus TCP port
             address: "127.0.0.1".to_string(), // Localhost for security
         }
     }

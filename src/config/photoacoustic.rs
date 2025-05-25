@@ -48,20 +48,20 @@ pub struct PhotoacousticConfig {
     /// The input device to use for data acquisition
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_device: Option<String>,
-    
+
     /// The input file to use for data acquisition mutually exclusive with input_device
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_file: Option<String>,
-    
+
     /// The excitation frequency in Hz
     pub frequency: f32,
-    
+
     /// Filter bandwidth in Hz
     pub bandwidth: f32,
-    
+
     /// Window size for FFT analysis
     pub window_size: u16,
-    
+
     /// Number of spectra to average
     pub averages: u16,
 }
@@ -70,11 +70,11 @@ impl Default for PhotoacousticConfig {
     fn default() -> Self {
         Self {
             input_device: Some("hw:0,0".to_string()), // Default to first ALSA device
-            input_file: None,                        // No file by default
-            frequency: 1000.0,                       // 1kHz default frequency
-            bandwidth: 50.0,                         // 50Hz bandwidth
-            window_size: 4096,                       // 4K FFT window
-            averages: 10,                            // Average 10 spectra
+            input_file: None,                         // No file by default
+            frequency: 1000.0,                        // 1kHz default frequency
+            bandwidth: 50.0,                          // 50Hz bandwidth
+            window_size: 4096,                        // 4K FFT window
+            averages: 10,                             // Average 10 spectra
         }
     }
 }
