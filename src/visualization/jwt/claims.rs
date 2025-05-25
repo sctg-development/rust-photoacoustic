@@ -77,6 +77,10 @@ pub struct JwtClaims {
     /// or other user attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, String>>,
+
+    /// Permissions
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 }
 
 /// OIDC ID Token claims structure

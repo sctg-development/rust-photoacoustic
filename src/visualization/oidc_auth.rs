@@ -52,19 +52,21 @@ use log::debug;
 use oxide_auth::endpoint::{OwnerConsent, Solicitation, WebRequest};
 use oxide_auth::frontends::simple::endpoint::{FnSolicitor, Generic, Vacant};
 use oxide_auth::primitives::prelude::*;
-use oxide_auth::primitives::registrar::RegisteredUrl;
+use oxide_auth::primitives::registrar::{RegisteredUrl, ClientMap, Client, PasswordPolicy, ClientUrl, BoundClient, Registrar, RegistrarError};
+use std::borrow::Cow;
+use std::iter::{Extend, FromIterator};
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
 use rocket::State;
 use rocket::{get, post};
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
 use super::jwt::JwtIssuer;
 
-use crate::config::{AccessConfig, User, USER_SESSION_SEPARATOR};
+use crate::config::{AccessConfig, User, USER_SESSION_PERMISSIONS_SEPARATOR, USER_SESSION_SEPARATOR};
 use base64::Engine;
 use rocket::form::{Form, FromForm};
 use rocket::http::{Cookie, CookieJar, Status};
@@ -93,8 +95,28 @@ pub struct UserSession {
     pub permissions: Vec<String>,
 }
 
+/// Implementation of Debug for UserSession
+impl std::fmt::Debug for UserSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserSession")
+            .field("username", &self.username)
+            .field("permissions", &self.permissions)
+            .finish()
+    }
+    
+}
 /// Request guard to check for authenticated user session
 pub struct AuthenticatedUser(pub UserSession);
+
+/// Implementation of Debug for AuthenticatedUser
+impl std::fmt::Debug for AuthenticatedUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthenticatedUser")
+            .field("username", &self.0.username)
+            .field("permissions", &self.0.permissions)
+            .finish()
+    }
+}
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AuthenticatedUser {
@@ -118,7 +140,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             debug!("Parsed cookie parts: {:?}", parts);
             if parts.len() == 2 {
                 let username = parts[0].to_string();
-                let permissions: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
+                let permissions: Vec<String> = parts[1].split(USER_SESSION_PERMISSIONS_SEPARATOR).map(|s| s.to_string()).collect();
                 debug!("Authenticated user: {:?}", username);
                 debug!("User permissions: {:?}", permissions);
 
@@ -259,7 +281,7 @@ pub struct OxideState {
     /// - Redirect URIs
     /// - Allowed scopes
     /// - Client type (public/confidential)
-    registrar: Arc<Mutex<ClientMap>>,
+    registrar: Arc<Mutex<ScopedRegistrar>>,
 
     /// Authorization state storage
     ///
@@ -364,7 +386,7 @@ pub fn authorize(
     }
 
     // If user is already authenticated, proceed to consent
-    if authenticated_user.is_some() {
+    if let Some(user) = authenticated_user {
         debug!("User is authenticated, proceeding to consent form");
         let debug_info = match oauth.query() {
             Ok(query) => {
@@ -385,9 +407,15 @@ pub fn authorize(
             }
             Err(_) => None,
         };
+        
+        // Create a consent form with user context
+        let user_permissions = user.0.permissions.clone();
+        let access_config = state.access_config.clone();
         return state
             .endpoint()
-            .with_solicitor(FnSolicitor(consent_form))
+            .with_solicitor(FnSolicitor(move |_: &mut _, solicitation: Solicitation| {
+                consent_form_with_user_validation(solicitation, &user_permissions, &access_config)
+            }))
             .authorization_flow()
             .execute(oauth)
             .map_err(|err| {
@@ -489,7 +517,7 @@ pub fn login(
     // Validate user credentials
     if let Some(user) = validate_user(&form.username, &form.password, access_config) {
         // Set authenticated session cookie
-        let permissions_str = user.permissions.join(",");
+        let permissions_str = user.permissions.join(USER_SESSION_PERMISSIONS_SEPARATOR.to_string().as_str());
         let cookie_value = format!("{}{}{}", user.user, USER_SESSION_SEPARATOR, permissions_str);
 
         let mut cookie = Cookie::new("user_session", cookie_value);
@@ -584,11 +612,13 @@ pub fn authorize_consent(
     }
 
     let user = authenticated_user.unwrap();
+    let user_permissions = user.0.permissions.clone();
+    let username = user.0.username.clone();
 
     state
         .endpoint()
         .with_solicitor(FnSolicitor(move |_: &mut _, grant: Solicitation<'_>| {
-            consent_decision(allowed, grant, user.0.username.clone())
+            consent_decision_with_scope_validation(allowed, grant, username.clone(), &user_permissions)
         }))
         .authorization_flow()
         .execute(oauth)
@@ -751,7 +781,7 @@ impl OxideState {
                 panic!("Missing access configuration");
             });
 
-        for client in access_config.clients {
+        for client in &access_config.clients {
             debug!("Adding client to oxide-auth: {:?}", client.client_id);
             let mut oauth_client = Client::public(
                 client.client_id.as_str(),
@@ -773,7 +803,7 @@ impl OxideState {
         }
 
         OxideState {
-            registrar: Arc::new(Mutex::new(client_map.into_iter().collect::<ClientMap>())),
+            registrar: Arc::new(Mutex::new(client_map.into_iter().collect::<ScopedRegistrar>())),
             // Authorization tokens are 16 byte random keys to a memory hash map.
             authorizer: Arc::new(Mutex::new(AuthMap::new(RandomGenerator::new(16)))),
             // Use JWT issuer for access tokens
@@ -785,8 +815,8 @@ impl OxideState {
             // Add RS256 keys (to be set later)
             rs256_private_key: String::new(),
             rs256_public_key: String::new(),
-            // Initialize access config with default values
-            access_config: AccessConfig::default(),
+            // Use the access config from the figment
+            access_config,
         }
     }
 
@@ -853,9 +883,89 @@ fn consent_form(
     _: &mut OAuthRequest<'_>,
     solicitation: Solicitation,
 ) -> OwnerConsent<OAuthResponse> {
-    let output = consent_page_html("/authorize", solicitation);
+    let output = consent_page_html("/authorize", solicitation, None, None);
     debug!("Consent form HTML {}", output);
     OwnerConsent::InProgress(OAuthResponse::new().body_html(&output).to_owned())
+}
+
+/// Generate a consent form with user permission validation
+///
+/// This function validates requested scopes against user permissions and
+/// generates an appropriate consent form. If requested scopes exceed user
+/// permissions, it shows an error or filters scopes accordingly.
+///
+/// # Parameters
+///
+/// * `solicitation` - Contains information about the authorization request
+/// * `user_permissions` - The authenticated user's permissions
+/// * `access_config` - Access configuration containing client and user data
+///
+/// # Returns
+///
+/// An `OwnerConsent` with either the consent form or an error message
+fn consent_form_with_user_validation(
+    solicitation: Solicitation,
+    user_permissions: &[String],
+    access_config: &AccessConfig,
+) -> OwnerConsent<OAuthResponse> {
+    let grant = solicitation.pre_grant();
+    let scope_string = grant.scope.to_string();
+    let requested_scopes: Vec<&str> = scope_string.split_whitespace().collect();
+    
+    // Validate requested scopes against user permissions
+    let mut allowed_scopes = Vec::new();
+    let mut denied_scopes = Vec::new();
+    
+    for scope in &requested_scopes {
+        if is_scope_allowed(scope, user_permissions) {
+            allowed_scopes.push(*scope);
+        } else {
+            denied_scopes.push(*scope);
+        }
+    }
+    
+    // If some scopes were denied, show warning but allow consent for allowed scopes
+    let warning_message = if !denied_scopes.is_empty() {
+        Some(format!(
+            "Warning: The following requested permissions are not available for your account: {}",
+            denied_scopes.join(", ")
+        ))
+    } else {
+        None
+    };
+    
+    // Create a modified solicitation with only allowed scopes if needed
+    let final_scope_str = if denied_scopes.is_empty() {
+        scope_string
+    } else {
+        allowed_scopes.join(" ")
+    };
+    
+    let output = consent_page_html("/authorize", solicitation, warning_message.as_deref(), Some(&final_scope_str));
+    debug!("Consent form HTML with user validation: {}", output);
+    OwnerConsent::InProgress(OAuthResponse::new().body_html(&output).to_owned())
+}
+
+/// Check if a scope is allowed for the given user permissions
+///
+/// This function validates whether a requested OAuth scope is permitted
+/// based on the user's assigned permissions.
+///
+/// # Parameters
+///
+/// * `scope` - The OAuth scope to validate
+/// * `user_permissions` - The user's assigned permissions
+///
+/// # Returns
+///
+/// `true` if the scope is allowed, `false` otherwise
+pub fn is_scope_allowed(scope: &str, user_permissions: &[String]) -> bool {
+    match scope {
+        // Standard OpenID Connect scopes are generally allowed
+        "openid" | "profile" | "email" => true,
+        // API scopes must match user permissions exactly
+        api_scope => user_permissions.contains(&api_scope.to_string()),
+    }
 }
 
 /// Process the user's consent decision
@@ -890,6 +1000,53 @@ fn consent_decision<'r>(
     }
 }
 
+/// Process the user's consent decision with scope validation
+///
+/// This function takes the user's decision, validates the requested scopes
+/// against the user's permissions, and returns the appropriate `OwnerConsent`
+/// value with filtered scopes.
+///
+/// # Parameters
+///
+/// * `allowed` - Whether the user granted permission (true) or denied it (false)
+/// * `solicitation` - The solicitation details containing requested scopes
+/// * `username` - The authenticated user's username
+/// * `user_permissions` - The user's assigned permissions
+///
+/// # Returns
+///
+/// * `OwnerConsent::Authorized` - If the user granted permission (with validated scopes)
+/// * `OwnerConsent::Denied` - If the user denied permission or no valid scopes
+fn consent_decision_with_scope_validation<'r>(
+    allowed: bool,
+    solicitation: Solicitation,
+    username: String,
+    user_permissions: &[String],
+) -> OwnerConsent<OAuthResponse> {
+    if !allowed {
+        return OwnerConsent::Denied;
+    }
+
+    // Validate and filter scopes based on user permissions
+    let grant = solicitation.pre_grant();
+    let scope_string = grant.scope.to_string();
+    let requested_scopes: Vec<&str> = scope_string.split_whitespace().collect();
+    
+    let allowed_scopes: Vec<&str> = requested_scopes
+        .into_iter()
+        .filter(|scope| is_scope_allowed(scope, user_permissions))
+        .collect();
+
+    // If no scopes are allowed, deny the request
+    if allowed_scopes.is_empty() {
+        debug!("No allowed scopes for user {}, denying request", username);
+        return OwnerConsent::Denied;
+    }
+
+    debug!("User {} authorized with scopes: {:?}", username, allowed_scopes);
+    OwnerConsent::Authorized(username)
+}
+
 /// Generate the HTML for the OAuth consent page
 ///
 /// This function generates the HTML for the consent page shown to users
@@ -901,12 +1058,14 @@ fn consent_decision<'r>(
 ///
 /// * `route` - The route that will handle the consent form submission
 /// * `solicitation` - Contains information about the authorization request
+/// * `warning_message` - Optional warning message to display to the user
+/// * `override_scope` - Optional scope override (used when filtering scopes based on permissions)
 ///
 /// # Returns
 ///
 /// A string containing the HTML for the consent page
 ///
-fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
+fn consent_page_html(route: &str, solicitation: Solicitation, warning_message: Option<&str>, override_scope: Option<&str>) -> String {
     let mut handlebars = Handlebars::new();
 
     // Register the consent template
@@ -930,14 +1089,19 @@ fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
     }
 
     let query_params = serde_urlencoded::to_string(extra).unwrap_or_default();
-    let formatted_scopes = format_scopes(&grant.scope.to_string());
+    
+    // Use override scope if provided, otherwise use the original scope
+    let scope_string = grant.scope.to_string();
+    let scope_to_format = override_scope.unwrap_or(&scope_string);
+    let formatted_scopes = format_scopes(scope_to_format);
 
     let data = json!({
         "client_id": grant.client_id.as_str(),
         "redirect_uri": grant.redirect_uri.as_str(),
         "formatted_scopes": formatted_scopes,
         "route": route,
-        "query_params": query_params
+        "query_params": query_params,
+        "warning_message": warning_message
     });
 
     handlebars
@@ -1003,4 +1167,80 @@ fn format_scopes(scope: &str) -> String {
         })
         .collect::<Vec<String>>()
         .join("\n")
+}
+
+/// A custom registrar that respects requested scopes instead of always using default scope
+pub struct ScopedRegistrar {
+    inner: ClientMap,
+}
+
+impl ScopedRegistrar {
+    pub fn new() -> Self {
+        Self {
+            inner: ClientMap::new(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn register_client(&mut self, client: Client) {
+        self.inner.register_client(client);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_password_policy<P: PasswordPolicy + 'static>(&mut self, new_policy: P) {
+        self.inner.set_password_policy(new_policy);
+    }
+}
+
+impl Registrar for ScopedRegistrar {
+    fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
+        // Delegate to the inner ClientMap
+        self.inner.bound_redirect(bound)
+    }
+
+    fn negotiate(&self, bound: BoundClient, scope: Option<Scope>) -> Result<PreGrant, RegistrarError> {
+        // Get the client to access its default scope for fallback
+        let client_id = bound.client_id.as_ref();
+        let inner_bound_result = self.inner.bound_redirect(ClientUrl {
+            client_id: Cow::Borrowed(client_id),
+            redirect_uri: None,
+        })?;
+        
+        // Get the default scope from the inner registrar's negotiate method
+        let default_pre_grant = self.inner.negotiate(inner_bound_result, None)?;
+        
+        // Use requested scope if provided, otherwise fall back to default
+        let final_scope = scope.unwrap_or(default_pre_grant.scope);
+        
+        Ok(PreGrant {
+            client_id: bound.client_id.into_owned(),
+            redirect_uri: bound.redirect_uri.into_owned(),
+            scope: final_scope,
+        })
+    }
+
+    fn check(&self, client_id: &str, passphrase: Option<&[u8]>) -> Result<(), RegistrarError> {
+        // Delegate to the inner ClientMap
+        self.inner.check(client_id, passphrase)
+    }
+}
+
+impl Extend<Client> for ScopedRegistrar {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = Client>,
+    {
+        self.inner.extend(iter);
+    }
+}
+
+impl FromIterator<Client> for ScopedRegistrar {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Client>,
+    {
+        let mut registrar = ScopedRegistrar::new();
+        registrar.extend(iter);
+        registrar
+    }
 }
