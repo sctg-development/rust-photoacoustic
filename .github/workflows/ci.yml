@@ -34,6 +34,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with: # fetch all submodules
+        submodules: 'recursive'
     
     # Install Rust toolchain
     - name: Install Rust toolchain

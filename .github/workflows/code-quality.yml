@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: # fetch all submodules
+           submodules: 'recursive'
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
