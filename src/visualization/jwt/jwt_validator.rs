@@ -18,7 +18,7 @@
 //!
 //! // Create a validator with a secret key
 //! let secret = b"your-secret-key";
-//! let validator = JwtValidator::new(secret)
+//! let validator = JwtValidator::new(Some(secret),None).unwrap()
 //!     .with_issuer("https://api.example.com")
 //!     .with_audience("web-client");
 //!     
@@ -139,35 +139,41 @@ pub struct JwtClaims {
 /// ```
 /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
 ///
-/// // Create a validator with a secret key
-/// let validator = JwtValidator::new(b"your-secret-key");
+/// // Create a validator with a secret key (HS256)
+/// let validator = JwtValidator::new(Some(b"your-secret-key"), None).unwrap();
 ///
-/// // Validate a token
-/// match validator.validate("your.jwt.token") {
-///     Ok(claims) => println!("Token is valid for user: {}", claims.sub),
-///     Err(e) => println!("Invalid token: {}", e),
-/// }
+/// // Validate a token (token must be signed with HS256)
+/// // let result = validator.validate("your.jwt.token");
+/// // assert!(result.is_ok() || result.is_err());
 /// ```
 ///
-/// More advanced configuration:
+/// Basic setup with RS256 algorithm:
 ///
-/// ```
+/// ```no_run
 /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-/// use jsonwebtoken::Algorithm;
-///
-/// // Create a validator with custom settings
-/// let validator = JwtValidator::new(b"your-secret-key")
-///     .with_algorithm(Algorithm::HS384)
-///     .with_issuer("https://api.example.com")
-///     .with_audience("mobile-app");
+/// // Example public key in PEM format (for demonstration only)
+/// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
+/// let validator = JwtValidator::new(None, Some(public_pem)).unwrap();
+/// // Validate a token (token must be signed with RS256)
+/// // let result = validator.validate("your.jwt.token");
+/// // assert!(result.is_ok() || result.is_err());
 /// ```
+///
+/// Dual algorithm (HS256 and RS256):
+///
+/// ```no_run
+/// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// let hmac = b"your-secret-key";
+/// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
+/// let validator = JwtValidator::new(Some(hmac), Some(public_pem)).unwrap();
+/// // Now validator can validate both HS256 and RS256 tokens.
+/// ```
+///
 pub struct JwtValidator {
-    /// The key used to verify the token signature
-    verification_key: DecodingKey,
-
-    /// The algorithm used to verify the token signature
-    algorithm: Algorithm,
-
+    /// Optional HMAC secret for HS256
+    hmac_key: Option<DecodingKey>,
+    /// Optional RS256 public key
+    rs256_key: Option<DecodingKey>,
     /// The expected issuer of the token, if any
     expected_issuer: Option<String>,
 
@@ -176,35 +182,23 @@ pub struct JwtValidator {
 }
 
 impl JwtValidator {
-    /// Create a new JwtValidator with the given secret
-    ///
-    /// This constructor creates a new validator with the HS256 algorithm and
-    /// no issuer or audience restrictions. The provided secret is used to verify
-    /// the token signature.
-    ///
-    /// # Parameters
-    ///
-    /// * `secret` - The secret key used to verify the token signature
-    ///
-    /// # Returns
-    ///
-    /// A new `JwtValidator` instance configured with the provided secret
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    ///
-    /// let secret = b"my-super-secret-key";
-    /// let validator = JwtValidator::new(secret);
-    /// ```
-    pub fn new(secret: &[u8]) -> Self {
-        JwtValidator {
-            verification_key: DecodingKey::from_secret(secret),
-            algorithm: Algorithm::HS256,
+    /// Create a new JwtValidator with optional HS256 and RS256 keys
+    pub fn new(
+        hmac_secret: Option<&[u8]>,
+        rs256_public_key_pem: Option<&[u8]>,
+    ) -> Result<Self, jsonwebtoken::errors::Error> {
+        let hmac_key = hmac_secret.map(DecodingKey::from_secret);
+        let rs256_key = if let Some(pem) = rs256_public_key_pem {
+            Some(DecodingKey::from_rsa_pem(pem)?)
+        } else {
+            None
+        };
+        Ok(JwtValidator {
+            hmac_key,
+            rs256_key,
             expected_issuer: None,
             expected_audience: None,
-        }
+        })
     }
 
     /// Set the expected issuer name
@@ -225,8 +219,7 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    ///
-    /// let validator = JwtValidator::new(b"secret-key")
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap()
     ///     .with_issuer("https://auth.example.com");
     /// ```
     pub fn with_issuer(mut self, issuer: impl Into<String>) -> Self {
@@ -252,8 +245,7 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    ///
-    /// let validator = JwtValidator::new(b"secret-key")
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap()
     ///     .with_audience("web-client");
     /// ```
     pub fn with_audience(mut self, audience: impl Into<String>) -> Self {
@@ -261,35 +253,7 @@ impl JwtValidator {
         self
     }
 
-    /// Set the JWT algorithm
-    ///
-    /// Configures the validator to use a specific algorithm for verifying
-    /// the token's signature. The default is HS256, but other algorithms
-    /// like RS256 (RSA with SHA-256) are also supported.
-    ///
-    /// # Parameters
-    ///
-    /// * `algorithm` - The algorithm to use for signature verification
-    ///
-    /// # Returns
-    ///
-    /// Self with the updated configuration, allowing for method chaining
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    /// use jsonwebtoken::Algorithm;
-    ///
-    /// let validator = JwtValidator::new(b"secret-key")
-    ///     .with_algorithm(Algorithm::RS256);
-    /// ```
-    pub fn with_algorithm(mut self, algorithm: Algorithm) -> Self {
-        self.algorithm = algorithm;
-        self
-    }
-
-    /// Validate a JWT token and return the decoded claims
+    /// Validate a JWT token and return the decoded claims, supporting both HS256 and RS256
     ///
     /// Validates the JWT token by:
     /// - Verifying the signature using the configured key and algorithm
@@ -320,46 +284,51 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    ///
-    /// let validator = JwtValidator::new(b"secret-key");
-    ///
-    /// match validator.validate("your.jwt.token") {
-    ///     Ok(claims) => println!("Valid token for user: {}", claims.sub),
-    ///     Err(e) => println!("Invalid token: {}", e),
-    /// }
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap();
+    /// // let result = validator.validate("your.jwt.token");
+    /// // assert!(result.is_ok() || result.is_err());
     /// ```
     pub fn validate(&self, token: &str) -> Result<JwtClaims> {
-        // Create validation criteria
-        let mut validation = Validation::new(self.algorithm);
+        // Parse the header to determine the algorithm
+        let header = jsonwebtoken::decode_header(token)
+            .map_err(|e| anyhow!("Failed to decode JWT header: {}", e))?;
+        let alg = header.alg;
+        let (key, algorithm) = match alg {
+            Algorithm::HS256 => {
+                let key = self
+                    .hmac_key
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("HS256 key not configured"))?;
+                (key, Algorithm::HS256)
+            }
+            Algorithm::RS256 => {
+                let key = self
+                    .rs256_key
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("RS256 key not configured"))?;
+                (key, Algorithm::RS256)
+            }
+            _ => return Err(anyhow!("Unsupported JWT algorithm: {:?}", alg)),
+        };
+        let mut validation = Validation::new(algorithm);
         validation.validate_exp = true;
         validation.validate_nbf = true;
-
-        // Set expected issuer if provided
         if let Some(ref issuer) = self.expected_issuer {
             validation.set_issuer(&[issuer]);
         }
-
-        // Set expected audience if provided
         if let Some(ref aud) = self.expected_audience {
             validation.set_audience(&[aud]);
         }
-
-        // Decode the token
-        let token_data = decode::<JwtClaims>(token, &self.verification_key, &validation)
+        let token_data = decode::<JwtClaims>(token, key, &validation)
             .map_err(|e| anyhow!("JWT validation failed: {}", e))?;
-
-        // Check token expiration separately (even though the library does this)
         let now = Utc::now();
         let exp_time = Utc
             .timestamp_opt(token_data.claims.exp, 0)
             .single()
             .ok_or_else(|| anyhow!("Invalid expiry time in token"))?;
-
         if exp_time < now {
             return Err(anyhow!("Token has expired"));
         }
-
-        // Return claims
         Ok(token_data.claims)
     }
 
@@ -388,16 +357,9 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    ///
-    /// let validator = JwtValidator::new(b"secret-key");
-    ///
-    /// match validator.get_user_info("your.jwt.token") {
-    ///     Ok(user) => {
-    ///         println!("User ID: {}", user.user_id);
-    ///         println!("Has admin scope: {}", user.has_scope("admin"));
-    ///     },
-    ///     Err(e) => println!("Failed to get user info: {}", e),
-    /// }
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap();
+    /// // let result = validator.get_user_info("your.jwt.token");
+    /// // assert!(result.is_ok() || result.is_err());
     /// ```
     pub fn get_user_info(&self, token: &str) -> Result<UserInfo> {
         let claims = self.validate(token)?;

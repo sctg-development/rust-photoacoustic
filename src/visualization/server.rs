@@ -457,8 +457,24 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         oxide_state.access_config = access_config;
     }
 
-    // Initialize JWT validator for API authentication with the HMAC secret
-    let jwt_validator = match super::api_auth::init_jwt_validator(hmac_secret.clone().as_str()) {
+    // Initialize JWT validator - try to use RS256 if keys are available, otherwise use HMAC secret
+    let rs256_public_key_bytes = if !oxide_state.rs256_public_key.is_empty() {
+        match base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key) {
+            Ok(decoded) => Some(decoded),
+            Err(e) => {
+                eprintln!("Warning: Failed to decode RS256 public key: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // Initialize JWT validator with RS256 public key if available, otherwise use HMAC
+    let jwt_validator = match super::api_auth::init_jwt_validator(
+        hmac_secret.clone().as_str(),
+        rs256_public_key_bytes.as_deref(),
+    ) {
         Ok(validator) => std::sync::Arc::new(validator),
         Err(e) => {
             eprintln!("Failed to initialize JWT validator: {}", e);
@@ -558,7 +574,7 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
     let oxide_state = super::oidc_auth::OxideState::preconfigured(config.clone());
 
     // Initialize JWT validator with the test secret
-    let jwt_validator = match super::api_auth::init_jwt_validator(test_hmac_secret) {
+    let jwt_validator = match super::api_auth::init_jwt_validator(test_hmac_secret, None) {
         Ok(validator) => std::sync::Arc::new(validator),
         Err(e) => {
             eprintln!("Failed to initialize JWT validator: {}", e);

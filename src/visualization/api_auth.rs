@@ -25,7 +25,7 @@
 //! #[launch]
 //! fn rocket() -> _ {
 //!     // Initialize JWT validator with a secret
-//!     let jwt_validator = Arc::new(init_jwt_validator("your-hmac-secret").expect("JWT init failed"));
+//!     let jwt_validator = Arc::new(init_jwt_validator("your-hmac-secret",None).expect("JWT init failed"));
 //!
 //!     rocket::build()
 //!         .manage(jwt_validator)
@@ -323,11 +323,13 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 /// Initialize the JWT validator for the API
 ///
 /// This function creates and configures a `JwtValidator` instance with the provided
-/// HMAC secret. The validator is configured with a fixed issuer and audience.
+/// HMAC secret or RS256 public key. The validator is configured with a fixed issuer
+/// and audience.
 ///
 /// # Arguments
 ///
 /// * `hmac_secret` - The HMAC secret key used to verify JWT signatures
+/// * `rs256_public_key` - Optional RS256 public key in PEM format for verifying signatures
 ///
 /// # Returns
 ///
@@ -339,19 +341,34 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 ///
 /// # Example
 ///
-/// ```
+/// ```no_run
 /// use std::sync::Arc;
 /// use rust_photoacoustic::visualization::api_auth::init_jwt_validator;
 ///
-/// let jwt_validator = init_jwt_validator("your-secret-key")
+/// let public_key_bytes = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----";
+/// // Using HMAC
+/// let jwt_validator = init_jwt_validator("your-secret-key", None)
 ///     .expect("Failed to initialize JWT validator");
+///     
+/// // Using RS256
+/// let jwt_validator = init_jwt_validator("fallback-secret", Some(&public_key_bytes.as_ref()))
+///     .expect("Failed to initialize JWT validator");
+///     
 /// let validator_arc = Arc::new(jwt_validator);
 /// ```
-pub fn init_jwt_validator(hmac_secret: &str) -> Result<JwtValidator> {
-    // Use the hmac_secret from config
-    let secret = hmac_secret.as_bytes();
-
-    Ok(JwtValidator::new(secret)
+pub fn init_jwt_validator(
+    hmac_secret: &str,
+    rs256_public_key: Option<&[u8]>,
+) -> Result<JwtValidator> {
+    // Support both keys if both are provided
+    let hmac_opt = if !hmac_secret.is_empty() {
+        Some(hmac_secret.as_bytes())
+    } else {
+        None
+    };
+    let validator = JwtValidator::new(hmac_opt, rs256_public_key)
+        .map_err(|e| anyhow::anyhow!("Failed to create JWT validator: {}", e))?;
+    Ok(validator
         .with_issuer("rust-photoacoustic")
         .with_audience("LaserSmartClient"))
 }
