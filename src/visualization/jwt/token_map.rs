@@ -14,10 +14,7 @@ use oxide_auth::primitives::issuer::{IssuedToken, Issuer, RefreshedToken, TokenT
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::vec;
 use url::Url;
-
-use crate::config;
 
 use super::claims::{IdTokenClaims, JwtClaims};
 use super::token_entry::TokenEntry;
@@ -378,15 +375,6 @@ impl JwtTokenMap {
             } else {
                 Some(metadata)
             },
-            // TODO: Add user permissions from config::AccessConfig
-            permissions: Some(vec![
-                "read:api".to_string(),
-                "admin:api".to_string(),
-                "write:api".to_string(),
-                "openid".to_string(),
-                "profile".to_string(),
-                "email".to_string(),
-            ]), // Example permissions
         }
     }
 }

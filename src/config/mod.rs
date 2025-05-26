@@ -78,7 +78,6 @@ pub use visualization::VisualizationConfig;
 
 /// Separator character used in user session identifiers
 pub const USER_SESSION_SEPARATOR: char = '⛷';
-pub const USER_SESSION_PERMISSIONS_SEPARATOR: char = '🪂';
 
 /// Root configuration structure for the photoacoustic application.
 ///
