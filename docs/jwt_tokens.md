@@ -8,7 +8,7 @@ This document describes the JWT (JSON Web Token) and OpenID Connect implementati
 
 ### Access Tokens (JWT Format)
 
-Access tokens are used for API authorization and follow the standard JWT format with three parts: header, payload, and signature.
+Access tokens are used for API authorization and follow the standard JWT format with three parts: header, payload, and signature. These tokens now include detailed user permission information for fine-grained access control.
 
 #### Header
 
@@ -31,15 +31,52 @@ Access tokens are used for API authorization and follow the standard JWT format 
   "aud": "client1", // Audience (client ID)
   "iss": "rust-photoacoustic", // Issuer
   "scope": "read:api write:api", // Space-delimited OAuth scopes
+  "permissions": ["read", "write", "admin"], // Array of user-specific permissions
   "metadata": { // Optional additional claims
     "user_id": "user123",
-    "user_permissions": "read write",
+    "user_permissions": "read write admin", // Space-separated permissions string
     "preferred_username": "user123",
+    "user_name": "user123",
     "redirect_uri": "http://localhost:8080/callback"
   }
 }
 ```
 
+### Access Tokens (JWT Format)
+
+Access tokens are used for API authorization and follow the standard JWT format with three parts: header, payload, and signature. These tokens now include detailed user permission information for fine-grained access control.
+
+#### Header
+
+```json
+{
+  "alg": "HS256", // or "RS256" or "ES256" depending on configuration
+  "typ": "JWT"
+}
+```
+
+#### Payload (Claims)
+
+```json
+{
+  "sub": "user123", // Subject (user ID)
+  "iat": 1626718856, // Issued at timestamp
+  "exp": 1626722456, // Expiration timestamp
+  "nbf": 1626718856, // Not before timestamp
+  "jti": "client1-12345", // JWT ID (unique identifier)
+  "aud": "client1", // Audience (client ID)
+  "iss": "rust-photoacoustic", // Issuer
+  "scope": "read:api write:api", // Space-delimited OAuth scopes
+  "permissions": ["read", "write", "admin"], // Array of user-specific permissions
+  "metadata": { // Optional additional claims
+    "user_id": "user123",
+    "user_permissions": "read write admin", // Space-separated permissions string
+    "preferred_username": "user123",
+    "user_name": "user123",
+    "redirect_uri": "http://localhost:8080/callback"
+  }
+}
+```
 ### ID Tokens (OpenID Connect)
 
 ID tokens are issued when the `openid` scope is requested and contain authentication information about the user.

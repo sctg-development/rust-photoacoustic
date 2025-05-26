@@ -747,6 +747,7 @@ pub fn authorize_consent(
 pub async fn token<'r>(
     mut oauth: OAuthRequest<'r>,
     state: &State<OxideState>,
+    authenticated_user: Option<AuthenticatedUser>,
 ) -> Result<OAuthResponse, OAuthFailure> {
     let body = oauth.urlbody()?;
     let grant_type = body.unique_value("grant_type");
@@ -760,17 +761,24 @@ pub async fn token<'r>(
     });
 
     // If we have a username, add user claims before token issuance
-    if let Some(username_cow) = username {
-        let username_str = username_cow.as_ref();
+    // if let Some(username_cow) = username {
+    //     let username_str = username_cow.as_ref();
 
-        // Find the user in our access config and add claims
-        for user in &state.access_config.users {
-            if user.user == username_str {
-                if let Ok(mut issuer) = state.issuer.lock() {
-                    issuer.add_user_claims(username_str, &user.permissions);
-                }
-                break;
-            }
+    //     // Find the user in our access config and add claims
+    //     for user in &state.access_config.users {
+    //         if user.user == username_str {
+    //             if let Ok(mut issuer) = state.issuer.lock() {
+    //                 issuer.add_user_claims(username_str, &user.permissions);
+    //             }
+    //             break;
+    //         }
+    //     }
+    // }
+    // If user is authenticated, we can add their claims
+    if let Some(authenticated_user) = authenticated_user {
+        let username = authenticated_user.0.username;
+        if let Ok(mut issuer) = state.issuer.lock() {
+            issuer.add_user_claims(&username, &authenticated_user.0.permissions);
         }
     }
 

@@ -11,7 +11,6 @@ use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, 
 use oxide_auth::primitives::generator::{RandomGenerator, TagGrant};
 use oxide_auth::primitives::grant::{Extensions, Grant, Value};
 use oxide_auth::primitives::issuer::{IssuedToken, Issuer, RefreshedToken, TokenType};
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::Arc;
 use url::Url;
@@ -327,7 +326,7 @@ impl JwtTokenMap {
     }
 
     /// Create JWT claims from a grant, including any additional user claims
-    fn create_claims(&self, grant: &Grant, now: DateTime<Utc>, expiry: DateTime<Utc>) -> JwtClaims {
+    fn create_access_token_claims(&self, grant: &Grant, now: DateTime<Utc>, expiry: DateTime<Utc>) -> JwtClaims {
         // Create a map for any public extensions and additional claims
         let mut metadata = HashMap::new();
 
@@ -361,6 +360,16 @@ impl JwtTokenMap {
         // Generate a unique token ID (jti)
         let jti = format!("{}-{}", grant.client_id, self.usage_counter);
 
+
+        let mut permissions: Option<Vec<String>> = None;
+        // Get permissions from self.claims key user_permissions
+        if let Some(Value::Public(Some(user_permissions))) = self.claims.get("user_permissions") {
+            let permissions_vec: Vec<String> = user_permissions
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect();
+            permissions = Some(permissions_vec);
+        }
         JwtClaims {
             sub: grant.owner_id.clone(),
             iat: now.timestamp(),
@@ -375,6 +384,7 @@ impl JwtTokenMap {
             } else {
                 Some(metadata)
             },
+            permissions: permissions.clone(),
         }
     }
 }
@@ -388,7 +398,7 @@ impl Issuer for JwtTokenMap {
         }
 
         // Generate claims (this now includes user claims automatically)
-        let claims = self.create_claims(&grant, now, grant.until);
+        let claims = self.create_access_token_claims(&grant, now, grant.until);
 
         // Create JWT token with specific algorithm
         let header = Header::new(self.algorithm);
@@ -467,7 +477,7 @@ impl Issuer for JwtTokenMap {
         }
 
         // Generate new claims
-        let claims = self.create_claims(&grant, now, grant.until);
+        let claims = self.create_access_token_claims(&grant, now, grant.until);
 
         // Create new JWT token with specific algorithm
         let header = Header::new(self.algorithm);

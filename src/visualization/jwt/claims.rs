@@ -70,6 +70,9 @@ pub struct JwtClaims {
     /// This is a common extension for OAuth 2.0 access tokens.
     pub scope: String,
 
+    /// Permissions if any
+    pub permissions: Option<Vec<String>>,
+
     /// Additional metadata
     ///
     /// Custom claims containing additional information about the user
