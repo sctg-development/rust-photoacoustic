@@ -71,6 +71,7 @@ pub struct JwtClaims {
     pub scope: String,
 
     /// Permissions if any
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub permissions: Option<Vec<String>>,
 
     /// Additional metadata
