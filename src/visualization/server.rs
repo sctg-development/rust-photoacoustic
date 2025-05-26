@@ -50,7 +50,7 @@
 //! }
 //! ```
 
-use crate::config::AccessConfig;
+use crate::config::{AccessConfig, Config};
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
 use crate::visualization::oidc_auth::{authorize, authorize_consent, refresh, token};
@@ -470,10 +470,14 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         None
     };
 
+    let access_config = figment
+        .extract_inner::<AccessConfig>("access_config")
+        .expect("Failed to extract config from Rocket");
     // Initialize JWT validator with RS256 public key if available, otherwise use HMAC
     let jwt_validator = match super::api_auth::init_jwt_validator(
         hmac_secret.clone().as_str(),
         rs256_public_key_bytes.as_deref(),
+        access_config,
     ) {
         Ok(validator) => std::sync::Arc::new(validator),
         Err(e) => {
@@ -537,6 +541,17 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .manage(jwt_validator)
 }
 
+pub fn get_config_from_request<'r>(request: &'r Request<'_>) -> AccessConfig {
+    // Get the system configuration from the rocket figment key
+    let access_config = request
+        .rocket()
+        .figment()
+        .extract_inner::<AccessConfig>("access_config")
+        .expect("Failed to extract config from Rocket");
+    // Return the configuration
+    access_config
+}
+
 #[cfg(test)]
 /// Build a Rocket instance configured specifically for testing
 ///
@@ -566,6 +581,8 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
         .merge(("port", 0)) // Random port for tests
         .merge(("log_level", rocket::config::LogLevel::Off));
 
+    let access_config = AccessConfig::default();
+
     // Use a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
     // Add the test HMAC secret to the configuration
@@ -575,13 +592,14 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
     let oxide_state = super::oidc_auth::OxideState::preconfigured(config.clone());
 
     // Initialize JWT validator with the test secret
-    let jwt_validator = match super::api_auth::init_jwt_validator(test_hmac_secret, None) {
-        Ok(validator) => std::sync::Arc::new(validator),
-        Err(e) => {
-            eprintln!("Failed to initialize JWT validator: {}", e);
-            std::process::exit(1);
-        }
-    };
+    let jwt_validator =
+        match super::api_auth::init_jwt_validator(test_hmac_secret, None, access_config) {
+            Ok(validator) => std::sync::Arc::new(validator),
+            Err(e) => {
+                eprintln!("Failed to initialize JWT validator: {}", e);
+                std::process::exit(1);
+            }
+        };
 
     // Build Rocket instance for tests
     rocket::custom(config)

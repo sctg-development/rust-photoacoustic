@@ -21,11 +21,12 @@
 //! use rocket::{launch, routes};
 //! use std::sync::Arc;
 //! use rust_photoacoustic::visualization::api_auth::{init_jwt_validator, get_profile, get_data};
+//! use rust_photoacoustic::config::AccessConfig;
 //!
 //! #[launch]
 //! fn rocket() -> _ {
 //!     // Initialize JWT validator with a secret
-//!     let jwt_validator = Arc::new(init_jwt_validator("your-hmac-secret",None).expect("JWT init failed"));
+//!     let jwt_validator = Arc::new(init_jwt_validator("your-hmac-secret",None, AccessConfig::default()).expect("JWT init failed"));
 //!
 //!     rocket::build()
 //!         .manage(jwt_validator)
@@ -33,6 +34,7 @@
 //! }
 //! ```
 
+use crate::config::AccessConfig;
 use crate::visualization::jwt::jwt_validator::JwtValidator;
 use anyhow::Result;
 use rocket::serde::json::Json;
@@ -43,6 +45,8 @@ use rocket::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+use super::server::get_config_from_request;
 
 /// JWT bearer token extractor for Rocket routes
 ///
@@ -178,6 +182,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             request::Outcome::Forward(forward) => return request::Outcome::Forward(forward),
         };
 
+        let access_config = get_config_from_request(request);
         // Get the validator from state
         let state = request
             .rocket()
@@ -185,7 +190,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             .expect("JwtValidator not configured");
 
         // Validate token
-        let user_info = match state.get_user_info(&token) {
+        let user_info = match state.get_user_info(&token, access_config) {
             Ok(info) => info,
             Err(e) => {
                 return request::Outcome::Error((
@@ -344,14 +349,15 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 /// ```no_run
 /// use std::sync::Arc;
 /// use rust_photoacoustic::visualization::api_auth::init_jwt_validator;
+/// use rust_photoacoustic::config::AccessConfig;
 ///
 /// let public_key_bytes = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----";
 /// // Using HMAC
-/// let jwt_validator = init_jwt_validator("your-secret-key", None)
+/// let jwt_validator = init_jwt_validator("your-secret-key", None, AccessConfig::default())
 ///     .expect("Failed to initialize JWT validator");
 ///     
 /// // Using RS256
-/// let jwt_validator = init_jwt_validator("fallback-secret", Some(&public_key_bytes.as_ref()))
+/// let jwt_validator = init_jwt_validator("fallback-secret", Some(&public_key_bytes.as_ref()), AccessConfig::default())
 ///     .expect("Failed to initialize JWT validator");
 ///     
 /// let validator_arc = Arc::new(jwt_validator);
@@ -359,6 +365,7 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 pub fn init_jwt_validator(
     hmac_secret: &str,
     rs256_public_key: Option<&[u8]>,
+    access_config: AccessConfig,
 ) -> Result<JwtValidator> {
     // Support both keys if both are provided
     let hmac_opt = if !hmac_secret.is_empty() {
@@ -366,7 +373,7 @@ pub fn init_jwt_validator(
     } else {
         None
     };
-    let validator = JwtValidator::new(hmac_opt, rs256_public_key)
+    let validator = JwtValidator::new(hmac_opt, rs256_public_key, access_config)
         .map_err(|e| anyhow::anyhow!("Failed to create JWT validator: {}", e))?;
     Ok(validator
         .with_issuer("rust-photoacoustic")

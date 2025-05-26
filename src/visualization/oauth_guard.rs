@@ -4,15 +4,20 @@
 
 //! Rocket request guard for validating Bearer tokens using JwtValidator (HS256/RS256)
 
+use crate::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
+use crate::visualization::oidc_auth::OxideState;
+use base64::Engine;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::State;
-use crate::visualization::jwt::jwt_validator::{JwtValidator, UserInfo};
-use crate::visualization::oidc_auth::OxideState;
-use base64::Engine;
+
+use super::server::get_config_from_request;
 
 /// Request guard for extracting and validating a Bearer JWT from the Authorization header
-pub struct OAuthBearer(pub UserInfo);
+pub struct OAuthBearer {
+    pub user_info: UserSysInfo,
+    pub token: String,
+}
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for OAuthBearer {
@@ -21,40 +26,62 @@ impl<'r> FromRequest<'r> for OAuthBearer {
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         // Get the Authorization header
         let auth_header = request.headers().get_one("Authorization");
-
+        let access_config = get_config_from_request(request);
         if let Some(header) = auth_header {
             if let Some(token) = header.strip_prefix("Bearer ") {
                 // Get the OxideState from Rocket state
                 let state = match request.guard::<&State<OxideState>>().await {
                     Outcome::Success(state) => state,
-                    _ => return Outcome::Error((Status::InternalServerError,(Status::InternalServerError, "Missing state"))),
+                    _ => {
+                        return Outcome::Error((
+                            Status::InternalServerError,
+                            (Status::InternalServerError, "Missing state"),
+                        ))
+                    }
                 };
                 // Build JwtValidator from state (supporting both HS256 and RS256)
                 let hmac_secret = state.hmac_secret.as_bytes();
                 let rs256_public_key = if !state.rs256_public_key.is_empty() {
-                    base64::engine::general_purpose::STANDARD.decode(&state.rs256_public_key).ok()
+                    base64::engine::general_purpose::STANDARD
+                        .decode(&state.rs256_public_key)
+                        .ok()
                 } else {
                     None
                 };
 
-                let mut validator = match rs256_public_key {
-                    Some(ref pem) => JwtValidator::new(Some(hmac_secret), Some(pem)),
-                    None => JwtValidator::new(Some(hmac_secret), None),
+                let validator = match rs256_public_key {
+                    Some(ref pem) => {
+                        JwtValidator::new(Some(hmac_secret), Some(pem), access_config.clone())
+                    }
+                    None => JwtValidator::new(Some(hmac_secret), None, access_config.clone()),
                 };
                 match validator {
-                    Ok(validator) => {
-                        match validator.get_user_info(token) {
-                            Ok(user_info) => Outcome::Success(OAuthBearer(user_info)),
-                            Err(_) => Outcome::Error((Status::Unauthorized,(Status::Unauthorized, "Invalid token"))),
-                        }
-                    }
-                    Err(_) => Outcome::Error((Status::InternalServerError,(Status::InternalServerError, "Validator error"))),
+                    Ok(validator) => match validator.get_user_info(token, access_config.clone()) {
+                        Ok(user_info) => Outcome::Success(OAuthBearer {
+                            user_info: user_info,
+                            token: token.to_string(),
+                        }),
+                        Err(_) => Outcome::Error((
+                            Status::Unauthorized,
+                            (Status::Unauthorized, "Invalid token"),
+                        )),
+                    },
+                    Err(_) => Outcome::Error((
+                        Status::InternalServerError,
+                        (Status::InternalServerError, "Validator error"),
+                    )),
                 }
             } else {
-                Outcome::Error((Status::Unauthorized,(Status::Unauthorized, "Missing Bearer token")))
+                Outcome::Error((
+                    Status::Unauthorized,
+                    (Status::Unauthorized, "Missing Bearer token"),
+                ))
             }
         } else {
-            Outcome::Error((Status::Unauthorized,(Status::Unauthorized, "Missing Authorization header")))
+            Outcome::Error((
+                Status::Unauthorized,
+                (Status::Unauthorized, "Missing Authorization header"),
+            ))
         }
     }
 }

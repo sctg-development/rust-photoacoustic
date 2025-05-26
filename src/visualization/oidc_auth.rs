@@ -56,6 +56,7 @@ use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
+use rocket::serde::json::{self, Json};
 use rocket::State;
 use rocket::{get, post};
 use serde::{de, Deserialize, Serialize};
@@ -64,6 +65,7 @@ use url::Url;
 
 use super::jwt::JwtIssuer;
 use super::oauth_guard::OAuthBearer;
+use super::user_info_reponse::UserInfoResponse;
 
 use crate::config::{AccessConfig, User, USER_SESSION_SEPARATOR};
 use base64::Engine;
@@ -666,6 +668,8 @@ fn decode_user_session(cookie_value: &str) -> Option<User> {
             user: username.to_string(),
             pass: String::new(), // Password is not stored in session
             permissions,
+            email: None,
+            name: None,
         })
     } else {
         None
@@ -836,16 +840,38 @@ pub async fn refresh<'r>(
 /// It requires a valid JWT access token to be present in the request Authorization header.
 #[get("/userinfo")]
 pub async fn userinfo(
-    bearer: OAuthBearer,
+    auth_bearer: OAuthBearer,
     state: &State<OxideState>,
-) -> Result<rocket::serde::json::Json<User>, OAuthFailure> {
+) -> Result<Json<UserInfoResponse>, OAuthFailure> {
     // Return the authenticated user's information
     debug!("Userinfo endpoint accessed with bearer token");
-    Ok(rocket::serde::json::Json(User {
-        user: "toto".to_string(), // Username is not returned in userinfo
-        pass: String::new(), // Password is not returned in userinfo
-        permissions: vec!["read:api".to_string(), "write:api".to_string()],
-    }))
+    let user = auth_bearer.user_info.clone(); // This is the client ID of the authenticated user
+
+    Ok(Json(
+        UserInfoResponse {
+            sub: user.user_id,
+            name: user.name,
+            email: user.email,
+            permissions: None,
+            given_name: None,
+            family_name: None,
+            middle_name: None,
+            nickname: None,
+            preferred_username: None,
+            profile: None,
+            picture: None,
+            website: None,
+            gender: None,
+            birthdate: None,
+            zoneinfo: None,
+            locale: None,
+            updated_at: None,
+            email_verified: None,
+            phone_number: None,
+            phone_number_verified: None,
+            address: None,
+        }, // Permissions from the OAuthBearer
+    ))
 }
 impl OxideState {
     /// Create a preconfigured OxideState with default settings

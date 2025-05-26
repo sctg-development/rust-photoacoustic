@@ -133,6 +133,9 @@ pub mod oidc;
 /// Oauth2 Request Guard
 pub mod oauth_guard;
 
+/// User information response for OpenID Connect
+pub mod user_info_reponse;
+
 use crate::{config::Config, AnalysisResult};
 use anyhow::Result;
 use base64::{self, Engine};

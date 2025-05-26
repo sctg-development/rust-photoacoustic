@@ -14,11 +14,12 @@
 //! # Example
 //!
 //! ```
-//! use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserInfo};
+//! use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
+//! use rust_photoacoustic::config::AccessConfig;
 //!
 //! // Create a validator with a secret key
 //! let secret = b"your-secret-key";
-//! let validator = JwtValidator::new(Some(secret),None).unwrap()
+//! let validator = JwtValidator::new(Some(secret),None, AccessConfig::default()).unwrap()
 //!     .with_issuer("https://api.example.com")
 //!     .with_audience("web-client");
 //!     
@@ -52,6 +53,8 @@ use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use crate::config::AccessConfig;
 
 /// Custom JWT claims structure matching the one in jwt.rs
 ///
@@ -139,9 +142,10 @@ pub struct JwtClaims {
 ///
 /// ```
 /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::config::AccessConfig;
 ///
 /// // Create a validator with a secret key (HS256)
-/// let validator = JwtValidator::new(Some(b"your-secret-key"), None).unwrap();
+/// let validator = JwtValidator::new(Some(b"your-secret-key"), None, AccessConfig::default()).unwrap();
 ///
 /// // Validate a token (token must be signed with HS256)
 /// // let result = validator.validate("your.jwt.token");
@@ -152,9 +156,10 @@ pub struct JwtClaims {
 ///
 /// ```no_run
 /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::config::AccessConfig;
 /// // Example public key in PEM format (for demonstration only)
 /// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
-/// let validator = JwtValidator::new(None, Some(public_pem)).unwrap();
+/// let validator = JwtValidator::new(None, Some(public_pem),AccessConfig::default()).unwrap();
 /// // Validate a token (token must be signed with RS256)
 /// // let result = validator.validate("your.jwt.token");
 /// // assert!(result.is_ok() || result.is_err());
@@ -164,9 +169,10 @@ pub struct JwtClaims {
 ///
 /// ```no_run
 /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::config::AccessConfig;
 /// let hmac = b"your-secret-key";
 /// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
-/// let validator = JwtValidator::new(Some(hmac), Some(public_pem)).unwrap();
+/// let validator = JwtValidator::new(Some(hmac), Some(public_pem), AccessConfig::default().unwrap();
 /// // Now validator can validate both HS256 and RS256 tokens.
 /// ```
 ///
@@ -180,6 +186,9 @@ pub struct JwtValidator {
 
     /// The expected audience of the token, if any
     expected_audience: Option<String>,
+
+    /// System access configuration
+    access_config: AccessConfig,
 }
 
 impl JwtValidator {
@@ -187,6 +196,7 @@ impl JwtValidator {
     pub fn new(
         hmac_secret: Option<&[u8]>,
         rs256_public_key_pem: Option<&[u8]>,
+        access_config: AccessConfig,
     ) -> Result<Self, jsonwebtoken::errors::Error> {
         let hmac_key = hmac_secret.map(DecodingKey::from_secret);
         let rs256_key = if let Some(pem) = rs256_public_key_pem {
@@ -199,6 +209,7 @@ impl JwtValidator {
             rs256_key,
             expected_issuer: None,
             expected_audience: None,
+            access_config: access_config,
         })
     }
 
@@ -220,7 +231,8 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap()
+    /// use rust_photoacoustic::config::AccessConfig;
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap()
     ///     .with_issuer("https://auth.example.com");
     /// ```
     pub fn with_issuer(mut self, issuer: impl Into<String>) -> Self {
@@ -246,7 +258,8 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap()
+    /// use rust_photoacoustic::config::AccessConfig;
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap()
     ///     .with_audience("web-client");
     /// ```
     pub fn with_audience(mut self, audience: impl Into<String>) -> Self {
@@ -285,7 +298,8 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap();
+    /// use rust_photoacoustic::config::AccessConfig;
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap();
     /// // let result = validator.validate("your.jwt.token");
     /// // assert!(result.is_ok() || result.is_err());
     /// ```
@@ -320,7 +334,7 @@ impl JwtValidator {
             debug!("Validating issuer: {}", issuer);
             validation.set_issuer(&[issuer]);
         }
-        
+
         // Get expected audience from config or set a default
         let expected_audience = Some("LaserSmartClient"); // TODO: replace with config if needed
         if let Some(ref aud) = expected_audience {
@@ -328,12 +342,9 @@ impl JwtValidator {
             validation.set_audience(&[aud]);
         }
 
-        // TODO: remove this debug log in production
-        validation.validate_aud = false;
-        let token_data = decode::<JwtClaims>(token, key, &validation)
-            .map_err(|e|{ 
-                debug!("JWT validation error: {}", e);
-                anyhow!("JWT validation failed: {}", e)
+        let token_data = decode::<JwtClaims>(token, key, &validation).map_err(|e| {
+            debug!("JWT validation error: {}", e);
+            anyhow!("JWT validation failed: {}", e)
         })?;
         let now = Utc::now();
         let exp_time = Utc
@@ -349,7 +360,7 @@ impl JwtValidator {
     /// Extract user information from a validated token
     ///
     /// This method validates the token and converts the JWT claims into a more
-    /// user-friendly `UserInfo` structure. It extracts standard claims like user ID
+    /// user-friendly `UserSysInfo` structure. It extracts standard claims like user ID
     /// and expiration, as well as additional information from the metadata field.
     ///
     /// # Parameters
@@ -358,7 +369,7 @@ impl JwtValidator {
     ///
     /// # Returns
     ///
-    /// * `Ok(UserInfo)` - User information extracted from the token
+    /// * `Ok(UserSysInfo)` - User information extracted from the token
     /// * `Err(Error)` - If the token validation fails for any reason
     ///
     /// # Errors
@@ -371,18 +382,26 @@ impl JwtValidator {
     ///
     /// ```
     /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
-    /// let validator = JwtValidator::new(Some(b"secret-key"), None).unwrap();
+    /// use rust_photoacoustic::config::AccessConfig;
+    /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap();
     /// // let result = validator.get_user_info("your.jwt.token");
     /// // assert!(result.is_ok() || result.is_err());
     /// ```
-    pub fn get_user_info(&self, token: &str) -> Result<UserInfo> {
+    pub fn get_user_info(&self, token: &str, access_config: AccessConfig) -> Result<UserSysInfo> {
         let claims = self.validate(token)?;
+        let user = access_config
+            .clone()
+            .users
+            .iter()
+            .find(|u| u.user == claims.sub)
+            .cloned()
+            .ok_or_else(|| anyhow!("User not found in access configuration"))?;
 
         let scopes: Vec<String> = claims.scope.split_whitespace().map(String::from).collect();
 
         // Extract additional information from metadata if available
-        let mut email = None;
-        let mut name = None;
+        let mut email = user.email.clone();
+        let mut name = user.name.clone();
 
         if let Some(metadata) = &claims.metadata {
             if let Some(email_val) = metadata.get("email") {
@@ -393,7 +412,7 @@ impl JwtValidator {
             }
         }
 
-        Ok(UserInfo {
+        Ok(UserSysInfo {
             user_id: claims.sub,
             client_id: claims.aud,
             scopes,
@@ -418,7 +437,7 @@ impl JwtValidator {
 /// contained in a JWT token. It includes the core user identity information,
 /// permission scopes, and token metadata.
 ///
-/// The `UserInfo` structure is designed to be:
+/// The `UserSysInfo` structure is designed to be:
 /// - Easy to work with in application code
 /// - Provide utility methods for common token operations
 /// - Include only the relevant information for authentication and authorization
@@ -426,10 +445,10 @@ impl JwtValidator {
 /// # Example
 ///
 /// ```
-/// use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserInfo};
+/// use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
 ///
-/// // After getting the UserInfo from a token
-/// fn process_user_info(user: &UserInfo) {
+/// // After getting the UserSysInfo from a token
+/// fn process_user_info(user: &UserSysInfo) {
 ///     println!("User ID: {}", user.user_id);
 ///     
 ///     if user.has_scope("admin") {
@@ -445,8 +464,8 @@ impl JwtValidator {
 ///     }
 /// }
 /// ```
-#[derive(Debug)]
-pub struct UserInfo {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserSysInfo {
     /// User ID from the subject claim
     ///
     /// This is typically a unique identifier for the user in your system,
@@ -492,10 +511,10 @@ pub struct UserInfo {
     pub expiry: DateTime<Utc>,
 }
 
-impl UserInfo {
-    /// Create a new UserInfo instance from a JSON claims object (for documentation examples)
+impl UserSysInfo {
+    /// Create a new UserSysInfo instance from a JSON claims object (for documentation examples)
     ///
-    /// This method is used primarily in documentation examples to create a UserInfo instance
+    /// This method is used primarily in documentation examples to create a UserSysInfo instance
     /// from JSON data representing JWT claims.
     ///
     /// # Parameters
@@ -504,7 +523,7 @@ impl UserInfo {
     ///
     /// # Returns
     ///
-    /// A new UserInfo instance with data from the claims
+    /// A new UserSysInfo instance with data from the claims
     #[doc(hidden)]
     pub fn from_claims(claims: &serde_json::Value) -> Self {
         use chrono::TimeZone;
@@ -557,7 +576,7 @@ impl UserInfo {
     /// # Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserInfo;
+    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserSysInfo;
     /// # use serde_json::json;
     /// # let claims = serde_json::from_value(json!({
     /// #     "sub": "user123",
@@ -566,7 +585,7 @@ impl UserInfo {
     /// #     "scope": "read:data write:data",
     /// #     "exp": 1719619200
     /// # })).unwrap();
-    /// # let user_info = UserInfo::from_claims(&claims);
+    /// # let user_info = UserSysInfo::from_claims(&claims);
     ///
     /// if user_info.has_scope("read:data") {
     ///     // Allow reading data
@@ -592,7 +611,7 @@ impl UserInfo {
     /// # Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserInfo;
+    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserSysInfo;
     /// # use serde_json::json;
     /// # let claims = serde_json::from_value(json!({
     /// #     "sub": "user123",
@@ -600,7 +619,7 @@ impl UserInfo {
     /// #     "email": "test@example.com",
     /// #     "exp": 1719619200
     /// # })).unwrap();
-    /// # let user_info = UserInfo::from_claims(&claims);
+    /// # let user_info = UserSysInfo::from_claims(&claims);
     ///
     /// let remaining = user_info.validity_remaining_secs();
     ///
@@ -610,7 +629,7 @@ impl UserInfo {
     ///     println!("Token valid for {} more seconds", remaining);
     /// }
     ///
-    /// # fn get_user_info() -> UserInfo {
+    /// # fn get_user_info() -> UserSysInfo {
     /// #     // This is a mock function for the example
     /// #     unimplemented!()
     /// # }
@@ -628,9 +647,9 @@ impl UserInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jsonwebtoken::{encode, Header, EncodingKey};
-    use std::fs;
     use chrono::Utc;
+    use jsonwebtoken::{encode, EncodingKey, Header};
+    use std::fs;
 
     fn test_claims() -> JwtClaims {
         JwtClaims {
@@ -648,10 +667,17 @@ mod tests {
 
     #[test]
     fn test_hs256_validation() {
+        let access_config = AccessConfig::default();
         let secret = b"my-secret";
         let claims = test_claims();
-        let token = encode(&Header::new(Algorithm::HS256), &claims, &EncodingKey::from_secret(secret)).unwrap();
-        let validator = JwtValidator::new(Some(secret), None).unwrap()
+        let token = encode(
+            &Header::new(Algorithm::HS256),
+            &claims,
+            &EncodingKey::from_secret(secret),
+        )
+        .unwrap();
+        let validator = JwtValidator::new(Some(secret), None, access_config)
+            .unwrap()
             .with_issuer("test-iss")
             .with_audience("test-aud");
         let validated = validator.validate(&token).unwrap();
@@ -661,12 +687,19 @@ mod tests {
 
     #[test]
     fn test_rs256_validation() {
+        let access_config = AccessConfig::default();
         // Load test RSA keys from resources (adjust path if needed)
         let private_pem = fs::read("resources/private.key").expect("private.key not found");
         let public_pem = fs::read("resources/pub.key").expect("pub.key not found");
         let claims = test_claims();
-        let token = encode(&Header::new(Algorithm::RS256), &claims, &EncodingKey::from_rsa_pem(&private_pem).unwrap()).unwrap();
-        let validator = JwtValidator::new(None, Some(&public_pem)).unwrap()
+        let token = encode(
+            &Header::new(Algorithm::RS256),
+            &claims,
+            &EncodingKey::from_rsa_pem(&private_pem).unwrap(),
+        )
+        .unwrap();
+        let validator = JwtValidator::new(None, Some(&public_pem), access_config)
+            .unwrap()
             .with_issuer("test-iss")
             .with_audience("test-aud");
         let validated = validator.validate(&token).unwrap();

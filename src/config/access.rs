@@ -92,6 +92,9 @@ pub struct User {
     /// * "write:api" - Allows modification operations on API endpoints
     /// * "admin:api" - Allows administrative operations
     pub permissions: Vec<String>,
+
+    pub email: Option<String>,
+    pub name: Option<String>,
 }
 
 /// Configuration for user access and permissions
@@ -152,6 +155,8 @@ impl Default for User {
                 "profile".to_string(),
                 "email".to_string(),
             ],
+            email: Some("email@example.org".to_string()),
+            name: Some("Admin User".to_string()),
         }
     }
 }

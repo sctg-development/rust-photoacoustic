@@ -41,7 +41,7 @@ pub struct OpenIdConfiguration {
     /// URL of the OP's OAuth 2.0 Token Endpoint
     pub token_endpoint: String,
 
-    /// URL of the OP's UserInfo Endpoint
+    /// URL of the OP's UserSysInfo Endpoint
     #[serde(skip_serializing_if = "Option::is_none")]
     pub userinfo_endpoint: Option<String>,
 
@@ -60,7 +60,7 @@ pub struct OpenIdConfiguration {
     /// JSON array containing a list of the JWS signing algorithms supported by this server for the ID Token
     pub id_token_signing_alg_values_supported: Vec<String>,
 
-    /// JSON array containing a list of the JWS algorithms that this server supports for the UserInfo Endpoint
+    /// JSON array containing a list of the JWS algorithms that this server supports for the UserSysInfo Endpoint
     pub userinfo_signing_alg_values_supported: Vec<String>,
 
     /// JSON array containing the scopes that this server supports

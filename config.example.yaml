@@ -66,11 +66,15 @@ access:
       - "read:api"
       - "write:api"
       - "admin:api"
+    # optional email and name for the user
+    email: administrator@example.org
+    name: Administrator User
   # user: readder
   - user: reader
     pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
     permissions:
       - "read:api"
+    email: reader@example.org
   clients:
     - client_id: LaserSmartClient
       default_scope: "openid profile email read:api write:api"

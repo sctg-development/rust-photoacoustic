@@ -217,6 +217,15 @@
                 },
                 "minItems": 1,
                 "description": "List of permissions granted to the user"
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "description": "Email address of the user"
+              },
+              "name": {
+                "type": "string",
+                "description": "Full name of the user"
               }
             },
             "required": [
