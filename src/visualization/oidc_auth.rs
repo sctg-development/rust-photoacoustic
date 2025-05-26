@@ -55,6 +55,7 @@ use oxide_auth::primitives::prelude::*;
 use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
+use rand::rand_core::le;
 use rocket::figment::Figment;
 use rocket::State;
 use rocket::{get, post};
@@ -112,13 +113,12 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
         let cookies = request.cookies();
 
         if let Some(cookie) = cookies.get_private("user_session") {
-            debug!("User session cookie found: {:?}", cookie.value());
-            // Parse the cookie value (format: "username:permission1,permission2")
-            let parts: Vec<&str> = cookie.value().split(USER_SESSION_SEPARATOR).collect();
-            debug!("Parsed cookie parts: {:?}", parts);
-            if parts.len() == 2 {
-                let username = parts[0].to_string();
-                let permissions: Vec<String> = parts[1].split(',').map(|s| s.to_string()).collect();
+            // Attempt to decode the user session cookie
+            let user_session = decode_user_session(cookie.value());
+            if let Some(user) = user_session {
+                debug!("User session cookie decoded successfully");
+                let username = user.user.clone();
+                let permissions = user.permissions.clone();
                 debug!("Authenticated user: {:?}", username);
                 debug!("User permissions: {:?}", permissions);
 
@@ -127,13 +127,10 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
                     permissions,
                 }));
             } else {
-                debug!("Invalid user session cookie format should be 'username:permission1,permission2'");
+                debug!("No user session cookie found");
             }
-        } else {
-            debug!("No user session cookie found");
+            // No valid session cookie found, return forward outcome
         }
-        // No valid session cookie found, return forward outcome
-
         Outcome::Forward(Status::Unauthorized)
     }
 }
@@ -489,10 +486,7 @@ pub fn login(
     // Validate user credentials
     if let Some(user) = validate_user(&form.username, &form.password, access_config) {
         // Set authenticated session cookie
-        let permissions_str = user.permissions.join(",");
-        let cookie_value = format!("{}{}{}", user.user, USER_SESSION_SEPARATOR, permissions_str);
-
-        let mut cookie = Cookie::new("user_session", cookie_value);
+        let mut cookie = Cookie::new("user_session", encode_user_session(user.clone()));
         cookie.set_http_only(true);
         cookie.set_path("/");
         cookie.set_max_age(Duration::hours(1));
@@ -545,6 +539,137 @@ pub fn login(
         .body_html(&output)
         .set_status(Status::Unauthorized)
         .clone())
+}
+
+/// Encode user information into a secure session cookie value
+///
+/// This function serializes user authentication data into a base64-encoded JSON string
+/// suitable for storage in HTTP cookies. The encoded value contains the username and
+/// user permissions, but excludes sensitive information like passwords.
+///
+/// # Encoding Process
+///
+/// 1. **JSON Serialization**: Creates a JSON object with username and permissions
+/// 2. **String Conversion**: Converts the JSON to a UTF-8 string representation
+/// 3. **Base64 Encoding**: Encodes the JSON string using standard base64 encoding
+///
+/// # Security Considerations
+///
+/// - **No Password Storage**: Passwords are explicitly excluded from the session data
+/// - **Base64 Encoding**: Provides basic obfuscation but is not encryption
+/// - **Cookie Security**: Should be used with secure, HTTP-only cookies
+/// - **Session Lifetime**: Consider implementing session expiration
+///
+/// # Parameters
+///
+/// * `user` - A [`User`] object containing the username, password, and permissions.
+///   Only the username and permissions are encoded; the password is ignored for security.
+///
+/// # Returns
+///
+/// A base64-encoded string containing the JSON representation of the user's session data.
+/// The resulting string is safe to use as an HTTP cookie value.
+///
+/// # JSON Format
+///
+/// The encoded JSON has the following structure:
+/// ```json
+/// {
+///   "username": "alice",
+///   "permissions": ["read:api", "write:api"]
+/// }
+/// ```
+///
+/// # Related Functions
+///
+/// - [`decode_user_session`] - Decodes the session cookie back into a User object
+/// - [`validate_user`] - Validates user credentials during authentication
+fn encode_user_session(user: User) -> String {
+    let user_data = json!({
+        "username": user.user,
+        "permissions": user.permissions,
+    });
+    base64::engine::general_purpose::STANDARD.encode(user_data.to_string())
+}
+
+/// Decode user information from a session cookie value
+///
+/// This function deserializes a base64-encoded JSON string back into a [`User`] object,
+/// recovering the authentication session data stored in an HTTP cookie. It performs
+/// comprehensive validation of the cookie format and structure.
+///
+/// # Decoding Process
+///
+/// 1. **Base64 Decoding**: Decodes the base64 string to get the JSON bytes
+/// 2. **JSON Parsing**: Parses the JSON structure and validates the schema
+/// 3. **Data Extraction**: Extracts username and permissions arrays
+/// 4. **User Construction**: Creates a new [`User`] object with decoded data
+///
+/// # Validation Steps
+///
+/// The function validates:
+/// - Base64 encoding is valid
+/// - JSON structure is well-formed
+/// - Required fields ("username", "permissions") are present
+/// - Username is a valid string
+/// - Permissions is an array of strings
+///
+/// # Parameters
+///
+/// * `cookie_value` - A base64-encoded string containing the JSON session data,
+///   typically obtained from an HTTP cookie value
+///
+/// # Returns
+///
+/// * `Some(User)` - Successfully decoded user session with username and permissions.
+///   The password field will be empty since it's not stored in sessions.
+/// * `None` - If decoding fails at any step (invalid base64, malformed JSON,
+///   missing fields, or incorrect data types)
+///
+/// # Security Features
+///
+/// - **Graceful Failure**: Returns `None` instead of panicking on invalid input
+/// - **No Password Recovery**: Passwords are never stored in sessions
+/// - **Type Safety**: Validates that permissions are strings, not other JSON types
+/// - **Schema Validation**: Ensures expected JSON structure is present
+///
+/// # Error Conditions
+///
+/// The function returns `None` in these cases:
+/// - Invalid base64 encoding in the cookie value
+/// - Malformed JSON that cannot be parsed
+/// - Missing "username" field in the JSON
+/// - Missing "permissions" field in the JSON
+/// - "username" field is not a string
+/// - "permissions" field is not an array
+/// - Any permission in the array is not a string
+///
+/// # Related Functions
+///
+/// - [`encode_user_session`] - Encodes user data into a session cookie
+/// - [`AuthenticatedUser::from_request`] - Request guard that uses this function
+/// - [`validate_user`] - Initial user authentication function
+fn decode_user_session(cookie_value: &str) -> Option<User> {
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(cookie_value)
+        .ok()?;
+    let user_data: serde_json::Value = serde_json::from_slice(&decoded).ok()?;
+    if let (Some(username), Some(permissions)) = (
+        user_data.get("username").and_then(|v| v.as_str()),
+        user_data.get("permissions").and_then(|v| v.as_array()),
+    ) {
+        let permissions: Vec<String> = permissions
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+        Some(User {
+            user: username.to_string(),
+            pass: String::new(), // Password is not stored in session
+            permissions,
+        })
+    } else {
+        None
+    }
 }
 
 /// OAuth 2.0 authorization consent handling endpoint
