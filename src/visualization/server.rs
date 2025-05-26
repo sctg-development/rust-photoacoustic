@@ -50,7 +50,7 @@
 //! }
 //! ```
 
-use crate::config::{AccessConfig, Config};
+use crate::config::AccessConfig;
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
 use crate::visualization::oidc_auth::{authorize, authorize_consent, refresh, token};

@@ -412,6 +412,8 @@ impl JwtValidator {
             }
         }
 
+        let permissions = user.permissions.clone();
+
         Ok(UserSysInfo {
             user_id: claims.sub,
             client_id: claims.aud,
@@ -427,6 +429,7 @@ impl JwtValidator {
                 .timestamp_opt(claims.exp, 0)
                 .single()
                 .ok_or_else(|| anyhow!("Invalid expiry time in token"))?,
+            permissions: Some(permissions),
         })
     }
 }
@@ -509,6 +512,9 @@ pub struct UserSysInfo {
     ///
     /// The timestamp when the token will expire, extracted from the "exp" claim.
     pub expiry: DateTime<Utc>,
+
+    /// User permissions
+    pub permissions: Option<Vec<String>>,
 }
 
 impl UserSysInfo {
@@ -555,6 +561,7 @@ impl UserSysInfo {
                 .timestamp_opt(exp, 0)
                 .single()
                 .unwrap_or_else(|| Utc::now() + chrono::Duration::hours(1)),
+            permissions: None,
         }
     }
 
