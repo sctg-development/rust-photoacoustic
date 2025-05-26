@@ -73,7 +73,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::PathBuf;
 
-use super::oidc_auth::{login, OxideState};
+use super::oidc_auth::{login, userinfo, OxideState};
 
 /// Static directory containing the web client files
 ///
@@ -496,6 +496,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
                 authorize,
                 authorize_consent,
                 login,
+                userinfo,
                 token,
                 refresh,
                 super::introspection::introspect,

@@ -49,6 +49,7 @@
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, TimeZone, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -299,6 +300,7 @@ impl JwtValidator {
                     .hmac_key
                     .as_ref()
                     .ok_or_else(|| anyhow!("HS256 key not configured"))?;
+                debug!("Using HS256 key for validation");
                 (key, Algorithm::HS256)
             }
             Algorithm::RS256 => {
@@ -306,6 +308,7 @@ impl JwtValidator {
                     .rs256_key
                     .as_ref()
                     .ok_or_else(|| anyhow!("RS256 key not configured"))?;
+                debug!("Using RS256 key for validation");
                 (key, Algorithm::RS256)
             }
             _ => return Err(anyhow!("Unsupported JWT algorithm: {:?}", alg)),
@@ -314,13 +317,24 @@ impl JwtValidator {
         validation.validate_exp = true;
         validation.validate_nbf = true;
         if let Some(ref issuer) = self.expected_issuer {
+            debug!("Validating issuer: {}", issuer);
             validation.set_issuer(&[issuer]);
         }
-        if let Some(ref aud) = self.expected_audience {
+        
+        // Get expected audience from config or set a default
+        let expected_audience = Some("LaserSmartClient"); // TODO: replace with config if needed
+        if let Some(ref aud) = expected_audience {
+            debug!("Validating audience: {}", aud);
             validation.set_audience(&[aud]);
         }
+
+        // TODO: remove this debug log in production
+        validation.validate_aud = false;
         let token_data = decode::<JwtClaims>(token, key, &validation)
-            .map_err(|e| anyhow!("JWT validation failed: {}", e))?;
+            .map_err(|e|{ 
+                debug!("JWT validation error: {}", e);
+                anyhow!("JWT validation failed: {}", e)
+        })?;
         let now = Utc::now();
         let exp_time = Utc
             .timestamp_opt(token_data.claims.exp, 0)

@@ -130,6 +130,9 @@ pub mod server;
 /// OIDC discovery and configuration
 pub mod oidc;
 
+/// Oauth2 Request Guard
+pub mod oauth_guard;
+
 use crate::{config::Config, AnalysisResult};
 use anyhow::Result;
 use base64::{self, Engine};

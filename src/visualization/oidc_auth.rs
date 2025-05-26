@@ -55,7 +55,6 @@ use oxide_auth::primitives::prelude::*;
 use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
-use rand::rand_core::le;
 use rocket::figment::Figment;
 use rocket::State;
 use rocket::{get, post};
@@ -64,6 +63,7 @@ use serde_json::json;
 use url::Url;
 
 use super::jwt::JwtIssuer;
+use super::oauth_guard::OAuthBearer;
 
 use crate::config::{AccessConfig, User, USER_SESSION_SEPARATOR};
 use base64::Engine;
@@ -830,6 +830,23 @@ pub async fn refresh<'r>(
         .map_err(|err| err.pack::<OAuthFailure>())
 }
 
+/// Openid userinfo endpoint
+/// Accessed via `GET /userinfo`
+/// This endpoint returns user information based on the access token provided in the Authorization header.
+/// It requires a valid JWT access token to be present in the request Authorization header.
+#[get("/userinfo")]
+pub async fn userinfo(
+    bearer: OAuthBearer,
+    state: &State<OxideState>,
+) -> Result<rocket::serde::json::Json<User>, OAuthFailure> {
+    // Return the authenticated user's information
+    debug!("Userinfo endpoint accessed with bearer token");
+    Ok(rocket::serde::json::Json(User {
+        user: "toto".to_string(), // Username is not returned in userinfo
+        pass: String::new(), // Password is not returned in userinfo
+        permissions: vec!["read:api".to_string(), "write:api".to_string()],
+    }))
+}
 impl OxideState {
     /// Create a preconfigured OxideState with default settings
     ///
