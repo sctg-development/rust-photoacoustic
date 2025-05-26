@@ -326,7 +326,12 @@ impl JwtTokenMap {
     }
 
     /// Create JWT claims from a grant, including any additional user claims
-    fn create_access_token_claims(&self, grant: &Grant, now: DateTime<Utc>, expiry: DateTime<Utc>) -> JwtClaims {
+    fn create_access_token_claims(
+        &self,
+        grant: &Grant,
+        now: DateTime<Utc>,
+        expiry: DateTime<Utc>,
+    ) -> JwtClaims {
         // Create a map for any public extensions and additional claims
         let mut metadata = HashMap::new();
 
@@ -359,7 +364,6 @@ impl JwtTokenMap {
 
         // Generate a unique token ID (jti)
         let jti = format!("{}-{}", grant.client_id, self.usage_counter);
-
 
         let mut permissions: Option<Vec<String>> = None;
         // Get permissions from self.claims key user_permissions
