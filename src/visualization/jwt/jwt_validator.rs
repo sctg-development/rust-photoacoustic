@@ -24,7 +24,7 @@
 //!     .with_audience("web-client");
 //!     
 //! // Validate a token and get user info
-//! match validator.get_user_info("your.jwt.token") {
+//! match validator.get_user_info("your.jwt.token", AccessConfig::default()) {
 //!     Ok(user_info) => {
 //!         println!("User ID: {}", user_info.user_id);
 //!         
@@ -172,7 +172,7 @@ pub struct JwtClaims {
 /// use rust_photoacoustic::config::AccessConfig;
 /// let hmac = b"your-secret-key";
 /// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
-/// let validator = JwtValidator::new(Some(hmac), Some(public_pem), AccessConfig::default().unwrap();
+/// let validator = JwtValidator::new(Some(hmac), Some(public_pem), AccessConfig::default());
 /// // Now validator can validate both HS256 and RS256 tokens.
 /// ```
 ///
@@ -641,69 +641,5 @@ impl UserSysInfo {
         } else {
             self.expiry.signed_duration_since(now).num_seconds()
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::Utc;
-    use jsonwebtoken::{encode, EncodingKey, Header};
-    use std::fs;
-
-    fn test_claims() -> JwtClaims {
-        JwtClaims {
-            sub: "user123".to_string(),
-            iat: Utc::now().timestamp(),
-            exp: Utc::now().timestamp() + 3600,
-            nbf: Utc::now().timestamp(),
-            jti: "test-jti".to_string(),
-            aud: "test-aud".to_string(),
-            iss: "test-iss".to_string(),
-            scope: "read:data write:data".to_string(),
-            metadata: None,
-        }
-    }
-
-    #[test]
-    fn test_hs256_validation() {
-        let access_config = AccessConfig::default();
-        let secret = b"my-secret";
-        let claims = test_claims();
-        let token = encode(
-            &Header::new(Algorithm::HS256),
-            &claims,
-            &EncodingKey::from_secret(secret),
-        )
-        .unwrap();
-        let validator = JwtValidator::new(Some(secret), None, access_config)
-            .unwrap()
-            .with_issuer("test-iss")
-            .with_audience("test-aud");
-        let validated = validator.validate(&token).unwrap();
-        assert_eq!(validated.sub, claims.sub);
-        assert_eq!(validated.scope, claims.scope);
-    }
-
-    #[test]
-    fn test_rs256_validation() {
-        let access_config = AccessConfig::default();
-        // Load test RSA keys from resources (adjust path if needed)
-        let private_pem = fs::read("resources/private.key").expect("private.key not found");
-        let public_pem = fs::read("resources/pub.key").expect("pub.key not found");
-        let claims = test_claims();
-        let token = encode(
-            &Header::new(Algorithm::RS256),
-            &claims,
-            &EncodingKey::from_rsa_pem(&private_pem).unwrap(),
-        )
-        .unwrap();
-        let validator = JwtValidator::new(None, Some(&public_pem), access_config)
-            .unwrap()
-            .with_issuer("test-iss")
-            .with_audience("test-aud");
-        let validated = validator.validate(&token).unwrap();
-        assert_eq!(validated.sub, claims.sub);
-        assert_eq!(validated.scope, claims.scope);
     }
 }

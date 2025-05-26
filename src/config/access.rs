@@ -72,6 +72,8 @@ pub struct Client {
 /// let user = User {
 ///     user: "admin".to_string(),
 ///     pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
+///     email: None,
+///     name: None,
 ///     permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
 /// };
 /// ```
@@ -115,11 +117,15 @@ pub struct User {
 ///              user: "admin".to_string(),
 ///              pass: "JDEkYTRuMy5jZmUkRU93djlOYXBKYjFNTXRTMHA1UzN1MQo=".to_string(),
 ///              permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
+///              email: None,
+///              name: None,
 ///          },
 ///          User {
 ///              user: "reader".to_string(),
 ///              pass: "JDEkUTJoSGZWU3ckT3NIVTUzamhCY3pYVmRHTGlTazg4Lwo=".to_string(),
 ///              permissions: vec!["read:api".to_string()],
+///              email: None,
+///              name: None,
 ///          }],
 ///      clients: vec![
 ///          Client {
