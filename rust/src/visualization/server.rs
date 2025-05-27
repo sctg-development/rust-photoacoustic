@@ -68,7 +68,6 @@ use rocket::serde::json::Json;
 use rocket::{get, options, routes, uri, Build, Rocket};
 use rocket::{Request, Response};
 use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
-use serde_urlencoded::de;
 use std::env;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -80,7 +79,7 @@ use super::oidc_auth::{login, userinfo, OxideState};
 /// This constant includes the compiled web client files at compile time.
 /// The files are embedded in the binary, eliminating the need for external
 /// file dependencies when deploying the server.
-const STATIC_DIR: Dir = include_dir!("web/dist");
+const STATIC_DIR: Dir = include_dir!("../web/dist");
 
 impl Debug for ConnectionInfo<'_> {
     /// Formats the ConnectionInfo for debug output

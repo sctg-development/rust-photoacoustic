@@ -46,6 +46,7 @@ jobs:
 
       - name: Build documentation
         run: |
+          cd rust
           # Build documentation with all features
           cargo doc --all-features --document-private-items --no-deps --package rust_photoacoustic --package oxide-auth --package oxide-auth-rocket
           
@@ -54,7 +55,7 @@ jobs:
           
           # Copy the documentation to the GitHub Pages directory
           mkdir -p public
-          cp -r target/doc/* public/
+          cp -r target/doc/* ../public/
       - name: Setup Pages
         uses: actions/configure-pages@v4
         

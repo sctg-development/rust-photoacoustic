@@ -30,7 +30,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
       
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: |
+          cd rust
+          cargo fmt -- --check
       
       - name: Run clippy
-        run: cargo clippy
+        run: |
+          cd rust
+          cargo clippy

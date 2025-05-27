@@ -11,5 +11,12 @@
         "RUSTFLAGS": "${env:RUSTFLAGS} -A unused",
         "RUST_LOG": "debug"
     },
-    "rust-analyzer.diagnostics.disabled": ["macro-error"]
+    "rust-analyzer.diagnostics.disabled": [
+        "macro-error"
+    ],
+    "i18n-ally.localesPaths": [
+        "web/src/locales/base"
+    ],
+    "i18n-ally.keystyle": "flat",
+    "i18n-ally.sourceLanguage": "en-US"
 }

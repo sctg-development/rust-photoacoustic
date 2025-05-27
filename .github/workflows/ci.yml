@@ -200,6 +200,7 @@ jobs:
           cross build --target ${{ matrix.target }}
           
         else
+          cd rust
           cargo build --target ${{ matrix.target }}
         fi
       shell: bash

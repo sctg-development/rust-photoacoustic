@@ -30,12 +30,12 @@ fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
 
     // Get the most recent modification date of source files
     let src_paths = [
-        PathBuf::from("./web/src"),
-        PathBuf::from("./web/public"),
-        PathBuf::from("./web/index.html"),
-        PathBuf::from("./web/package.json"),
-        PathBuf::from("./web/tsconfig.json"),
-        PathBuf::from("./web/vite.config.ts"),
+        PathBuf::from("../web/src"),
+        PathBuf::from("../web/public"),
+        PathBuf::from("../web/index.html"),
+        PathBuf::from("../web/package.json"),
+        PathBuf::from("../web/tsconfig.json"),
+        PathBuf::from("../web/vite.config.ts"),
         // Add other files/directories to watch as needed
     ];
 
@@ -559,8 +559,8 @@ fn build_web_console(version_changed: bool) -> Result<()> {
     println!("cargo:warning=build_web_console: Starting function");
 
     // Checks if dist files already exist to avoid unnecessary rebuilds
-    let dist_path = PathBuf::from("./web/dist");
-    let web_path = PathBuf::from("./web");
+    let dist_path = PathBuf::from("../web/dist");
+    let web_path = PathBuf::from("../web");
 
     println!(
         "cargo:warning=build_web_console: dist_path exists: {}",
@@ -672,7 +672,7 @@ async fn main() {
     }
 
     // Process package.json to check for version changes
-    let data = fs::read_to_string("./web/package.json").unwrap();
+    let data = fs::read_to_string("../web/package.json").unwrap();
     let mut package: PackageJson = serde_json::from_str(&data).unwrap();
 
     // Build the path to the file in the temporary directory
@@ -692,7 +692,7 @@ async fn main() {
     if version_changed {
         package.set_version(&version);
         let serialized = serde_json::to_string_pretty(&package).unwrap();
-        fs::write("./web/package.json", serialized).unwrap();
+        fs::write("../web/package.json", serialized).unwrap();
     }
 
     // Build the web console
