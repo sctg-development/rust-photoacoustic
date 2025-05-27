@@ -1,95 +1,150 @@
-# Photoacoustic Water Vapor Analyzer Configuration
-# this yaml file converted to json must pass config.schema.json schema validation
-
+# Photoacoustic Water Vapor Analyzer Configuration Example
+# --------------------------------------------------------
+# This YAML file configures the rust-photoacoustic application.
+# It must pass validation against config.schema.json (see docs for schema details).
+# To view the schema, run: `rust-photoacoustic ---show-config-schema`
+#
+# =========================
+# HOW TO GENERATE SECRETS AND CERTIFICATES
+# =========================
+#
+# --- Generate RSA keypair for RS256 JWT signing ---
+# POSIX (Linux/macOS):
+#   openssl genpkey -algorithm RSA -out private.key -pkeyopt rsa_keygen_bits:2048
+#   openssl rsa -pubout -in private.key -out pub.key
+#   base64 -w0 private.key > private.key.b64
+#   base64 -w0 pub.key > pub.key.b64
+# Windows (using Git Bash or WSL):
+#   Same as above, or use OpenSSL for Windows (https://slproweb.com/products/Win32OpenSSL.html)
+#   Use 'base64 -w0' or 'certutil -encode' (then remove header/footer lines)
+#
+# --- Generate a PEM certificate for HTTPS (self-signed) ---
+# POSIX:
+#   openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+#   base64 -w0 cert.pem > cert.txt
+#   base64 -w0 key.pem > key.txt
+# Windows:
+#   Use OpenSSL for Windows as above, or use PowerShell:
+#   New-SelfSignedCertificate -DnsName "localhost" -CertStoreLocation "cert:\LocalMachine\My"
+#   # Export as PEM using certmgr or OpenSSL
+#
+# --- Generate a password hash for a user ---
+# POSIX:
+#   openssl passwd -5 mypassword | base64 -w0
+# Windows:
+#   Use Git Bash or WSL for the above, or use Python:
+#   python -c "import crypt,base64; print(base64.b64encode(crypt.crypt('mypassword', crypt.mksalt(crypt.METHOD_SHA512)).encode()).decode())"
+#
+# --- Validate this YAML against the JSON schema ---
+# 1. Convert YAML to JSON (e.g. https://www.json2yaml.com/ or https://yaml-online-parser.appspot.com/)
+# 2. Use an online JSON schema validator (e.g. https://www.jsonschemavalidator.net/)
+#    - Upload your converted JSON
+#    - Upload config.schema.json from the repository
+#    - Validate and check for errors
+#
+# =========================
 # Visualization server settings
+# =========================
 visualization:
-  # The port to listen on
+  # TCP port for the web server (default: 8080)
   port: 8080
-  # The address to bind to (ipv4 or ipv6)
+  # IP address to bind the server (use 0.0.0.0 for all interfaces)
   address: 127.0.0.1
-  # The server name
+  # Server name/version string (for HTTP headers and logs)
   name: LaserSmartApiServer/0.1.0
 
-  # The session secret key for the visualization server
-  # This key is used to sign the session cookie
-  # It can be securely generated with `openssl rand -base64 32`
+  # Secret key for signing session cookies (keep this private!)
+  # Generate securely: `openssl rand -base64 32`
   session_secret: 6wcVSUhxt1+YPEondChFXtesCL1boh57gqHv2gnEH7U=
 
-  # SSL certificate PEM data (Base64 encoded) - Optional
-  # generated with `cat rust-photoacoustic.local.pem | base64 -w0`
-  # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  # SSL certificate and key (Base64-encoded PEM, optional for HTTPS)
+  # To enable HTTPS, provide both cert and key fields below.
+  # Generate and encode with:
+  #   cat rust-photoacoustic.local.pem | base64 -w0 > cert.txt
+  #   cat rust-photoacoustic.local.key | base64 -w0 > key.txt
+  # cert: <Base64 PEM certificate string>
+  # key: <Base64 PEM private key string>
 
-  # SSL key PEM data (Base64 encoded) - Optional
-  # generated with `cat rust-photoacoustic.local.key | base64 -w0`
-  # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
-
-  # HMAC secret for HS256 JWT token signing (used for API authentication)
+  # JWT authentication secrets:
+  # HMAC secret for HS256 JWT signing (used for API authentication)
   hmac_secret: my-super-secret-jwt-key-for-photoacoustic-app
 
-  # RSA private and public keys base64 encoded pem for RS256 token signing (used for API authentication)
-  # generated with rs256keygen
+  # RSA keys for RS256 JWT signing (Base64-encoded PEM, used for API authentication)
+  # Generate with the `rs256keygen` utility or OpenSSL.
+  # These are optional unless you want RS256 support.
   rs256_private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUdyQWdFQUFpRUFyd0FZcXAvdGVvaUE4N2FWQStJTjQ1U1RvMTdMUVZPbGRUT3FJeHhQeElNQ0F3RUFBUUlnCldRVlpodUpYOGE4aXVkYzFNb1o1dldYcmxwdFlEUTQ3RXUwa2pNVVA2T0VDRVFEUjEyN0RsZWNKNU80V3B2VEcKdnQ1YkFoRUExWDZ4ZVVzUXpISkZTYlV4eXZEYStRSVJBS2Z1b05ZbHdTQko5Y0JySExseFJzRUNFUURCcTBOZApqNTMyaUxhWURablV5amNwQWhCSG9CU1JSTS9ESVA5dWE1MDhYMEtOCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
   rs256_public_key: LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2QUJpcW4rMTZpSUR6dHBVRDRnM2psSk9qWHN0QlU2VjFNNm9qSEUvRWd3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0K
 
+# =========================
+# Modbus TCP server settings
+# =========================
 modbus:
-  # modbus tcp port to listen on
+  # TCP port for Modbus server
   port: 1502
-  # ipv4 or ipv6 to bind on
+  # IP address to bind Modbus server
   address: "127.0.0.1"
+  # Enable or disable Modbus server
   enabled: false
 
+# =========================
+# Photoacoustic acquisition settings
+# =========================
 photoacoustic:
-  # input_device and input_file are mutually exclusive
+  # Input source: specify either input_device (e.g. alsa:0) or input_file (wav file)
   #input_device: alsa:0
   input_file: input.wav
 
-  # excitation frequency in Hz
+  # Excitation frequency in Hz for the laser
   frequency: 2000.0
 
-  # bandwidth of the band-pass filter
+  # Bandwidth of the band-pass filter (Hz)
   bandwidth: 100.0
 
-  # window size of the fft analyzer
+  # FFT analyzer window size (samples)
   window_size: 4096
 
-  # number of spectra to average
+  # Number of spectra to average for noise reduction
   averages: 10
 
-# control the access to the visualization server
+# =========================
+# Access control and user management
+# =========================
 access:
   users:
-    # Array of users with their passwords and permissions
-    # user: administrator
+    # List of users with hashed passwords and permissions
+    # Passwords are hashed (e.g. with openssl passwd -5) and base64-encoded
     - user: administrator
-      pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg== # openssl passwd -5 password | base64 -w0
+      pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg== # password: 'password'
       permissions:
         - "read:api"
         - "write:api"
         - "admin:api"
-      # optional email and name for the user
+      # Optional user metadata
       email: administrator@example.org
       name: Administrator User
-    # user: readder
     - user: reader
-      pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
+      pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # password: '123445678'
       permissions:
         - "read:api"
       email: reader@example.org
   clients:
+    # OAuth2/OpenID Connect clients allowed to use the API
     - client_id: LaserSmartClient
       default_scope: "openid profile email read:api write:api"
       allowed_callbacks:
         - "http://localhost:8080/client/"
         - "https://localhost:8080/client/"
 
-  # OAuth2 and OpenID Connect configuration (client side)
+  # =========================
+  # OAuth2/OpenID Connect client configuration (for web client)
+  # =========================
   generix:
-    provider: generix # Only "generix" is supported
+    provider: generix # Only 'generix' is supported
     api_base_url: https://localhost:8080 # Base URL of the API server
-    client_id: LaserSmartClient # Client ID for OAuth2/OpenID Connect
+    client_id: LaserSmartClient # OAuth2/OpenID Connect client ID
     scope: "openid email profile read:api write:api" # Scopes requested by the client
-    redirect_uri: https://localhost:8080/client/ # Redirect URI for the client after authentication
-    audience: LaserSmart # Audience in the JWT token
-    token_issuer: hhttps://localhost:8080 # Token issuer base URL
-    jwks_endpoint: https://localhost:8080/.well-known/jwks.json # Endpoint for JSON Web Key Set (JWKS)
+    redirect_uri: https://localhost:8080/client/ # Redirect URI after authentication
+    audience: LaserSmart # Audience claim in JWT tokens
+    token_issuer: https://localhost:8080 # Token issuer base URL
+    jwks_endpoint: https://localhost:8080/.well-known/jwks.json # JWKS endpoint for public keys
     domain: localhost # Domain for the client application
