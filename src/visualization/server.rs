@@ -601,7 +601,8 @@ async fn helper_min_js() -> Option<StaticFileResponse> {
 #[get("/client/@vite/client")]
 async fn websocket_proxy() -> Option<StaticFileResponse> {
     if env::var("VITE_DEVELOPMENT").is_ok() {
-        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+        let vite_base =
+            env::var("VITE_DEVELOPMENT").unwrap_or("https://localhost:5173".to_string());
         let url = format!("{}/client/@vite/client", vite_base);
 
         info!("Proxying @vite/client to: {}", url);

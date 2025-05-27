@@ -55,6 +55,7 @@
   "devDependencies": {
     "@sctg/vite-plugin-github-pages-spa": "^0.1.1",
     "@tailwindcss/vite": "^4.1.7",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
@@ -73,6 +74,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-unused-imports": "^4.1.4",
     "globals": "^16.1.0",
+    "js-yaml": "^4.1.0",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
     "ts-node": "^10.9.2",

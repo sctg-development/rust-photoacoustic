@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { githubPagesSpa } from "@sctg/vite-plugin-github-pages-spa";
+import { extractCert, extractKey } from "./extract.cert";
 
 import _package from "./package.json" with { type: "json" };
 
@@ -157,4 +158,10 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    https: {
+      cert: extractCert("../config.yaml"),
+      key: extractKey("../config.yaml"),
+    }
+  }
 });
