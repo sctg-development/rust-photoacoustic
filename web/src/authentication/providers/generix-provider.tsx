@@ -19,7 +19,7 @@ import {
 /**
  * Dex implementation of the AuthProvider interface using oidc-client-ts
  */
-export const useDexProvider = (
+export const useGenerixProvider = (
   providedConfig?: AuthProviderConfig,
 ): AuthProvider => {
   // Active debug logging for OIDC client to help troubleshoot
@@ -28,22 +28,22 @@ export const useDexProvider = (
 
   // Merge provided config with defaults
   const config: AuthProviderConfig = {
-    authority: providedConfig?.authority || import.meta.env.DEX_AUTHORITY,
-    clientId: providedConfig?.clientId || import.meta.env.DEX_CLIENT_ID,
+    authority: providedConfig?.authority || import.meta.env.GENERIX_AUTHORITY,
+    clientId: providedConfig?.clientId || import.meta.env.GENERIX_CLIENT_ID,
     redirectUri:
       providedConfig?.redirectUri ||
-      import.meta.env.DEX_REDIRECT_URI ||
+      import.meta.env.GENERIX_REDIRECT_URI ||
       `${window.location.origin}/`,
     scope:
       providedConfig?.scope ||
-      import.meta.env.DEX_SCOPE ||
+      import.meta.env.GENERIX_SCOPE ||
       "openid profile email",
-    audience: providedConfig?.audience || import.meta.env.DEX_AUDIENCE,
+    audience: providedConfig?.audience || import.meta.env.GENERIX_AUDIENCE,
     tokenIssuer:
-      providedConfig?.tokenIssuer || import.meta.env.DEX_TOKEN_ISSUER,
+      providedConfig?.tokenIssuer || import.meta.env.GENERIX_TOKEN_ISSUER,
     jwksEndpoint:
-      providedConfig?.jwksEndpoint || import.meta.env.DEX_JWKS_ENDPOINT,
-    domain: providedConfig?.domain || import.meta.env.DEX_DOMAIN,
+      providedConfig?.jwksEndpoint || import.meta.env.GENERIX_JWKS_ENDPOINT,
+    domain: providedConfig?.domain || import.meta.env.GENERIX_DOMAIN,
   };
 
   const [user, setUser] = useState<User | null>(null);
@@ -121,7 +121,7 @@ export const useDexProvider = (
 
               // Check if we should auto login
               const shouldAutoLogin =
-                import.meta.env.DEX_AUTO_LOGIN !== "false";
+                import.meta.env.GENERIX_AUTO_LOGIN !== "false";
 
               if (
                 shouldAutoLogin &&
@@ -193,8 +193,8 @@ export const useDexProvider = (
     return () => {
       userManager.events.removeUserLoaded(addUserSignedIn);
       userManager.events.removeUserUnloaded(addUserSignedOut);
-      userManager.events.removeAccessTokenExpiring(() => {});
-      userManager.events.removeAccessTokenExpired(() => {});
+      userManager.events.removeAccessTokenExpiring(() => { });
+      userManager.events.removeAccessTokenExpired(() => { });
     };
   }, [userManager]);
 
@@ -428,11 +428,11 @@ export const useDexProvider = (
   // Map OIDC user to common AuthUser format
   const authUser: AuthUser | null = user
     ? {
-        name: user.profile.name,
-        nickname: user.profile.nickname || user.profile.preferred_username,
-        email: user.profile.email,
-        ...user.profile,
-      }
+      name: user.profile.name,
+      nickname: user.profile.nickname || user.profile.preferred_username,
+      email: user.profile.email,
+      ...user.profile,
+    }
     : null;
 
   return {

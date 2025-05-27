@@ -7,9 +7,13 @@
 //! This module defines the structures for managing users, OAuth clients,
 //! and their respective permissions within the application.
 
-use serde::{Deserialize, Serialize};
-
 use super::USER_SESSION_SEPARATOR;
+use rocket::{
+    http::Status,
+    request::{FromRequest, Outcome},
+    Request, State,
+};
+use serde::{Deserialize, Serialize};
 
 /// OAuth2 client configuration for authorization code flow
 ///
@@ -185,6 +189,19 @@ impl Default for AccessConfig {
         Self {
             users: vec![User::default()],
             clients: vec![Client::default()],
+        }
+    }
+}
+
+/// Request guard for accessing the  AccessConfig from the request state
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AccessConfig {
+    type Error = (&'static str);
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        match request.guard::<&State<AccessConfig>>().await {
+            Outcome::Success(config) => Outcome::Success(config.inner().clone()),
+            _ => Outcome::Error((Status::InternalServerError, "Missing access config")),
         }
     }
 }

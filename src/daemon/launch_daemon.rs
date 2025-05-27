@@ -262,6 +262,9 @@ impl Daemon {
         // Add the access config to the figment
         figment = figment.merge(("access_config", config.access.clone()));
 
+        // Add the Generix configuration to the figment
+        figment = figment.merge(("generix_config", config.generix.clone()));
+
         let rocket = build_rocket(figment).await;
 
         let _running = self.running.clone();

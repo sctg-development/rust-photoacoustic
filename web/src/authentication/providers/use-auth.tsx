@@ -7,7 +7,7 @@ import React, { createContext, useContext, ReactNode, JSX } from "react";
 
 import { AuthProvider, AuthUser } from "./auth-provider";
 import { useAuth0Provider } from "./auth0-provider";
-import { useDexProvider } from "./dex-provider";
+import { useGenerixProvider } from "./generix-provider";
 
 // Create context for the authentication provider
 const AuthContext = createContext<AuthProvider | null>(null);
@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthProvider | null>(null);
 // Props for the provider wrapper component
 interface AuthProviderWrapperProps {
   children: ReactNode;
-  providerType?: "auth0" | "dex";
+  providerType?: "auth0" | "generix";
 }
 
 /**
@@ -33,8 +33,8 @@ export const AuthProviderWrapper: React.FC<AuthProviderWrapperProps> = ({
       authProvider = useAuth0Provider();
       break;
     // Uncomment when needed
-    case "dex":
-      authProvider = useDexProvider();
+    case "generix":
+      authProvider = useGenerixProvider();
       break;
     default:
       // Default to Auth0

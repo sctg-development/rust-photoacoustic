@@ -22,7 +22,7 @@ use rocket::{get, State};
 use serde::{Deserialize, Serialize};
 
 use super::oidc_auth::OxideState;
-use super::server::ConnectionInfo;
+use super::request_guard::ConnectionInfo;
 use crate::visualization::jwt::jwt_keys::JwkKeySet;
 
 /// OpenID Connect Discovery Configuration

@@ -14,7 +14,7 @@ visualization:
   # This key is used to sign the session cookie
   # It can be securely generated with `openssl rand -base64 32`
   session_secret: 6wcVSUhxt1+YPEondChFXtesCL1boh57gqHv2gnEH7U=
-  
+
   # SSL certificate PEM data (Base64 encoded) - Optional
   # generated with `cat rust-photoacoustic.local.pem | base64 -w0`
   # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
@@ -30,17 +30,17 @@ visualization:
   # generated with rs256keygen
   rs256_private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUdyQWdFQUFpRUFyd0FZcXAvdGVvaUE4N2FWQStJTjQ1U1RvMTdMUVZPbGRUT3FJeHhQeElNQ0F3RUFBUUlnCldRVlpodUpYOGE4aXVkYzFNb1o1dldYcmxwdFlEUTQ3RXUwa2pNVVA2T0VDRVFEUjEyN0RsZWNKNU80V3B2VEcKdnQ1YkFoRUExWDZ4ZVVzUXpISkZTYlV4eXZEYStRSVJBS2Z1b05ZbHdTQko5Y0JySExseFJzRUNFUURCcTBOZApqNTMyaUxhWURablV5amNwQWhCSG9CU1JSTS9ESVA5dWE1MDhYMEtOCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
   rs256_public_key: LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2QUJpcW4rMTZpSUR6dHBVRDRnM2psSk9qWHN0QlU2VjFNNm9qSEUvRWd3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0K
-  
+
 modbus:
   # modbus tcp port to listen on
   port: 1502
   # ipv4 or ipv6 to bind on
-  address: '127.0.0.1'
+  address: "127.0.0.1"
   enabled: false
 
 photoacoustic:
   # input_device and input_file are mutually exclusive
-  #input_device: alsa:0 
+  #input_device: alsa:0
   input_file: input.wav
 
   # excitation frequency in Hz
@@ -58,26 +58,38 @@ photoacoustic:
 # control the access to the visualization server
 access:
   users:
-  # Array of users with their passwords and permissions
-  # user: administrator
-  - user: administrator
-    pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg== # openssl passwd -5 password | base64 -w0
-    permissions:
-      - "read:api"
-      - "write:api"
-      - "admin:api"
-    # optional email and name for the user
-    email: administrator@example.org
-    name: Administrator User
-  # user: readder
-  - user: reader
-    pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
-    permissions:
-      - "read:api"
-    email: reader@example.org
+    # Array of users with their passwords and permissions
+    # user: administrator
+    - user: administrator
+      pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg== # openssl passwd -5 password | base64 -w0
+      permissions:
+        - "read:api"
+        - "write:api"
+        - "admin:api"
+      # optional email and name for the user
+      email: administrator@example.org
+      name: Administrator User
+    # user: readder
+    - user: reader
+      pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # openssl passwd -5 123445678 | base64 -w0
+      permissions:
+        - "read:api"
+      email: reader@example.org
   clients:
     - client_id: LaserSmartClient
       default_scope: "openid profile email read:api write:api"
       allowed_callbacks:
-        - 'http://localhost:8080/client/'
-        - 'https://localhost:8080/client/'
+        - "http://localhost:8080/client/"
+        - "https://localhost:8080/client/"
+
+  # OAuth2 and OpenID Connect configuration (client side)
+  generix:
+    provider: generix # Only "generix" is supported
+    api_base_url: https://localhost:8080 # Base URL of the API server
+    client_id: LaserSmartClient # Client ID for OAuth2/OpenID Connect
+    scope: "openid email profile read:api write:api" # Scopes requested by the client
+    redirect_uri: https://localhost:8080/client/ # Redirect URI for the client after authentication
+    audience: LaserSmart # Audience in the JWT token
+    token_issuer: hhttps://localhost:8080 # Token issuer base URL
+    jwks_endpoint: https://localhost:8080/.well-known/jwks.json # Endpoint for JSON Web Key Set (JWKS)
+    domain: localhost # Domain for the client application

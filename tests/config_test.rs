@@ -1,7 +1,7 @@
 use anyhow::Result;
 use base64::Engine;
 use rust_photoacoustic::config::{
-    AccessConfig, AcquisitionConfig, Config, ModbusConfig, PhotoacousticConfig,
+    AccessConfig, AcquisitionConfig, Config, GenerixConfig, ModbusConfig, PhotoacousticConfig,
     VisualizationConfig, USER_SESSION_SEPARATOR,
 };
 use std::fs;
@@ -40,6 +40,7 @@ fn test_config_load_and_save() -> Result<()> {
         },
         photoacoustic: PhotoacousticConfig::default(),
         access: AccessConfig::default(),
+        generix: GenerixConfig::default(),
     };
 
     // Save config to file

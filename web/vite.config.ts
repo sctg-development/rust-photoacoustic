@@ -69,7 +69,7 @@ console.warn(
   `Launching Vite with\nAUTH0_DOMAIN: ${process.env.AUTH0_DOMAIN}\nAUTH0_CLIENT_ID: ${process.env.AUTH0_CLIENT_ID}\nAUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}\nAUTH0_SCOPE: ${process.env.AUTH0_SCOPE}\nAPI_BASE_URL: ${process.env.API_BASE_URL}`,
 );
 console.warn(
-  `Launching Vite with\nDEX_AUTHORITY: ${process.env.DEX_AUTHORITY}\nDEX_CLIENT_ID: ${process.env.DEX_CLIENT_ID}\nDEX_REDIRECT_URI: ${process.env.DEX_REDIRECT_URI}\nDEX_SCOPE: ${process.env.DEX_SCOPE}\nDEX_AUDIENCE: ${process.env.DEX_AUDIENCE}\nDEX_TOKEN_ISSUER: ${process.env.DEX_TOKEN_ISSUER}\nDEX_JWKS_ENDPOINT: ${process.env.DEX_JWKS_ENDPOINT}\nDEX_DOMAIN: ${process.env.DEX_DOMAIN}`,
+  `Launching Vite with\nGENERIX_AUTHORITY: ${process.env.GENERIX_AUTHORITY}\nGENERIX_CLIENT_ID: ${process.env.GENERIX_CLIENT_ID}\nGENERIX_REDIRECT_URI: ${process.env.GENERIX_REDIRECT_URI}\nGENERIX_SCOPE: ${process.env.GENERIX_SCOPE}\nGENERIX_AUDIENCE: ${process.env.GENERIX_AUDIENCE}\nGENERIX_TOKEN_ISSUER: ${process.env.GENERIX_TOKEN_ISSUER}\nGENERIX_JWKS_ENDPOINT: ${process.env.GENERIX_JWKS_ENDPOINT}\nGENERIX_DOMAIN: ${process.env.GENERIX_DOMAIN}`,
 );
 export default defineConfig({
   define: {
@@ -88,20 +88,20 @@ export default defineConfig({
     "import.meta.env.AUTH0_SCOPE": JSON.stringify(process.env.AUTH0_SCOPE),
     "import.meta.env.API_BASE_URL": JSON.stringify(process.env.API_BASE_URL),
     // Dex environment variables
-    "import.meta.env.DEX_AUTHORITY": JSON.stringify(process.env.DEX_AUTHORITY),
-    "import.meta.env.DEX_CLIENT_ID": JSON.stringify(process.env.DEX_CLIENT_ID),
-    "import.meta.env.DEX_REDIRECT_URI": JSON.stringify(
-      process.env.DEX_REDIRECT_URI,
+    "import.meta.env.GENERIX_AUTHORITY": JSON.stringify(process.env.GENERIX_AUTHORITY),
+    "import.meta.env.GENERIX_CLIENT_ID": JSON.stringify(process.env.GENERIX_CLIENT_ID),
+    "import.meta.env.GENERIX_REDIRECT_URI": JSON.stringify(
+      process.env.GENERIX_REDIRECT_URI,
     ),
-    "import.meta.env.DEX_SCOPE": JSON.stringify(process.env.DEX_SCOPE),
-    "import.meta.env.DEX_AUDIENCE": JSON.stringify(process.env.DEX_AUDIENCE),
-    "import.meta.env.DEX_TOKEN_ISSUER": JSON.stringify(
-      process.env.DEX_TOKEN_ISSUER,
+    "import.meta.env.GENERIX_SCOPE": JSON.stringify(process.env.GENERIX_SCOPE),
+    "import.meta.env.GENERIX_AUDIENCE": JSON.stringify(process.env.GENERIX_AUDIENCE),
+    "import.meta.env.GENERIX_TOKEN_ISSUER": JSON.stringify(
+      process.env.GENERIX_TOKEN_ISSUER,
     ),
-    "import.meta.env.DEX_JWKS_ENDPOINT": JSON.stringify(
-      process.env.DEX_JWKS_ENDPOINT,
+    "import.meta.env.GENERIX_JWKS_ENDPOINT": JSON.stringify(
+      process.env.GENERIX_JWKS_ENDPOINT,
     ),
-    "import.meta.env.DEX_DOMAIN": JSON.stringify(process.env.DEX_DOMAIN),
+    "import.meta.env.GENERIX_DOMAIN": JSON.stringify(process.env.GENERIX_DOMAIN),
   },
   plugins: [react(), tsconfigPaths(), tailwindcss(), githubPagesSpa()],
   build: {

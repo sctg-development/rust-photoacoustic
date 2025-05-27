@@ -56,6 +56,7 @@
 //! 3. Extracting user information and permissions from the token
 //! 4. Optionally checking for specific permissions
 
+use crate::config::AccessConfig;
 use crate::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
 use crate::visualization::oidc_auth::OxideState;
 use base64::Engine;

@@ -67,7 +67,7 @@ use super::jwt::JwtIssuer;
 use super::oauth_guard::OAuthBearer;
 use super::user_info_reponse::UserInfoResponse;
 
-use crate::config::{AccessConfig, User, USER_SESSION_SEPARATOR};
+use crate::config::{AccessConfig, GenerixConfig, User, USER_SESSION_SEPARATOR};
 use base64::Engine;
 use rocket::form::{Form, FromForm};
 use rocket::http::{Cookie, CookieJar, Status};
@@ -293,6 +293,9 @@ pub struct OxideState {
     /// Contains the list of users and their permissions used for authentication
     /// and authorization in the OAuth flow.
     pub access_config: AccessConfig,
+
+    /// Generix configuration for Oxide Auth
+    pub generix_config: GenerixConfig,
 }
 
 /// Implementation of Clone for OxideState
@@ -310,6 +313,7 @@ impl Clone for OxideState {
             rs256_private_key: self.rs256_private_key.clone(),
             rs256_public_key: self.rs256_public_key.clone(),
             access_config: self.access_config.clone(),
+            generix_config: self.generix_config.clone(),
         }
     }
 }
@@ -963,6 +967,8 @@ impl OxideState {
             rs256_public_key: String::new(),
             // Initialize access config with default values
             access_config: AccessConfig::default(),
+            // Initialize the generix configuration
+            generix_config: GenerixConfig::default(),
         }
     }
 

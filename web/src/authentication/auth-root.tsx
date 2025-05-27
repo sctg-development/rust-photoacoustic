@@ -9,7 +9,7 @@ import { Auth0Provider } from "@auth0/auth0-react";
 import { AuthProviderWrapper } from "./providers/use-auth";
 
 // Provider types we support
-export type AuthenticationType = "auth0" | "dex";
+export type AuthenticationType = "auth0" | "generix";
 
 interface AuthenticationProviderProps {
   children: React.ReactNode;
@@ -55,17 +55,17 @@ export const AuthenticationProvider: React.FC<AuthenticationProviderProps> = ({
   }
 
   // For Dex and other providers, we'd need to set up their specific provider
-  if (providerType === "dex") {
+  if (providerType === "generix") {
     // Dex doesn't need an external provider wrapper like Auth0 does
     // Dex use the fowlowing environment variables:
-    // DEX_AUTHORITY
-    // DEX_CLIENT_ID
-    // DEX_REDIRECT_URI
-    // DEX_SCOPE
-    // DEX_AUDIENCE
-    // DEX_TOKEN_ISSUER
-    // DEX_JWKS_ENDPOINT
-    // DEX_DOMAIN
+    // GENERIX_AUTHORITY
+    // GENERIX_CLIENT_ID
+    // GENERIX_REDIRECT_URI
+    // GENERIX_SCOPE
+    // GENERIX_AUDIENCE
+    // GENERIX_TOKEN_ISSUER
+    // GENERIX_JWKS_ENDPOINT
+    // GENERIX_DOMAIN
     return (
       <AuthProviderWrapper providerType={providerType}>
         {children}

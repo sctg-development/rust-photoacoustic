@@ -53,12 +53,13 @@
 //! println!("Server port: {}", config.visualization.port);
 //! ```
 
-mod access;
-mod acquisition;
-mod modbus;
-mod photoacoustic;
-mod utils;
-mod visualization;
+pub mod access;
+pub mod acquisition;
+pub mod generix;
+pub mod modbus;
+pub mod photoacoustic;
+pub mod utils;
+pub mod visualization;
 
 use std::fs::{self, File};
 use std::io::Write;
@@ -71,6 +72,7 @@ use serde::{Deserialize, Serialize};
 // Re-export all types for public API
 pub use access::{AccessConfig, Client, User};
 pub use acquisition::AcquisitionConfig;
+pub use generix::GenerixConfig;
 pub use modbus::ModbusConfig;
 pub use photoacoustic::PhotoacousticConfig;
 pub use utils::{is_valid_ip_address, output_config_schema};
@@ -137,6 +139,9 @@ pub struct Config {
     /// associated permissions. If not specified, default values will be used.
     #[serde(default)]
     pub access: AccessConfig,
+
+    #[serde(default)]
+    pub generix: GenerixConfig,
 }
 
 impl Default for Config {
@@ -147,6 +152,7 @@ impl Default for Config {
             modbus: ModbusConfig::default(),
             photoacoustic: PhotoacousticConfig::default(),
             access: AccessConfig::default(),
+            generix: GenerixConfig::default(),
         }
     }
 }

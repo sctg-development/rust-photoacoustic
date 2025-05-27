@@ -133,6 +133,9 @@ pub mod oidc;
 /// Oauth2 Request Guard
 pub mod oauth_guard;
 
+/// Generic request guard for extracting headers
+pub mod request_guard;
+
 /// User information response for OpenID Connect
 pub mod user_info_reponse;
 

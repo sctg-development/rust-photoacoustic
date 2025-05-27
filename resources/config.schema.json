@@ -272,6 +272,66 @@
         "users",
         "clients"
       ]
+    },
+    "generix": {
+      "type": "object",
+      "description": "OAuth2 and OpenID Connect configuration (client side)",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "generix"
+          ],
+          "description": "OAuth provider type. Only 'generix' is supported"
+        },
+        "api_base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL of the API server"
+        },
+        "client_id": {
+          "type": "string",
+          "description": "Client ID for OAuth2/OpenID Connect"
+        },
+        "scope": {
+          "type": "string",
+          "description": "Scopes requested by the client (space-separated)"
+        },
+        "redirect_uri": {
+          "type": "string",
+          "format": "uri",
+          "description": "Redirect URI for the client after authentication"
+        },
+        "audience": {
+          "type": "string",
+          "description": "Audience in the JWT token"
+        },
+        "token_issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "Token issuer base URL"
+        },
+        "jwks_endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "Endpoint for JSON Web Key Set (JWKS)"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain for the client application"
+        }
+      },
+      "required": [
+        "provider",
+        "api_base_url",
+        "client_id",
+        "scope",
+        "redirect_uri",
+        "audience",
+        "token_issuer",
+        "jwks_endpoint",
+        "domain"
+      ]
     }
   },
   "required": [
