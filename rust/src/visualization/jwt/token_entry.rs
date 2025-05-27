@@ -9,8 +9,6 @@
 
 use chrono::{DateTime, Utc};
 use oxide_auth::primitives::grant::Grant;
-use serde_json::Value;
-use std::collections::HashMap;
 
 use super::claims::IdTokenClaims;
 

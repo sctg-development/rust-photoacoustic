@@ -10,7 +10,6 @@
 use base64::Engine;
 use jsonwebtoken::{Algorithm, DecodingKey};
 use log::debug;
-use rand::Rng;
 use regex::Regex;
 use reqwest::Url;
 use rocket::http::{ContentType, Status};

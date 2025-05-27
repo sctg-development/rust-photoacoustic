@@ -375,7 +375,7 @@ pub fn get_config_from_request<'r>(request: &'r Request<'_>) -> AccessConfig {
 pub fn build_rocket_test_instance() -> Rocket<Build> {
     use rocket::Config;
 
-    use crate::visualization::introspection::{self, introspect};
+    use crate::visualization::introspection::introspect;
 
     // Create a test configuration
     let config = Config::figment()

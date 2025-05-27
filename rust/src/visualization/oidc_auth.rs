@@ -56,10 +56,10 @@ use oxide_auth::primitives::registrar::RegisteredUrl;
 use oxide_auth_rocket;
 use oxide_auth_rocket::{OAuthFailure, OAuthRequest, OAuthResponse};
 use rocket::figment::Figment;
-use rocket::serde::json::{self, Json};
+use rocket::serde::json::Json;
 use rocket::State;
 use rocket::{get, post};
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
@@ -67,7 +67,7 @@ use super::jwt::JwtIssuer;
 use super::oauth_guard::OAuthBearer;
 use super::user_info_reponse::UserInfoResponse;
 
-use crate::config::{AccessConfig, GenerixConfig, User, USER_SESSION_SEPARATOR};
+use crate::config::{AccessConfig, GenerixConfig, User};
 use base64::Engine;
 use rocket::form::{Form, FromForm};
 use rocket::http::{Cookie, CookieJar, Status};

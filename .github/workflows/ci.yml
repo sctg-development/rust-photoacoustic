@@ -18,10 +18,6 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             cross: false
-          # Will be done via Docker for better reliability
-          # - os: ubuntu-latest
-          #   target: aarch64-unknown-linux-gnu
-          #   cross: true
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             cross: false
@@ -45,10 +41,6 @@ jobs:
         targets: ${{ matrix.target }}
         components: rustfmt, clippy
     
-    # Install cross if needed for cross-compilation
-    - name: Install cross
-      if: matrix.cross
-      run: cargo install cross --force
       
     # Install dependencies for Linux
     - name: Install Linux dependencies
@@ -57,31 +49,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2-dev
         
-    # Install ARM64 dependencies for cross-compilation
-    - name: Install ARM64 dependencies
-      if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
-      run: |
-        # Remove exisiting Ubuntu sources 
-        sudo rm -vf /etc/apt/sources.list.d/*
-        # Add AMD64 architecture
-        sudo dpkg --add-architecture amd64
-        # Add AMD64 sources
-        echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu $(lsb_release -cs) main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/ubuntu.list
-        sudo apt-get update
-        # Add ARM64 architecture
-        sudo dpkg --add-architecture arm64
-        # Configuration correcte des sources pour ARM64 - utilise ports.ubuntu.com pour tout
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs) main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/arm64.list
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
-        
-        # Update for ARM64 architecture
-        sudo apt-get update
-        
-        # Install ARM64 dependencies
-        sudo apt-get install -y libssl-dev:arm64 libasound2-dev:arm64
-    
     # Install LLVM and Clang (required for bindgen)
     - name: Install LLVM and Clang
       uses: KyleMayes/install-llvm-action@v2
@@ -94,121 +61,20 @@ jobs:
       with:
         key: ${{ matrix.target }}
         
-    # Debug system configuration for ARM64 targets
-    - name: Debug system configuration
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: |
-        echo "Checking ARM64 system configuration..."
-        echo "APT sources for ARM64:"
-        cat /etc/apt/sources.list.d/arm64.list
-        echo "Vérification des paquets ARM64 installés:"
-        dpkg -l | grep arm64 || true
-        echo "Contenu des répertoires ARM64:"
-        ls -la /usr/lib/aarch64-linux-gnu/ || true
-        ls -la /usr/include/aarch64-linux-gnu/ || true
-        echo "OpenSSL pour ARM64:"
-        ls -la /usr/lib/aarch64-linux-gnu/libssl* || true
-        echo "PKG_CONFIG_PATH directories:"
-        find /usr -name "*.pc" | grep aarch64 || true
-    
-    # Configure pkg-config for ARM64
-    - name: Configure pkg-config for ARM64
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: |
-        # Créer un wrapper pkg-config pour ARM64
-        echo '#!/bin/bash
-        export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-        export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
-        export PKG_CONFIG_SYSROOT_DIR=/
-        
-        # Exécuter pkg-config avec les options demandées
-        output=$(pkg-config "$@")
-        
-        # Corriger les chemins dans la sortie si nécessaire
-        if [[ "$@" == *"--libs"* ]]; then
-          # Fix library paths for --libs output
-          output=$(echo "$output" | sed "s|-L/usr/lib/lib/aarch64-linux-gnu|-L/usr/lib/aarch64-linux-gnu|g")
-          output=$(echo "$output" | sed "s|-L/lib/aarch64-linux-gnu|-L/usr/lib/aarch64-linux-gnu|g")
-          output=$(echo "$output" | sed "s|-L/usr/lib/|-L/usr/lib/aarch64-linux-gnu/|g")
-          # Fix library names if needed
-          output=$(echo "$output" | sed "s|-lssl |-L/usr/lib/aarch64-linux-gnu -lssl |g")
-          output=$(echo "$output" | sed "s|-lcrypto |-L/usr/lib/aarch64-linux-gnu -lcrypto |g")
-        fi
-        
-        if [[ "$@" == *"--cflags"* ]]; then
-          # Fix include paths for --cflags output
-          output=$(echo "$output" | sed "s|-I/usr/lib/include|-I/usr/include/aarch64-linux-gnu|g")
-          output=$(echo "$output" | sed "s|-I/usr/include|-I/usr/include/aarch64-linux-gnu|g")
-        fi
-        
-        echo "$output"
-        ' | sudo tee /usr/local/bin/aarch64-linux-gnu-pkg-config
-        sudo chmod +x /usr/local/bin/aarch64-linux-gnu-pkg-config
-        
-        # Tester le wrapper
-        echo "Testing ARM64 pkg-config wrapper:"
-        /usr/local/bin/aarch64-linux-gnu-pkg-config --list-all || true
-        
-        # Vérifier la présence des .pc pour OpenSSL
-        echo "Checking for OpenSSL .pc files:"
-        find /usr -name "openssl.pc" || true
-        find /usr -name "libssl.pc" || true
-        
-        # Afficher le contenu du fichier openssl.pc s'il existe
-        OPENSSL_PC=$(find /usr -name "openssl.pc" | head -n 1)
-        if [ -n "$OPENSSL_PC" ]; then
-          echo "Content of $OPENSSL_PC:"
-          cat "$OPENSSL_PC" || true
-        fi
     
     # Build project
     - name: Build
       run: |
-        if [ "${{ matrix.cross }}" = "true" ]; then
-          # Set up environment variables for cross-compilation
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            # Setup OpenSSL for ARM64 - S'assurer que tous les chemins sont corrects
-            export OPENSSL_DIR=/usr
-            export OPENSSL_INCLUDE_DIR=/usr/include
-            export OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
-            
-            # Vérification des répertoires OpenSSL
-            echo "Vérification du contenu de OPENSSL_LIB_DIR:"
-            ls -la $OPENSSL_LIB_DIR/libssl* || true
-            echo "Vérification du contenu de OPENSSL_INCLUDE_DIR:"
-            ls -la $OPENSSL_INCLUDE_DIR/openssl || true
-            
-            # Configuration de pkg-config
-            export PKG_CONFIG_ALLOW_CROSS=1
-            export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-            export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
-            export PKG_CONFIG_SYSROOT_DIR=/
-            export PKG_CONFIG=/usr/local/bin/aarch64-linux-gnu-pkg-config
-            
-            # Configuration pour la compilation statique
-            export OPENSSL_STATIC=1
-            export OPENSSL_NO_VENDOR=0
-            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-            
-            # Bypass OpenSSL version check if needed
-            export RUSTFLAGS="-C target-feature=+crt-static -C link-args=-Wl,-rpath,$OPENSSL_LIB_DIR"
-            
-            # Tenter de vérifier directement avec pkg-config
-            echo "Testing pkg-config for OpenSSL:"
-            $PKG_CONFIG --libs --cflags openssl || true
-          fi
-          cross build --target ${{ matrix.target }}
-          
-        else
           cd rust
           cargo build --target ${{ matrix.target }}
-        fi
       shell: bash
     
     # Run tests (only on non-cross compilation targets)
     - name: Run tests
       if: matrix.cross == false
-      run: cargo test --target ${{ matrix.target }}
+      run: |
+        cd rust
+        cargo test --target ${{ matrix.target }}
       
     # Run specific tests with custom timeout
     - name: Run introspection tests

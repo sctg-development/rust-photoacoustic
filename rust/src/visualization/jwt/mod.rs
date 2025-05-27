@@ -63,8 +63,4 @@ pub mod jwt_keys;
 pub mod jwt_validator;
 
 // Re-export the public API
-pub use claims::{IdTokenClaims, JwtClaims};
 pub use issuer::JwtIssuer;
-pub use responses::OidcTokenResponse;
-pub use token_entry::TokenEntry;
-pub use token_map::JwtTokenMap;

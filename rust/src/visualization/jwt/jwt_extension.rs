@@ -8,7 +8,6 @@
 //! functionality from the JwtTokenMap object.
 
 use anyhow::{anyhow, Result};
-use std::sync::{Arc, Mutex};
 
 /// Extension trait for JwtIssuer to support ID tokens
 pub trait JwtIssuerExtension {

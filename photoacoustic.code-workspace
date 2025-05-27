@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "name": "Rust backend",
+      "path": "./rust"
+    },
+    {
+      "name": "Client app",
+      "path": "./web",
+    },
+    {
+      "name": "GitHub Actions",
+      "path": "./.github"
+    }
+  ],
+  "settings": {
+    "git.openRepositoryInParentFolders": "always"
+  }
+}

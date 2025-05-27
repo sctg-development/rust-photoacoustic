@@ -70,12 +70,12 @@ use log::{debug, error};
 use serde::{Deserialize, Serialize};
 
 // Re-export all types for public API
-pub use access::{AccessConfig, Client, User};
+pub use access::{AccessConfig, User};
 pub use acquisition::AcquisitionConfig;
 pub use generix::GenerixConfig;
 pub use modbus::ModbusConfig;
 pub use photoacoustic::PhotoacousticConfig;
-pub use utils::{is_valid_ip_address, output_config_schema};
+pub use utils::output_config_schema;
 pub use visualization::VisualizationConfig;
 
 /// Separator character used in user session identifiers
