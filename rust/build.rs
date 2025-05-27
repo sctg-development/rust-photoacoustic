@@ -539,7 +539,7 @@ fn determine_build_command(package_json_path: &PathBuf) -> Result<String> {
     })?;
 
     // Priority order for build commands
-    let build_commands = ["build:env", "build", "compile", "dist"];
+    let build_commands = ["build", "compile", "dist", "build:env"];
 
     for command in &build_commands {
         if package.scripts.contains_key(*command) {
