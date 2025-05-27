@@ -16,6 +16,7 @@ const AuthContext = createContext<AuthProvider | null>(null);
 interface AuthProviderWrapperProps {
   children: ReactNode;
   providerType?: "auth0" | "generix";
+  config?: any;
 }
 
 /**
@@ -24,21 +25,15 @@ interface AuthProviderWrapperProps {
 export const AuthProviderWrapper: React.FC<AuthProviderWrapperProps> = ({
   children,
   providerType = "auth0",
+  config,
 }) => {
   // Select the appropriate provider implementation based on the type
   let authProvider: AuthProvider;
 
-  switch (providerType) {
-    case "auth0":
-      authProvider = useAuth0Provider();
-      break;
-    // Uncomment when needed
-    case "generix":
-      authProvider = useGenerixProvider();
-      break;
-    default:
-      // Default to Auth0
-      authProvider = useAuth0Provider();
+  if (providerType === "generix") {
+    authProvider = useGenerixProvider(config);
+  } else {
+    authProvider = useAuth0Provider();
   }
 
   return (

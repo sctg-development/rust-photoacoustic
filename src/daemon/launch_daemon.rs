@@ -576,7 +576,7 @@ impl Daemon {
     /// ```
     pub async fn join(self) -> Result<()> {
         for task in self.tasks {
-            match tokio::time::timeout(Duration::from_secs(10), task).await {
+            match tokio::time::timeout(Duration::from_secs(5), task).await {
                 Ok(result) => {
                     if let Err(e) = result {
                         log::error!("Task panicked: {}", e);

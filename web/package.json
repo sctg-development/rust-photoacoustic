@@ -7,6 +7,7 @@
     "update:heroui": "node --no-warnings --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' ./update-heroui.ts",
     "build:env": "node load-env.mjs vite build --base=/client/",
     "dev:env": "node load-env.mjs vite --base=/client/",
+    "dev:env:debug": "node load-env.mjs vite --base=/client/ -d",
     "lint": "eslint ./src/**/**/*.{ts,tsx} --fix",
     "dev": "vite",
     "preview": "vite preview",

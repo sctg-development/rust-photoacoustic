@@ -50,7 +50,7 @@
 //! }
 //! ```
 
-use super::request_guard::{ConnectionInfo, StaticFileResponse};
+use super::request_guard::{ConnectionInfo, RawQueryString, StaticFileResponse};
 use crate::config::{AccessConfig, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
@@ -58,6 +58,7 @@ use crate::visualization::oidc_auth::{authorize, authorize_consent, refresh, tok
 use anyhow::Context;
 use base64::Engine;
 use include_dir::{include_dir, Dir};
+use log::{debug, info};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::figment::Figment;
 use rocket::http::{ContentType, Header, Status};
@@ -66,6 +67,7 @@ use rocket::serde::json::Json;
 use rocket::{get, options, routes, uri, Build, Rocket};
 use rocket::{Request, Response};
 use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
+use serde_urlencoded::de;
 use std::env;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -286,12 +288,17 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .attach(CORS)
         .mount(
             "/",
-            openapi_get_routes![webclient_index, webclient_index_html,options],
+            openapi_get_routes![webclient_index, webclient_index_html, options],
         )
         .mount(
             "/",
             routes![
                 favicon,
+                websocket_proxy,
+                webclient_at_vite,
+                webclient_at_fs,
+                webclient_vite_special,
+                webclient_node_modules_vite,
                 webclient,
                 authorize,
                 authorize_consent,
@@ -472,23 +479,9 @@ async fn get_generix_config(// generix_config: GenerixConfig<'r>,
 /// to the URL specified in that variable (defaulting to `http://localhost:5173`).
 /// This allows for hot-reloading and other development features.
 #[get("/client/<path..>", rank = 2)]
-async fn webclient(path: PathBuf) -> Option<StaticFileResponse> {
+async fn webclient(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
     if env::var("VITE_DEVELOPMENT").is_ok() {
-        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
-        let url = format!("{}/{}", vite_base, path.to_str().unwrap_or(""));
-        let response = reqwest::get(&url).await.unwrap();
-        let content_type = response
-            .headers()
-            .get("content-type")
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .parse::<ContentType>()
-            .unwrap();
-        let bytes = response.bytes().await.unwrap();
-        let response_content: Vec<u8> = bytes.iter().copied().collect();
-        let content = StaticFileResponse(response_content, content_type);
-        return Some(content);
+        return proxy_to_vite_dev_server(path, raw_query).await;
     }
 
     let path = path.to_str().unwrap_or("");
@@ -598,4 +591,320 @@ async fn helper_min_js() -> Option<StaticFileResponse> {
     let content_type = ContentType::JavaScript;
     let response = StaticFileResponse(file_content.as_bytes().to_vec(), content_type);
     Some(response)
+}
+
+/// WebSocket proxy handler for Vite development server
+///
+/// This route handles WebSocket connections for Vite's hot module replacement (HMR).
+/// Since Rocket doesn't have built-in WebSocket proxying, this attempts to proxy
+/// the initial request to the Vite development server.
+#[get("/client/@vite/client")]
+async fn websocket_proxy() -> Option<StaticFileResponse> {
+    if env::var("VITE_DEVELOPMENT").is_ok() {
+        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+        let url = format!("{}/client/@vite/client", vite_base);
+
+        info!("Proxying @vite/client to: {}", url);
+
+        match reqwest::get(&url).await {
+            Ok(response) => {
+                let content_type = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<ContentType>().ok())
+                    .unwrap_or(ContentType::JavaScript);
+
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        let response_content: Vec<u8> = bytes.iter().copied().collect();
+                        let content = StaticFileResponse(response_content, content_type);
+                        debug!("Returning @vite/client content: {:?}", content);
+                        Some(content)
+                    }
+                    Err(e) => {
+                        debug!("Failed to read @vite/client response bytes: {}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to proxy @vite/client request: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    }
+}
+
+/// Proxy requests to Vite development server
+async fn proxy_to_vite_dev_server(
+    path: PathBuf,
+    raw_query: RawQueryString,
+) -> Option<StaticFileResponse> {
+    let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+    let path_str = path.to_str().unwrap_or("");
+    let raw_query = if raw_query.0.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", raw_query.0)
+    };
+    let url = format!("{}/client/{}{}", vite_base, path_str, raw_query.as_str());
+
+    info!("Proxying web client in development mode to: {}", url);
+
+    match reqwest::get(&url).await {
+        Ok(response) => {
+            let content_type = response
+                .headers()
+                .get("content-type")
+                .and_then(|h| h.to_str().ok())
+                .and_then(|s| s.parse::<ContentType>().ok())
+                .unwrap_or(ContentType::Binary);
+
+            match response.bytes().await {
+                Ok(bytes) => {
+                    let response_content: Vec<u8> = bytes.iter().copied().collect();
+                    let content = StaticFileResponse(response_content, content_type);
+                    debug!("Returning content from development server: {:?}", content);
+                    Some(content)
+                }
+                Err(e) => {
+                    debug!("Failed to read response bytes: {}", e);
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            debug!("Failed to proxy request to development server: {}", e);
+            None
+        }
+    }
+}
+
+/// Web client route handler for Vite development paths with special characters
+///
+/// This route handles specific Vite development paths that contain special
+/// characters like dots that would be rejected by PathBuf. It has rank 1 to
+/// be tried before the regular webclient route.
+#[get("/client/.vite/<path..>", rank = 1)]
+async fn webclient_vite_special(
+    path: PathBuf,
+    raw_query: RawQueryString,
+) -> Option<StaticFileResponse> {
+    if env::var("VITE_DEVELOPMENT").is_ok() {
+        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+        let path_str = path.to_str().unwrap_or("");
+        let raw_query = if raw_query.0.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", raw_query.0)
+        };
+        let url = format!(
+            "{}/client/.vite/{}{}",
+            vite_base,
+            path_str,
+            raw_query.as_str()
+        );
+
+        info!("Proxying Vite special path to: {}", url);
+
+        match reqwest::get(&url).await {
+            Ok(response) => {
+                let content_type = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<ContentType>().ok())
+                    .unwrap_or(ContentType::Binary);
+
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        let response_content: Vec<u8> = bytes.iter().copied().collect();
+                        let content = StaticFileResponse(response_content, content_type);
+                        debug!("Returning Vite special content: {:?}", content);
+                        Some(content)
+                    }
+                    Err(e) => {
+                        debug!("Failed to read response bytes: {}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to proxy Vite special request: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    }
+}
+
+/// Web client route handler for @vite paths (development mode)
+///
+/// This route handles @vite paths that contain special characters
+/// that would be rejected by standard path handling.
+#[get("/client/@vite/<path..>", rank = 1)]
+async fn webclient_at_vite(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
+    if env::var("VITE_DEVELOPMENT").is_ok() {
+        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+        let path_str = path.to_str().unwrap_or("");
+        let raw_query = if raw_query.0.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", raw_query.0)
+        };
+        let url = format!(
+            "{}/client/@vite/{}{}",
+            vite_base,
+            path_str,
+            raw_query.as_str()
+        );
+
+        info!("Proxying @vite path to: {}", url);
+
+        match reqwest::get(&url).await {
+            Ok(response) => {
+                let content_type = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<ContentType>().ok())
+                    .unwrap_or(ContentType::Binary);
+
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        let response_content: Vec<u8> = bytes.iter().copied().collect();
+                        let content = StaticFileResponse(response_content, content_type);
+                        debug!("Returning @vite content: {:?}", content);
+                        Some(content)
+                    }
+                    Err(e) => {
+                        debug!("Failed to read response bytes: {}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to proxy @vite request: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    }
+}
+
+/// Web client route handler for node_modules/.vite paths (development mode)
+///
+/// This route handles node_modules/.vite paths that contain special characters
+/// that would be rejected by standard path handling.
+#[get("/client/node_modules/.vite/<path..>", rank = 1)]
+async fn webclient_node_modules_vite(
+    path: PathBuf,
+    raw_query: RawQueryString,
+) -> Option<StaticFileResponse> {
+    if env::var("VITE_DEVELOPMENT").is_ok() {
+        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+        let path_str = path.to_str().unwrap_or("");
+        let raw_query = if raw_query.0.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", raw_query.0)
+        };
+        let url = format!(
+            "{}/client/node_modules/.vite/{}{}",
+            vite_base,
+            path_str,
+            raw_query.as_str()
+        );
+
+        info!("Proxying node_modules/.vite path to: {}", url);
+
+        match reqwest::get(&url).await {
+            Ok(response) => {
+                let content_type = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<ContentType>().ok())
+                    .unwrap_or(ContentType::Binary);
+
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        let response_content: Vec<u8> = bytes.iter().copied().collect();
+                        let content = StaticFileResponse(response_content, content_type);
+                        debug!("Returning node_modules/.vite content: {:?}", content);
+                        Some(content)
+                    }
+                    Err(e) => {
+                        debug!("Failed to read response bytes: {}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to proxy node_modules/.vite request: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    }
+}
+
+/// Web client route handler for @fs paths (development mode)
+///
+/// This route handles @fs paths used by Vite for file system access.
+#[get("/client/@fs/<path..>", rank = 1)]
+async fn webclient_at_fs(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
+    if env::var("VITE_DEVELOPMENT").is_ok() {
+        let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+        let path_str = path.to_str().unwrap_or("");
+        let raw_query = if raw_query.0.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", raw_query.0)
+        };
+        let url = format!(
+            "{}/client/@fs/{}{}",
+            vite_base,
+            path_str,
+            raw_query.as_str()
+        );
+
+        info!("Proxying @fs path to: {}", url);
+
+        match reqwest::get(&url).await {
+            Ok(response) => {
+                let content_type = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<ContentType>().ok())
+                    .unwrap_or(ContentType::Binary);
+
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        let response_content: Vec<u8> = bytes.iter().copied().collect();
+                        let content = StaticFileResponse(response_content, content_type);
+                        debug!("Returning @fs content: {:?}", content);
+                        Some(content)
+                    }
+                    Err(e) => {
+                        debug!("Failed to read response bytes: {}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to proxy @fs request: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    }
 }

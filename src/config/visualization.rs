@@ -199,8 +199,8 @@ fn default_enabled() -> bool {
 /// Generate a random session secret key for cookie-based authentication.
 fn default_session_secret() -> String {
     use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let secret: [u8; 32] = rng.gen();
+    let mut rng = rand::rng();
+    let secret: [u8; 32] = rng.random();
     base64::engine::general_purpose::STANDARD.encode(secret)
 }
 

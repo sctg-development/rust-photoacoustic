@@ -1,28 +1,20 @@
-use crate::config::{AccessConfig, GenerixConfig};
-use crate::include_png_as_base64;
-use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
-use crate::visualization::oidc_auth::{authorize, authorize_consent, refresh, token};
-use anyhow::Context;
-use base64::Engine;
-use include_dir::{include_dir, Dir};
-use rocket::fairing::{Fairing, Info, Kind};
-use rocket::figment::Figment;
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 use rocket::http::uri::{Host, Origin};
-use rocket::http::{ContentType, Header, HeaderMap, Status};
-use rocket::request::{FromRequest, Outcome};
-use rocket::response::{Redirect, Responder};
-use rocket::serde::json::Json;
-use rocket::{async_trait, get, options, routes, uri, Build, Rocket, State};
+use rocket::http::{ContentType, Header, HeaderMap};
+use rocket::request::FromRequest;
+use rocket::response::Responder;
+
+use rocket::async_trait;
 use rocket::{Request, Response};
-use rocket_okapi::{openapi, openapi_get_routes, rapidoc::*, settings::UrlObject};
+
 use std::env;
 use std::fmt::Debug;
 use std::io::Cursor;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::ops::Deref;
-use std::path::PathBuf;
-
-use super::oidc_auth::{login, userinfo, OxideState};
 
 /// Response type for serving static files
 ///
@@ -34,8 +26,30 @@ use super::oidc_auth::{login, userinfo, OxideState};
 ///
 /// * `0` - The binary content of the file
 /// * `1` - The content type of the file
-#[derive(Debug)]
 pub struct StaticFileResponse(pub Vec<u8>, pub ContentType);
+
+/// Implementation of Debug trait for StaticFileResponse
+/// If content/type is a text type, it will print the first 1000 characters
+/// otherwise it will print the first of the binary content and the content type
+impl Debug for StaticFileResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.1.is_text() || self.1.is_html() || self.1.is_json() {
+            let text_content = String::from_utf8_lossy(&self.0);
+            f.debug_struct("StaticFileResponse")
+                .field(
+                    "content",
+                    &text_content.chars().take(1000).collect::<String>(),
+                )
+                .field("content_type", &self.1)
+                .finish()
+        } else {
+            f.debug_struct("StaticFileResponse")
+                .field("binary_content_start", &self.0.get(0..100))
+                .field("content_type", &self.1)
+                .finish()
+        }
+    }
+}
 
 /// Implementation of Rocket's Responder trait for StaticFileResponse
 ///
@@ -227,5 +241,76 @@ impl<'r> FromRequest<'r> for ConnectionInfo<'r> {
             base_url_with_port,
             base_url,
         })
+    }
+}
+
+/// Request guard for accessing to the raw query string of the request
+/// It is useful for proxying request to the development server
+pub struct RawQueryString(pub String);
+
+impl RawQueryString {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Implentaion of into string for RawQueryString
+impl Into<String> for RawQueryString {
+    /// Converts the RawQueryString into a String
+    ///
+    /// This allows easy conversion to a string representation of the query string,
+    /// which can be useful for logging or passing to other functions.
+    ///
+    /// # Returns
+    ///
+    /// The raw query string as a String
+    fn into(self) -> String {
+        self.0
+    }
+}
+
+/// Implementation of AsRef<str> for RawQueryString
+impl AsRef<str> for RawQueryString {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+/// Implementation of Debug trait for RawQueryString
+impl Debug for RawQueryString {
+    /// Formats the RawQueryString for debug output
+    ///
+    /// This implementation allows the RawQueryString struct to be used with
+    /// debug formatting macros like `println!("{:?}", raw_query)`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RawQueryString").field(&self.0).finish()
+    }
+}
+
+/// Implementation of Rocket's FromRequest trait for RawQueryString
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for RawQueryString {
+    type Error = ();
+
+    /// Extracts the raw query string from the request
+    ///
+    /// This implementation provides access to the raw query string of the incoming request.
+    ///
+    /// # Parameters
+    ///
+    /// * `req` - The incoming HTTP request
+    ///
+    /// # Returns
+    ///
+    /// A successful outcome containing the raw query string
+    async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        if let Some(query) = req.uri().query() {
+            // If the query string is present, return it
+            return rocket::request::Outcome::Success(RawQueryString(query.to_string()));
+        } else {
+            let default_query = RawQueryString("".to_string());
+            // If the query string is not present, return an empty one
+            return rocket::request::Outcome::Success(default_query);
+        }
     }
 }

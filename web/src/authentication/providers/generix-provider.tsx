@@ -26,24 +26,16 @@ export const useGenerixProvider = (
   Log.setLogger(console);
   Log.setLevel(Log.DEBUG);
 
-  // Merge provided config with defaults
+  // Use providedConfig directly (from generix.json)
   const config: AuthProviderConfig = {
-    authority: providedConfig?.authority || import.meta.env.GENERIX_AUTHORITY,
-    clientId: providedConfig?.clientId || import.meta.env.GENERIX_CLIENT_ID,
-    redirectUri:
-      providedConfig?.redirectUri ||
-      import.meta.env.GENERIX_REDIRECT_URI ||
-      `${window.location.origin}/`,
-    scope:
-      providedConfig?.scope ||
-      import.meta.env.GENERIX_SCOPE ||
-      "openid profile email",
-    audience: providedConfig?.audience || import.meta.env.GENERIX_AUDIENCE,
-    tokenIssuer:
-      providedConfig?.tokenIssuer || import.meta.env.GENERIX_TOKEN_ISSUER,
-    jwksEndpoint:
-      providedConfig?.jwksEndpoint || import.meta.env.GENERIX_JWKS_ENDPOINT,
-    domain: providedConfig?.domain || import.meta.env.GENERIX_DOMAIN,
+    authority: providedConfig?.authority || "",
+    clientId: providedConfig?.clientId || "",
+    redirectUri: providedConfig?.redirectUri || "",
+    scope: providedConfig?.scope || "openid profile email",
+    audience: providedConfig?.audience,
+    tokenIssuer: providedConfig?.tokenIssuer,
+    jwksEndpoint: providedConfig?.jwksEndpoint,
+    domain: providedConfig?.domain || "",
   };
 
   const [user, setUser] = useState<User | null>(null);
@@ -193,8 +185,8 @@ export const useGenerixProvider = (
     return () => {
       userManager.events.removeUserLoaded(addUserSignedIn);
       userManager.events.removeUserUnloaded(addUserSignedOut);
-      userManager.events.removeAccessTokenExpiring(() => { });
-      userManager.events.removeAccessTokenExpired(() => { });
+      userManager.events.removeAccessTokenExpiring(() => {});
+      userManager.events.removeAccessTokenExpired(() => {});
     };
   }, [userManager]);
 
@@ -428,11 +420,11 @@ export const useGenerixProvider = (
   // Map OIDC user to common AuthUser format
   const authUser: AuthUser | null = user
     ? {
-      name: user.profile.name,
-      nickname: user.profile.nickname || user.profile.preferred_username,
-      email: user.profile.email,
-      ...user.profile,
-    }
+        name: user.profile.name,
+        nickname: user.profile.nickname || user.profile.preferred_username,
+        email: user.profile.email,
+        ...user.profile,
+      }
     : null;
 
   return {

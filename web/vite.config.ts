@@ -1,5 +1,5 @@
 /* global process */
-import { defineConfig } from "vite";
+import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
@@ -7,6 +7,17 @@ import { githubPagesSpa } from "@sctg/vite-plugin-github-pages-spa";
 
 import _package from "./package.json" with { type: "json" };
 
+export function loggerPlugin(): Plugin {
+  return {
+    name: "requestLogger",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+        next();
+      });
+    },
+  };
+}
 /**
  * Package.json type definition for React project
  *
@@ -52,12 +63,12 @@ const packageJson: PackageJson = _package;
  */
 export function extractPerVendorDependencies(
   packageJson: PackageJson,
-  vendorPrefix: string,
+  vendorPrefix: string
 ): string[] {
   const dependencies = Object.keys(packageJson.dependencies || {});
 
   return dependencies.filter((dependency) =>
-    dependency.startsWith(`${vendorPrefix}/`),
+    dependency.startsWith(`${vendorPrefix}/`)
   );
 }
 
@@ -66,44 +77,51 @@ export function extractPerVendorDependencies(
  * @see https://vitejs.dev/config/
  */
 console.warn(
-  `Launching Vite with\nAUTH0_DOMAIN: ${process.env.AUTH0_DOMAIN}\nAUTH0_CLIENT_ID: ${process.env.AUTH0_CLIENT_ID}\nAUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}\nAUTH0_SCOPE: ${process.env.AUTH0_SCOPE}\nAPI_BASE_URL: ${process.env.API_BASE_URL}`,
+  `Launching Vite with\nAUTH0_DOMAIN: ${process.env.AUTH0_DOMAIN}\nAUTH0_CLIENT_ID: ${process.env.AUTH0_CLIENT_ID}\nAUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}\nAUTH0_SCOPE: ${process.env.AUTH0_SCOPE}\nAPI_BASE_URL: ${process.env.API_BASE_URL}`
 );
 console.warn(
-  `Launching Vite with\nGENERIX_AUTHORITY: ${process.env.GENERIX_AUTHORITY}\nGENERIX_CLIENT_ID: ${process.env.GENERIX_CLIENT_ID}\nGENERIX_REDIRECT_URI: ${process.env.GENERIX_REDIRECT_URI}\nGENERIX_SCOPE: ${process.env.GENERIX_SCOPE}\nGENERIX_AUDIENCE: ${process.env.GENERIX_AUDIENCE}\nGENERIX_TOKEN_ISSUER: ${process.env.GENERIX_TOKEN_ISSUER}\nGENERIX_JWKS_ENDPOINT: ${process.env.GENERIX_JWKS_ENDPOINT}\nGENERIX_DOMAIN: ${process.env.GENERIX_DOMAIN}`,
+  `Launching Vite with\nGENERIX_AUTHORITY: ${process.env.GENERIX_AUTHORITY}\nGENERIX_CLIENT_ID: ${process.env.GENERIX_CLIENT_ID}\nGENERIX_REDIRECT_URI: ${process.env.GENERIX_REDIRECT_URI}\nGENERIX_SCOPE: ${process.env.GENERIX_SCOPE}\nGENERIX_AUDIENCE: ${process.env.GENERIX_AUDIENCE}\nGENERIX_TOKEN_ISSUER: ${process.env.GENERIX_TOKEN_ISSUER}\nGENERIX_JWKS_ENDPOINT: ${process.env.GENERIX_JWKS_ENDPOINT}\nGENERIX_DOMAIN: ${process.env.GENERIX_DOMAIN}`
 );
 export default defineConfig({
   define: {
     // Get the AUthentication provider type from environment variables
     "import.meta.env.AUTHENTICATION_PROVIDER_TYPE": JSON.stringify(
-      process.env.AUTHENTICATION_PROVIDER_TYPE || "auth0",
+      process.env.AUTHENTICATION_PROVIDER_TYPE || "auth0"
     ),
     // Auth0 environment variables
     "import.meta.env.AUTH0_DOMAIN": JSON.stringify(process.env.AUTH0_DOMAIN),
     "import.meta.env.AUTH0_CLIENT_ID": JSON.stringify(
-      process.env.AUTH0_CLIENT_ID,
+      process.env.AUTH0_CLIENT_ID
     ),
     "import.meta.env.AUTH0_AUDIENCE": JSON.stringify(
-      process.env.AUTH0_AUDIENCE,
+      process.env.AUTH0_AUDIENCE
     ),
     "import.meta.env.AUTH0_SCOPE": JSON.stringify(process.env.AUTH0_SCOPE),
     "import.meta.env.API_BASE_URL": JSON.stringify(process.env.API_BASE_URL),
-    // Dex environment variables
-    "import.meta.env.GENERIX_AUTHORITY": JSON.stringify(process.env.GENERIX_AUTHORITY),
-    "import.meta.env.GENERIX_CLIENT_ID": JSON.stringify(process.env.GENERIX_CLIENT_ID),
-    "import.meta.env.GENERIX_REDIRECT_URI": JSON.stringify(
-      process.env.GENERIX_REDIRECT_URI,
-    ),
-    "import.meta.env.GENERIX_SCOPE": JSON.stringify(process.env.GENERIX_SCOPE),
-    "import.meta.env.GENERIX_AUDIENCE": JSON.stringify(process.env.GENERIX_AUDIENCE),
-    "import.meta.env.GENERIX_TOKEN_ISSUER": JSON.stringify(
-      process.env.GENERIX_TOKEN_ISSUER,
-    ),
-    "import.meta.env.GENERIX_JWKS_ENDPOINT": JSON.stringify(
-      process.env.GENERIX_JWKS_ENDPOINT,
-    ),
-    "import.meta.env.GENERIX_DOMAIN": JSON.stringify(process.env.GENERIX_DOMAIN),
+    // // Generix environment variables
+    // "import.meta.env.GENERIX_AUTHORITY": JSON.stringify(process.env.GENERIX_AUTHORITY),
+    // "import.meta.env.GENERIX_CLIENT_ID": JSON.stringify(process.env.GENERIX_CLIENT_ID),
+    // "import.meta.env.GENERIX_REDIRECT_URI": JSON.stringify(
+    //   process.env.GENERIX_REDIRECT_URI,
+    // ),
+    // "import.meta.env.GENERIX_SCOPE": JSON.stringify(process.env.GENERIX_SCOPE),
+    // "import.meta.env.GENERIX_AUDIENCE": JSON.stringify(process.env.GENERIX_AUDIENCE),
+    // "import.meta.env.GENERIX_TOKEN_ISSUER": JSON.stringify(
+    //   process.env.GENERIX_TOKEN_ISSUER,
+    // ),
+    // "import.meta.env.GENERIX_JWKS_ENDPOINT": JSON.stringify(
+    //   process.env.GENERIX_JWKS_ENDPOINT,
+    // ),
+    // "import.meta.env.GENERIX_DOMAIN": JSON.stringify(process.env.GENERIX_DOMAIN),
   },
-  plugins: [react(), tsconfigPaths(), tailwindcss(), githubPagesSpa()],
+  base: "/client/",
+  plugins: [
+    react(),
+    tsconfigPaths(),
+    tailwindcss(),
+    // githubPagesSpa(),
+    loggerPlugin(),
+  ],
   build: {
     // Inline assets smaller than 1KB
     // This is for demonstration purposes only

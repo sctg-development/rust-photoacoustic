@@ -18,6 +18,7 @@
 // {
 //   "provider": "generix",
 //   "api_base_url": "https://localhost:8080",
+//   "authority": "https://localhost:8080",
 //   "client_id": "LaserSmartClient",
 //   "scope": "openid email profile read:api write:api",
 //   "redirect_uri": "https://localhost:8080/client/",
@@ -38,6 +39,7 @@ const outputFilePath = path.join(__dirname, "public", "generix.json");
 const config = {
   provider: process.env.AUTHENTICATION_PROVIDER_TYPE || "generix",
   api_base_url: process.env.API_BASE_URL || "https://localhost:8080",
+  authority: process.env.GENERIX_AUTHORITY || "https://localhost:8080",
   client_id: process.env.GENERIX_CLIENT_ID || "LaserSmartClient",
   scope: process.env.GENERIX_SCOPE || "openid email profile read:api write:api",
   redirect_uri:
