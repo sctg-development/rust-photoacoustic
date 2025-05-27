@@ -583,6 +583,8 @@ fn build_web_console(version_changed: bool) -> Result<()> {
 
     // If no rebuild is needed, exit early
     if !needs_build && !version_changed {
+        // Delete generix.json if it exists, as it will be generated dynamically
+        delete_dist_file(&dist_path, "generix.json")?;
         println!("cargo:warning=No changes detected in web files, skipping build");
         return Ok(());
     }
@@ -592,6 +594,9 @@ fn build_web_console(version_changed: bool) -> Result<()> {
     // Use the new build_node_project function
     match build_node_project(web_path) {
         Ok(()) => {
+            // Before ending, remove web/dist/generix.json if it exists because it will be generated dynamically
+            delete_dist_file(&dist_path, "generix.json")?;
+            // If the build was successful, print a success message
             println!("cargo:warning=build_web_console: build_node_project completed successfully")
         }
         Err(e) => {
@@ -613,6 +618,18 @@ fn build_web_console(version_changed: bool) -> Result<()> {
 
     println!("cargo:warning=Web console built successfully");
     Ok(())
+}
+
+fn delete_dist_file(dist_path: &PathBuf, file: &str) -> Result<(), anyhow::Error> {
+    let dist_file_path = dist_path.join(file);
+    Ok(if dist_file_path.exists() {
+        fs::remove_file(&dist_file_path)
+            .with_context(|| format!("Failed to remove {}", dist_file_path.display()))?;
+        println!(
+            "cargo:warning=build_web_console: Removed existing generix.json at {}",
+            dist_file_path.display()
+        );
+    })
 }
 
 /// Biuld the rapidoc by calling the Node.js build process
