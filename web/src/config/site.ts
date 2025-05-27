@@ -53,9 +53,9 @@ export const siteConfig = () => ({
   ],
   links: {
     github:
-      "https://github.com/sctg-development/vite-react-heroui-auth0-template",
+      "https://github.com/sctg-development/rust-photoacoustic",
     twitter: "https://twitter.com/hero_ui",
-    docs: "https://github.com/sctg-development/vite-react-heroui-auth0-template/blob/main/README.md",
+    docs: "https://sctg-development.github.io/rust-photoacoustic/rust_photoacoustic/",
     discord: "https://discord.gg/9b6yyZKmH4",
     sponsor: "https://github.com/sponsors/sctg-development",
   },

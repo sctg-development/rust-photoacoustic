@@ -22,13 +22,13 @@ export default function DefaultLayout({
         <Link
           isExternal
           className="flex items-center gap-1 text-current"
-          href="https://heroui.com"
+          href="https://sctg.eu.org"
           title={t("heroui-com-homepage")}
         >
           <span className="text-default-600">
             <Trans ns="base">powered-by</Trans>
           </span>
-          <p className="text-primary">HeroUI</p>
+          <p className="text-primary">SCTG Development</p>
         </Link>
       </footer>
     </div>
