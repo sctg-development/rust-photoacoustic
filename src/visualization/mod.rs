@@ -136,6 +136,9 @@ pub mod oauth_guard;
 /// Generic request guard for extracting headers
 pub mod request_guard;
 
+/// Vite development proxy for hot reloading
+pub mod vite_dev_proxy;
+
 /// User information response for OpenID Connect
 pub mod user_info_reponse;
 

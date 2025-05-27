@@ -51,6 +51,7 @@
 //! ```
 
 use super::request_guard::{ConnectionInfo, RawQueryString, StaticFileResponse};
+use super::vite_dev_proxy;
 use crate::config::{AccessConfig, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::visualization::oidc::{jwks, openid_configuration}; // Add this import
@@ -294,11 +295,6 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
             "/",
             routes![
                 favicon,
-                websocket_proxy,
-                webclient_at_vite,
-                webclient_at_fs,
-                webclient_vite_special,
-                webclient_node_modules_vite,
                 webclient,
                 authorize,
                 authorize_consent,
@@ -312,6 +308,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
                 get_generix_config,
             ],
         )
+        .mount("/", vite_dev_proxy::get_vite_dev_routes())
         .mount(
             "/api",
             routes![super::api_auth::get_profile, super::api_auth::get_data,],
@@ -480,8 +477,8 @@ async fn get_generix_config(// generix_config: GenerixConfig<'r>,
 /// This allows for hot-reloading and other development features.
 #[get("/client/<path..>", rank = 2)]
 async fn webclient(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
-    if env::var("VITE_DEVELOPMENT").is_ok() {
-        return proxy_to_vite_dev_server(path, raw_query).await;
+    if vite_dev_proxy::is_vite_development_enabled() {
+        return vite_dev_proxy::proxy_to_vite_dev_server(path, raw_query).await;
     }
 
     let path = path.to_str().unwrap_or("");
@@ -591,52 +588,6 @@ async fn helper_min_js() -> Option<StaticFileResponse> {
     let content_type = ContentType::JavaScript;
     let response = StaticFileResponse(file_content.as_bytes().to_vec(), content_type);
     Some(response)
-}
-
-/// WebSocket proxy handler for Vite development server
-///
-/// This route handles WebSocket connections for Vite's hot module replacement (HMR).
-/// Since Rocket doesn't have built-in WebSocket proxying, this attempts to proxy
-/// the initial request to the Vite development server.
-#[get("/client/@vite/client")]
-async fn websocket_proxy() -> Option<StaticFileResponse> {
-    if env::var("VITE_DEVELOPMENT").is_ok() {
-        let vite_base =
-            env::var("VITE_DEVELOPMENT").unwrap_or("https://localhost:5173".to_string());
-        let url = format!("{}/client/@vite/client", vite_base);
-
-        info!("Proxying @vite/client to: {}", url);
-
-        match reqwest::get(&url).await {
-            Ok(response) => {
-                let content_type = response
-                    .headers()
-                    .get("content-type")
-                    .and_then(|h| h.to_str().ok())
-                    .and_then(|s| s.parse::<ContentType>().ok())
-                    .unwrap_or(ContentType::JavaScript);
-
-                match response.bytes().await {
-                    Ok(bytes) => {
-                        let response_content: Vec<u8> = bytes.iter().copied().collect();
-                        let content = StaticFileResponse(response_content, content_type);
-                        debug!("Returning @vite/client content: {:?}", content);
-                        Some(content)
-                    }
-                    Err(e) => {
-                        debug!("Failed to read @vite/client response bytes: {}", e);
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                debug!("Failed to proxy @vite/client request: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    }
 }
 
 /// Proxy requests to Vite development server
