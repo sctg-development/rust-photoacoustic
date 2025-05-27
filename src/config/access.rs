@@ -9,9 +9,7 @@
 
 use crate::visualization::oidc_auth::OxideState;
 
-use super::USER_SESSION_SEPARATOR;
 use rocket::{
-    http::Status,
     request::{FromRequest, Outcome},
     Request, State,
 };
@@ -195,15 +193,20 @@ impl Default for AccessConfig {
     }
 }
 
-/// Request guard for accessing the  AccessConfig from the request state
+/// Rocket request guard for extracting [`AccessConfig`] from the application state.
+///
+/// This guard retrieves the [`AccessConfig`] from the [`OxideState`] managed by Rocket.
+/// It allows routes to access the configuration as a request guard parameter.
+///
+/// # Errors
+/// Returns a 500 error if the [`OxideState`] is missing from Rocket state.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AccessConfig {
     type Error = &'static str;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         match request.guard::<&State<OxideState>>().await {
-            Outcome::Success(oxide_state) => {
-                Outcome::Success(oxide_state.access_config.clone())}
+            Outcome::Success(oxide_state) => Outcome::Success(oxide_state.access_config.clone()),
             Outcome::Error((status, _)) => Outcome::Error((status, "Missing oxide state")),
             Outcome::Forward(status) => Outcome::Forward(status),
         }

@@ -2,11 +2,35 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Configuration for the Generix OAuth2 provider
-//! This configuration is used to dynamically generate the /generix.json endpoint
+//! # Generix OAuth2 Provider Configuration
+//!
+//! This module defines the [`GenerixConfig`] struct, which holds all configuration parameters required for generating the OAuth2/OIDC provider configuration for the web console.
+//!
+//! The configuration is used to dynamically generate the `/client/generix.json` endpoint and to drive OAuth/OIDC authentication flows in the application.
+//!
+//! ## Example
+//!
+//! ```rust
+//! use crate::config::generix::GenerixConfig;
+//! let config = GenerixConfig::default();
+//! println!("OAuth provider: {}", config.provider);
+//! ```
+//!
+//! ## Fields
+//! - `provider`: Name of the OAuth2 provider (e.g., "generix").
+//! - `api_base_url`: Base URL for the provider's API.
+//! - `client_id`: OAuth2 client ID registered with the provider.
+//! - `scope`: Space-separated list of OAuth2 scopes to request.
+//! - `redirect_uri`: Redirect URI registered with the provider for OAuth2 callbacks.
+//! - `audience`: Expected audience claim in JWTs.
+//! - `token_issuer`: Expected issuer claim in JWTs.
+//! - `jwks_endpoint`: URL to the provider's JWKS (JSON Web Key Set) endpoint.
+//! - `domain`: Domain name for the provider or application.
+//!
+//! ## Usage
+//! This struct is typically loaded from a YAML configuration file and made available via Rocket state. Use the provided request guard to access it in Rocket routes.
 
 use rocket::{
-    http::Status,
     request::{FromRequest, Outcome},
     Request, State,
 };
@@ -14,16 +38,29 @@ use serde::{Deserialize, Serialize};
 
 use crate::visualization::oidc_auth::OxideState;
 
+/// Configuration for a Generix-compatible OAuth2/OIDC provider.
+///
+/// This struct contains all parameters required to interact with the provider for authentication and token validation.
+/// It is typically loaded from a YAML file and injected into Rocket state for use throughout the application.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct GenerixConfig {
+    /// Name of the OAuth2 provider (e.g., "generix").
     pub provider: String,
+    /// Base URL for the provider's API.
     pub api_base_url: String,
+    /// OAuth2 client ID registered with the provider.
     pub client_id: String,
+    /// Space-separated list of OAuth2 scopes to request.
     pub scope: String,
+    /// Redirect URI registered for OAuth2 callbacks.
     pub redirect_uri: String,
+    /// Expected audience claim in JWTs.
     pub audience: String,
+    /// Expected issuer claim in JWTs.
     pub token_issuer: String,
+    /// URL to the provider's JWKS (JSON Web Key Set) endpoint.
     pub jwks_endpoint: String,
+    /// Domain name for the provider or application.
     pub domain: String,
 }
 
@@ -36,22 +73,27 @@ impl Default for GenerixConfig {
             scope: "openid email profile read:api write:api".to_string(),
             redirect_uri: "https://localhost:8080/client/".to_string(),
             audience: "LaserSmart".to_string(),
-            token_issuer: "https://localhost:8080".to_string(), // Fix the typo here
+            token_issuer: "https://localhost:8080".to_string(),
             jwks_endpoint: "https://localhost:8080/.well-known/jwks.json".to_string(),
             domain: "localhost".to_string(),
         }
     }
 }
 
-/// Request guard for accessing the GenerixConfig from the request state
+/// Rocket request guard for extracting [`GenerixConfig`] from the application state.
+///
+/// This guard retrieves the [`GenerixConfig`] from the [`OxideState`] managed by Rocket.
+/// It allows routes to access the configuration as a request guard parameter.
+///
+/// # Errors
+/// Returns a 500 error if the [`OxideState`] is missing from Rocket state.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for GenerixConfig {
     type Error = &'static str;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         match request.guard::<&State<OxideState>>().await {
-            Outcome::Success(oxide_state) => {
-                Outcome::Success(oxide_state.generix_config.clone())}
+            Outcome::Success(oxide_state) => Outcome::Success(oxide_state.generix_config.clone()),
             Outcome::Error((status, _)) => Outcome::Error((status, "Missing oxide state")),
             Outcome::Forward(status) => Outcome::Forward(status),
         }
