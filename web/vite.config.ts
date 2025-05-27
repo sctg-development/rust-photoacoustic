@@ -160,8 +160,8 @@ export default defineConfig({
   },
   server: {
     https: {
-      cert: extractCert("../config.yaml"),
-      key: extractKey("../config.yaml"),
+      cert: extractCert("../rust/config.yaml"),
+      key: extractKey("../rust/config.yaml"),
     }
   }
 });
