@@ -18,7 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const RS256_KEY_LENGTH: usize = 4096; // Default key length for RS256
                                       // Checks if any web source files are newer than the compiled files
-fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
+fn is_web_source_newer_than_dist(dist_path: &PathBuf, src_paths: &[PathBuf]) -> bool {
     // Get the most recent modification date of files in dist
     let dist_latest_mod = get_latest_modification_time(dist_path).unwrap_or_else(|| {
         SystemTime::now()
@@ -28,17 +28,7 @@ fn is_web_source_newer_than_dist(dist_path: &PathBuf) -> bool {
             - 86400
     });
 
-    // Get the most recent modification date of source files
-    let src_paths = [
-        PathBuf::from("../web/src"),
-        PathBuf::from("../web/public"),
-        PathBuf::from("../web/index.html"),
-        PathBuf::from("../web/package.json"),
-        PathBuf::from("../web/tsconfig.json"),
-        PathBuf::from("../web/vite.config.ts"),
-        // Add other files/directories to watch as needed
-    ];
-
+    let src_paths: Vec<PathBuf> = src_paths.iter().map(|p| p.to_path_buf()).collect();
     for path in &src_paths {
         if let Some(mod_time) = get_latest_modification_time(path) {
             if mod_time > dist_latest_mod {
@@ -575,7 +565,18 @@ fn build_web_console(version_changed: bool) -> Result<()> {
         version_changed
     );
 
-    let needs_build = !dist_path.exists() || is_web_source_newer_than_dist(&dist_path);
+    // Get the most recent modification date of source files
+    let src_paths = [
+        PathBuf::from("../web/src"),
+        PathBuf::from("../web/public"),
+        PathBuf::from("../web/index.html"),
+        PathBuf::from("../web/package.json"),
+        PathBuf::from("../web/tsconfig.json"),
+        PathBuf::from("../web/vite.config.ts"),
+        // Add other files/directories to watch as needed
+    ];
+
+    let needs_build = !dist_path.exists() || is_web_source_newer_than_dist(&dist_path, &src_paths);
     println!(
         "cargo:warning=build_web_console: needs_build: {}",
         needs_build
@@ -585,7 +586,7 @@ fn build_web_console(version_changed: bool) -> Result<()> {
     if !needs_build && !version_changed {
         // Delete generix.json if it exists, as it will be generated dynamically
         delete_dist_file(&dist_path, "generix.json")?;
-        println!("cargo:warning=No changes detected in web files, skipping build");
+        println!("cargo:warning=No changes detected in webconsole files, skipping build");
         return Ok(());
     }
 
@@ -635,16 +636,56 @@ fn delete_dist_file(dist_path: &PathBuf, file: &str) -> Result<(), anyhow::Error
 /// Biuld the rapidoc by calling the Node.js build process
 fn build_rapidoc() -> Result<()> {
     println!("cargo:warning=build_rapidoc: Starting function");
+
+    // Checks if dist files already exist to avoid unnecessary rebuilds
     let dist_path = PathBuf::from("./resources/rapidoc_helper/dist");
     let web_path = PathBuf::from("./resources/rapidoc_helper");
 
-    // Check if dist files already exist to avoid unnecessary rebuilds
-    if !dist_path.exists() || is_web_source_newer_than_dist(&dist_path) {
-        println!("cargo:warning=build_rapidoc: Calling build_node_project");
-        build_node_project(web_path)?;
+    println!(
+        "cargo:warning=build_rapidoc: dist_path exists: {}",
+        dist_path.exists()
+    );
+    println!(
+        "cargo:warning=build_rapidoc: web_path exists: {}",
+        web_path.exists()
+    );
+
+    // Get the most recent modification date of source files
+    let src_paths = [
+        PathBuf::from("./resources/rapidoc_helper/package.json"),
+        PathBuf::from("./resources/rapidoc_helper/openapi3.ts"),
+        PathBuf::from("./resources/rapidoc_helper/webpack.config.cjs"),
+        PathBuf::from("./resources/rapidoc_helper/index.ts"),
+        // Add other files/directories to watch as needed
+    ];
+
+    let needs_build = !dist_path.exists() || is_web_source_newer_than_dist(&dist_path, &src_paths);
+    println!("cargo:warning=build_rapidoc: needs_build: {}", needs_build);
+
+    // If no rebuild is needed, exit early
+    if !needs_build {
+        println!("cargo:warning=No changes detected in rapidoc files, skipping build");
+        return Ok(());
+    }
+
+    println!("cargo:warning=build_rapidoc: Calling build_node_project");
+
+    // Use the build_node_project function
+    match build_node_project(web_path) {
+        Ok(()) => {
+            println!("cargo:warning=build_rapidoc: build_node_project completed successfully")
+        }
+        Err(e) => {
+            println!(
+                "cargo:warning=build_rapidoc: build_node_project failed: {}",
+                e
+            );
+            return Err(e);
+        }
     }
 
     // Verify the dist folder was created
+    println!("cargo:warning=build_rapidoc: Checking if dist directory was created");
     if !dist_path.exists() {
         return Err(anyhow::anyhow!(
             "Rapidoc build completed but dist directory was not created"
