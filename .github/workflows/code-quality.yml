@@ -31,7 +31,7 @@ jobs:
       - name: Install Node.js dependencies
         run: |
           cd web
-          npm install
+          npm install && npm run build
           
       - name: Install Linux dependencies
         run: |
