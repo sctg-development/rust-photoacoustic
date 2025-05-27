@@ -26,17 +26,11 @@
           "type": "string"
         },
         "cert": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "PEM TLS certificate file (base64 encoded)"
         },
         "key": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "PEM TLS private key file (base64 encoded)"
         },
         "hmac_secret": {
@@ -44,23 +38,15 @@
           "description": "HMAC secret for JWT token signing"
         },
         "rs256_private_key": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "RS256 private key for JWT token signing (base64 encoded)"
         },
         "rs256_public_key": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "RS256 public key for JWT token verification (base64 encoded)"
         },
         "session_secret": {
-          "type": [
-            "string"
-          ],
+          "type": ["string"],
           "description": "Session secret for cookie signing (base64 encoded) can be generated with openssl rand -base64 32"
         }
       },
@@ -100,10 +86,7 @@
           "description": "Enable Modbus TCP server"
         }
       },
-      "required": [
-        "port",
-        "address"
-      ]
+      "required": ["port", "address"]
     },
     "acquisition": {
       "type": "object",
@@ -120,25 +103,17 @@
           "description": "Data acquisition interval in milliseconds"
         }
       },
-      "required": [
-        "enabled"
-      ]
+      "required": ["enabled"]
     },
     "photoacoustic": {
       "type": "object",
       "properties": {
         "input_device": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "The input device to use for data acquisition"
         },
         "input_file": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "The input file to use for data acquisition (mutually exclusive with input_device)"
         },
         "frequency": {
@@ -166,22 +141,13 @@
           "description": "Number of spectra to average"
         }
       },
-      "required": [
-        "frequency",
-        "bandwidth",
-        "window_size",
-        "averages"
-      ],
+      "required": ["frequency", "bandwidth", "window_size", "averages"],
       "oneOf": [
         {
-          "required": [
-            "input_device"
-          ]
+          "required": ["input_device"]
         },
         {
-          "required": [
-            "input_file"
-          ]
+          "required": ["input_file"]
         }
       ]
     },
@@ -228,11 +194,7 @@
                 "description": "Full name of the user"
               }
             },
-            "required": [
-              "user",
-              "pass",
-              "permissions"
-            ]
+            "required": ["user", "pass", "permissions"]
           },
           "description": "List of users with their credentials and permissions"
         },
@@ -260,18 +222,12 @@
                 "description": "Default scopes granted to this client"
               }
             },
-            "required": [
-              "client_id",
-              "allowed_callbacks"
-            ]
+            "required": ["client_id", "allowed_callbacks"]
           },
           "description": "List of OAuth2 clients with their identifiers and allowed callback URLs"
         }
       },
-      "required": [
-        "users",
-        "clients"
-      ]
+      "required": ["users", "clients"]
     },
     "generix": {
       "type": "object",
@@ -279,15 +235,18 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": [
-            "generix"
-          ],
+          "enum": ["generix"],
           "description": "OAuth provider type. Only 'generix' is supported"
         },
         "api_base_url": {
           "type": "string",
           "format": "uri",
           "description": "Base URL of the API server"
+        },
+        "authority": {
+          "type": "string",
+          "format": "uri",
+          "description": "Authority URL for the OAuth2/OpenID Connect provider"
         },
         "client_id": {
           "type": "string",
@@ -334,7 +293,5 @@
       ]
     }
   },
-  "required": [
-    "visualization"
-  ]
+  "required": ["visualization"]
 }

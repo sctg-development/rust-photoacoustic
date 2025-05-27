@@ -48,6 +48,8 @@ pub struct GenerixConfig {
     pub provider: String,
     /// Base URL for the provider's API.
     pub api_base_url: String,
+    /// Authority URL for the OAuth2 provider, used for token validation.
+    pub authority: String,
     /// OAuth2 client ID registered with the provider.
     pub client_id: String,
     /// Space-separated list of OAuth2 scopes to request.
@@ -69,6 +71,7 @@ impl Default for GenerixConfig {
         Self {
             provider: "generix".to_string(),
             api_base_url: "https://localhost:8080".to_string(),
+            authority: "https://localhost:8080".to_string(),
             client_id: "LaserSmartClient".to_string(),
             scope: "openid email profile read:api write:api".to_string(),
             redirect_uri: "https://localhost:8080/client/".to_string(),
