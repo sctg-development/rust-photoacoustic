@@ -159,7 +159,7 @@ impl<'r> FromRequest<'r> for OAuthBearer {
 
                 let validator = match rs256_public_key {
                     Some(ref pem) => {
-                        JwtValidator::new(Some(hmac_secret), Some(pem), access_config.clone())
+                        JwtValidator::new(Some(hmac_secret), Some(&pem), access_config.clone())
                     }
                     None => JwtValidator::new(Some(hmac_secret), None, access_config.clone()),
                 };

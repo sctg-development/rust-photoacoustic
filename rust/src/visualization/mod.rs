@@ -142,6 +142,9 @@ pub mod vite_dev_proxy;
 /// User information response for OpenID Connect
 pub mod user_info_reponse;
 
+/// Password hashing utilities
+pub mod pwhash;
+
 use crate::{config::Config, AnalysisResult};
 use anyhow::Result;
 use base64::{self, Engine};

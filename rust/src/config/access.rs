@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use rust_photoacoustic::config::Client;
+/// use rust_photoacoustic::config::access::Client;
 ///
 /// let client = Client {
 ///     client_id: "LaserSmartClient".to_string(),
@@ -113,7 +113,7 @@ pub struct User {
 /// # Example
 ///
 /// ```rust
-/// use rust_photoacoustic::config::{AccessConfig, User, Client};
+/// use rust_photoacoustic::config::access::{AccessConfig, User, Client};
 ///
 /// let access_config = AccessConfig {
 ///     users: vec![

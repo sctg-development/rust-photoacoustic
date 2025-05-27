@@ -56,7 +56,7 @@ impl std::error::Error for Error {}
 /// let password = "admin123";
 /// let hash = "$6$salt$hash"; // Example hash
 ///
-/// if pwhash::unix::verify(password, hash) {
+/// if pwhash::verify(password, hash) {
 ///     println!("Password is correct!");
 /// } else {
 ///     println!("Password is incorrect!");

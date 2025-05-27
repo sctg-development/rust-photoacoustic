@@ -80,7 +80,7 @@ impl<'r> Responder<'r, 'r> for StaticFileResponse {
 ///
 /// ```
 /// use rocket::get;
-/// use rust_photoacoustic::visualization::server::Headers;
+/// use rust_photoacoustic::visualization::request_guard::Headers;
 /// #[get("/example")]
 /// fn example_route(headers: Headers<'_>) -> String {
 ///     // Check if a specific header exists
@@ -162,7 +162,7 @@ impl Debug for Headers<'_> {
 ///
 /// ```
 /// use rocket::get;
-/// use rust_photoacoustic::visualization::server::ConnectionInfo;
+/// use rust_photoacoustic::visualization::request_guard::ConnectionInfo;
 ///
 /// #[get("/connection-info")]
 /// fn show_connection_info(conn_info: ConnectionInfo<'_>) -> String {

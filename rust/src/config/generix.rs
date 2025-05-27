@@ -11,7 +11,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use crate::config::generix::GenerixConfig;
+//! use rust_photoacoustic::config::generix::GenerixConfig;
 //! let config = GenerixConfig::default();
 //! println!("OAuth provider: {}", config.provider);
 //! ```
