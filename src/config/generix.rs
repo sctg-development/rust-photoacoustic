@@ -12,6 +12,8 @@ use rocket::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::visualization::oidc_auth::OxideState;
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct GenerixConfig {
     pub provider: String,
@@ -47,9 +49,10 @@ impl<'r> FromRequest<'r> for GenerixConfig {
     type Error = &'static str;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        match request.guard::<&State<GenerixConfig>>().await {
-            Outcome::Success(config) => Outcome::Success(config.inner().clone()),
-            Outcome::Error((status, _)) => Outcome::Error((status, "Missing generix config")),
+        match request.guard::<&State<OxideState>>().await {
+            Outcome::Success(oxide_state) => {
+                Outcome::Success(oxide_state.generix_config.clone())}
+            Outcome::Error((status, _)) => Outcome::Error((status, "Missing oxide state")),
             Outcome::Forward(status) => Outcome::Forward(status),
         }
     }

@@ -7,6 +7,8 @@
 //! This module defines the structures for managing users, OAuth clients,
 //! and their respective permissions within the application.
 
+use crate::visualization::oidc_auth::OxideState;
+
 use super::USER_SESSION_SEPARATOR;
 use rocket::{
     http::Status,
@@ -196,12 +198,14 @@ impl Default for AccessConfig {
 /// Request guard for accessing the  AccessConfig from the request state
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AccessConfig {
-    type Error = (&'static str);
+    type Error = &'static str;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        match request.guard::<&State<AccessConfig>>().await {
-            Outcome::Success(config) => Outcome::Success(config.inner().clone()),
-            _ => Outcome::Error((Status::InternalServerError, "Missing access config")),
+        match request.guard::<&State<OxideState>>().await {
+            Outcome::Success(oxide_state) => {
+                Outcome::Success(oxide_state.access_config.clone())}
+            Outcome::Error((status, _)) => Outcome::Error((status, "Missing oxide state")),
+            Outcome::Forward(status) => Outcome::Forward(status),
         }
     }
 }
