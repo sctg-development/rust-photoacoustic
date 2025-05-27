@@ -12,8 +12,8 @@
 # POSIX (Linux/macOS):
 #   openssl genpkey -algorithm RSA -out private.key -pkeyopt rsa_keygen_bits:2048
 #   openssl rsa -pubout -in private.key -out pub.key
-#   base64 -w0 private.key > private.key.b64
-#   base64 -w0 pub.key > pub.key.b64
+#   cat private.key | base64 -w0 > private.key.b64
+#   cat pub.key | base64 -w0 > pub.key.b64
 # Windows (using Git Bash or WSL):
 #   Same as above, or use OpenSSL for Windows (https://slproweb.com/products/Win32OpenSSL.html)
 #   Use 'base64 -w0' or 'certutil -encode' (then remove header/footer lines)
@@ -62,8 +62,8 @@ visualization:
   # Generate and encode with:
   #   cat rust-photoacoustic.local.pem | base64 -w0 > cert.txt
   #   cat rust-photoacoustic.local.key | base64 -w0 > key.txt
-  # cert: <Base64 PEM certificate string>
-  # key: <Base64 PEM private key string>
+  cert: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZ3d0RRWUpLb1pJaHZjTkFRRUJCUUFEU3dBd1NBSkJBS3FZcWszcVAwTkQrelJDeTdIMjZrUHVuQmpMTEpFNQp4Z0p5VzBQZm8wb3pUelV0Tk1DZFRHZzB5a3hFSjA5NXVEUXpGYWZxME5FcTBWeG40MjJZWXRzQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=
+  key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUJWUUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQVQ4d2dnRTdBZ0VBQWtFQXFwaXFUZW8vUTBQN05FTEwKc2ZicVErNmNHTXNza1RuR0FuSmJROStqU2pOUE5TMDB3SjFNYURUS1RFUW5UM200TkRNVnArclEwU3JSWEdmagpiWmhpMndJREFRQUJBa0JzVWlXSTlaMFh5L21jZEhFOFhnamYrNGs0SVFINmNKR3ZDZ2V6TURSUnJ2cHRjM0YwCnVETEN5K21kQnBPOCs2b2FvcE9wN3hIa053OU42U2FPMGZhWkFpRUE0cjArbEpOQ3FZaGdSdTNIb2xKT0dRMkUKcnVTdHUrZStRM2pxVnN3U29zVUNJUURBbktLalFJdEZONnpxdHpPK1lnanNudFNOeG1iKzdlSnRsY2JLa0FMSgpId0loQUlRL1h3M25xbjBaaHhZM3dEWGtEWnM5TUVPV0srTXFjdVlGMDZEV25KUUZBaUJUb3pDVVJ6Q3lxOHh3ClY0RW1pSmRyZUVUQUU0a2g1ZFpPMDV6dzFMd0E3UUloQU1maU5ULzVXYzY1YzhGNWR6MFRvQjQ1aTVZYVRNYnoKbkNwQWpGQm5kN0E0Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
 
   # JWT authentication secrets:
   # HMAC secret for HS256 JWT signing (used for API authentication)
@@ -73,7 +73,7 @@ visualization:
   # Generate with the `rs256keygen` utility or OpenSSL.
   # These are optional unless you want RS256 support.
   rs256_private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUdyQWdFQUFpRUFyd0FZcXAvdGVvaUE4N2FWQStJTjQ1U1RvMTdMUVZPbGRUT3FJeHhQeElNQ0F3RUFBUUlnCldRVlpodUpYOGE4aXVkYzFNb1o1dldYcmxwdFlEUTQ3RXUwa2pNVVA2T0VDRVFEUjEyN0RsZWNKNU80V3B2VEcKdnQ1YkFoRUExWDZ4ZVVzUXpISkZTYlV4eXZEYStRSVJBS2Z1b05ZbHdTQko5Y0JySExseFJzRUNFUURCcTBOZApqNTMyaUxhWURablV5amNwQWhCSG9CU1JSTS9ESVA5dWE1MDhYMEtOCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
-  rs256_public_key: LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2QUJpcW4rMTZpSUR6dHBVRDRnM2psSk9qWHN0QlU2VjFNNm9qSEUvRWd3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0K
+  rs256_public_key: LsS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2QUJpcW4rMTZpSUR6dHBVRDRnM2psSk9qWHN0QlU2VjFNNm9qSEUvRWd3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0K
 
 # =========================
 # Modbus TCP server settings
