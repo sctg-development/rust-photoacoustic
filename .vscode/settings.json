@@ -10,5 +10,6 @@
     "terminal.integrated.env.linux": {
         "RUSTFLAGS": "${env:RUSTFLAGS} -A unused",
         "RUST_LOG": "debug"
-    }
+    },
+    "rust-analyzer.diagnostics.disabled": ["macro-error"]
 }

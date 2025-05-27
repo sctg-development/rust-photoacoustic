@@ -16,7 +16,9 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--web"],
+            "args": [
+                "--web"
+            ],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1"
@@ -38,7 +40,13 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--server", "--web-address=127.0.0.1", "--web-port=8888", "--frequency=2000", "--bandwidth=100"],
+            "args": [
+                "--server",
+                "--web-address=127.0.0.1",
+                "--web-port=8888",
+                "--frequency=2000",
+                "--bandwidth=100"
+            ],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1",
@@ -61,11 +69,45 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--server", "--config", "${workspaceFolder}/config.yaml", "-v"],
+            "args": [
+                "--server",
+                "--config",
+                "${workspaceFolder}/config.yaml",
+                "-v"
+            ],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1",
                 "RUST_LOG": "debug"
+            },
+            "terminal": "console"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Web Develop rust_photoacoustic (config)",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rust_photoacoustic",
+                    "--package=rust_photoacoustic"
+                ],
+                "filter": {
+                    "name": "rust_photoacoustic",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--server",
+                "--config",
+                "${workspaceFolder}/config.yaml",
+                "-v"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_BACKTRACE": "1",
+                "RUST_LOG": "debug",
+                "VITE_DEVELOPMENT": "http://localhost:5173"
             },
             "terminal": "console"
         },
@@ -84,7 +126,18 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-o", "test_noise.wav", "-d", "2", "-s", "48000", "-a", "0.8", "-c", "2"],
+            "args": [
+                "-o",
+                "test_noise.wav",
+                "-d",
+                "2",
+                "-s",
+                "48000",
+                "-a",
+                "0.8",
+                "-c",
+                "2"
+            ],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1",
@@ -99,7 +152,7 @@
             "cargo": {
                 "args": [
                     "test",
-                    "--test", 
+                    "--test",
                     "rs256_jwt_test",
                     "test_rs256_jwt_token_generation_and_validation"
                 ],
