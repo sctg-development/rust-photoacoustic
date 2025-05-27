@@ -60,15 +60,19 @@ jobs:
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: "rust -> target"
-        key: ${{ matrix.target }}
+        key: rust-ci-${{ matrix.os }}-${{ matrix.target }}
   
+    - name: Create base configuration
+      run: |
+        cp rust/config.example.yaml rust/config.yaml
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'npm'
         cache-dependency-path: 'web/package-lock.json'
-          
+    
     - name: Install Node.js dependencies
       run: |
         cd web

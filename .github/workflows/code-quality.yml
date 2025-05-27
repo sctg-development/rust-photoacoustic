@@ -15,6 +15,10 @@ jobs:
         with: # fetch all submodules
            submodules: 'recursive'
       
+      - name: Create base configuration
+        run: |
+          cp rust/config.example.yaml rust/config.yaml
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
@@ -40,6 +44,9 @@ jobs:
       
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "rust -> target"
+          key: ${{ runner.os }}-rustfmt-clippy
       
       - name: Check formatting
         run: |
