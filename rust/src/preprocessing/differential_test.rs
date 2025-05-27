@@ -148,10 +148,12 @@ mod tests {
     /// * `Result<()>` - Success or an error
     #[test]
     fn test_differential_with_wav_file() -> Result<()> {
+        let workspace_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
         // Load the test WAV file
-        let wav_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("data")
-            .join("16_48k_PerfectTest.wav");
+        let wav_path = workspace_path.join("data").join("16_48k_PerfectTest.wav");
 
         let (left_channel, right_channel, sample_rate) =
             read_stereo_wav_file(wav_path.to_str().unwrap())?;

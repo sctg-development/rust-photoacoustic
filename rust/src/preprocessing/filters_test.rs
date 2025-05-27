@@ -123,11 +123,18 @@ mod tests {
     /// manual auditory inspection.
     #[test]
     fn test_bandpass_filter_with_wav_file() {
+        let workspace_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
         // Load the test WAV file
-        let wav_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("data")
-            .join("16_48k_PerfectTest.wav");
+        let wav_path = workspace_path.join("data").join("16_48k_PerfectTest.wav");
 
+        assert!(
+            wav_path.exists(),
+            "Test WAV file does not exist: {}",
+            wav_path.display()
+        );
         let (samples, sample_rate) = read_wav_file(wav_path.to_str().unwrap());
 
         // Create a bandpass filter with 2kHz center frequency and 100Hz bandwidth
