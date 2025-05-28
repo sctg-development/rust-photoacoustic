@@ -43,7 +43,7 @@ base64 = "0.22.1"                                                               
 tempfile = "3.20.0"                                                                   # Temporary files for tests
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
-reqwest = "0.12.15"
+reqwest = "0.12.16"
 oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 serde_urlencoded = "0.7.1"
@@ -55,6 +55,9 @@ tokio = { version = "1.45.1", features = ["rt", "macros", "rt-multi-thread", "ti
 tokio-modbus = { version = "0.16.1", features = ["tcp", "tcp-server", "server"] }
 pwhash = "1.0.0"  # Add this dependency for password hashing
 handlebars = "6.3.2"
+quote = "1.0.40"
+syn = {version="2.0.101", features=["full"]}
+auth-macros = { path = "auth-macros" }
 
 [dev-dependencies]
 criterion = "0.6"                                   # Benchmarking
