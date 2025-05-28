@@ -45,22 +45,9 @@
 //! - For production, consider using RS256 with separate signing and verification keys
 //! - Store secrets securely and never expose them in client-side code
 
-// Internal modules that are not public
-mod claims;
-mod issuer;
-mod responses;
-mod token_entry;
-mod token_map;
-
 // Existing modules that remain public
 /// JWT extensions for OpenID Connect support
 pub mod jwt_extension;
 
-/// RSA key management for JWT signing and verification
-pub mod jwt_keys;
-
-/// JWT token validation and user information extraction
-pub mod jwt_validator;
-
 // Re-export the public API
-pub use issuer::JwtIssuer;
+pub use crate::visualization::auth::jwt::JwtIssuer;

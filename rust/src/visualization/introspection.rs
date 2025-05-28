@@ -21,7 +21,7 @@
 //! ```no_run
 //! use rocket::{build, routes};
 //! use rust_photoacoustic::visualization::introspection::introspect;
-//! use rust_photoacoustic::visualization::oidc_auth::OxideState;
+//! use rust_photoacoustic::visualization::auth::OxideState;
 //!
 //! fn main() {
 //!     let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret".to_string()));
@@ -40,7 +40,7 @@
 //!
 //! * [RFC 7662: OAuth 2.0 Token Introspection](https://datatracker.ietf.org/doc/html/rfc7662)
 
-use crate::visualization::oidc_auth::OxideState;
+use crate::visualization::auth::OxideState;
 use chrono::{TimeZone, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use oxide_auth::primitives::issuer::Issuer;

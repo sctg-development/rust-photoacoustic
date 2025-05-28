@@ -7,7 +7,7 @@
 //! This module defines the structures for managing users, OAuth clients,
 //! and their respective permissions within the application.
 
-use crate::visualization::oidc_auth::OxideState;
+use crate::visualization::auth::OxideState;
 
 use rocket::{
     request::{FromRequest, Outcome},

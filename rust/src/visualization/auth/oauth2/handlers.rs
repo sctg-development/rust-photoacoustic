@@ -19,11 +19,11 @@ use rocket::serde::json::Json;
 use rocket::time::Duration;
 use rocket::{get, post, State};
 
-use super::auth::validate_user;
 use super::consent::{consent_decision, consent_form};
 use super::forms::{encode_user_session, login_page_html, AuthForm, AuthenticatedUser};
 use super::state::OxideState;
-use crate::visualization::oauth_guard::OAuthBearer;
+use crate::visualization::auth::oauth2::validate_user;
+use crate::visualization::auth::OAuthBearer;
 use crate::visualization::user_info_reponse::UserInfoResponse;
 
 /// OAuth 2.0 authorization endpoint

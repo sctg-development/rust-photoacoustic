@@ -36,7 +36,7 @@ use rocket::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::visualization::oidc_auth::OxideState;
+use crate::visualization::auth::OxideState;
 
 /// Configuration for a Generix-compatible OAuth2/OIDC provider.
 ///

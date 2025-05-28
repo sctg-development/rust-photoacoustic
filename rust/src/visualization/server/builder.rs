@@ -14,13 +14,16 @@ use rocket::routes;
 use rocket::{Build, Rocket};
 use rocket_okapi::{openapi_get_routes, rapidoc::*, settings::UrlObject};
 
-use crate::config::{AccessConfig, GenerixConfig};
-use crate::include_png_as_base64;
-use crate::visualization::oidc::{jwks, openid_configuration};
-use crate::visualization::oidc_auth::{authorize, authorize_consent, refresh, token, login, userinfo, OxideState};
-use crate::visualization::vite_dev_proxy;
 use super::cors::CORS;
 use super::handlers::*;
+use crate::config::{AccessConfig, GenerixConfig};
+use crate::include_png_as_base64;
+use crate::visualization::auth::{
+    authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
+    OxideState,
+};
+use crate::visualization::oidc::{jwks, openid_configuration};
+use crate::visualization::vite_dev_proxy;
 
 /// Build a configured Rocket server instance
 ///
@@ -84,9 +87,10 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
                     base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key)
                 {
                     // Create a new JWT issuer with RS256 keys
-                    if let Ok(jwt_issuer) =
-                        crate::visualization::jwt::JwtIssuer::with_rs256_pem(&decoded_private, &decoded_public)
-                    {
+                    if let Ok(jwt_issuer) = crate::visualization::jwt::JwtIssuer::with_rs256_pem(
+                        &decoded_private,
+                        &decoded_public,
+                    ) {
                         oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
                     }
                 }
@@ -224,17 +228,20 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
     let config = config.merge(("hmac_secret", test_hmac_secret.to_string()));
 
     // Create OAuth2 state with the test secret
-    let oxide_state = crate::visualization::oidc_auth::OxideState::preconfigured(config.clone());
+    let oxide_state = OxideState::preconfigured(config.clone());
 
     // Initialize JWT validator with the test secret
-    let jwt_validator =
-        match crate::visualization::api_auth::init_jwt_validator(test_hmac_secret, None, access_config) {
-            Ok(validator) => std::sync::Arc::new(validator),
-            Err(e) => {
-                eprintln!("Failed to initialize JWT validator: {}", e);
-                std::process::exit(1);
-            }
-        };
+    let jwt_validator = match crate::visualization::api_auth::init_jwt_validator(
+        test_hmac_secret,
+        None,
+        access_config,
+    ) {
+        Ok(validator) => std::sync::Arc::new(validator),
+        Err(e) => {
+            eprintln!("Failed to initialize JWT validator: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Build Rocket instance for tests
     rocket::custom(config)
@@ -255,13 +262,16 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
         )
         .mount(
             "/api",
-            routes![crate::visualization::api_auth::get_profile, crate::visualization::api_auth::get_data,],
+            routes![
+                crate::visualization::api_auth::get_profile,
+                crate::visualization::api_auth::get_data,
+            ],
         )
         .manage(oxide_state)
         .manage(jwt_validator)
 }
 
-use rocket::{get, serde::json::Json, http::Status};
+use rocket::{get, http::Status, serde::json::Json};
 
 #[get("/client/generix.json", rank = 1)]
 /// Endpoint to retrieve the Generix configuration

@@ -14,7 +14,7 @@
 //! # Example
 //!
 //! ```
-//! use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
+//! use rust_photoacoustic::visualization::auth::jwt::{JwtValidator, UserSysInfo};
 //! use rust_photoacoustic::config::AccessConfig;
 //!
 //! // Create a validator with a secret key
@@ -141,7 +141,7 @@ pub struct JwtClaims {
 /// Basic setup with HS256 algorithm:
 ///
 /// ```
-/// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
 /// use rust_photoacoustic::config::AccessConfig;
 ///
 /// // Create a validator with a secret key (HS256)
@@ -155,7 +155,7 @@ pub struct JwtClaims {
 /// Basic setup with RS256 algorithm:
 ///
 /// ```no_run
-/// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
 /// use rust_photoacoustic::config::AccessConfig;
 /// // Example public key in PEM format (for demonstration only)
 /// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
@@ -168,7 +168,7 @@ pub struct JwtClaims {
 /// Dual algorithm (HS256 and RS256):
 ///
 /// ```no_run
-/// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+/// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
 /// use rust_photoacoustic::config::AccessConfig;
 /// let hmac = b"your-secret-key";
 /// let public_pem = b"-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n";
@@ -230,7 +230,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
     /// use rust_photoacoustic::config::AccessConfig;
     /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap()
     ///     .with_issuer("https://auth.example.com");
@@ -257,7 +257,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
     /// use rust_photoacoustic::config::AccessConfig;
     /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap()
     ///     .with_audience("web-client");
@@ -297,7 +297,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
     /// use rust_photoacoustic::config::AccessConfig;
     /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap();
     /// // let result = validator.validate("your.jwt.token");
@@ -381,7 +381,7 @@ impl JwtValidator {
     /// # Examples
     ///
     /// ```
-    /// use rust_photoacoustic::visualization::jwt::jwt_validator::JwtValidator;
+    /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
     /// use rust_photoacoustic::config::AccessConfig;
     /// let validator = JwtValidator::new(Some(b"secret-key"), None, AccessConfig::default()).unwrap();
     /// // let result = validator.get_user_info("your.jwt.token");
@@ -448,7 +448,7 @@ impl JwtValidator {
 /// # Example
 ///
 /// ```
-/// use rust_photoacoustic::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
+/// use rust_photoacoustic::visualization::auth::jwt::{JwtValidator, UserSysInfo};
 ///
 /// // After getting the UserSysInfo from a token
 /// fn process_user_info(user: &UserSysInfo) {
@@ -583,7 +583,7 @@ impl UserSysInfo {
     /// # Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserSysInfo;
+    /// # use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
     /// # use serde_json::json;
     /// # let claims = serde_json::from_value(json!({
     /// #     "sub": "user123",
@@ -618,7 +618,7 @@ impl UserSysInfo {
     /// # Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::jwt::jwt_validator::UserSysInfo;
+    /// # use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
     /// # use serde_json::json;
     /// # let claims = serde_json::from_value(json!({
     /// #     "sub": "user123",

@@ -89,7 +89,27 @@ pub mod api;
 ///         .mount("/", routes![get_profile, get_data])
 /// }
 /// ```
+
+/// Authentication and authorization system
+///
+/// This module provides a unified authentication system supporting:
+/// - OAuth 2.0 authorization code flow
+/// - JWT token validation and management
+/// - Request guards for API protection
+/// - Permission-based access control
+pub mod auth;
+
 pub mod api_auth;
+pub mod introspection;
+pub mod oidc;
+pub mod pwhash;
+pub mod request_guard;
+pub mod server;
+pub mod user_info_reponse;
+pub mod vite_dev_proxy;
+
+// Re-export commonly used auth items
+pub use auth::{JwtValidator, OAuthBearer};
 
 /// Token introspection functionality for validating OAuth tokens
 ///
@@ -100,7 +120,7 @@ pub mod api_auth;
 ///
 /// ```no_run
 /// use rocket::{build, post, routes};
-/// use rust_photoacoustic::visualization::oidc_auth::OxideState;
+/// use rust_photoacoustic::visualization::auth::OxideState;
 ///
 /// #[post("/introspect")]
 /// fn introspect() -> &'static str {
@@ -116,34 +136,9 @@ pub mod api_auth;
 ///     // Start the server
 /// }
 /// ```
-pub mod introspection;
 
 /// JWT token generation and management
 pub mod jwt;
-
-/// OAuth integration with Oxide Auth library
-pub mod oidc_auth;
-
-/// Web server implementation
-pub mod server;
-
-/// OIDC discovery and configuration
-pub mod oidc;
-
-/// Oauth2 Request Guard
-pub mod oauth_guard;
-
-/// Generic request guard for extracting headers
-pub mod request_guard;
-
-/// Vite development proxy for hot reloading
-pub mod vite_dev_proxy;
-
-/// User information response for OpenID Connect
-pub mod user_info_reponse;
-
-/// Password hashing utilities
-pub mod pwhash;
 
 use crate::{config::Config, AnalysisResult};
 use anyhow::Result;

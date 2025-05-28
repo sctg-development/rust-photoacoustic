@@ -111,7 +111,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 ///
 /// ```
 /// use rust_photoacoustic::config::User;
-/// use rust_photoacoustic::visualization::oidc_auth::encode_user_session;
+/// use rust_photoacoustic::visualization::auth::oauth2::encode_user_session;
 ///
 /// let user = User {
 ///     user: "alice".to_string(),
@@ -177,7 +177,7 @@ pub fn encode_user_session(user: User) -> String {
 /// # Examples
 ///
 /// ```
-/// use rust_photoacoustic::visualization::oidc_auth::decode_user_session;
+/// use rust_photoacoustic::visualization::auth::oauth2::decode_user_session;
 ///
 /// // Assuming you have a cookie value from a session
 /// let cookie_value = "eyJ1c2VybmFtZSI6ImFsaWNlIiwicGVybWlzc2lvbnMiOlsicmVhZDphcGkiXX0=";
@@ -247,7 +247,10 @@ pub fn login_page_html(
 
     // Register the template
     handlebars
-        .register_template_string("login", include_str!("../../../resources/forms/login.hbs"))
+        .register_template_string(
+            "login",
+            include_str!("../../../../resources/forms/login.hbs"),
+        )
         .expect("Failed to register login template");
 
     let data = json!({

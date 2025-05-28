@@ -63,7 +63,7 @@ use crate::visualization::pwhash;
 ///
 /// ```
 /// use rust_photoacoustic::config::AccessConfig;
-/// use rust_photoacoustic::visualization::oidc_auth::validate_user;
+/// use rust_photoacoustic::visualization::auth::oauth2::validate_user;
 ///
 /// // Assuming you have an AccessConfig with users
 /// let access_config = AccessConfig::default();

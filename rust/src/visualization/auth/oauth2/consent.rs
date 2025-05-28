@@ -95,7 +95,7 @@ pub fn consent_page_html(route: &str, solicitation: Solicitation) -> String {
     handlebars
         .register_template_string(
             "consent",
-            include_str!("../../../resources/forms/consent.hbs"),
+            include_str!("../../../../resources/forms/consent.hbs"),
         )
         .expect("Failed to register consent template");
 

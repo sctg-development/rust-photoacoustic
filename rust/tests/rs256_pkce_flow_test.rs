@@ -15,7 +15,7 @@ use reqwest::Url;
 use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rust_photoacoustic::visualization::server;
-use rust_photoacoustic::{config::AccessConfig, visualization::jwt::jwt_keys::JwkKeySet};
+use rust_photoacoustic::{config::AccessConfig, visualization::auth::jwt::JwkKeySet};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;

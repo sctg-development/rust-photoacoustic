@@ -26,14 +26,14 @@
 //! 3. Extracting user information and permissions from the token
 //! 4. Optionally checking for specific permissions
 
-use crate::visualization::jwt::jwt_validator::{JwtValidator, UserSysInfo};
-use crate::visualization::oidc_auth::OxideState;
+use crate::visualization::auth::jwt::{JwtValidator, UserSysInfo};
+use crate::visualization::auth::oauth2::OxideState;
 use base64::Engine;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::State;
 
-use super::server::get_config_from_request;
+use crate::visualization::server::get_config_from_request;
 
 /// Request guard for extracting and validating a Bearer JWT from the Authorization header
 ///
@@ -72,7 +72,7 @@ use super::server::get_config_from_request;
 /// ```rust,no_run
 /// use rocket::get;
 /// use rocket::serde::json::Json;
-/// use rust_photoacoustic::visualization::oauth_guard::OAuthBearer;
+/// use rust_photoacoustic::visualization::auth::OAuthBearer;
 ///
 /// #[get("/user-info")]
 /// fn get_user_info(bearer: OAuthBearer) -> Json<String> {
@@ -181,7 +181,7 @@ impl OAuthBearer {
     ///
     /// ```rust,no_run
     /// use rocket::get;
-    /// use rust_photoacoustic::visualization::oauth_guard::OAuthBearer;
+    /// use rust_photoacoustic::visualization::auth::OAuthBearer;
     ///
     /// #[get("/sensitive-data")]
     /// fn get_sensitive_data(bearer: OAuthBearer) -> Result<&'static str, rocket::http::Status> {

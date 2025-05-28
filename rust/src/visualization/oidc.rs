@@ -21,9 +21,9 @@ use rocket::serde::json::{json, Json, Value};
 use rocket::{get, State};
 use serde::{Deserialize, Serialize};
 
-use super::oidc_auth::OxideState;
+use super::auth::OxideState;
 use super::request_guard::ConnectionInfo;
-use crate::visualization::jwt::jwt_keys::JwkKeySet;
+use crate::visualization::auth::jwt::JwkKeySet;
 
 /// OpenID Connect Discovery Configuration
 ///
