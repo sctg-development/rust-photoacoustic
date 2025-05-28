@@ -7,8 +7,6 @@
 //! This module provides functions to build and configure the Rocket server
 //! instance with all necessary routes, fairings, and state management.
 
-use std::time::Duration;
-
 use anyhow::Context;
 use base64::Engine;
 use rocket::figment::Figment;
@@ -66,7 +64,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .unwrap();
     let access_config: AccessConfig = figment
         .extract_inner::<AccessConfig>("access_config")
-        .context("Missing access_config in figment")
+        .context("Missing access in figment")
         .unwrap();
     // Create OAuth2 state with the HMAC secret from config
     let mut oxide_state = OxideState::preconfigured(figment.clone());
@@ -109,8 +107,10 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
     }
 
     // Extract user access configuration from figment
-    if let Ok(access_config) = figment.extract_inner::<AccessConfig>("access") {
+    if let Ok(access_config) = figment.extract_inner::<AccessConfig>("access_config") {
         oxide_state.access_config = access_config;
+    } else {
+        log::error!("Access config not found in figment");
     }
 
     // Initialize JWT validator - try to use RS256 if keys are available, otherwise use HMAC secret
