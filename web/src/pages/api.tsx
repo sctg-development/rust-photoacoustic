@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from "react-i18next";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Snippet } from "@heroui/snippet";
 
 import { title } from "@/components/primitives";
