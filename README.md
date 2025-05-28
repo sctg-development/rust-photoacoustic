@@ -26,7 +26,7 @@ The application can be configured using a YAML configuration file. By default, i
 You can specify an alternative configuration file using the `--config` command line argument:
 
 ```bash
-cargo run -- --config /path/to/your/config.yaml
+cargo run --bin rust_photoacoustic -- --server --config /path/to/your/config.yaml
 ```
 
 If the specified configuration file doesn't exist, a default one will be generated.
