@@ -1,26 +1,39 @@
 import { Trans, useTranslation } from "react-i18next";
-import { useAuth0 } from "@auth0/auth0-react";
-import { useEffect, useState } from "react";
+
+import { use, useEffect, useState } from "react";
 import { Snippet } from "@heroui/snippet";
 
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
-import { useSecuredApi } from "@/authentication";
+import { useAuth, useSecuredApi } from "@/authentication";
+import { getGenerixConfig, GenerixConfig } from "../authentication/providers/generix-config";
 
 export default function ApiPage() {
   const { t } = useTranslation();
   const { getJson } = useSecuredApi();
-  const { user, isAuthenticated } = useAuth0();
+  const { user, isAuthenticated } = useAuth();
   const [apiResponse, setApiResponse] = useState("");
+  const [generixConfig, setGenerixConfig] = useState(null as GenerixConfig | null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (isAuthenticated) {
-        try {
-          const response = await getJson(
-            `${import.meta.env.API_BASE_URL}/get/${user?.sub}`,
-          );
+    const loadGenerixConfig = async () => {
+        const config = await getGenerixConfig();
+        console.log("Config is :", config);
+        setGenerixConfig(config);
+    };
+    
+    loadGenerixConfig();
+  }, []);
 
+  // Call the API endpoint to get the response
+  useEffect(() => {
+    const fetchData = async () => {
+      if (isAuthenticated && generixConfig && user) {
+        try {
+          
+          const response = await getJson(
+            `${generixConfig.api_base_url}/test/${user.sub}`,
+          );
           setApiResponse(response);
         } catch (error) {
           setApiResponse((error as Error).message);
@@ -29,7 +42,7 @@ export default function ApiPage() {
     };
 
     fetchData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, generixConfig, user?.username]);
 
   return (
     <DefaultLayout>

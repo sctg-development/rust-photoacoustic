@@ -70,14 +70,14 @@ impl Default for GenerixConfig {
     fn default() -> Self {
         Self {
             provider: "generix".to_string(),
-            api_base_url: "https://localhost:8080".to_string(),
-            authority: "https://localhost:8080".to_string(),
-            client_id: "LaserSmartClient".to_string(),
+            api_base_url: "https://localhostAA:8080".to_string(),
+            authority: "https://localhostAB:8080".to_string(),
+            client_id: "LaserSmartClientAC".to_string(),
             scope: "openid email profile read:api write:api".to_string(),
-            redirect_uri: "https://localhost:8080/client/".to_string(),
+            redirect_uri: "https://localhostAD:8080/client/".to_string(),
             audience: "LaserSmart".to_string(),
-            token_issuer: "https://localhost:8080".to_string(),
-            jwks_endpoint: "https://localhost:8080/.well-known/jwks.json".to_string(),
+            token_issuer: "https://localhostAE:8080".to_string(),
+            jwks_endpoint: "https://localhostAF:8080/.well-known/jwks.json".to_string(),
             domain: "localhost".to_string(),
         }
     }

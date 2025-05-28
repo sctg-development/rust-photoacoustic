@@ -14,7 +14,6 @@ use rocket::{get, options, uri};
 use rocket_okapi::openapi;
 use std::path::PathBuf;
 
-use super::proxy;
 use crate::visualization::request_guard::{RawQueryString, StaticFileResponse};
 use crate::visualization::vite_dev_proxy;
 
@@ -184,52 +183,4 @@ pub async fn helper_min_js() -> Option<StaticFileResponse> {
     let content_type = ContentType::JavaScript;
     let response = StaticFileResponse(file_content.as_bytes().to_vec(), content_type);
     Some(response)
-}
-
-/// Web client route handler for Vite development paths with special characters
-///
-/// This route handles specific Vite development paths that contain special
-/// characters like dots that would be rejected by PathBuf. It has rank 1 to
-/// be tried before the regular webclient route.
-#[get("/client/.vite/<path..>", rank = 1)]
-pub async fn webclient_vite_special(
-    path: PathBuf,
-    raw_query: RawQueryString,
-) -> Option<StaticFileResponse> {
-    proxy::proxy_to_vite_special_path(".vite", path, raw_query).await
-}
-
-/// Web client route handler for @vite paths (development mode)
-///
-/// This route handles @vite paths that contain special characters
-/// that would be rejected by standard path handling.
-#[get("/client/@vite/<path..>", rank = 1)]
-pub async fn webclient_at_vite(
-    path: PathBuf,
-    raw_query: RawQueryString,
-) -> Option<StaticFileResponse> {
-    proxy::proxy_to_vite_special_path("@vite", path, raw_query).await
-}
-
-/// Web client route handler for node_modules/.vite paths (development mode)
-///
-/// This route handles node_modules/.vite paths that contain special characters
-/// that would be rejected by standard path handling.
-#[get("/client/node_modules/.vite/<path..>", rank = 1)]
-pub async fn webclient_node_modules_vite(
-    path: PathBuf,
-    raw_query: RawQueryString,
-) -> Option<StaticFileResponse> {
-    proxy::proxy_to_vite_special_path("node_modules/.vite", path, raw_query).await
-}
-
-/// Web client route handler for @fs paths (development mode)
-///
-/// This route handles @fs paths used by Vite for file system access.
-#[get("/client/@fs/<path..>", rank = 1)]
-pub async fn webclient_at_fs(
-    path: PathBuf,
-    raw_query: RawQueryString,
-) -> Option<StaticFileResponse> {
-    proxy::proxy_to_vite_special_path("@fs", path, raw_query).await
 }

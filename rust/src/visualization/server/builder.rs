@@ -158,7 +158,8 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
         .mount(
             "/api",
-            routes![crate::visualization::api_auth::get_profile, crate::visualization::api_auth::get_data,],
+            routes![crate::visualization::api_auth::get_profile, crate::visualization::api_auth::get_data,
+            crate::visualization::api::test_api,],
         )
         .mount(
             "/api/doc/",
@@ -275,8 +276,7 @@ use rocket::{get, http::Status, serde::json::Json};
 
 #[get("/client/generix.json", rank = 1)]
 /// Endpoint to retrieve the Generix configuration
-pub async fn get_generix_config() -> Result<Json<GenerixConfig>, Status> {
+pub async fn get_generix_config(generix_config: GenerixConfig) -> Result<Json<GenerixConfig>, Status> {
     // This endpoint returns the Generix configuration as a JSON string
-    let generix_config = GenerixConfig::default(); // Use default config for now
     Ok(Json(generix_config))
 }
