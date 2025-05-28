@@ -13,36 +13,6 @@
 //! - [`OAuthBearer`] - Validates Bearer tokens and extracts user information
 //! - [`RequiresPermission`] - Validates tokens and checks for specific permissions
 //!
-//! # Usage Example
-//!
-//! ```rust,no_run
-//! use rocket::{get, routes, State};
-//! use rocket::serde::json::Json;
-//! use rust_photoacoustic::visualization::oauth_guard::{OAuthBearer, RequiresPermission};
-//!
-//! // Endpoint that requires a valid Bearer token
-//! #[get("/profile")]
-//! fn get_profile(bearer: OAuthBearer) -> Json<String> {
-//!     Json(format!("Hello, {}!", bearer.user_info.user_id))
-//! }
-//!
-//! // Endpoint that requires a specific permission (route name would be set at registration)
-//! #[get("/admin")]
-//! fn admin_endpoint(_bearer: OAuthBearer, _perm: RequiresPermission) -> &'static str {
-//!     "Admin data"
-//! }
-//!
-//! // Manual permission checking
-//! #[get("/resource")]
-//! fn get_resource(bearer: OAuthBearer) -> Result<&'static str, rocket::http::Status> {
-//!     if bearer.has_permission("read:api") {
-//!         Ok("Protected resource")
-//!     } else {
-//!         Err(rocket::http::Status::Forbidden)
-//!     }
-//! }
-//! ```
-//!
 //! # Token Validation
 //!
 //! The guards support both symmetric (HMAC-SHA256) and asymmetric (RSA-SHA256) JWT validation:
