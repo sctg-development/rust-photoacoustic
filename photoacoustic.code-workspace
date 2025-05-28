@@ -6,11 +6,15 @@
     },
     {
       "name": "Client app",
-      "path": "./web",
+      "path": "./web"
     },
     {
       "name": "GitHub Actions",
       "path": "./.github"
+    },
+    {
+      "name": "Documentation",
+      "path": "docs"
     }
   ],
   "settings": {
