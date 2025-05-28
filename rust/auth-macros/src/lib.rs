@@ -8,92 +8,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, punctuated::Punctuated, Expr, ItemFn, Lit, Token};
 
-/// Attribute macro for creating protected GET routes with permission checking
-///
-/// This macro automatically adds Bearer token validation and permission checking
-/// to Rocket route handlers. If the user doesn't have the required permission,
-/// it returns HTTP 403 Forbidden. The macro uses `rocket::Either` to handle
-/// both success and error responses properly.
-///
-/// # How it works
-///
-/// 1. **Automatic Bearer Token Injection**: If `OAuthBearer` is not in the function signature,
-///    the macro automatically adds it as the first parameter
-/// 2. **Permission Checking**: Validates that the authenticated user has the required permission
-/// 3. **Type-Safe Returns**: Uses `rocket::Either<Forbidden, T>` to return either a 403 error
-///    or the original function's return type
-/// 4. **Bearer Token Access**: The `bearer` variable is available in the function scope
-///
-/// # Syntax
-///
-/// ```rust,ignore
-/// #[protect_get("/path", "permission:scope")]
-/// fn handler_name() -> SomeResponse {
-///     // Your handler code here
-///     // The 'bearer' variable is automatically available
-/// }
-/// ```
-///
-/// # Examples
-///
-/// ## Simple protected route (automatic Bearer injection)
-/// ```rust,ignore
-/// #[protect_get("/admin/users", "admin:users")]
-/// fn list_users() -> Json<Vec<User>> {
-///     // The macro automatically injects: bearer: OAuthBearer
-///     // and checks for "admin:users" permission
-///     Json(vec![
-///         User {
-///             id: bearer.user_info.user_id.clone(),
-///             name: "Current User".to_string(),
-///         }
-///     ])
-/// }
-/// ```
-///
-/// ## Explicit Bearer parameter
-/// ```rust,ignore
-/// #[protect_get("/api/data", "read:data")]
-/// fn get_data(bearer: OAuthBearer) -> Json<DataResponse> {
-///     // When Bearer is explicitly in signature, macro just adds permission checking
-///     Json(DataResponse {
-///         user_id: bearer.user_info.user_id,
-///         data: fetch_user_data(&bearer.user_info.user_id),
-///     })
-/// }
-/// ```
-///
-/// ## With additional route parameters
-/// ```rust,ignore
-/// #[protect_get("/api/user/<user_id>/profile", "read:profiles")]
-/// fn get_user_profile(user_id: String) -> Json<Profile> {
-///     // Route parameters work normally, bearer is auto-injected
-///     Json(Profile {
-///         user_id: user_id,
-///         viewer: bearer.user_info.user_id.clone(),
-///     })
-/// }
-/// ```
-///
-/// # Return Type
-///
-/// The macro transforms the function to return:
-/// ```rust,ignore
-/// rocket::Either<rocket::response::status::Forbidden<&'static str>, OriginalReturnType>
-/// ```
-///
-/// - **Left**: 403 Forbidden with "Permission denied" message if permission check fails
-/// - **Right**: Original function's return value if permission check passes
-///
-/// # HTTP Responses
-///
-/// | Condition | Response | Description |
-/// |-----------|----------|-------------|
-/// | Missing/invalid token | 401 Unauthorized | Handled by `OAuthBearer` guard |
-/// | Valid token, insufficient permissions | 403 Forbidden | Returned by macro |
-/// | Valid token, sufficient permissions | Original response | Function executes normally |
-#[proc_macro_attribute]
-pub fn protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
+/// Internal function that implements the protection logic for all HTTP methods
+fn protect_universal_impl(args: TokenStream, input: TokenStream, http_method: &str) -> TokenStream {
     let args = parse_macro_input!(args with Punctuated::<Expr, Token![,]>::parse_terminated);
     let input_fn = parse_macro_input!(input as ItemFn);
 
@@ -135,12 +51,29 @@ pub fn protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
         false
     });
 
+    // Generate the appropriate Rocket attribute based on HTTP method
+    let rocket_attr = match http_method {
+        "get" => quote! { #[rocket::get(#path)] },
+        "post" => quote! { #[rocket::post(#path)] },
+        "put" => quote! { #[rocket::put(#path)] },
+        "delete" => quote! { #[rocket::delete(#path)] },
+        "patch" => quote! { #[rocket::patch(#path)] },
+        _ => {
+            return syn::Error::new_spanned(
+                &input_fn,
+                format!("Unsupported HTTP method: {}", http_method),
+            )
+            .to_compile_error()
+            .into()
+        }
+    };
+
     // Generate the protected function with Either return type
     let expanded = if has_bearer_param {
         // If OAuthBearer is already in signature, just add permission check
         quote! {
             #(#fn_attrs)*
-            #[rocket::get(#path)]
+            #rocket_attr
             #fn_vis fn #fn_name(#fn_inputs) -> rocket::Either<rocket::response::status::Forbidden<&'static str>, #return_type> {
                 // Check permission first
                 if !bearer.has_permission(#permission) {
@@ -155,7 +88,7 @@ pub fn protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
         // Add OAuthBearer parameter and permission check
         quote! {
             #(#fn_attrs)*
-            #[rocket::get(#path)]
+            #rocket_attr
             #fn_vis fn #fn_name(
                 bearer: crate::visualization::auth::guards::OAuthBearer,
                 #fn_inputs
@@ -174,10 +107,96 @@ pub fn protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Parse the arguments for protect_get macro
+/// Attribute macro for creating protected GET routes with permission checking
+///
+/// This macro automatically adds Bearer token validation and permission checking
+/// to Rocket route handlers. If the user doesn't have the required permission,
+/// it returns HTTP 403 Forbidden. The macro uses `rocket::Either` to handle
+/// both success and error responses properly.
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// #[protect_get("/path", "permission:scope")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
+    protect_universal_impl(args, input, "get")
+}
+
+/// Attribute macro for creating protected POST routes with permission checking
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// #[protect_post("/path", "permission:scope")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn protect_post(args: TokenStream, input: TokenStream) -> TokenStream {
+    protect_universal_impl(args, input, "post")
+}
+
+/// Attribute macro for creating protected PUT routes with permission checking
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// #[protect_put("/path", "permission:scope")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn protect_put(args: TokenStream, input: TokenStream) -> TokenStream {
+    protect_universal_impl(args, input, "put")
+}
+
+/// Attribute macro for creating protected DELETE routes with permission checking
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// #[protect_delete("/path", "permission:scope")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn protect_delete(args: TokenStream, input: TokenStream) -> TokenStream {
+    protect_universal_impl(args, input, "delete")
+}
+
+/// Attribute macro for creating protected PATCH routes with permission checking
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// #[protect_patch("/path", "permission:scope")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available
+/// }
+#[proc_macro_attribute]
+pub fn protect_patch(args: TokenStream, input: TokenStream) -> TokenStream {
+    protect_universal_impl(args, input, "patch")
+}
+
+/// Parse the arguments for protection macros
 fn parse_protect_args(args: &Punctuated<Expr, Token![,]>) -> Result<(String, String), String> {
     if args.len() != 2 {
-        return Err("protect_get requires exactly 2 arguments: path and permission".to_string());
+        return Err(
+            "Protection macros require exactly 2 arguments: path and permission".to_string(),
+        );
     }
 
     let path = match &args[0] {
