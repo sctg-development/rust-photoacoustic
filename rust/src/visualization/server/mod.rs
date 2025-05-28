@@ -61,10 +61,10 @@ pub use self::builder::{build_rocket, get_generix_config};
 #[cfg(test)]
 pub use self::builder::build_rocket_test_instance;
 
-use rocket::Request;
 use crate::config::AccessConfig;
-use std::fmt::Debug;
 use crate::visualization::request_guard::ConnectionInfo;
+use rocket::Request;
+use std::fmt::Debug;
 
 impl Debug for ConnectionInfo<'_> {
     /// Formats the ConnectionInfo for debug output

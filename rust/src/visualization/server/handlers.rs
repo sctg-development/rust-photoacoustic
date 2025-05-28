@@ -7,15 +7,15 @@
 //! This module contains the route handlers for serving static files,
 //! web client assets, and development proxy routes.
 
+use include_dir::{include_dir, Dir};
 use rocket::http::ContentType;
 use rocket::response::Redirect;
 use rocket::{get, options, uri};
 use rocket_okapi::openapi;
 use std::path::PathBuf;
-use include_dir::{include_dir, Dir};
 
-use crate::visualization::request_guard::{RawQueryString, StaticFileResponse};
 use super::proxy;
+use crate::visualization::request_guard::{RawQueryString, StaticFileResponse};
 use crate::visualization::vite_dev_proxy;
 
 /// Static directory containing the web client files
@@ -204,7 +204,10 @@ pub async fn webclient_vite_special(
 /// This route handles @vite paths that contain special characters
 /// that would be rejected by standard path handling.
 #[get("/client/@vite/<path..>", rank = 1)]
-pub async fn webclient_at_vite(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
+pub async fn webclient_at_vite(
+    path: PathBuf,
+    raw_query: RawQueryString,
+) -> Option<StaticFileResponse> {
     proxy::proxy_to_vite_special_path("@vite", path, raw_query).await
 }
 
@@ -224,6 +227,9 @@ pub async fn webclient_node_modules_vite(
 ///
 /// This route handles @fs paths used by Vite for file system access.
 #[get("/client/@fs/<path..>", rank = 1)]
-pub async fn webclient_at_fs(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
+pub async fn webclient_at_fs(
+    path: PathBuf,
+    raw_query: RawQueryString,
+) -> Option<StaticFileResponse> {
     proxy::proxy_to_vite_special_path("@fs", path, raw_query).await
 }
