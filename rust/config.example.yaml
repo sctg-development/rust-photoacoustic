@@ -1,6 +1,7 @@
 # Photoacoustic Water Vapor Analyzer Configuration Example
 # --------------------------------------------------------
 # This YAML file configures the rust-photoacoustic application.
+# YAML is a text based structured file format @see https://en.wikipedia.org/wiki/YAML
 # It must pass validation against config.schema.json (see docs for schema details).
 # To view the schema, run: `rust-photoacoustic ---show-config-schema`
 #
@@ -110,7 +111,7 @@ photoacoustic:
 # Access control and user management
 # =========================
 access:
-  duration: 86400 # Optional duration of the issued tokens
+  duration: 86400 # Optional duration in seconds of the issued tokens minimum 3600, maximum 31536000
   users:
     # List of users with hashed passwords and permissions
     # Passwords are hashed (e.g. with openssl passwd -5) and base64-encoded
