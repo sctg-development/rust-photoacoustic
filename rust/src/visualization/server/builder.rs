@@ -7,6 +7,8 @@
 //! This module provides functions to build and configure the Rocket server
 //! instance with all necessary routes, fairings, and state management.
 
+use std::time::Duration;
+
 use anyhow::Context;
 use base64::Engine;
 use rocket::figment::Figment;
@@ -62,6 +64,10 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .extract_inner::<String>("hmac_secret")
         .context("Missing HMAC secret in config")
         .unwrap();
+    let access_config: AccessConfig = figment
+        .extract_inner::<AccessConfig>("access_config")
+        .context("Missing access_config in figment")
+        .unwrap();
     // Create OAuth2 state with the HMAC secret from config
     let mut oxide_state = OxideState::preconfigured(figment.clone());
 
@@ -87,10 +93,14 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
                     base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key)
                 {
                     // Create a new JWT issuer with RS256 keys
-                    if let Ok(jwt_issuer) = crate::visualization::jwt::JwtIssuer::with_rs256_pem(
+                    if let Ok(mut jwt_issuer) = crate::visualization::jwt::JwtIssuer::with_rs256_pem(
                         &decoded_private,
                         &decoded_public,
                     ) {
+                        let duration: chrono::TimeDelta = chrono::TimeDelta::seconds(
+                            access_config.duration.or(Some(86400)).unwrap(),
+                        );
+                        jwt_issuer.valid_for(duration);
                         oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
                     }
                 }
@@ -276,7 +286,9 @@ use rocket::{get, http::Status, serde::json::Json};
 
 #[get("/client/generix.json", rank = 1)]
 /// Endpoint to retrieve the Generix configuration
-pub async fn get_generix_config(generix_config: GenerixConfig) -> Result<Json<GenerixConfig>, Status> {
+pub async fn get_generix_config(
+    generix_config: GenerixConfig,
+) -> Result<Json<GenerixConfig>, Status> {
     // This endpoint returns the Generix configuration as a JSON string
     Ok(Json(generix_config))
 }

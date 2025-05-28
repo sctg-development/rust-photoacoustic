@@ -110,6 +110,7 @@ photoacoustic:
 # Access control and user management
 # =========================
 access:
+  duration: 86400 # Optional duration of the issued tokens
   users:
     # List of users with hashed passwords and permissions
     # Passwords are hashed (e.g. with openssl passwd -5) and base64-encoded

@@ -57,6 +57,10 @@ pub struct Client {
     pub default_scope: String,
 }
 
+fn default_duration() -> Option<i64> {
+    Some(86400)
+}
+
 /// User definition for authentication and authorization
 ///
 /// This structure represents a user with authentication credentials and
@@ -149,6 +153,10 @@ pub struct AccessConfig {
 
     /// List of OAuth2 clients with their identifiers and allowed callback URLs
     pub clients: Vec<Client>,
+
+    /// Duration of the issued token
+    #[serde(default = "default_duration")]
+    pub duration: Option<i64>,
 }
 
 impl Default for User {
@@ -189,6 +197,7 @@ impl Default for AccessConfig {
         Self {
             users: vec![User::default()],
             clients: vec![Client::default()],
+            duration: default_duration(),
         }
     }
 }
