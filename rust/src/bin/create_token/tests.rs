@@ -2,8 +2,6 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Tests unitaires pour le module create_token refactorisé
-
 #[cfg(test)]
 mod tests {
     use super::*;
