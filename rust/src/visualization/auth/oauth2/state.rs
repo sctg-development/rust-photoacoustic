@@ -144,12 +144,6 @@ impl OxideState {
         // Use the HMAC secret from configuration
         let jwt_secret = hmac_secret.as_bytes();
 
-        // Create and configure the JWT issuer
-        let mut jwt_issuer = JwtIssuer::new(jwt_secret);
-        jwt_issuer
-            .with_issuer("rust-photoacoustic") // Set the issuer name
-            .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
-
         // Create a ClientMap based on config::AccessConfig::clients
         // The client_id is mapped to the Client::client_id
         // The first string in the allowed_callbacks is the default callback
@@ -161,6 +155,17 @@ impl OxideState {
             .unwrap_or_else(|_| {
                 panic!("Missing access configuration");
             });
+
+        // Create and configure the JWT issuer
+        let mut jwt_issuer = JwtIssuer::new(jwt_secret);
+        jwt_issuer
+            .with_issuer(
+                access_config
+                    .clone()
+                    .iss
+                    .unwrap_or("LaserSmartServer".to_string()),
+            ) // Set the issuer name
+            .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
 
         for client in access_config.clients {
             debug!("Adding client to oxide-auth: {:?}", client.client_id);

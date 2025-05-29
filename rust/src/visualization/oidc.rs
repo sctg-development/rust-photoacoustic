@@ -106,9 +106,11 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
             state.rs256_private_key.is_empty()
         );
     }
+    // Get the access_config from the state
+    let access_config = state.access_config.clone();
 
     OpenIdConfiguration {
-        issuer: base_url.to_string(),
+        issuer: access_config.iss.unwrap_or("LaserSmartServer".to_string()),
         authorization_endpoint: format!("{}/authorize", base_url),
         token_endpoint: format!("{}/token", base_url),
         userinfo_endpoint: Some(format!("{}/userinfo", base_url)),

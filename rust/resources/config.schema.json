@@ -210,6 +210,10 @@
           "minimum": 3600,
           "maximum": 31557600
         },
+        "iss": {
+          "type": "string",
+          "description": "issuer for the jwt"
+        },
         "users": {
           "type": "array",
           "items": {

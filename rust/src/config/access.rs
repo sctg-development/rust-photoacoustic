@@ -121,6 +121,7 @@ pub struct User {
 ///
 /// let access_config = AccessConfig {
 ///     duration: Some(86400), // Token duration in seconds
+///     iss: Some("LaserSmartServer"),
 ///     users: vec![
 ///          User {
 ///              user: "admin".to_string(),
@@ -158,6 +159,14 @@ pub struct AccessConfig {
     /// Duration of the issued token
     #[serde(default = "default_duration")]
     pub duration: Option<i64>,
+
+    /// Issuer for the access tokens
+    #[serde(default = "default_iss")]
+    pub iss: Option<String>,
+}
+
+fn default_iss() -> Option<String> {
+    Some("LaserSmartServer".to_string())
 }
 
 impl Default for User {
@@ -199,6 +208,7 @@ impl Default for AccessConfig {
             users: vec![User::default()],
             clients: vec![Client::default()],
             duration: default_duration(),
+            iss: default_iss(),
         }
     }
 }

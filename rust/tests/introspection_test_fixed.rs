@@ -100,7 +100,7 @@ async fn test_jwt_token_introspection() {
             nbf: now.timestamp(),
             jti: "test_token_123".to_string(),
             aud: "LaserSmartClient".to_string(),
-            iss: "rust-photoacoustic".to_string(),
+            iss: "LaserSmartServer".to_string(),
             scope: "read:api".to_string(),
             metadata: Some(HashMap::from([
                 ("email".to_string(), "user@example.com".to_string()),
@@ -196,7 +196,7 @@ async fn test_expired_token_introspection() {
             nbf: (now - ChronoDuration::hours(2)).timestamp(),
             jti: "expired_token_123".to_string(),
             aud: "LaserSmartClient".to_string(),
-            iss: "rust-photoacoustic".to_string(),
+            iss: "LaserSmartServer".to_string(),
             scope: "read:api".to_string(),
             metadata: None,
         };

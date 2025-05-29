@@ -116,7 +116,7 @@ impl JwtTokenMap {
             verification_key: DecodingKey::from_secret(secret),
             refresh_generator: RandomGenerator::new(16),
             token_duration: Some(Duration::hours(1)), // Default 1 hour
-            issuer: "rust-photoacoustic".to_string(),
+            issuer: "LaserSmartServer".to_string(),
             usage_counter: 0,
             algorithm: Algorithm::HS256, // Default to HMAC-SHA256
             claims: HashMap::new(),
@@ -136,7 +136,7 @@ impl JwtTokenMap {
             verification_key: decoding_key,
             refresh_generator: RandomGenerator::new(16),
             token_duration: Some(Duration::hours(1)), // Default 1 hour
-            issuer: "rust-photoacoustic".to_string(),
+            issuer: "LaserSmartServer".to_string(),
             usage_counter: 0,
             algorithm,
             claims: HashMap::new(),
@@ -167,7 +167,7 @@ impl JwtTokenMap {
             verification_key: decoding_key,
             refresh_generator: RandomGenerator::new(16),
             token_duration: Some(Duration::hours(1)), // Default 1 hour
-            issuer: "rust-photoacoustic".to_string(),
+            issuer: "LaserSmartServer".to_string(),
             usage_counter: 0,
             algorithm: Algorithm::RS256,
             claims: HashMap::new(),

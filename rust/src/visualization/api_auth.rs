@@ -373,9 +373,14 @@ pub fn init_jwt_validator(
     } else {
         None
     };
-    let validator = JwtValidator::new(hmac_opt, rs256_public_key, access_config)
+    let validator = JwtValidator::new(hmac_opt, rs256_public_key, access_config.clone())
         .map_err(|e| anyhow::anyhow!("Failed to create JWT validator: {}", e))?;
     Ok(validator
-        .with_issuer("rust-photoacoustic")
+        .with_issuer(
+            access_config
+                .iss
+                .unwrap_or("LaserSmartServer".to_string())
+                .clone(),
+        )
         .with_audience("LaserSmartClient"))
 }
