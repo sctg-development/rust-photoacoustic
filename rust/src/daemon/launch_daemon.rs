@@ -171,6 +171,9 @@ impl Daemon {
     /// }
     /// ```
     pub async fn launch(&mut self, config: &Config) -> Result<()> {
+        // Démarrer l'acquisition audio AVANT le serveur web
+        self.start_audio_acquisition(config).await?;
+
         // Start web server if enabled
         if config.visualization.enabled {
             self.start_web_server(config).await?;
@@ -194,9 +197,6 @@ impl Daemon {
 
         // Start heartbeat task for monitoring
         self.start_heartbeat()?;
-
-        // Start audio acquisition if enabled
-        self.start_audio_acquisition(config).await?;
 
         Ok(())
     }

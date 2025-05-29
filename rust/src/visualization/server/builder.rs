@@ -9,6 +9,7 @@
 
 use anyhow::Context;
 use base64::Engine;
+use log::debug;
 use rocket::figment::Figment;
 use rocket::routes;
 use rocket::{Build, Rocket};
@@ -194,6 +195,7 @@ pub async fn build_rocket(
             )
             .manage(audio_state)
     } else {
+        debug!("No audio stream provided, skipping audio routes");
         rocket_builder
     }
         .mount(
