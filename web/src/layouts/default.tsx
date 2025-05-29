@@ -71,7 +71,7 @@ export default function DefaultLayout({
         <Link
           isExternal
           className="flex items-center gap-1 text-current"
-          href={siteConfig().links.sctg}
+          href={siteConfig().links.brand}
           title={t("site-homepage")}
         >
           <span className="text-default-600">

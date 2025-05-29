@@ -52,7 +52,7 @@ export const siteConfig = () => ({
     },
   ],
   links: {
-    sctg: "https://sctg.eu.org",
+    brand: "https://lasersmart.work",
     github:
       "https://github.com/sctg-development/rust-photoacoustic",
     twitter: "https://twitter.com/hero_ui",

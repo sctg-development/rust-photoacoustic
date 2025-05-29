@@ -42,5 +42,7 @@
   "reject": "Rechazar",
   "cookie-consent-title": "Política de cookies",
   "error": "Error",
-  "authentication_error": "Error de autenticación"
+  "authentication_error": "Error de autenticación",
+  "site-homepage": "página de inicio del sitio",
+  "brand": "Lasersmart"
 }

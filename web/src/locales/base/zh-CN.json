@@ -42,5 +42,7 @@
   "reject": "拒绝",
   "cookie-consent-title": "Cookies政策",
   "error": "错误",
-  "authentication_error": "身份验证错误"
+  "authentication_error": "身份验证错误",
+  "site-homepage": "站点主页",
+  "brand": "Lasersmart"
 }

@@ -42,5 +42,7 @@
   "reject": "يرفض",
   "cookie-consent-title": "سياسة ملفات تعريف الارتباط",
   "error": "خطأ",
-  "authentication_error": "خطأ المصادقة"
+  "authentication_error": "خطأ المصادقة",
+  "site-homepage": "الصفحة الرئيسية الموقع",
+  "brand": "Lasersmart"
 }
