@@ -12,6 +12,7 @@ export type RustGenerixConfig = {
   token_issuer: string;
   jwks_endpoint: string;
   domain: string;
+  issuer: string;
 };
 
 export type GenerixConfig = {
@@ -25,6 +26,7 @@ export type GenerixConfig = {
   token_issuer: string;
   jwks_endpoint: string;
   domain: string;
+  issuer: string;
 };
 
 let generixConfigCache: GenerixConfig | null = null;
@@ -46,6 +48,7 @@ export async function getGenerixConfig(): Promise<GenerixConfig | null> {
     token_issuer: parsedConfig.token_issuer,
     jwks_endpoint: parsedConfig.jwks_endpoint,
     domain: parsedConfig.domain,
+    issuer: parsedConfig.issuer,
   };
 
   return generixConfigCache;

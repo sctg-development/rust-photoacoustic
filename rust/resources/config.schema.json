@@ -349,6 +349,10 @@
         "domain": {
           "type": "string",
           "description": "Domain for the client application"
+        },
+        "issuer": {
+          "type": "string",
+          "description": "Issuer for checking the iss claim in JWT tokens"
         }
       },
       "required": [
@@ -360,7 +364,8 @@
         "audience",
         "token_issuer",
         "jwks_endpoint",
-        "domain"
+        "domain",
+        "issuer"
       ]
     }
   },

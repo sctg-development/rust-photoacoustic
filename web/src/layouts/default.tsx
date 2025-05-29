@@ -51,8 +51,8 @@ export default function DefaultLayout({
         );
         if (token) {
           jwtVerify(token, JWKS, {
-            issuer: `https://${import.meta.env.AUTH0_DOMAIN}/`,
-            audience: import.meta.env.AUTH0_AUDIENCE,
+            issuer: `${generixConfig.issuer}`,
+            audience: `${generixConfig.audience}`,
           }).then((jwt) => {
             setDecodedToken(jwt.payload as JWTPayload);
           });

@@ -114,6 +114,7 @@ photoacoustic:
 # Access control and user management
 # =========================
 access:
+  iss: LaserSmartServer # Issuer for JWT tokens
   duration: 86400 # Optional duration in seconds of the issued tokens minimum 3600, maximum 31536000
   users:
     # List of users with hashed passwords and permissions
@@ -144,13 +145,14 @@ access:
   # OAuth2/OpenID Connect client configuration (for web client)
   # =========================
   generix:
+    issuer: LaserSmartServer # Issuer for the OAuth2/OpenID Connect server, must match the access.iss value
     provider: generix # Only 'generix' is supported
     api_base_url: https://localhost:8080 # Base URL of the API server
     authority: https://localhost:8080 # Authority URL for OAuth2/OpenID Connect
     client_id: LaserSmartClient # OAuth2/OpenID Connect client ID
     scope: "openid email profile read:api write:api" # Scopes requested by the client
     redirect_uri: https://localhost:8080/client/ # Redirect URI after authentication
-    audience: LaserSmart # Audience claim in JWT tokens
+    audience: Client # Audience claim in JWT tokens
     token_issuer: https://localhost:8080 # Token issuer base URL
     jwks_endpoint: https://localhost:8080/.well-known/jwks.json # JWKS endpoint for public keys
     domain: localhost # Domain for the client application

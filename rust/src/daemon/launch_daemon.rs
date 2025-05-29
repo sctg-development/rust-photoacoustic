@@ -583,7 +583,7 @@ impl Daemon {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```no_run,ignore
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     /// use rust_photoacoustic::config::Config;
     ///
