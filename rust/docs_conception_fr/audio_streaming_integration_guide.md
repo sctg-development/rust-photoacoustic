@@ -54,7 +54,7 @@ pub fn stream_stats(state: &State<AudioStreamState>) -> Json<StreamStats>;
 
 ```
     ┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
-    │ AcquisitionDaemon │─────▶ │ SharedAudioStream │─────▶ │   Audio SSE      │
+    │ AcquisitionDaemon │─────▶│ SharedAudioStream│─────▶│   Audio SSE      │
     │                  │       │                  │       │   Endpoints      │
     │ • read_frame()   │       │ • broadcast()    │       │ • /stream        │
     │ • target_fps     │       │ • subscribers    │       │ • /stats         │
@@ -63,7 +63,7 @@ pub fn stream_stats(state: &State<AudioStreamState>) -> Json<StreamStats>;
                                                                     │ SSE
                                                                     ▼
     ┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
-    │  Web Clients     │◀───── │  HTTP/SSE        │◀───── │  Rocket Server   │
+    │  Web Clients     │◀───── │  HTTP/SSE        │◀─────│  Rocket Server   │
     │                  │       │  Transport       │       │                  │
     │ • EventSource    │       │ • CORS headers   │       │ • Rate limiting  │
     │ • JSON parsing   │       │ • Compression    │       │ • Auth/Security  │
