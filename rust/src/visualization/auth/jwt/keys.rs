@@ -561,12 +561,11 @@ impl JwkKeySet {
     ///
     /// # Returns
     ///
-    /// A JWK representing the RSA public key
+    /// A JWK representing the RSA public key n and e are encoded with the Base64URL variant
     pub fn create_jwk_from_public_key(public_key: &RsaPublicKey) -> Result<Jwk> {
         // Get the modulus (n) and exponent (e) from the public key
-        let n = public_key.n();
-        let n = BASE64_STANDARD.encode(public_key.n().to_bytes_be());
-        let e = BASE64_STANDARD.encode(public_key.e().to_bytes_be());
+        let n = BASE64_URL_SAFE_NO_PAD.encode(public_key.n().to_bytes_be());
+        let e = BASE64_URL_SAFE_NO_PAD.encode(public_key.e().to_bytes_be());
 
         // Calculate the key ID (kid) as a SHA-256 thumbprint
         let jwk_thumbprint = Self::calculate_jwk_thumbprint(&n, &e)?;
