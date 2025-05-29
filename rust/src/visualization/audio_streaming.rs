@@ -9,9 +9,9 @@
 
 use crate::acquisition::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 use crate::visualization::api_auth::AuthenticatedUser;
+use auth_macros::protect_get;
 use rocket::serde::json::Json;
 use rocket::{
-    get,
     response::stream::{Event, EventStream},
     State,
 };
@@ -81,7 +81,7 @@ pub struct SpectralDataResponse {
 ///
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
-#[get("/stream/stats")]
+#[protect_get("/stream/stats", "read_api")]
 pub async fn get_stream_stats(
     _user: AuthenticatedUser,
     stream_state: &State<AudioStreamState>,
@@ -94,13 +94,15 @@ pub async fn get_stream_stats(
 ///
 /// Returns the most recent audio frame without subscribing to the stream.
 /// Useful for getting current state or testing connectivity.
-#[get("/stream/latest")]
+#[protect_get("/stream/latest", "read_api")]
 pub async fn get_latest_frame(
-    _user: AuthenticatedUser,
     stream_state: &State<AudioStreamState>,
 ) -> Option<Json<AudioFrameResponse>> {
-    let frame = stream_state.stream.get_latest_frame().await?;
-    Some(Json(frame.into()))
+    let frame = stream_state.stream.get_latest_frame().await;
+    match frame {
+        Some(frame) => Some(Json(frame.into())),
+        None => None,
+    }
 }
 
 /// Stream audio frames via Server-Sent Events
@@ -118,11 +120,8 @@ pub async fn get_latest_frame(
 /// data: {"channel_a": [...], "channel_b": [...], ...}
 ///
 /// ```
-#[get("/stream/audio")]
-pub fn stream_audio(
-    _user: AuthenticatedUser,
-    stream_state: &State<AudioStreamState>,
-) -> EventStream![Event] {
+#[protect_get("/stream/audio", "read:api")]
+pub fn stream_audio(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
     let stream = stream_state.stream.clone();
 
     EventStream! {
@@ -163,28 +162,18 @@ pub fn stream_audio(
 /// data: {"frequencies": [...], "magnitude_a": [...], "magnitude_b": [...], ...}
 ///
 /// ```
-#[get("/stream/spectral")]
-pub fn stream_spectral_analysis(
-    _user: AuthenticatedUser,
-    stream_state: &State<AudioStreamState>,
-) -> EventStream![Event] {
+#[protect_get("/stream/spectral", "read:api")]
+pub fn stream_spectral_analysis(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
     let stream = stream_state.stream.clone();
 
     EventStream! {
         let mut consumer = AudioStreamConsumer::new(&stream);
 
-        loop {
-            match timeout(Duration::from_secs(5), consumer.next_frame()).await {                Ok(Some(frame)) => {
+        loop {            match timeout(Duration::from_secs(5), consumer.next_frame()).await {
+                Ok(Some(frame)) => {
                     // Perform FFT analysis on the frame
                     let spectral_data = compute_spectral_analysis(&frame);
-
-                    match Event::json(&spectral_data) {
-                        event => yield event,
-                        e => {
-                            log::error!("Failed to serialize spectral data: {:?}", e);
-                            break;
-                        }
-                    }
+                    yield Event::json(&spectral_data);
                 },Ok(None) => {
                     log::info!("Audio stream closed for spectral analysis stream");
                     break;

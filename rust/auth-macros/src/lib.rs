@@ -29,6 +29,7 @@ fn protect_universal_impl(args: TokenStream, input: TokenStream, http_method: &s
     let fn_inputs = &input_fn.sig.inputs;
     let fn_output = &input_fn.sig.output;
     let fn_attrs = &input_fn.attrs;
+    let fn_asyncness = &input_fn.sig.asyncness;
 
     // Extract the return type from the function signature
     let return_type = match fn_output {
@@ -74,7 +75,7 @@ fn protect_universal_impl(args: TokenStream, input: TokenStream, http_method: &s
         quote! {
             #(#fn_attrs)*
             #rocket_attr
-            #fn_vis fn #fn_name(#fn_inputs) -> rocket::Either<rocket::response::status::Forbidden<&'static str>, #return_type> {
+            #fn_vis #fn_asyncness fn #fn_name(#fn_inputs) -> rocket::Either<rocket::response::status::Forbidden<&'static str>, #return_type> {
                 // Check permission first
                 if !bearer.has_permission(#permission) {
                     return rocket::Either::Left(rocket::response::status::Forbidden("Permission denied"));
@@ -89,7 +90,7 @@ fn protect_universal_impl(args: TokenStream, input: TokenStream, http_method: &s
         quote! {
             #(#fn_attrs)*
             #rocket_attr
-            #fn_vis fn #fn_name(
+            #fn_vis #fn_asyncness fn #fn_name(
                 bearer: crate::visualization::auth::guards::OAuthBearer,
                 #fn_inputs
             ) -> rocket::Either<rocket::response::status::Forbidden<&'static str>, #return_type> {
