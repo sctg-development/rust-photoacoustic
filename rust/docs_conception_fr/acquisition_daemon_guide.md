@@ -61,11 +61,11 @@ pub struct AcquisitionDaemon {
 ### Diagramme de Flow
 
 ```
-┌─────────────────┐
+┌───────────────────┐
 │ AcquisitionDaemon │
 │                   │
 │ ┌───────────────┐ │    ┌─────────────────┐
-│ │ Timer/Interval│ │───▶│ read_frame()    │
+│ │ Timer/Interval│ │──▶│ read_frame()    │
 │ │  (target_fps) │ │    │ from AudioSource│
 │ └───────────────┘ │    └─────────────────┘
 │                   │              │
@@ -76,18 +76,18 @@ pub struct AcquisitionDaemon {
 │                   │    └─────────────────┘
 │ ┌───────────────┐ │              │
 │ │ Frame Counter │ │              ▼
-│ │  & Metrics    │ │    ┌─────────────────┐
-│ └───────────────┘ │    │ Broadcast via   │
+│ │  & Metrics    │ │    ┌──────────────────┐
+│ └───────────────┘ │    │ Broadcast via    │
 │                   │    │ SharedAudioStream│
-└─────────────────┘    └─────────────────┘
+└───────────────────┘    └──────────────────┘
 ```
 
 ### États du Daemon
 
 ```
-┌─────────┐ start() ┌─────────┐ read_frame() ┌─────────┐
+┌─────────┐ start() ┌─────────┐ read_frame()  ┌─────────┐
 │ Created │────────▶│ Running │─────────────▶│ Active  │
-└─────────┘         └─────────┘              └─────────┘
+└─────────┘         └─────────┘               └─────────┘
      ▲                   │                        │
      │                   │ stop()                 │ error
      │               ┌─────────┐                  │
