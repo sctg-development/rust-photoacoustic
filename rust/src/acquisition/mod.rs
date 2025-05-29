@@ -5,16 +5,20 @@
 //! Audio acquisition module
 //!
 //! This module handles the acquisition of audio data from microphones
-//! or from WAV files.
+//! or from WAV files, with support for real-time streaming.
 
 use anyhow::Result;
 use std::path::Path;
 
+pub mod daemon;
 mod file;
 mod mock_microphone;
+pub mod stream;
 
+pub use daemon::AcquisitionDaemon;
 use file::FileSource;
 use mock_microphone::MicrophoneSource;
+pub use stream::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 
 /// Represents an audio source (either live or from file)
 pub trait AudioSource: Send {

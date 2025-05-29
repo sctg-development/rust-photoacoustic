@@ -104,6 +104,9 @@ photoacoustic:
   # FFT analyzer window size (samples)
   window_size: 4096
 
+  # Sampling rate in Hz
+  sampling_rate: 44100
+
   # Number of spectra to average for noise reduction
   averages: 10
 

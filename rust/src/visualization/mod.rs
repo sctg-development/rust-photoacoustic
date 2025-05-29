@@ -59,6 +59,9 @@
 /// API implementation modules
 pub mod api;
 
+/// Audio streaming endpoints for real-time data
+pub mod audio_streaming;
+
 /// API authentication mechanisms
 ///
 /// This module provides JWT-based authentication for API endpoints, including:

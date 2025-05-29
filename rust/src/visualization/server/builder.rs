@@ -13,11 +13,14 @@ use rocket::figment::Figment;
 use rocket::routes;
 use rocket::{Build, Rocket};
 use rocket_okapi::{openapi_get_routes, rapidoc::*, settings::UrlObject};
+use std::sync::Arc;
 
 use super::cors::CORS;
 use super::handlers::*;
+use crate::acquisition::SharedAudioStream;
 use crate::config::{AccessConfig, GenerixConfig};
 use crate::include_png_as_base64;
+use crate::visualization::audio_streaming::AudioStreamState;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
     OxideState,
@@ -34,6 +37,7 @@ use crate::visualization::vite_dev_proxy;
 /// # Parameters
 ///
 /// * `figment` - The Rocket configuration figment containing server settings
+/// * `audio_stream` - Optional shared audio stream for real-time audio endpoints
 ///
 /// # Returns
 ///
@@ -52,12 +56,15 @@ use crate::visualization::vite_dev_proxy;
 ///
 /// async fn example() {
 ///     let config = Figment::from(rocket::Config::default());
-///     let rocket = server::build_rocket(config).await;
+///     let rocket = server::build_rocket(config, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }
 /// ```
-pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
+pub async fn build_rocket(
+    figment: Figment,
+    audio_stream: Option<Arc<SharedAudioStream>>,
+) -> Rocket<Build> {
     let hmac_secret = figment
         .extract_inner::<String>("hmac_secret")
         .context("Missing HMAC secret in config")
@@ -142,7 +149,7 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         }
     };
 
-    rocket::custom(figment)
+    let rocket_builder = rocket::custom(figment)
         .attach(CORS)
         .mount(
             "/",
@@ -168,9 +175,27 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
         .mount(
             "/api",
-            routes![crate::visualization::api_auth::get_profile, crate::visualization::api_auth::get_data,
-            crate::visualization::api::test_api,],
+            routes![
+                crate::visualization::api_auth::get_profile,
+                crate::visualization::api_auth::get_data,
+                crate::visualization::api::test_api,
+            ],
         )
+        .manage(oxide_state)
+        .manage(jwt_validator);
+
+    // Add audio streaming routes and state if audio stream is available
+    if let Some(stream) = audio_stream {
+        let audio_state = AudioStreamState { stream };
+        rocket_builder
+            .mount(
+                "/api/audio",
+                crate::visualization::audio_streaming::get_audio_streaming_routes(),
+            )
+            .manage(audio_state)
+    } else {
+        rocket_builder
+    }
         .mount(
             "/api/doc/",
             make_rapidoc(&RapiDocConfig {
@@ -196,8 +221,6 @@ pub async fn build_rocket(figment: Figment) -> Rocket<Build> {
             }),
         )
         .mount("/api/doc/", routes![helper_min_js])
-        .manage(oxide_state)
-        .manage(jwt_validator)
 }
 
 #[cfg(test)]

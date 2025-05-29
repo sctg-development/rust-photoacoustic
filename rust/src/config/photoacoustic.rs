@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 ///     input_device: Some("hw:0,0".to_string()),
 ///     input_file: None,
 ///     frequency: 1000.0,
+///     sample_rate: 48000,
 ///     bandwidth: 50.0,
 ///     window_size: 4096,
 ///     averages: 10,
@@ -59,11 +60,27 @@ pub struct PhotoacousticConfig {
     /// Filter bandwidth in Hz
     pub bandwidth: f32,
 
-    /// Window size for FFT analysis
+    /// Window size for FFT analysis and frame sharing
     pub window_size: u16,
 
     /// Number of spectra to average
     pub averages: u16,
+
+    /// Sample rate of the input data (default is 48000 Hz)
+    #[serde(default = "default_sample_rate")]
+    pub sample_rate: u16,
+
+    /// Sampling precision in bits (16 bits for standard PCM)
+    #[serde(default = "default_precision")]
+    pub precision: u8,
+}
+
+fn default_sample_rate() -> u16 {
+    44100 // Default sample rate in Hz
+}
+
+fn default_precision() -> u8 {
+    16 // Default precision in bits
 }
 
 impl Default for PhotoacousticConfig {
@@ -74,7 +91,9 @@ impl Default for PhotoacousticConfig {
             frequency: 1000.0,                        // 1kHz default frequency
             bandwidth: 50.0,                          // 50Hz bandwidth
             window_size: 4096,                        // 4K FFT window
+            sample_rate: default_sample_rate(),       // Default sample rate
             averages: 10,                             // Average 10 spectra
+            precision: 16,
         }
     }
 }

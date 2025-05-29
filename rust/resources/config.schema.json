@@ -164,6 +164,22 @@
           "minimum": 1,
           "maximum": 1000,
           "description": "Number of spectra to average"
+        },
+        "sampling_rate": {
+          "type": "integer",
+          "minimum": 8192,
+          "maximum": 196608,
+          "description": "Sampling rate in Hz"
+        },
+        "precision": {
+          "type": "integer",
+          "enum": [
+            8,
+            16,
+            24,
+            32
+          ],
+          "description": "Precision of sampling (bits, allowed: 8, 16, 24, 32)"
         }
       },
       "required": [
