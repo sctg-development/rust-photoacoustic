@@ -315,4 +315,3 @@ pub fn get_vite_dev_routes() -> Vec<rocket::Route> {
         webclient_node_modules_vite,
     ]
 }
-

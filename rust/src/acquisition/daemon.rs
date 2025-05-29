@@ -39,11 +39,7 @@ impl AcquisitionDaemon {
     /// * `audio_source` - The audio source to read from
     /// * `target_fps` - Target frames per second for streaming
     /// * `buffer_size` - Size of the broadcast buffer
-    pub fn new(
-        audio_source: Box<dyn AudioSource>,
-        target_fps: f64,
-        buffer_size: usize,
-    ) -> Self {
+    pub fn new(audio_source: Box<dyn AudioSource>, target_fps: f64, buffer_size: usize) -> Self {
         Self {
             audio_source,
             stream: SharedAudioStream::new(buffer_size),
@@ -66,7 +62,10 @@ impl AcquisitionDaemon {
         }
 
         self.running.store(true, Ordering::Relaxed);
-        info!("Starting acquisition daemon with target FPS: {}", self.target_fps);
+        info!(
+            "Starting acquisition daemon with target FPS: {}",
+            self.target_fps
+        );
 
         let frame_duration = Duration::from_secs_f64(1.0 / self.target_fps);
         let mut interval = interval(frame_duration);
@@ -78,14 +77,12 @@ impl AcquisitionDaemon {
                 Ok(true) => {
                     // Frame successfully published
                     let frame_num = self.frame_counter.fetch_add(1, Ordering::Relaxed);
-                    
+
                     if frame_num % 100 == 0 {
                         let stats = self.stream.get_stats().await;
                         debug!(
                             "Processed {} frames, {} subscribers, {:.1} FPS",
-                            stats.total_frames,
-                            stats.active_subscribers,
-                            stats.fps
+                            stats.total_frames, stats.active_subscribers, stats.fps
                         );
                     }
                 }
@@ -169,7 +166,7 @@ mod tests {
 
         // Try to receive a frame with timeout
         let result = timeout(Duration::from_secs(2), consumer.next_frame()).await;
-        
+
         assert!(result.is_ok());
         let frame = result.unwrap();
         assert!(frame.is_some());
