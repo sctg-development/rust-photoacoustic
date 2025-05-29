@@ -114,7 +114,7 @@ pub async fn get_latest_frame(
 ///
 /// # Response Format
 /// The stream sends JSON-encoded audio frames as SSE events:
-/// ```
+/// ```json
 /// data: {"channel_a": [...], "channel_b": [...], ...}
 ///
 /// ```
@@ -159,7 +159,7 @@ pub fn stream_audio(
 ///
 /// # Response Format
 /// The stream sends JSON-encoded spectral data as SSE events:
-/// ```
+/// ```json
 /// data: {"frequencies": [...], "magnitude_a": [...], "magnitude_b": [...], ...}
 ///
 /// ```

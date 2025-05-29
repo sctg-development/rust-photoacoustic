@@ -120,6 +120,7 @@ pub struct User {
 /// use rust_photoacoustic::config::access::{AccessConfig, User, Client};
 ///
 /// let access_config = AccessConfig {
+///     duration: Some(86400), // Token duration in seconds
 ///     users: vec![
 ///          User {
 ///              user: "admin".to_string(),

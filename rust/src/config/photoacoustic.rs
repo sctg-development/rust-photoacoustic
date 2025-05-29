@@ -42,6 +42,7 @@ use serde::{Deserialize, Serialize};
 ///     bandwidth: 50.0,
 ///     window_size: 4096,
 ///     averages: 10,
+///     precision: 16,
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
