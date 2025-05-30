@@ -38,7 +38,7 @@ export default function ApiPage() {
     connect,
     disconnect,
     reconnect,
-  } = useAudioStream(`${generixConfig?.api_base_url}/audio`, false);
+  } = useAudioStream(`${generixConfig?.api_base_url}`, false);
 
   useEffect(() => {
     const loadGenerixConfig = async () => {
@@ -139,16 +139,16 @@ export default function ApiPage() {
 
                 <div className="flex gap-2">
                   {!isConnected && !isConnecting && (
-                    <Button color="primary" size="sm" onPress={connect}>
+                    <Button color="primary" size="sm" onPress={connect} aria-label="Connect to audio stream">
                       {t("connect")}
                     </Button>
                   )}
                   {isConnected && (
-                    <Button color="danger" size="sm" onPress={disconnect}>
+                    <Button color="danger" size="sm" onPress={disconnect} aria-label="Disconnect from audio stream">
                       {t("disconnect")}
                     </Button>
                   )}
-                  <Button color="secondary" size="sm" onPress={reconnect}>
+                  <Button color="secondary" size="sm" onPress={reconnect} aria-label="Reconnect to audio stream">
                     {t("reconnect")}
                   </Button>
                 </div>
@@ -203,6 +203,7 @@ export default function ApiPage() {
                     color={
                       fps > 30 ? "success" : fps > 15 ? "warning" : "danger"
                     }
+                    aria-label="FPS performance progress"
                     size="sm"
                     value={Math.min((fps / 60) * 100, 100)}
                   />

@@ -190,7 +190,7 @@ pub async fn build_rocket(
         let audio_state = AudioStreamState { stream };
         rocket_builder
             .mount(
-                "/api/audio",
+                "/api",
                 crate::visualization::streaming::get_audio_streaming_routes(),
             )
             .manage(audio_state)
