@@ -631,13 +631,7 @@ impl Daemon {
             get_default_audio_source()?
         };
 
-        // === PHASE 2: Shared Stream Initialization ===
-        // Create the shared audio stream that acts as a bridge between the acquisition
-        // daemon and the web streaming endpoints. Buffer size is critical for performance.
-        let buffer_size: usize = config.photoacoustic.window_size.into();
-        let audio_stream = Arc::new(SharedAudioStream::new(buffer_size));
-
-        // === PHASE 3: Performance Parameter Calculation ===
+        // === PHASE 2: Performance Parameter Calculation ===
         // Calculate optimal acquisition parameters based on audio configuration.
         // These calculations are essential for maintaining real-time performance.
 
@@ -653,18 +647,22 @@ impl Daemon {
         // Example: 44100 Hz / 1024 samples = ~43 FPS for real-time streaming
         let target_fps = (config.photoacoustic.sample_rate as f64) / (sample_per_window as f64);
 
-        // === PHASE 4: Acquisition Daemon Creation ===
-        // Create the core acquisition daemon with calculated parameters
-        let acquisition_daemon = AcquisitionDaemon::new(audio_source, target_fps, buffer_size);
+        // Buffer size for the acquisition daemon's internal stream
+        let buffer_size: usize = config.photoacoustic.window_size.into();
 
-        // Get a reference to the daemon's internal stream for potential future use
-        // This creates a connection point between the daemon and external consumers
-        let daemon_stream = acquisition_daemon.get_stream().clone();
+        // === PHASE 3: Acquisition Daemon Creation ===
+        // Create the core acquisition daemon with calculated parameters.
+        // The daemon will create its own SharedAudioStream internally.
+        let mut acquisition_daemon = AcquisitionDaemon::new(audio_source, target_fps, buffer_size);
+
+        // === PHASE 4: Stream Connection ===
+        // Get a reference to the daemon's internal stream for web server use
+        // This ensures the web server receives the actual audio data from the acquisition daemon
+        let audio_stream = Arc::new(acquisition_daemon.get_stream().clone());
 
         // === PHASE 5: State Management ===
-        // Store critical references in the daemon's state for access by other components
+        // Store the acquisition daemon's stream for access by web server components
         self.audio_stream = Some(audio_stream.clone());
-        self.acquisition_daemon = Some(acquisition_daemon);
 
         // === PHASE 6: Background Task Spawning ===
         // Start the acquisition daemon in a dedicated async task to avoid blocking
@@ -673,16 +671,14 @@ impl Daemon {
         let task = tokio::spawn(async move {
             info!("Audio acquisition task started");
 
-            // TODO: Replace this placeholder with proper daemon.start() call
-            // The actual implementation should:
-            // 1. Call acquisition_daemon.start() or similar method
-            // 2. Handle acquisition errors gracefully
-            // 3. Provide proper cleanup on shutdown
-            //
-            // Current implementation is a temporary placeholder that maintains
-            // the task lifecycle without actual audio processing
-            while running.load(Ordering::Relaxed) {
-                tokio::time::sleep(Duration::from_millis(100)).await;
+            // Start the acquisition daemon properly
+            match acquisition_daemon.start().await {
+                Ok(_) => {
+                    info!("Audio acquisition daemon completed successfully");
+                }
+                Err(e) => {
+                    error!("Audio acquisition daemon failed: {}", e);
+                }
             }
 
             info!("Audio acquisition task stopped");

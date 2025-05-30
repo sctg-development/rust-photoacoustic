@@ -7,69 +7,153 @@
 //! This module handles the acquisition of audio data from files.
 
 use super::AudioSource;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use hound::{WavReader, WavSpec};
+use log::debug;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 
 /// Audio source that reads from a WAV file using hound
 pub struct FileSource {
-    // In a real implementation, this would hold the hound WavReader
-    sample_rate: u32,
+    reader: WavReader<BufReader<File>>,
+    spec: WavSpec,
     frame_size: usize,
-    position: usize,
-    total_frames: usize,
+    samples_read: usize,
 }
 
 impl FileSource {
     /// Create a new FileSource for the given WAV file
     pub fn new<P: AsRef<Path>>(file_path: P) -> Result<Self> {
-        // For mock implementation, we'll just return a dummy source
-        println!("Reading WAV file: {}", file_path.as_ref().display());
+        let file = File::open(&file_path)?;
+        let buf_reader = BufReader::new(file);
+        let reader = WavReader::new(buf_reader)?;
+        let spec = reader.spec();
+
+        // Validate that the file is stereo
+        if spec.channels != 2 {
+            return Err(anyhow!(
+                "WAV file must be stereo (2 channels), got {} channels",
+                spec.channels
+            ));
+        }
+
+        // Use a reasonable frame size (e.g., ~20ms of audio at 48kHz = ~1000 samples)
+        let frame_size = (spec.sample_rate as f64 * 0.02) as usize; // 20ms
+
+        println!("Opened WAV file: {}", file_path.as_ref().display());
+        println!("  Sample rate: {} Hz", spec.sample_rate);
+        println!("  Channels: {}", spec.channels);
+        println!("  Bits per sample: {}", spec.bits_per_sample);
+        println!("  Sample format: {:?}", spec.sample_format);
+        println!("  Frame size: {} samples per channel", frame_size);
 
         Ok(Self {
-            sample_rate: 48000,
-            frame_size: 1024,
-            position: 0,
-            total_frames: 48000 * 10, // 10 seconds of audio
+            reader,
+            spec,
+            frame_size,
+            samples_read: 0,
         })
     }
 }
 
 impl AudioSource for FileSource {
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)> {
-        if self.position >= self.total_frames {
-            // End of file, return empty buffers
-            return Ok((Vec::new(), Vec::new()));
-        }
-
-        // Mock implementation generates sine waves with noise
         let mut channel_a = Vec::with_capacity(self.frame_size);
         let mut channel_b = Vec::with_capacity(self.frame_size);
 
-        for i in 0..self.frame_size {
-            if self.position + i >= self.total_frames {
-                break;
+        // Read frame_size samples for each channel (interleaved stereo)
+        match self.spec.sample_format {
+            hound::SampleFormat::Int => {
+                // Read as i16 and convert to f32
+                let samples: Result<Vec<i16>, _> = self
+                    .reader
+                    .samples::<i16>()
+                    .take(self.frame_size * 2) // frame_size samples per channel * 2 channels
+                    .collect();
+
+                match samples {
+                    Ok(sample_vec) => {
+                        if sample_vec.is_empty() {
+                            println!(
+                                "Reached end of WAV file after reading {} total samples",
+                                self.samples_read
+                            );
+                            return Ok((Vec::new(), Vec::new()));
+                        }
+
+                        // Convert interleaved stereo to separate channels
+                        for chunk in sample_vec.chunks_exact(2) {
+                            let left = chunk[0] as f32 / i16::MAX as f32;
+                            let right = chunk[1] as f32 / i16::MAX as f32;
+                            channel_a.push(left);
+                            channel_b.push(right);
+                        }
+
+                        self.samples_read += sample_vec.len();
+                    }
+                    Err(e) => {
+                        println!("Error reading samples: {:?}", e);
+                        return Ok((Vec::new(), Vec::new()));
+                    }
+                }
             }
+            hound::SampleFormat::Float => {
+                // Read as f32
+                let samples: Result<Vec<f32>, _> = self
+                    .reader
+                    .samples::<f32>()
+                    .take(self.frame_size * 2) // frame_size samples per channel * 2 channels
+                    .collect();
 
-            let t = (self.position + i) as f32 / self.sample_rate as f32;
-            let freq = 2000.0; // 2 kHz
+                match samples {
+                    Ok(sample_vec) => {
+                        if sample_vec.is_empty() {
+                            println!(
+                                "Reached end of WAV file after reading {} total samples",
+                                self.samples_read
+                            );
+                            return Ok((Vec::new(), Vec::new()));
+                        }
 
-            // Add some noise to make it more realistic
-            let noise_a = rand::random::<f32>() * 0.1;
-            let noise_b = rand::random::<f32>() * 0.1;
+                        // Convert interleaved stereo to separate channels
+                        for chunk in sample_vec.chunks_exact(2) {
+                            channel_a.push(chunk[0]);
+                            channel_b.push(chunk[1]);
+                        }
 
-            let sample_a = (2.0 * std::f32::consts::PI * freq * t).sin() * 0.5 + noise_a;
-            let sample_b = (2.0 * std::f32::consts::PI * freq * t).sin() * 0.3 + noise_b;
+                        self.samples_read += sample_vec.len();
+                    }
+                    Err(e) => {
+                        println!("Error reading samples: {:?}", e);
+                        return Ok((Vec::new(), Vec::new()));
+                    }
+                }
+            }
+        };
 
-            channel_a.push(sample_a);
-            channel_b.push(sample_b);
+        // If we couldn't read any samples, we've reached the end
+        if channel_a.is_empty() {
+            println!(
+                "Reached end of WAV file after reading {} total samples",
+                self.samples_read
+            );
+            return Ok((Vec::new(), Vec::new()));
         }
 
-        self.position += self.frame_size;
+        // show debug information each 30s only
+        if self.samples_read % (self.spec.sample_rate as usize * 30) == 0 {
+            debug!(
+                "Read {} samples from WAV file (total samples read: {})",
+                channel_a.len(),
+                self.samples_read
+            );
+        }
 
         Ok((channel_a, channel_b))
     }
 
     fn sample_rate(&self) -> u32 {
-        self.sample_rate
+        self.spec.sample_rate
     }
 }

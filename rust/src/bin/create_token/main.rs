@@ -67,5 +67,5 @@ fn print_full_results(result: &token_creator::TokenCreationResult) {
 }
 
 fn print_short_results(result: &token_creator::TokenCreationResult) {
-    println!("{}", result.token);
+    print!("{}", result.token);
 }
