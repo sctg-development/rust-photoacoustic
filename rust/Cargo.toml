@@ -18,7 +18,7 @@ dasp_window = "0.11.1"      # Windowing functions
 dasp_ring_buffer = "0.11.0" # Ring buffer for audio
 
 # Command line interface
-clap = { version = "4.5.38", features = ["derive"] }
+clap = { version = "4.5.39", features = ["derive"] }
 
 # Web interface
 rocket = { version = "0.5", features = ["json", "tls", "secrets"] }
@@ -43,7 +43,7 @@ base64 = "0.22.1"                                                               
 tempfile = "3.20.0"                                                                   # Temporary files for tests
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
-reqwest = "0.12.16"
+reqwest = "0.12.18"
 oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 serde_urlencoded = "0.7.1"
@@ -64,8 +64,8 @@ criterion = "0.6"                                   # Benchmarking
 mockall = "0.13.1"                                    # Mocking for tests
 oauth2 = "5.0.0"                                    # OAuth2 client implementation
 wiremock = "0.6.3"                                  # HTTP mocking
-tokio = { version = "1.45.0", features = ["full"] }
-reqwest = { version = "0.12.15", features = ["json"] }
+tokio = { version = "1.45.1", features = ["full"] }
+reqwest = { version = "0.12.18", features = ["json"] }
 uuid = { version = "1.17.0", features = ["v4"] }
 url = "2.5.4"                                         # URL parsing
 sha2 = "0.10.9"                                       # Pour le hachage SHA-256 utilisé dans PKCE
@@ -76,7 +76,7 @@ regex = "1.11.1"                                    # Expressions régulières
 [build-dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"                                 # JSON serialization
-tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1.45.1", features = ["full"] }
 rcgen = "0.13.2"                                     # Certificate generation
 time = "0.3.41"                                       # Time handling for certificates
 anyhow = "1.0.98"                                  # Error handling
