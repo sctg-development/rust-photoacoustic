@@ -42,7 +42,7 @@ export default [
       prettier: prettierPlugin,
     },
     rules: {
-      "no-console": "warn",
+      "no-console": "off",
       "react/prop-types": "off",
       "react/jsx-uses-react": "off",
       "react/react-in-jsx-scope": "off",
