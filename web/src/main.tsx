@@ -10,6 +10,7 @@ import { CookieConsentProvider } from "./contexts/cookie-consent-context.tsx";
 import { CookieConsent } from "./components/cookie-consent.tsx";
 import { AuthenticationProvider } from "./authentication";
 import { getGenerixConfig } from "./authentication/providers/generix-config";
+
 import type { AuthenticationType } from "./authentication";
 
 const root = document.getElementById("root");
@@ -17,6 +18,7 @@ const root = document.getElementById("root");
 (async () => {
   let providerType: AuthenticationType = "auth0";
   let generixConfig = null;
+
   try {
     generixConfig = await getGenerixConfig();
     providerType = (generixConfig?.provider as AuthenticationType) || "auth0";
@@ -26,8 +28,8 @@ const root = document.getElementById("root");
           <Provider>
             <CookieConsentProvider>
               <AuthenticationProvider
-                providerType={providerType}
                 config={generixConfig}
+                providerType={providerType}
               >
                 <CookieConsent />
                 <App />
@@ -35,7 +37,7 @@ const root = document.getElementById("root");
             </CookieConsentProvider>
           </Provider>
         </BrowserRouter>
-      </React.StrictMode>
+      </React.StrictMode>,
     );
   } catch (e) {
     providerType =

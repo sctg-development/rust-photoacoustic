@@ -35,6 +35,7 @@ export async function getGenerixConfig(): Promise<GenerixConfig | null> {
   if (generixConfigCache) return generixConfigCache;
   const resp = await fetch(`${import.meta.env.BASE_URL}/generix.json`);
   const parsedConfig: RustGenerixConfig = await resp.json();
+
   if (!parsedConfig) return null;
   // Convert RustGenerixConfig to GenerixConfig
   generixConfigCache = {

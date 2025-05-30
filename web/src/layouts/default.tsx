@@ -8,14 +8,17 @@ import {
   DropdownMenu,
   DropdownTrigger,
 } from "@heroui/dropdown";
-import { useAuth } from "@/authentication";
 import { useEffect, useState } from "react";
 import { Snippet } from "@heroui/snippet";
 import { createRemoteJWKSet, JWTPayload, jwtVerify } from "jose";
 
+import { useAuth } from "@/authentication";
 import { Navbar } from "@/components/navbar";
 import { siteConfig } from "@/config/site";
-import { GenerixConfig, getGenerixConfig } from "@/authentication/providers/generix-config";
+import {
+  GenerixConfig,
+  getGenerixConfig,
+} from "@/authentication/providers/generix-config";
 
 export default function DefaultLayout({
   children,
@@ -26,11 +29,14 @@ export default function DefaultLayout({
   const { isAuthenticated, user, getAccessToken } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [decodedToken, setDecodedToken] = useState<JWTPayload | null>(null);
-  const [generixConfig, setGenerixConfig] = useState(null as GenerixConfig | null);
+  const [generixConfig, setGenerixConfig] = useState(
+    null as GenerixConfig | null,
+  );
 
   useEffect(() => {
     const loadGenerixConfig = async () => {
       const config = await getGenerixConfig();
+
       console.log("Config is :", config);
       setGenerixConfig(config);
     };
@@ -43,12 +49,10 @@ export default function DefaultLayout({
       getAccessToken().then((token) => {
         setAccessToken(token);
         const jwksUrl = `${generixConfig.authority}/.well-known/jwks.json`;
+
         console.log("JWKS URL:", jwksUrl);
-        const JWKS = createRemoteJWKSet(
-          new URL(
-            jwksUrl,
-          ),
-        );
+        const JWKS = createRemoteJWKSet(new URL(jwksUrl));
+
         if (token) {
           jwtVerify(token, JWKS, {
             issuer: `${generixConfig.issuer}`,

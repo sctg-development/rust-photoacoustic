@@ -1,5 +1,4 @@
 import { Trans, useTranslation } from "react-i18next";
-
 import { useEffect, useState } from "react";
 import { Snippet } from "@heroui/snippet";
 import { Button } from "@heroui/button";
@@ -7,10 +6,14 @@ import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Progress } from "@heroui/progress";
 import { Chip } from "@heroui/chip";
 
+import {
+  getGenerixConfig,
+  GenerixConfig,
+} from "../authentication/providers/generix-config";
+
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
 import { useAuth, useSecuredApi } from "@/authentication";
-import { getGenerixConfig, GenerixConfig } from "../authentication/providers/generix-config";
 import { useAudioStream } from "@/hooks/useAudioStream";
 
 export default function ApiPage() {
@@ -18,7 +21,9 @@ export default function ApiPage() {
   const { getJson } = useSecuredApi();
   const { user, isAuthenticated, getAccessToken } = useAuth();
   const [apiResponse, setApiResponse] = useState("");
-  const [generixConfig, setGenerixConfig] = useState(null as GenerixConfig | null);
+  const [generixConfig, setGenerixConfig] = useState(
+    null as GenerixConfig | null,
+  );
   const [accessToken, setAccessToken] = useState("" as string | null);
 
   // Hook pour le streaming audio
@@ -32,21 +37,24 @@ export default function ApiPage() {
     fps,
     connect,
     disconnect,
-    reconnect
+    reconnect,
   } = useAudioStream(`${generixConfig?.api_base_url}/audio`);
 
   useEffect(() => {
     const loadGenerixConfig = async () => {
       const config = await getGenerixConfig();
+
       console.log("Config is :", config);
       setGenerixConfig(config);
     };
 
     const loadAccessToken = async () => {
       const token = await getAccessToken();
+
       console.log("Access token is :", token);
       setAccessToken(token);
     };
+
     loadAccessToken();
     loadGenerixConfig();
   }, []);
@@ -56,10 +64,10 @@ export default function ApiPage() {
     const fetchData = async () => {
       if (isAuthenticated && generixConfig && user) {
         try {
-
           const response = await getJson(
             `${generixConfig.api_base_url}/test/${user.sub}`,
           );
+
           setApiResponse(response);
         } catch (error) {
           setApiResponse((error as Error).message);
@@ -73,10 +81,14 @@ export default function ApiPage() {
   useEffect(() => {
     // Connected user is authenticated and the route is protected with the access token and the right permissions
     if (isAuthenticated && generixConfig && user) {
-      console.log("User is authenticated, Generix config and user are available.");
+      console.log(
+        "User is authenticated, Generix config and user are available.",
+      );
       console.log("Access Token:", accessToken);
     } else {
-      console.log("User is not authenticated or Generix config/user is not available.");
+      console.log(
+        "User is not authenticated or Generix config/user is not available.",
+      );
     }
   }, [accessToken, generixConfig, isAuthenticated, user]);
 
@@ -96,9 +108,7 @@ export default function ApiPage() {
       </section>
       <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
         <div className="inline-block max-w-lg text-center justify-center">
-          <h1 className={title()}>
-            {t("audio-streaming-test")}
-          </h1>
+          <h1 className={title()}>{t("audio-streaming-test")}</h1>
         </div>
 
         <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -112,25 +122,35 @@ export default function ApiPage() {
                 <div className="flex items-center justify-between">
                   <span>Statut:</span>
                   <Chip
-                    color={isConnected ? "success" : isConnecting ? "warning" : "danger"}
+                    color={
+                      isConnected
+                        ? "success"
+                        : isConnecting
+                          ? "warning"
+                          : "danger"
+                    }
                     variant="flat"
                   >
-                    {isConnected ? "Connecté" : isConnecting ? "Connexion..." : "Déconnecté"}
+                    {isConnected
+                      ? "Connecté"
+                      : isConnecting
+                        ? "Connexion..."
+                        : "Déconnecté"}
                   </Chip>
                 </div>
 
                 <div className="flex gap-2">
                   {!isConnected && !isConnecting && (
-                    <Button color="primary" onClick={connect} size="sm">
+                    <Button color="primary" size="sm" onClick={connect}>
                       Se connecter
                     </Button>
                   )}
                   {isConnected && (
-                    <Button color="danger" onClick={disconnect} size="sm">
+                    <Button color="danger" size="sm" onClick={disconnect}>
                       Déconnecter
                     </Button>
                   )}
-                  <Button color="secondary" onClick={reconnect} size="sm">
+                  <Button color="secondary" size="sm" onClick={reconnect}>
                     Reconnecter
                   </Button>
                 </div>
@@ -158,14 +178,18 @@ export default function ApiPage() {
 
                 <div className="flex justify-between">
                   <span>Frames perdues:</span>
-                  <span className={`font-bold ${droppedFrames > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  <span
+                    className={`font-bold ${droppedFrames > 0 ? "text-red-600" : "text-green-600"}`}
+                  >
                     {droppedFrames}
                   </span>
                 </div>
 
                 <div className="flex justify-between">
                   <span>FPS:</span>
-                  <span className="font-bold text-purple-600">{fps.toFixed(1)}</span>
+                  <span className="font-bold text-purple-600">
+                    {fps.toFixed(1)}
+                  </span>
                 </div>
 
                 {/* Barre de progression FPS */}
@@ -175,9 +199,11 @@ export default function ApiPage() {
                     <span>{fps.toFixed(1)}/60</span>
                   </div>
                   <Progress
-                    value={Math.min((fps / 60) * 100, 100)}
-                    color={fps > 30 ? "success" : fps > 15 ? "warning" : "danger"}
+                    color={
+                      fps > 30 ? "success" : fps > 15 ? "warning" : "danger"
+                    }
                     size="sm"
+                    value={Math.min((fps / 60) * 100, 100)}
                   />
                 </div>
               </div>
@@ -194,7 +220,9 @@ export default function ApiPage() {
                 <div className="flex flex-col gap-2 text-sm">
                   <div className="flex justify-between">
                     <span>Numéro:</span>
-                    <span className="font-mono">{currentFrame.frame_number}</span>
+                    <span className="font-mono">
+                      {currentFrame.frame_number}
+                    </span>
                   </div>
 
                   <div className="flex justify-between">
@@ -204,29 +232,44 @@ export default function ApiPage() {
 
                   <div className="flex justify-between">
                     <span>Durée (ms):</span>
-                    <span className="font-mono">{currentFrame.duration_ms}</span>
+                    <span className="font-mono">
+                      {currentFrame.duration_ms}
+                    </span>
                   </div>
 
                   <div className="flex justify-between">
                     <span>Sample Rate:</span>
-                    <span className="font-mono">{currentFrame.sample_rate} Hz</span>
+                    <span className="font-mono">
+                      {currentFrame.sample_rate} Hz
+                    </span>
                   </div>
 
                   <div className="flex justify-between">
                     <span>Canal A (samples):</span>
-                    <span className="font-mono">{currentFrame.channel_a.length}</span>
+                    <span className="font-mono">
+                      {currentFrame.channel_a.length}
+                    </span>
                   </div>
 
                   <div className="flex justify-between">
                     <span>Canal B (samples):</span>
-                    <span className="font-mono">{currentFrame.channel_b.length}</span>
+                    <span className="font-mono">
+                      {currentFrame.channel_b.length}
+                    </span>
                   </div>
 
                   {/* Visualisation simple des échantillons */}
                   <div className="mt-2">
-                    <div className="text-xs text-gray-600 mb-1">Aperçu Canal A (10 premiers échantillons):</div>
+                    <div className="text-xs text-gray-600 mb-1">
+                      Aperçu Canal A (10 premiers échantillons):
+                    </div>
                     <div className="font-mono text-xs bg-gray-100 p-1 rounded overflow-hidden">
-                      [{currentFrame.channel_a.slice(0, 10).map(val => val.toFixed(3)).join(', ')}...]
+                      [
+                      {currentFrame.channel_a
+                        .slice(0, 10)
+                        .map((val) => val.toFixed(3))
+                        .join(", ")}
+                      ...]
                     </div>
                   </div>
                 </div>
@@ -243,7 +286,9 @@ export default function ApiPage() {
         {currentFrame && (
           <Card className="w-full max-w-4xl mt-4">
             <CardHeader>
-              <h3 className="text-lg font-semibold">Données de la Frame (JSON)</h3>
+              <h3 className="text-lg font-semibold">
+                Données de la Frame (JSON)
+              </h3>
             </CardHeader>
             <CardBody>
               <Snippet className="w-full" symbol="" title="frame-data">

@@ -53,8 +53,7 @@ export const siteConfig = () => ({
   ],
   links: {
     brand: "https://lasersmart.work",
-    github:
-      "https://github.com/sctg-development/rust-photoacoustic",
+    github: "https://github.com/sctg-development/rust-photoacoustic",
     twitter: "https://twitter.com/hero_ui",
     docs: "https://sctg-development.github.io/rust-photoacoustic/rust_photoacoustic/",
     discord: "https://discord.gg/9b6yyZKmH4",

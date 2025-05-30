@@ -28,6 +28,7 @@ export const AuthenticationProvider: React.FC<AuthenticationProviderProps> = ({
 }) => {
   // Prefer config.provider if present
   const effectiveProviderType = config?.provider || providerType;
+
   // Set up Auth0 provider
   if (effectiveProviderType === "auth0") {
     // Auth0 uses the following environment variables:
@@ -37,7 +38,7 @@ export const AuthenticationProvider: React.FC<AuthenticationProviderProps> = ({
     // AUTH0_SCOPE
     const redirectUri = new URL(
       import.meta.env.BASE_URL || "/",
-      window.location.origin
+      window.location.origin,
     ).toString();
 
     return (
@@ -70,7 +71,7 @@ export const AuthenticationProvider: React.FC<AuthenticationProviderProps> = ({
     // GENERIX_JWKS_ENDPOINT
     // GENERIX_DOMAIN
     return (
-      <AuthProviderWrapper providerType={effectiveProviderType} config={config}>
+      <AuthProviderWrapper config={config} providerType={effectiveProviderType}>
         {children}
       </AuthProviderWrapper>
     );
