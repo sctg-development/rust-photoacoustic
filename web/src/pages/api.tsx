@@ -22,11 +22,11 @@ export default function ApiPage() {
   const { user, isAuthenticated, getAccessToken } = useAuth();
   const [apiResponse, setApiResponse] = useState("");
   const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null,
+    null as GenerixConfig | null
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
 
-  // Hook pour le streaming audio
+  // Hook for audio streaming
   const {
     isConnected,
     isConnecting,
@@ -65,7 +65,7 @@ export default function ApiPage() {
       if (isAuthenticated && generixConfig && user) {
         try {
           const response = await getJson(
-            `${generixConfig.api_base_url}/test/${user.sub}`,
+            `${generixConfig.api_base_url}/test/${user.sub}`
           );
 
           setApiResponse(response);
@@ -82,12 +82,12 @@ export default function ApiPage() {
     // Connected user is authenticated and the route is protected with the access token and the right permissions
     if (isAuthenticated && generixConfig && user) {
       console.log(
-        "User is authenticated, Generix config and user are available.",
+        "User is authenticated, Generix config and user are available."
       );
       console.log("Access Token:", accessToken);
     } else {
       console.log(
-        "User is not authenticated or Generix config/user is not available.",
+        "User is not authenticated or Generix config/user is not available."
       );
     }
   }, [accessToken, generixConfig, isAuthenticated, user]);
@@ -96,9 +96,7 @@ export default function ApiPage() {
     <DefaultLayout>
       <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
         <div className="inline-block max-w-lg text-center justify-center">
-          <h1 className={title()}>
-            <Trans t={t}>api-answer</Trans>
-          </h1>
+          <h1 className={title()}>{t("api-answer")}</h1>
         </div>
         <Snippet className="max-w-11/12" symbol="" title="api-response">
           <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-5xl  whitespace-break-spaces  text-wrap break-words">
@@ -112,15 +110,17 @@ export default function ApiPage() {
         </div>
 
         <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Statut de connexion */}
+          {/* Connection status */}
           <Card className="w-full">
             <CardHeader className="pb-2">
-              <h3 className="text-lg font-semibold">État de Connexion</h3>
+              <h3 className="text-lg font-semibold">
+                {t("connection-status")}
+              </h3>
             </CardHeader>
             <CardBody>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span>Statut:</span>
+                  <span>{t("status")}:</span>
                   <Chip
                     color={
                       isConnected
@@ -132,52 +132,55 @@ export default function ApiPage() {
                     variant="flat"
                   >
                     {isConnected
-                      ? "Connecté"
+                      ? "Connected"
                       : isConnecting
-                        ? "Connexion..."
-                        : "Déconnecté"}
+                        ? "Connecting..."
+                        : "Disconnected"}
                   </Chip>
                 </div>
 
                 <div className="flex gap-2">
                   {!isConnected && !isConnecting && (
-                    <Button color="primary" size="sm" onClick={connect}>
-                      Se connecter
+                    <Button color="primary" size="sm" onPress={connect}>
+                      {t("connect")}
                     </Button>
                   )}
                   {isConnected && (
-                    <Button color="danger" size="sm" onClick={disconnect}>
-                      Déconnecter
+                    <Button color="danger" size="sm" onPress={disconnect}>
+                      {t("disconnect")}
                     </Button>
                   )}
-                  <Button color="secondary" size="sm" onClick={reconnect}>
-                    Reconnecter
+                  <Button color="secondary" size="sm" onPress={reconnect}>
+                    {t("reconnect")}
                   </Button>
                 </div>
 
                 {error && (
                   <div className="text-red-500 text-sm bg-red-50 p-2 rounded">
-                    <strong>Erreur ({error.type}):</strong> {error.message}
+                    <strong>
+                      {t("error")} ({error.type}):
+                    </strong>{" "}
+                    {error.message}
                   </div>
                 )}
               </div>
             </CardBody>
           </Card>
 
-          {/* Statistiques du stream */}
+          {/* Stream statistics */}
           <Card className="w-full">
             <CardHeader className="pb-2">
-              <h3 className="text-lg font-semibold">Statistiques</h3>
+              <h3 className="text-lg font-semibold">{t("statistics")}</h3>
             </CardHeader>
             <CardBody>
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between">
-                  <span>Frames reçues:</span>
+                  <span>{t("frames-received")}:</span>
                   <span className="font-bold text-blue-600">{frameCount}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span>Frames perdues:</span>
+                  <span>{t("frames-lost")}:</span>
                   <span
                     className={`font-bold ${droppedFrames > 0 ? "text-red-600" : "text-green-600"}`}
                   >
@@ -192,10 +195,10 @@ export default function ApiPage() {
                   </span>
                 </div>
 
-                {/* Barre de progression FPS */}
+                {/* FPS progress bar */}
                 <div className="mt-2">
                   <div className="flex justify-between text-sm mb-1">
-                    <span>Performance FPS</span>
+                    <span>{t("fps-performance")}</span>
                     <span>{fps.toFixed(1)}/60</span>
                   </div>
                   <Progress
@@ -210,58 +213,58 @@ export default function ApiPage() {
             </CardBody>
           </Card>
 
-          {/* Informations de la frame actuelle */}
+          {/* Current frame information */}
           <Card className="w-full">
             <CardHeader className="pb-2">
-              <h3 className="text-lg font-semibold">Frame Actuelle</h3>
+              <h3 className="text-lg font-semibold">{t("current-frame")}</h3>
             </CardHeader>
             <CardBody>
               {currentFrame ? (
                 <div className="flex flex-col gap-2 text-sm">
                   <div className="flex justify-between">
-                    <span>Numéro:</span>
+                    <span>{t("number")}:</span>
                     <span className="font-mono">
                       {currentFrame.frame_number}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span>Timestamp:</span>
+                    <span>{t("timestamp")}:</span>
                     <span className="font-mono">{currentFrame.timestamp}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span>Durée (ms):</span>
+                    <span>{t("duration-ms")}:</span>
                     <span className="font-mono">
                       {currentFrame.duration_ms}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span>Sample Rate:</span>
+                    <span>{t("sample-rate")}:</span>
                     <span className="font-mono">
                       {currentFrame.sample_rate} Hz
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span>Canal A (samples):</span>
+                    <span>{t("channel-a-samples")}:</span>
                     <span className="font-mono">
                       {currentFrame.channel_a.length}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span>Canal B (samples):</span>
+                    <span>{t("channel-b-samples")}:</span>
                     <span className="font-mono">
                       {currentFrame.channel_b.length}
                     </span>
                   </div>
 
-                  {/* Visualisation simple des échantillons */}
+                  {/* Simple sample visualization */}
                   <div className="mt-2">
                     <div className="text-xs text-gray-600 mb-1">
-                      Aperçu Canal A (10 premiers échantillons):
+                      {t("channel-a-preview-first-10-samples")}:
                     </div>
                     <div className="font-mono text-xs bg-gray-100 p-1 rounded overflow-hidden">
                       [
@@ -275,20 +278,18 @@ export default function ApiPage() {
                 </div>
               ) : (
                 <div className="text-gray-500 text-center py-4">
-                  Aucune frame reçue
+                  {t("no-frame-received")}
                 </div>
               )}
             </CardBody>
           </Card>
         </div>
 
-        {/* Section de débogage */}
+        {/* Debug section */}
         {currentFrame && (
           <Card className="w-full max-w-4xl mt-4">
             <CardHeader>
-              <h3 className="text-lg font-semibold">
-                Données de la Frame (JSON)
-              </h3>
+              <h3 className="text-lg font-semibold">{t("frame-data-json")}</h3>
             </CardHeader>
             <CardBody>
               <Snippet className="w-full" symbol="" title="frame-data">
