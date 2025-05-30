@@ -1,12 +1,25 @@
 /**
  * @copyright Copyright (c) 2024-2025 Ronan LE MEILLAT
  * @license AGPL-3.0-or-later
+ * 
+ * React hook for managing a real-time authenticated audio stream with WebAudio API integration.
+ * Provides functionality for connecting to a server-sent events stream, processing audio frames,
+ * and managing audio context lifecycle including reconnection strategies.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-
 import { useAuth } from "@/authentication";
 
+/**
+ * @typedef {Object} AudioFrame
+ * @description Structure representing an audio frame received from the server
+ * @property {number[]} channel_a - Array of samples for channel A
+ * @property {number[]} channel_b - Array of samples for channel B
+ * @property {number} sample_rate - Sample rate in Hz
+ * @property {number} timestamp - Server timestamp when the frame was created
+ * @property {number} frame_number - Sequential frame number
+ * @property {number} duration_ms - Frame duration in milliseconds
+ */
 interface AudioFrame {
     channel_a: number[];
     channel_b: number[];
@@ -16,12 +29,28 @@ interface AudioFrame {
     duration_ms: number;
 }
 
+/**
+ * @typedef {Object} StreamError
+ * @description Structure for capturing and categorizing stream-related errors
+ * @property {string} type - Type of error (connection, auth, parse, network, audio)
+ * @property {string} message - Error message
+ * @property {number} timestamp - Time when the error occurred
+ */
 interface StreamError {
     type: "connection" | "auth" | "parse" | "network" | "audio";
     message: string;
     timestamp: number;
 }
 
+/**
+ * @typedef {Object} AudioStreamNode
+ * @description Web Audio API nodes graph for processing audio data
+ * @property {AudioContext} context - Audio context managing the audio processing
+ * @property {AudioBufferSourceNode | null} sourceNode - Source node for playing audio buffers
+ * @property {GainNode} gainNode - Node for controlling volume
+ * @property {AnalyserNode} analyserNode - Node for frequency analysis and visualization
+ * @property {AudioNode} outputNode - Final node in the processing chain
+ */
 interface AudioStreamNode {
     context: AudioContext;
     sourceNode: AudioBufferSourceNode | null;
@@ -30,6 +59,29 @@ interface AudioStreamNode {
     outputNode: AudioNode;
 }
 
+/**
+ * @typedef {Object} UseAudioStreamReturn
+ * @description Return type for the useAudioStream hook
+ * @property {boolean} isConnected - Whether the stream is currently connected
+ * @property {boolean} isConnecting - Whether the stream is in the process of connecting
+ * @property {StreamError | null} error - Current error, if any
+ * @property {AudioFrame | null} currentFrame - Most recently received audio frame
+ * @property {number} frameCount - Total number of frames received
+ * @property {number} droppedFrames - Number of frames missed or dropped
+ * @property {number} fps - Current frames per second rate
+ * @property {AudioContext | null} audioContext - Current Web Audio context
+ * @property {AudioStreamNode | null} audioStreamNode - Audio processing graph
+ * @property {boolean} isAudioReady - Whether the audio system is ready
+ * @property {AudioBuffer | null} currentBuffer - Most recently created audio buffer
+ * @property {number} bufferDuration - Duration of the current buffer in seconds
+ * @property {number} latency - Current audio latency in seconds
+ * @property {Function} connect - Function to connect to the audio stream
+ * @property {Function} disconnect - Function to disconnect from the audio stream
+ * @property {Function} reconnect - Function to reconnect to the audio stream
+ * @property {Function} initializeAudio - Function to initialize the audio context
+ * @property {Function} resumeAudio - Function to resume a suspended audio context
+ * @property {Function} suspendAudio - Function to suspend the audio context
+ */
 interface UseAudioStreamReturn {
     // Connection state
     isConnected: boolean;
@@ -59,10 +111,22 @@ interface UseAudioStreamReturn {
     suspendAudio: () => Promise<void>;
 }
 
+/**
+ * Custom React hook for managing audio streaming from a server-sent events endpoint.
+ * Handles connection management, authentication, audio processing, and playback.
+ *
+ * @param {string} [baseUrl] - Base URL for the server API
+ * @param {boolean} [autoConnect=false] - Whether to automatically connect when conditions are met
+ * @returns {UseAudioStreamReturn} A collection of state and functions for managing the audio stream
+ */
 export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): UseAudioStreamReturn => {
     const { getAccessToken, isAuthenticated } = useAuth();
 
-    // Connection states
+    // --- STATE MANAGEMENT ---
+
+    /**
+     * Connection states
+     */
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<StreamError | null>(null);
@@ -71,7 +135,9 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
     const [droppedFrames, setDroppedFrames] = useState(0);
     const [fps, setFps] = useState(0);
 
-    // Audio reconstruction states
+    /**
+     * Audio reconstruction states
+     */
     const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
     const [audioStreamNode, setAudioStreamNode] = useState<AudioStreamNode | null>(null);
     const [isAudioReady, setIsAudioReady] = useState(false);
@@ -79,25 +145,40 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
     const [bufferDuration, setBufferDuration] = useState(0);
     const [latency, setLatency] = useState(0);
 
-    // References for stream handling
+    // --- REFS (PERSISTENT VALUES) ---
+
+    /**
+     * References for stream handling
+     */
     const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastFrameTimeRef = useRef<number>(0);
     const fpsCalculationRef = useRef<number[]>([]);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    // Audio reconstruction references
+    /**
+     * Audio reconstruction references
+     */
     const audioBufferQueueRef = useRef<AudioFrame[]>([]);
     const nextPlayTimeRef = useRef<number>(0);
-    const sampleRateRef = useRef<number>(44100); //Will be set dynamically based on the first frame
+    const sampleRateRef = useRef<number>(44100); // Will be dynamically updated based on received frames
     const maxBufferQueueSizeRef = useRef<number>(10); // Maximum frames to queue
 
-    // Configuration
+    /**
+     * Configuration for reconnection logic
+     */
     const maxReconnectAttempts = 5;
     const reconnectDelay = 2000; // 2 seconds
     const reconnectAttemptsRef = useRef(0);
 
-    // Initialize AudioContext and create audio graph
+    // --- AUDIO CONTEXT MANAGEMENT ---
+
+    /**
+     * Initializes the AudioContext and creates the audio processing graph.
+     * Closes any existing audio context before creating a new one.
+     * 
+     * @returns {Promise<void>}
+     */
     const initializeAudio = useCallback(async () => {
         try {
             console.log('initializeAudio called, current audioContext:', audioContext);
@@ -156,9 +237,13 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
             });
             setIsAudioReady(false);
         }
-    }, []); // Remove all dependencies to prevent circular references
+    }, []); // Empty dependency array to prevent circular references
 
-    // Resume audio context
+    /**
+     * Resumes the audio context if it's in a suspended state.
+     * 
+     * @returns {Promise<void>}
+     */
     const resumeAudio = useCallback(async () => {
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
@@ -166,7 +251,11 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [audioContext]);
 
-    // Suspend audio context
+    /**
+     * Suspends the audio context if it's in a running state.
+     * 
+     * @returns {Promise<void>}
+     */
     const suspendAudio = useCallback(async () => {
         if (audioContext && audioContext.state === 'running') {
             await audioContext.suspend();
@@ -174,7 +263,14 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [audioContext]);
 
-    // Convert audio frame to AudioBuffer
+    // --- AUDIO PROCESSING ---
+
+    /**
+     * Converts an audio frame to an AudioBuffer for playback.
+     * 
+     * @param {AudioFrame} frame - The audio frame to convert
+     * @returns {AudioBuffer | null} The created audio buffer or null if creation failed
+     */
     const createAudioBuffer = useCallback((frame: AudioFrame): AudioBuffer | null => {
         if (!audioContext) return null;
 
@@ -201,7 +297,12 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [audioContext]);
 
-    // Schedule audio buffer playback
+    /**
+     * Schedules an audio buffer for playback through the audio graph.
+     * Ensures sequential playback by scheduling based on the previous buffer's end time.
+     * 
+     * @param {AudioBuffer} buffer - The audio buffer to play
+     */
     const scheduleAudioBuffer = useCallback((buffer: AudioBuffer) => {
         if (!audioStreamNode || !audioContext) return;
 
@@ -242,7 +343,9 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [audioStreamNode, audioContext]);
 
-    // Process queued audio frames
+    /**
+     * Processes all queued audio frames and schedules them for playback.
+     */
     const processAudioQueue = useCallback(() => {
         if (!audioContext || !isAudioReady) return;
 
@@ -261,7 +364,11 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [audioContext, isAudioReady, createAudioBuffer, scheduleAudioBuffer]);
 
-    // Queue audio frame for processing
+    /**
+     * Queues an audio frame for processing and updates the sample rate if needed.
+     * 
+     * @param {AudioFrame} frame - The audio frame to queue
+     */
     const queueAudioFrame = useCallback((frame: AudioFrame) => {
         // Update sample rate if changed (even before audio is ready)
         if (frame.sample_rate !== sampleRateRef.current) {
@@ -287,7 +394,12 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         processAudioQueue();
     }, [isAudioReady, processAudioQueue]);
 
-    // FPS calculation
+    // --- FPS TRACKING ---
+
+    /**
+     * Updates the FPS (frames per second) calculation based on frame timestamps.
+     * Uses a 10-second rolling window for calculation.
+     */
     const updateFps = useCallback(() => {
         const now = Date.now();
         fpsCalculationRef.current.push(now);
@@ -306,11 +418,16 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, []);
 
-    // Function to process Server-Sent Events
+    // --- SERVER-SENT EVENTS HANDLING ---
+
+    /**
+     * Processes a single Server-Sent Event line from the stream.
+     * Parses JSON data, validates audio frames, and updates state.
+     * 
+     * @param {string} line - The event stream line to process
+     */
     const processServerSentEvent = useCallback(async (line: string) => {
         try {
-            // console.log('Processing SSE line:', line.substring(0, 100) + '...'); // Debug log
-
             // Process SSE lines (format: "data:{json}" or data: {json})
             if (line.startsWith("data:") || line.startsWith("data: ")) {
                 const data = line.replace(/^data:\s*/, ""); // Remove "data:" prefix
@@ -326,28 +443,14 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
                     return;
                 }
 
-                // console.log('Parsing frame data:', data.substring(0, 200) + '...'); // Debug log
-
                 // Parse audio frame
                 const frame: AudioFrame = JSON.parse(data);
 
-                // console.log('Parsed frame:', {
-                //     frame_number: frame.frame_number,
-                //     sample_rate: frame.sample_rate,
-                //     channel_a_length: frame.channel_a?.length,
-                //     channel_b_length: frame.channel_b?.length,
-                //     timestamp: frame.timestamp,
-                //     duration_ms: frame.duration_ms
-                // });
-
                 // Validate frame - be more lenient with validation
                 if (frame.frame_number !== undefined && frame.channel_a && frame.channel_b && frame.sample_rate) {
-                    // console.log('Frame validation passed, processing frame', frame.frame_number);
-
                     setCurrentFrame(frame);
                     setFrameCount((prev) => {
                         const newCount = prev + 1;
-                        // console.log('Frame count updated:', newCount);
                         return newCount;
                     });
                     updateFps();
@@ -385,7 +488,11 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [updateFps, queueAudioFrame]);
 
-    // Function to handle stream errors
+    /**
+     * Handles stream errors and manages reconnection attempts.
+     * 
+     * @param {any} err - The error that occurred
+     */
     const handleStreamError = useCallback((err: any) => {
         console.error("Audio stream error:", err);
         setIsConnected(false);
@@ -411,7 +518,7 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
             timestamp: Date.now(),
         });
 
-        // Automatic reconnection attempt
+        // Automatic reconnection attempt with progressive delay
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
             reconnectAttemptsRef.current++;
             console.log(
@@ -420,7 +527,7 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
 
             reconnectTimeoutRef.current = setTimeout(() => {
                 connect();
-            }, reconnectDelay * reconnectAttemptsRef.current); // Progressive delay
+            }, reconnectDelay * reconnectAttemptsRef.current);
         } else {
             console.error("Max reconnection attempts reached");
             setError({
@@ -431,7 +538,12 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, []);
 
-    // Connection function
+    // --- CONNECTION MANAGEMENT ---
+
+    /**
+     * Connects to the audio stream endpoint with authentication.
+     * Sets up the stream reader and event handler for incoming audio frames.
+     */
     const connect = useCallback(async () => {
         if (!isAuthenticated || !baseUrl || isConnecting || isConnected) {
             console.log('Connect conditions not met:', { isAuthenticated, baseUrl, isConnecting, isConnected });
@@ -557,7 +669,9 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }
     }, [isAuthenticated, baseUrl, getAccessToken, isConnecting, isConnected, processServerSentEvent, handleStreamError]);
 
-    // Disconnect function
+    /**
+     * Disconnects from the audio stream and cleans up resources.
+     */
     const disconnect = useCallback(() => {
         if (readerRef.current) {
             readerRef.current.cancel();
@@ -581,7 +695,10 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         console.log("Audio stream disconnected");
     }, []);
 
-    // Manual reconnect function
+    /**
+     * Reconnects to the audio stream by first disconnecting and then connecting again.
+     * Adds a small delay between disconnection and reconnection for stability.
+     */
     const reconnect = useCallback(() => {
         disconnect();
         setTimeout(() => {
@@ -589,7 +706,9 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         }, 500);
     }, [disconnect, connect]);
 
-    // Cleanup audio resources
+    /**
+     * Cleans up audio resources and resets audio-related state.
+     */
     const cleanupAudio = useCallback(() => {
         console.log('cleanupAudio called');
         if (audioStreamNode?.sourceNode) {
@@ -605,24 +724,32 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
         setCurrentBuffer(null);
         audioBufferQueueRef.current = [];
         nextPlayTimeRef.current = 0;
-    }, []); // Remove dependencies to prevent frequent recreations
+    }, []);
 
-    // Cleanup effect
+    // --- EFFECTS (SIDE EFFECTS) ---
+
+    /**
+     * Effect for cleaning up resources when the component is unmounted.
+     */
     useEffect(() => {
         return () => {
             console.log('Component cleanup effect triggered');
             disconnect();
             cleanupAudio();
         };
-    }, []); // Empty dependency array - only run on mount/unmount
+    }, []);
 
-    // Auto-connect when the user is authenticated and baseUrl is available
+    /**
+     * Effect for auto-connecting to the stream when conditions are met.
+     */
     useEffect(() => {
         if (autoConnect && isAuthenticated && baseUrl && !isConnected && !isConnecting) {
             console.log('Auto-connecting to stream');
             connect();
         }
     }, [autoConnect, isAuthenticated, baseUrl, isConnected, isConnecting, connect]);
+
+    // --- RETURN API ---
 
     return {
         isConnected,
