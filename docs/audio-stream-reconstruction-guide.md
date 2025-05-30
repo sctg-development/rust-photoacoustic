@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains how real-time audio data is received from a server, reconstructed into playable audio buffers, and made available through Web Audio API context nodes in a React TypeScript application. The system processes Server-Sent Events (SSE) containing audio frame data and reconstructs them into a continuous audio stream using the Web Audio API.
+This guide explains how real-time audio data is received from the rust photacoustic server, reconstructed into playable audio buffers, and made available through Web Audio API context nodes in a React TypeScript application. The system processes Server-Sent Events (SSE) containing audio frame data and reconstructs them into a continuous audio stream using the Web Audio API.
 
 ## Architecture Overview
 
@@ -78,7 +78,7 @@ Incoming SSE data is parsed and validated:
 
 ```typescript
 const processServerSentEvent = (line: string) => {
-  // Parse SSE format: "data: {json}"
+  // Parse SSE format: "data: {json}" or "data:{json}"
   if (line.startsWith("data:")) {
     const data = line.replace(/^data:\s*/, "");
 
