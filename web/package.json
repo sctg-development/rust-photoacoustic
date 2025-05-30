@@ -43,6 +43,7 @@
     "@react-aria/visually-hidden": "3.8.23",
     "@react-types/shared": "^3.29.1",
     "@tailwindcss/postcss": "^4.1.8",
+    "audiomotion-analyzer": "^4.5.0",
     "framer-motion": "^12.15.0",
     "i18next": "^25.2.1",
     "i18next-http-backend": "^3.0.2",
