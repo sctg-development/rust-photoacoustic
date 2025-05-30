@@ -52,9 +52,11 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
 
   // References
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
-    null,
+    null
   );
-  const reconnectTimeoutRef = useRef<Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const lastFrameTimeRef = useRef<number>(0);
   const fpsCalculationRef = useRef<number[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null); // Configuration
@@ -72,7 +74,7 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
     const tenSecondsAgo = now - 10000;
 
     fpsCalculationRef.current = fpsCalculationRef.current.filter(
-      (time) => time > tenSecondsAgo,
+      (time) => time > tenSecondsAgo
     );
 
     // Calculate FPS based on frames from the last 10 seconds
@@ -103,7 +105,7 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
       const streamUrl = `${baseUrl}/stream/audio`;
 
       console.log(
-        `Connecting to audio stream at ${streamUrl} base url is ${baseUrl}`,
+        `Connecting to audio stream at ${streamUrl} base url is ${baseUrl}`
       );
       // Close existing connection if it exists
       if (readerRef.current) {
@@ -282,7 +284,7 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
     if (reconnectAttemptsRef.current < maxReconnectAttempts) {
       reconnectAttemptsRef.current++;
       console.log(
-        `Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`,
+        `Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`
       );
 
       reconnectTimeoutRef.current = setTimeout(() => {
