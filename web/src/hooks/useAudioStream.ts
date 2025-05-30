@@ -57,7 +57,7 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const lastFrameTimeRef = useRef<number>(0);
+  const lastFrameTimeRef = useRef<number>(-1);
   const fpsCalculationRef = useRef<number[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null); // Configuration
   const maxReconnectAttempts = 5;
@@ -104,9 +104,6 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
       // Create stream URL
       const streamUrl = `${baseUrl}/stream/audio`;
 
-      console.log(
-        `Connecting to audio stream at ${streamUrl} base url is ${baseUrl}`,
-      );
       // Close existing connection if it exists
       if (readerRef.current) {
         await readerRef.current.cancel();
@@ -146,11 +143,17 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
       const decoder = new TextDecoder();
 
       // Connection established
-      console.log("Audio stream connected");
       setIsConnected(true);
       setIsConnecting(false);
       setError(null);
       reconnectAttemptsRef.current = 0;
+
+      // Reset counters for new connection
+      setFrameCount(0);
+      setDroppedFrames(0);
+      setFps(0);
+      lastFrameTimeRef.current = -1;
+      fpsCalculationRef.current = [];
 
       // Buffer for partial data
       let buffer = "";
@@ -162,7 +165,6 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
             const { done, value } = await reader.read();
 
             if (done) {
-              console.log("Stream ended");
               break;
             }
 
@@ -178,14 +180,13 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
 
             for (const line of lines) {
               if (line.trim()) {
+                console.log("Received SSE line:", line.trim());
                 await processServerSentEvent(line.trim());
               }
             }
           }
         } catch (err) {
           if (err instanceof Error && err.name === "AbortError") {
-            console.log("Stream aborted");
-
             return;
           }
           console.error("Stream reading error:", err);
@@ -218,9 +219,11 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
       if (line.startsWith("data: ")) {
         const data = line.substring(6); // Remove "data: "
 
-        // Handle heartbeats
+        console.log("Processing SSE data:", data.substring(0, 100) + "...");
+
+        // Handle heartbeats - don't count these as frames
         if (data === '{"type":"heartbeat"}') {
-          console.log("Heartbeat received");
+          console.log("Received heartbeat");
 
           return;
         }
@@ -228,26 +231,68 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
         // Parse audio frame
         const frame: AudioFrame = JSON.parse(data);
 
-        // Validate frame
-        if (frame.frame_number && frame.channel_a && frame.channel_b) {
+        console.log(
+          "Parsed frame:",
+          frame.frame_number,
+          "channels:",
+          frame.channel_a?.length,
+          frame.channel_b?.length,
+        );
+
+        // Validate frame structure
+        if (
+          typeof frame.frame_number === "number" &&
+          Array.isArray(frame.channel_a) &&
+          Array.isArray(frame.channel_b) &&
+          frame.channel_a.length > 0 &&
+          frame.channel_b.length > 0
+        ) {
+          console.log("Frame validation passed, updating state");
           setCurrentFrame(frame);
-          setFrameCount((prev) => prev + 1);
+
+          // Increment total frame count
+          setFrameCount((prev) => {
+            console.log("Updating frame count from", prev, "to", prev + 1);
+
+            return prev + 1;
+          });
+
+          // Update FPS calculation
           updateFps();
 
-          // Detect missed frames (optional)
+          // Detect dropped frames by comparing frame numbers
           const lastFrameNumber = lastFrameTimeRef.current;
 
-          if (lastFrameNumber > 0 && frame.frame_number > lastFrameNumber + 1) {
-            const missed = frame.frame_number - lastFrameNumber - 1;
+          if (lastFrameNumber >= 0) {
+            const expectedNextFrame = lastFrameNumber + 1;
 
-            setDroppedFrames((prev) => prev + missed);
-            console.warn(`Missed ${missed} frames`);
+            if (frame.frame_number > expectedNextFrame) {
+              // We missed some frames
+              const missed = frame.frame_number - expectedNextFrame;
+
+              console.log("Detected", missed, "dropped frames");
+              setDroppedFrames((prev) => prev + missed);
+            }
           }
+
+          // Update the last frame number reference
           lastFrameTimeRef.current = frame.frame_number;
+        } else {
+          console.log("Frame validation failed:", {
+            frame_number: typeof frame.frame_number,
+            channel_a: Array.isArray(frame.channel_a)
+              ? frame.channel_a.length
+              : "not array",
+            channel_b: Array.isArray(frame.channel_b)
+              ? frame.channel_b.length
+              : "not array",
+          });
         }
+      } else {
+        console.log("Non-data SSE line:", line);
       }
     } catch (parseError) {
-      console.error("Failed to parse audio frame:", parseError);
+      console.error("Parse error:", parseError);
       setError({
         type: "parse",
         message: "Failed to parse audio frame data",
