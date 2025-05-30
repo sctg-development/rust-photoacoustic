@@ -1,10 +1,14 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Snippet } from "@heroui/snippet";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Progress } from "@heroui/progress";
 import { Chip } from "@heroui/chip";
+import { Switch } from "@heroui/switch";
+
+// @ts-ignore - audiomotion-analyzer doesn't have TypeScript definitions
+import AudioMotionAnalyzer from 'audiomotion-analyzer';
 
 import {
   getGenerixConfig,
@@ -26,6 +30,12 @@ export default function ApiPage() {
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
 
+  // Audio analyzer states
+  const [audioAnalyzer, setAudioAnalyzer] = useState<any>(null);
+  const [isAnalyzerInitialized, setIsAnalyzerInitialized] = useState(false);
+  const [showAnalyzer, setShowAnalyzer] = useState(true);
+  const analyzerContainerRef = useRef<HTMLDivElement>(null);
+
   // Hook for audio streaming
   const {
     isConnected,
@@ -38,7 +48,125 @@ export default function ApiPage() {
     connect,
     disconnect,
     reconnect,
+    initializeAudio,
+    audioContext,
+    audioStreamNode,
+    isAudioReady,
   } = useAudioStream(`${generixConfig?.api_base_url}`, false);
+
+  // Initialize audio analyzer
+  const initializeAnalyzer = async () => {
+    if (!analyzerContainerRef.current) {
+      console.warn('Cannot initialize analyzer: container not ready');
+      return;
+    }
+
+    if (!audioContext || !audioStreamNode) {
+      console.warn('Cannot initialize analyzer: audio context or stream node not ready', {
+        hasAudioContext: !!audioContext,
+        hasAudioStreamNode: !!audioStreamNode,
+        isAudioReady
+      });
+      return;
+    }
+
+    try {
+      // Clean up existing analyzer
+      if (audioAnalyzer) {
+        console.log('Cleaning up existing analyzer');
+        audioAnalyzer.destroy();
+      }
+
+      console.log('Initializing analyzer with:', {
+        sampleRate: audioContext.sampleRate,
+        analyserNode: audioStreamNode.analyserNode,
+        containerReady: !!analyzerContainerRef.current
+      });
+
+      // Create new analyzer instance
+      const analyzer = new AudioMotionAnalyzer(analyzerContainerRef.current, {
+        source: audioStreamNode.analyserNode, // Connect to the analyser node
+        height: 300,
+        mode: 3, // 1/3-octave bands
+        showBgColor: true,
+        bgAlpha: 0.7,
+        overlay: true,
+        showPeaks: true,
+        showFPS: true,
+        showScaleY: true,
+        connectSpeakers: false, // Don't connect to speakers to avoid feedback
+        barSpace: 0.1,
+        ledBars: false,
+        lumiBars: false,
+        radial: false,
+        reflexRatio: 0.3,
+        gradient: 'rainbow',
+        linearAmplitude: true,
+        linearBoost: 1.8,
+        maxDecibels: -10,
+        minDecibels: -85,
+        smoothing: 0.8,
+        channelLayout: "dual-horizontal",
+      });
+
+      console.log('Audio analyzer initialized successfully');
+      setAudioAnalyzer(analyzer);
+      setIsAnalyzerInitialized(true);
+
+    } catch (error) {
+      console.error('Failed to initialize audio analyzer:', error);
+      setIsAnalyzerInitialized(false);
+    }
+  };
+
+  // Clean up analyzer
+  const cleanupAnalyzer = () => {
+    if (audioAnalyzer) {
+      try {
+        audioAnalyzer.destroy();
+        console.log('Audio analyzer cleaned up');
+      } catch (error) {
+        console.error('Error cleaning up analyzer:', error);
+      }
+      setAudioAnalyzer(null);
+      setIsAnalyzerInitialized(false);
+    }
+  };
+
+  // Initialize analyzer when audio context and stream node are ready
+  useEffect(() => {
+    console.log('Analyzer effect triggered:', {
+      isAudioReady,
+      hasAudioContext: !!audioContext,
+      hasAudioStreamNode: !!audioStreamNode,
+      showAnalyzer,
+      isAnalyzerInitialized
+    });
+
+    if (isAudioReady && audioContext && audioStreamNode && showAnalyzer && !isAnalyzerInitialized) {
+      console.log('Conditions met, initializing analyzer');
+      setTimeout(() => initializeAnalyzer(), 100); // Small delay to ensure everything is ready
+    }
+
+    return () => {
+      // Only cleanup if audio is not ready anymore
+      if (!isAudioReady && isAnalyzerInitialized) {
+        console.log('Audio not ready, cleaning up analyzer');
+        cleanupAnalyzer();
+      }
+    };
+  }, [isAudioReady, audioContext, audioStreamNode, showAnalyzer]);
+
+  // Handle analyzer visibility toggle
+  const handleAnalyzerToggle = (visible: boolean) => {
+    console.log('Analyzer toggle:', visible);
+    setShowAnalyzer(visible);
+    if (!visible) {
+      cleanupAnalyzer();
+    } else if (isAudioReady && audioContext && audioStreamNode) {
+      setTimeout(() => initializeAnalyzer(), 100); // Small delay to ensure DOM is ready
+    }
+  };
 
   useEffect(() => {
     const loadGenerixConfig = async () => {
@@ -92,22 +220,25 @@ export default function ApiPage() {
 
   return (
     <DefaultLayout>
-      <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-        <div className="inline-block max-w-lg text-center justify-center">
-          <h1 className={title()}>{t("api-answer")}</h1>
-        </div>
-        <Snippet className="max-w-11/12" symbol="" title="api-response">
-          <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-5xl  whitespace-break-spaces  text-wrap break-words">
-            {JSON.stringify(apiResponse, null, 2)}
+      {(false &&
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="inline-block max-w-lg text-center justify-center">
+            <h1 className={title()}>{t("api-answer")}</h1>
           </div>
-        </Snippet>
-      </section>
+          <Snippet className="max-w-11/12" symbol="" title="api-response">
+            <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-5xl  whitespace-break-spaces  text-wrap break-words">
+              {JSON.stringify(apiResponse, null, 2)}
+            </div>
+          </Snippet>
+        </section>
+      )}
+
       <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
         <div className="inline-block max-w-lg text-center justify-center">
           <h1 className={title()}>{t("audio-streaming-test")}</h1>
         </div>
 
-        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 lg:h-96 lg:max-h-96 gap-4">
           {/* Connection status */}
           <Card className="w-full">
             <CardHeader className="pb-2">
@@ -137,20 +268,60 @@ export default function ApiPage() {
                   </Chip>
                 </div>
 
+                <div className="flex items-center justify-between">
+                  <span>{t('audio-ready')}</span>
+                  <Chip
+                    color={isAudioReady ? "success" : "default"}
+                    variant="flat"
+                  >
+                    {isAudioReady ? t('ready') : t('not-ready')}
+                  </Chip>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>{t('audiocontext-state')}</span>
+                  <Chip
+                    color={audioContext?.state === 'running' ? "success" : "warning"}
+                    variant="flat"
+                    size="sm"
+                  >
+                    {audioContext?.state || t('none')}
+                  </Chip>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>{t('analyzer')}:</span>
+                  <Chip
+                    color={isAnalyzerInitialized ? "success" : "default"}
+                    variant="flat"
+                  >
+                    {isAnalyzerInitialized ? t('active') : t('inactive')}
+                  </Chip>
+                </div>
+
                 <div className="flex gap-2">
                   {!isConnected && !isConnecting && (
-                    <Button color="primary" size="sm" onPress={connect} aria-label="Connect to audio stream">
+                    <Button color="primary" size="sm" onPress={connect} aria-label={t('connect-to-audio-stream')}>
                       {t("connect")}
                     </Button>
                   )}
                   {isConnected && (
-                    <Button color="danger" size="sm" onPress={disconnect} aria-label="Disconnect from audio stream">
+                    <Button color="danger" size="sm" onPress={disconnect} aria-label={t('disconnect-from-audio-stream')}>
                       {t("disconnect")}
                     </Button>
                   )}
-                  <Button color="secondary" size="sm" onPress={reconnect} aria-label="Reconnect to audio stream">
+                  <Button color="secondary" size="sm" onPress={reconnect} aria-label={t('reconnect-to-audio-stream')}>
                     {t("reconnect")}
                   </Button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>{t('show-analyzer')}</span>
+                  <Switch
+                    isSelected={showAnalyzer}
+                    onValueChange={handleAnalyzerToggle}
+                    aria-label={t('toggle-audio-analyzer-visibility')}
+                  />
                 </div>
 
                 {error && (
@@ -203,7 +374,7 @@ export default function ApiPage() {
                     color={
                       fps > 30 ? "success" : fps > 15 ? "warning" : "danger"
                     }
-                    aria-label="FPS performance progress"
+                    aria-label={t('fps-performance-progress')}
                     size="sm"
                     value={Math.min((fps / 60) * 100, 100)}
                   />
@@ -283,6 +454,97 @@ export default function ApiPage() {
             </CardBody>
           </Card>
         </div>
+
+        {/* Audio Analyzer Visualization */}
+        {showAnalyzer && (
+          <Card className="w-full max-w-4xl mt-6">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between w-full">
+                <h3 className="text-lg font-semibold">{t('audio-spectrum-analyzer')}</h3>
+                <div className="flex items-center gap-2">
+                  {isAnalyzerInitialized && (
+                    <Chip color="success" size="sm" variant="flat">
+                      {t('live')}
+                    </Chip>
+                  )}
+                  {audioContext && (
+                    <Chip color="primary" size="sm" variant="flat">
+                      {Math.round(audioContext.sampleRate)} Hz
+                    </Chip>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="w-full">
+                <div
+                  ref={analyzerContainerRef}
+                  className="w-full"
+                  style={{
+                    height: showAnalyzer ? '300px' : '0px',
+                    overflow: 'hidden',
+                    borderRadius: '8px',
+                    backgroundColor: '#000'
+                  }}
+                />
+                {!isAnalyzerInitialized && isAudioReady && (
+                  <div className="flex items-center justify-center h-72 bg-gray-100 rounded-lg">
+                    <div className="text-center">
+                      <p className="text-gray-600 mb-2">{t('audio-analyzer-not-initialized')}</p>
+                      <div className="text-sm text-gray-500 mb-2">
+                        {t('debug-audiocontext')}{audioContext ? `${t('ready')} (${audioContext.sampleRate}Hz)` : t('none')},
+                        {t('streamnode')}={audioStreamNode ? t('ready') : t('none')}
+                      </div>
+                      <Button
+                        color="primary"
+                        size="sm"
+                        onPress={initializeAnalyzer}
+                        disabled={!audioContext || !audioStreamNode}
+                      >
+                        {t('initialize-analyzer')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {!isAudioReady && (
+                  <div className="flex items-center justify-center h-72 bg-gray-100 rounded-lg">
+                    <div className="text-center">
+                      <p className="text-gray-600 mb-2">{t('audio-context-not-ready')}</p>
+                      <div className="text-sm text-gray-500 mb-2">
+                        {t('debug-samplerate')}={currentFrame?.sample_rate || t('unknown')}Hz,
+                        {t('isconnected')}={isConnected ? t('yes') : t('no')},
+                        {t('framecount')}={frameCount},
+                        {t('audiostate')}={audioContext?.state || t('none')}
+                      </div>
+                      <p className="text-sm text-gray-500 mb-2">{t('initialize-audio-first-then-connect-to-stream')}</p>
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          color="primary"
+                          size="sm"
+                          onPress={() => {
+                            console.log('Initialize audio button clicked');
+                            initializeAudio();
+                          }}
+                        >
+                          {t('initialize-audio-context')}
+                        </Button>
+                        {!isConnected && generixConfig && (
+                          <Button
+                            color="secondary"
+                            size="sm"
+                            onPress={connect}
+                          >
+                            {t('connect-stream')}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        )}
       </section>
     </DefaultLayout>
   );
