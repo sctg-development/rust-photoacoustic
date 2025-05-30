@@ -89,8 +89,7 @@ export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): 
     // Audio reconstruction references
     const audioBufferQueueRef = useRef<AudioFrame[]>([]);
     const nextPlayTimeRef = useRef<number>(0);
-    const sampleRateRef = useRef<number>(44100); // TODO: Make this dynamic based on the first frame
-    const bufferSizeRef = useRef<number>(4096); // Buffer size in samples
+    const sampleRateRef = useRef<number>(44100); //Will be set dynamically based on the first frame
     const maxBufferQueueSizeRef = useRef<number>(10); // Maximum frames to queue
 
     // Configuration
