@@ -60,7 +60,7 @@
 pub mod api;
 
 /// Audio streaming endpoints for real-time data
-pub mod audio_streaming;
+pub mod streaming;
 
 /// API authentication mechanisms
 ///

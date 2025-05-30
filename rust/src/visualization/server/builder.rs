@@ -21,12 +21,12 @@ use super::handlers::*;
 use crate::acquisition::SharedAudioStream;
 use crate::config::{AccessConfig, GenerixConfig};
 use crate::include_png_as_base64;
-use crate::visualization::audio_streaming::AudioStreamState;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
     OxideState,
 };
 use crate::visualization::oidc::{jwks, openid_configuration};
+use crate::visualization::streaming::AudioStreamState;
 use crate::visualization::vite_dev_proxy;
 
 /// Build a configured Rocket server instance
@@ -191,7 +191,7 @@ pub async fn build_rocket(
         rocket_builder
             .mount(
                 "/api/audio",
-                crate::visualization::audio_streaming::get_audio_streaming_routes(),
+                crate::visualization::streaming::get_audio_streaming_routes(),
             )
             .manage(audio_state)
     } else {
