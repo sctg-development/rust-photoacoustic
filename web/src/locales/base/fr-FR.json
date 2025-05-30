@@ -52,7 +52,7 @@
   "connect": "Connecter",
   "connection-status": "État de connexion",
   "current-frame": "Cadre actuel",
-  "disconnect": "Débrancher",
+  "disconnect": "Déconnecter",
   "duration-ms": "Durée (ms)",
   "fps-performance": "Performance FPS",
   "frame-data-json": "Données de trame (JSON)",
