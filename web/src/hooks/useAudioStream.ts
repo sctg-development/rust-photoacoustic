@@ -40,7 +40,7 @@ interface UseAudioStreamReturn {
     reconnect: () => void;
 }
 
-export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
+export const useAudioStream = (baseUrl?: string, autoConnect: boolean = false): UseAudioStreamReturn => {
     const { getAccessToken, isAuthenticated } = useAuth(); // States
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -339,10 +339,10 @@ export const useAudioStream = (baseUrl?: string): UseAudioStreamReturn => {
 
     // Auto-connect when the user is authenticated and baseUrl is available
     useEffect(() => {
-        if (isAuthenticated && baseUrl && !isConnected && !isConnecting) {
+        if (autoConnect && isAuthenticated && baseUrl && !isConnected && !isConnecting) {
             connect();
         }
-    }, [isAuthenticated, baseUrl, isConnected, isConnecting, connect]);
+    }, [autoConnect, isAuthenticated, baseUrl, isConnected, isConnecting, connect]);
 
     return {
         isConnected,

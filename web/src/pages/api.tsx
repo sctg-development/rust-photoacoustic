@@ -38,7 +38,7 @@ export default function ApiPage() {
     connect,
     disconnect,
     reconnect,
-  } = useAudioStream(`${generixConfig?.api_base_url}/audio`);
+  } = useAudioStream(`${generixConfig?.api_base_url}/audio`, false);
 
   useEffect(() => {
     const loadGenerixConfig = async () => {
@@ -50,8 +50,6 @@ export default function ApiPage() {
 
     const loadAccessToken = async () => {
       const token = await getAccessToken();
-
-      console.log("Access token is :", token);
       setAccessToken(token);
     };
 
