@@ -64,5 +64,7 @@
   "sample-rate": "样本率",
   "statistics": "统计数据",
   "status": "地位",
-  "timestamp": "时间戳"
+  "timestamp": "时间戳",
+  "disconnected": "断开连接",
+  "connected": "连接"
 }

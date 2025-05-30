@@ -51,18 +51,20 @@
   "channel-b-samples": "Canal B (échantillons)",
   "connect": "Connecter",
   "connection-status": "État de connexion",
-  "current-frame": "Cadre actuel",
+  "current-frame": "Frame actuelle",
   "disconnect": "Déconnecter",
   "duration-ms": "Durée (ms)",
   "fps-performance": "Performance FPS",
   "frame-data-json": "Données de trame (JSON)",
   "frames-lost": "Frames (perdu)",
   "frames-received": "Frames (reçus)",
-  "no-frame-received": "Aucun cadre reçu",
+  "no-frame-received": "Aucune frame reçue",
   "number": "Nombre",
   "reconnect": "Reconnecter",
   "sample-rate": "Taux d'échantillonnage",
   "statistics": "Statistiques",
   "status": "Statut",
-  "timestamp": "Horodatage"
+  "timestamp": "Horodatage",
+  "disconnected": "Déconnecté",
+  "connected": "Connecté"
 }

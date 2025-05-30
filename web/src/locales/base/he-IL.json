@@ -64,5 +64,7 @@
   "sample-rate": "קצב הדגימה",
   "statistics": "סטָטִיסטִיקָה",
   "status": "סטָטוּס",
-  "timestamp": "חותמת זמן"
+  "timestamp": "חותמת זמן",
+  "disconnected": "מְנוּתָק",
+  "connected": "מְחוּבָּר"
 }

@@ -64,5 +64,7 @@
   "channel-b-samples": "Channel B (samples)",
   "channel-a-preview-first-10-samples": "Channel A Preview (first 10 samples)",
   "no-frame-received": "No frame received",
-  "frame-data-json": "Frame Data (JSON)"
+  "frame-data-json": "Frame Data (JSON)",
+  "disconnected": "Disconnected",
+  "connected": "Connected"
 }

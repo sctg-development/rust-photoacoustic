@@ -64,5 +64,7 @@
   "sample-rate": "Frecuencia de muestreo",
   "statistics": "Estadística",
   "status": "Estado",
-  "timestamp": "Marca de tiempo"
+  "timestamp": "Marca de tiempo",
+  "disconnected": "Desconectado",
+  "connected": "Conectado"
 }

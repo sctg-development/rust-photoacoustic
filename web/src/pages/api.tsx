@@ -130,10 +130,10 @@ export default function ApiPage() {
                     variant="flat"
                   >
                     {isConnected
-                      ? "Connected"
+                      ? t('connected')
                       : isConnecting
                         ? "Connecting..."
-                        : "Disconnected"}
+                        : t('disconnected')}
                   </Chip>
                 </div>
 
@@ -282,22 +282,6 @@ export default function ApiPage() {
             </CardBody>
           </Card>
         </div>
-
-        {/* Debug section */}
-        {currentFrame && (
-          <Card className="w-full max-w-4xl mt-4">
-            <CardHeader>
-              <h3 className="text-lg font-semibold">{t("frame-data-json")}</h3>
-            </CardHeader>
-            <CardBody>
-              <Snippet className="w-full" symbol="" title="frame-data">
-                <div className="max-h-64 overflow-y-auto whitespace-pre-wrap text-wrap break-words">
-                  {JSON.stringify(currentFrame, null, 2)}
-                </div>
-              </Snippet>
-            </CardBody>
-          </Card>
-        )}
       </section>
     </DefaultLayout>
   );

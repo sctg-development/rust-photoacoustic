@@ -64,5 +64,7 @@
   "sample-rate": "معدل العينة",
   "statistics": "إحصائيات",
   "status": "حالة",
-  "timestamp": "الطابع الزمني"
+  "timestamp": "الطابع الزمني",
+  "disconnected": "منفصل",
+  "connected": "متصل"
 }
