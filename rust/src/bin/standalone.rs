@@ -57,7 +57,10 @@ async fn main() -> Result<()> {
 
     let config = PhotoacousticConfig {
         input_device: args.input_device.clone(),
-        input_file: input_file,
+        input_file: args
+            .input_file
+            .clone()
+            .map(|p| p.to_string_lossy().to_string()),
         frequency: args.frequency,
         sample_rate: 48000, // Default sample rate
         bandwidth: args.bandwidth,
@@ -73,7 +76,7 @@ async fn main() -> Result<()> {
         acquisition::get_audio_source_from_device(config)?
     } else if let Some(file_path) = &args.input_file {
         println!("Using audio file: {}", file_path.display());
-        acquisition::get_audio_source_from_file(file_path)?
+        acquisition::get_audio_source_from_file(config)?
     } else {
         println!("No input source specified. Using default device.");
         acquisition::get_default_audio_source(config)?
