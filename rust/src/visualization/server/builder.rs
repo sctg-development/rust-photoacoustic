@@ -7,19 +7,10 @@
 //! This module provides functions to build and configure the Rocket server
 //! instance with all necessary routes, fairings, and state management.
 
-use anyhow::Context;
-use base64::Engine;
-use log::debug;
-use rocket::figment::Figment;
-use rocket::routes;
-use rocket::{Build, Rocket};
-use rocket_okapi::{openapi_get_routes, rapidoc::*, settings::UrlObject};
-use std::sync::Arc;
-
 use super::cors::CORS;
 use super::handlers::*;
 use crate::acquisition::SharedAudioStream;
-use crate::config::{AccessConfig, GenerixConfig};
+use crate::config::{AccessConfig, GenerixConfig, VisualizationConfig};
 use crate::include_png_as_base64;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
@@ -28,6 +19,15 @@ use crate::visualization::auth::{
 use crate::visualization::oidc::{jwks, openid_configuration};
 use crate::visualization::streaming::AudioStreamState;
 use crate::visualization::vite_dev_proxy;
+use anyhow::Context;
+use base64::Engine;
+use log::{debug, info, warn};
+use rocket::figment::Figment;
+use rocket::routes;
+use rocket::{Build, Rocket};
+use rocket_async_compression::Compression;
+use rocket_okapi::{openapi_get_routes, rapidoc::*, settings::UrlObject};
+use std::sync::Arc;
 
 /// Build a configured Rocket server instance
 ///
@@ -74,6 +74,12 @@ pub async fn build_rocket(
         .extract_inner::<AccessConfig>("access_config")
         .context("Missing access in figment")
         .unwrap();
+    let compression_config = figment
+        .extract_inner::<VisualizationConfig>("visualization_config")
+        .context("Missing visualization_config in figment")
+        .unwrap()
+        .enable_compression;
+
     // Create OAuth2 state with the HMAC secret from config
     let mut oxide_state = OxideState::preconfigured(figment.clone());
 
@@ -185,6 +191,18 @@ pub async fn build_rocket(
         .manage(oxide_state)
         .manage(jwt_validator);
 
+    // Attach compression fairing if enabled in config
+    let rocket_builder = if compression_config {
+        info!("Compression is enabled in configuration");
+        if cfg!(debug_assertions) {
+            warn!("Compression is enabled in debug mode, this may affect performance");
+        }
+        rocket_builder.attach(Compression::fairing())
+    } else {
+        debug!("Compression is disabled in configuration");
+        rocket_builder
+    };
+
     // Add audio streaming routes and state if audio stream is available
     if let Some(stream) = audio_stream {
         let audio_state = AudioStreamState { stream };
@@ -222,7 +240,6 @@ pub async fn build_rocket(
                 ..Default::default()
             }),
         )
-        .mount("/api/doc/", routes![helper_min_js])
 }
 
 #[cfg(test)]

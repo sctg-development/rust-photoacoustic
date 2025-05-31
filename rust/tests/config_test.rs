@@ -28,6 +28,7 @@ fn test_config_load_and_save() -> Result<()> {
             rs256_public_key: base64::engine::general_purpose::STANDARD
                 .encode((include_str!("../resources/pub.key")).as_bytes()),
             session_secret: "session-secret".to_string(),
+            enable_compression: true,
         },
         acquisition: AcquisitionConfig {
             enabled: false,

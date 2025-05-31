@@ -278,6 +278,9 @@ impl Daemon {
         // Add the Generix configuration to the figment
         figment = figment.merge(("generix_config", config.generix.clone()));
 
+        // Add the visualization configuration to the figment
+        figment = figment.merge(("visualization_config", config.visualization.clone()));
+
         let rocket = build_rocket(figment, self.audio_stream.clone()).await;
 
         let _running = self.running.clone();

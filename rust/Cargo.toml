@@ -58,6 +58,7 @@ handlebars = "6.3.2"
 quote = "1.0.40"
 syn = {version="2.0.101", features=["full"]}
 auth-macros = { path = "auth-macros" }
+rocket_async_compression = "0.6.1"
 
 [dev-dependencies]
 criterion = "0.6.0"                                   # Benchmarking
