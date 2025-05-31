@@ -26,6 +26,10 @@ fn get_test_figment() -> rocket::figment::Figment {
         .merge(("port", 0)) // Use random port for testing
         .merge(("address", "127.0.0.1"))
         .merge(("log_level", rocket::config::LogLevel::Debug))
+        .merge((
+            "visualization_config",
+            rust_photoacoustic::config::VisualizationConfig::default(),
+        ))
         .merge(("secret_key", "/qCJ7RyQIugza05wgFNN6R+c2/afrKlG5jJfZ0oQPis="))
 }
 
@@ -457,6 +461,10 @@ async fn test_rs256_pkce_flow_s256() {
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64))
         .merge(("hmac_secret", test_hmac_secret.to_string()))
+        .merge((
+            "visualization_config",
+            rust_photoacoustic::config::VisualizationConfig::default(),
+        ))
         .merge(("access_config", test_access_config));
 
     let rocket = server::build_rocket(figment, None).await;
@@ -517,6 +525,10 @@ async fn test_rs256_pkce_flow_plain() {
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64))
         .merge(("hmac_secret", test_hmac_secret.to_string()))
+        .merge((
+            "visualization_config",
+            rust_photoacoustic::config::VisualizationConfig::default(),
+        ))
         .merge(("access_config", test_access_config));
 
     let rocket = server::build_rocket(figment, None).await;
@@ -583,6 +595,10 @@ async fn test_rs256_pkce_flow() {
             .merge(("rs256_private_key", &private_base64))
             .merge(("rs256_public_key", &public_base64))
             .merge(("hmac_secret", test_hmac_secret.to_string()))
+            .merge((
+                "visualization_config",
+                rust_photoacoustic::config::VisualizationConfig::default(),
+            ))
             .merge(("access_config", test_access_config));
 
         let rocket = server::build_rocket(figment, None).await;
@@ -691,6 +707,10 @@ async fn test_rs256_pkce_invalid_challenge_method() {
         .merge(("rs256_private_key", &private_base64))
         .merge(("rs256_public_key", &public_base64))
         .merge(("hmac_secret", test_hmac_secret.to_string()))
+        .merge((
+            "visualization_config",
+            rust_photoacoustic::config::VisualizationConfig::default(),
+        ))
         .merge(("access_config", test_access_config));
 
     let rocket = server::build_rocket(figment, None).await;

@@ -17,6 +17,10 @@ fn get_figment() -> rocket::figment::Figment {
         .merge(("port", 8080))
         .merge(("address", "127.0.0.1"))
         .merge(("log_level", LogLevel::Debug))
+        .merge((
+            "visualization_config",
+            rust_photoacoustic::config::VisualizationConfig::default(),
+        ))
 }
 
 // Function to generate a PKCE code verifier and its code challenge

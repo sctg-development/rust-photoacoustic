@@ -121,7 +121,7 @@ pub struct User {
 ///
 /// let access_config = AccessConfig {
 ///     duration: Some(86400), // Token duration in seconds
-///     iss: Some("LaserSmartServer"),
+///     iss: Some("LaserSmartServer".to_string()),
 ///     users: vec![
 ///          User {
 ///              user: "admin".to_string(),
