@@ -615,7 +615,7 @@ async fn test_rs256_jwks_endpoint() {
         .merge(("rs256_public_key", &public_base64))
         .merge((
             "visualization_config",
-            rust_photoacoustic::visualization::config::VisualizationConfig::default(),
+            rust_photoacoustic::config::VisualizationConfig::default(),
         ))
         .merge(("access_config", AccessConfig::default()));
     // Add hmac secret to the figment
