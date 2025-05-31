@@ -136,7 +136,7 @@ The regular format sends audio data as JSON arrays:
 - No decoding overhead
 
 **Disadvantages:**
-- Higher bandwidth usage (~5x larger)
+- Higher bandwidth usage (~2x larger)
 - JSON parsing overhead for large arrays
 
 ### Fast Format (Binary)
