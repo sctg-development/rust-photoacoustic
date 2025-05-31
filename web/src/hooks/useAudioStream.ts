@@ -61,6 +61,46 @@ interface AudioStreamNode {
 }
 
 /**
+ * @typedef {Object} TimestampValidationStats
+ * @description Statistics for timestamp-based frame validation
+ * @property {boolean} enabled - Whether validation is enabled
+ * @property {number} totalGaps - Total number of detected gaps
+ * @property {number} totalMissedFrames - Estimated total missed frames
+ * @property {number} averageGapSize - Average gap size in milliseconds
+ * @property {number} maxGapSize - Maximum gap size detected
+ * @property {number} lastGapTimestamp - Timestamp of the last detected gap
+ * @property {number} expectedFrameInterval - Expected interval between frames
+ * @property {number} toleranceMs - Tolerance for gap detection
+ */
+export interface TimestampValidationStats {
+  enabled: boolean;
+  totalGaps: number;
+  totalMissedFrames: number;
+  averageGapSize: number;
+  maxGapSize: number;
+  lastGapTimestamp: number;
+  expectedFrameInterval: number;
+  toleranceMs: number;
+}
+
+/**
+ * @typedef {Object} TimestampValidationConfig
+ * @description Configuration for timestamp validation
+ * @property {boolean} enabled - Enable timestamp validation
+ * @property {number} toleranceMs - Gap tolerance in milliseconds (default: 50ms)
+ * @property {number} minGapSizeMs - Minimum gap size to consider as missing frames (default: 20ms)
+ * @property {boolean} logGaps - Whether to log detected gaps to console
+ * @property {boolean} autoAdjustTolerance - Automatically adjust tolerance based on jitter
+ */
+export interface TimestampValidationConfig {
+  enabled: boolean;
+  toleranceMs?: number;
+  minGapSizeMs?: number;
+  logGaps?: boolean;
+  autoAdjustTolerance?: boolean;
+}
+
+/**
  * @typedef {Object} UseAudioStreamReturn
  * @description Return type for the useAudioStream hook
  * @property {boolean} isConnected - Whether the stream is currently connected
@@ -77,12 +117,16 @@ interface AudioStreamNode {
  * @property {AudioBuffer | null} currentBuffer - Most recently created audio buffer
  * @property {number} bufferDuration - Duration of the current buffer in seconds
  * @property {number} latency - Current audio latency in seconds
+ * @property {TimestampValidationStats} timestampValidation - Timestamp validation statistics
  * @property {Function} connect - Function to connect to the audio stream
  * @property {Function} disconnect - Function to disconnect from the audio stream
  * @property {Function} reconnect - Function to reconnect to the audio stream
  * @property {Function} initializeAudio - Function to initialize the audio context
  * @property {Function} resumeAudio - Function to resume a suspended audio context
  * @property {Function} suspendAudio - Function to suspend the audio context
+ * @property {Function} getPerformanceStats - Function to get performance statistics
+ * @property {Function} resetTimestampValidation - Function to reset timestamp validation stats
+ * @property {Function} updateTimestampValidationConfig - Function to update validation configuration
  */
 interface UseAudioStreamReturn {
   // Connection state
@@ -105,6 +149,9 @@ interface UseAudioStreamReturn {
   bufferDuration: number;
   latency: number;
 
+  // Timestamp validation
+  timestampValidation: TimestampValidationStats;
+
   // Controls
   connect: () => void;
   disconnect: () => void;
@@ -112,7 +159,11 @@ interface UseAudioStreamReturn {
   initializeAudio: () => Promise<void>;
   resumeAudio: () => Promise<void>;
   suspendAudio: () => Promise<void>;
-  getPerformanceStats: () => any; // Added performance monitoring
+  getPerformanceStats: () => any;
+  resetTimestampValidation: () => void;
+  updateTimestampValidationConfig: (
+    config: Partial<TimestampValidationConfig>,
+  ) => void;
 }
 
 /**
@@ -147,12 +198,14 @@ interface AudioFastFrame {
  * @param {string} [baseUrl] - Base URL for the server API
  * @param {boolean} [autoConnect=false] - Whether to automatically connect when conditions are met
  * @param {boolean} [useFastFormat=false] - Whether to use the fast binary format
+ * @param {TimestampValidationConfig} [timestampValidationConfig] - Optional timestamp validation configuration
  * @returns {UseAudioStreamReturn} A collection of state and functions for managing the audio stream
  */
 export const useAudioStream = (
   baseUrl?: string,
   autoConnect: boolean = false,
   useFastFormat: boolean = false,
+  timestampValidationConfig?: TimestampValidationConfig,
 ): UseAudioStreamReturn => {
   const { getAccessToken, isAuthenticated } = useAuth();
 
@@ -181,13 +234,32 @@ export const useAudioStream = (
   const [bufferDuration, setBufferDuration] = useState(0);
   const [latency, setLatency] = useState(0);
 
+  /**
+   * Timestamp validation states
+   */
+  const [timestampValidation, setTimestampValidation] =
+    useState<TimestampValidationStats>({
+      enabled: timestampValidationConfig?.enabled || false,
+      totalGaps: 0,
+      totalMissedFrames: 0,
+      averageGapSize: 0,
+      maxGapSize: 0,
+      lastGapTimestamp: 0,
+      expectedFrameInterval: 0,
+      toleranceMs: timestampValidationConfig?.toleranceMs || 50,
+    });
+
   // --- REFS (PERSISTENT VALUES) ---
 
   /**
    * References for stream handling
    */
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
+    null,
+  );
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const lastFrameTimeRef = useRef<number>(0);
   const fpsCalculationRef = useRef<number[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -212,7 +284,9 @@ export const useAudioStream = (
   const processingThrottleRef = useRef<number>(0);
   const fpsDisplayThrottleRef = useRef<number>(0); // Separate throttle for FPS display
   const frameProcessingBatchRef = useRef<string[]>([]);
-  const batchProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const batchProcessingTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const lastProcessingTimeRef = useRef<number>(0);
   const audioBufferPoolRef = useRef<Map<string, AudioBuffer[]>>(new Map()); // Keyed by sample rate + length
   const performanceStatsRef = useRef({
@@ -226,15 +300,26 @@ export const useAudioStream = (
   });
 
   /**
-   * Performance configuration - optimized for no frame dropping
+   * Timestamp validation references
    */
-  const PROCESSING_THROTTLE_MS = 8; // ~120fps processing capability
-  const BATCH_SIZE = 8; // Larger batches for efficiency
-  const BATCH_TIMEOUT_MS = 4; // Faster timeout for responsiveness
-  const FPS_UPDATE_INTERVAL = 200; // Display FPS every 200ms (separate from calculation)
-  const BUFFER_POOL_SIZE = 5; // Buffer pool per configuration
-  const MAX_PROCESSING_TIME_MS = 12; // Generous time per cycle
-  const STATS_UPDATE_INTERVAL = 1000; // Update stats every second
+  const timestampValidationConfigRef = useRef<TimestampValidationConfig>({
+    enabled: timestampValidationConfig?.enabled || false,
+    toleranceMs: timestampValidationConfig?.toleranceMs || 50,
+    minGapSizeMs: timestampValidationConfig?.minGapSizeMs || 20,
+    logGaps: timestampValidationConfig?.logGaps || false,
+    autoAdjustTolerance: timestampValidationConfig?.autoAdjustTolerance || true,
+  });
+
+  const timestampValidationStatsRef = useRef({
+    lastFrameTimestamp: 0,
+    frameIntervals: new Float32Array(100), // Rolling window for interval calculation
+    intervalIndex: 0,
+    gapSizes: [] as number[],
+    jitterValues: new Float32Array(50), // For auto-adjustment
+    jitterIndex: 0,
+  });
+
+  // --- RECONNECTION LOGIC ---
 
   /**
    * Configuration for reconnection logic
@@ -346,9 +431,12 @@ export const useAudioStream = (
   /**
    * Get buffer pool key for efficient lookups
    */
-  const getBufferPoolKey = useCallback((sampleRate: number, length: number): string => {
-    return `${sampleRate}_${length}`;
-  }, []);
+  const getBufferPoolKey = useCallback(
+    (sampleRate: number, length: number): string => {
+      return `${sampleRate}_${length}`;
+    },
+    [],
+  );
 
   /**
    * Highly optimized audio buffer creation with advanced pooling
@@ -360,7 +448,10 @@ export const useAudioStream = (
       const startTime = performance.now();
 
       try {
-        const poolKey = getBufferPoolKey(frame.sample_rate, frame.channel_a.length);
+        const poolKey = getBufferPoolKey(
+          frame.sample_rate,
+          frame.channel_a.length,
+        );
         let pool = audioBufferPoolRef.current.get(poolKey);
 
         if (!pool) {
@@ -372,7 +463,11 @@ export const useAudioStream = (
         let buffer = pool.pop();
 
         if (!buffer) {
-          buffer = audioContext.createBuffer(2, frame.channel_a.length, frame.sample_rate);
+          buffer = audioContext.createBuffer(
+            2,
+            frame.channel_a.length,
+            frame.sample_rate,
+          );
         }
 
         // Optimized data copying using set() when possible
@@ -384,6 +479,7 @@ export const useAudioStream = (
         } else if (Array.isArray(frame.channel_a)) {
           // Batch copy optimization for arrays
           const tempArray = new Float32Array(frame.channel_a);
+
           channelAData.set(tempArray);
         }
 
@@ -391,14 +487,17 @@ export const useAudioStream = (
           channelBData.set(frame.channel_b);
         } else if (Array.isArray(frame.channel_b)) {
           const tempArray = new Float32Array(frame.channel_b);
+
           channelBData.set(tempArray);
         }
 
         // Track performance with circular buffer
         const processingTime = performance.now() - startTime;
         const stats = performanceStatsRef.current;
+
         stats.processingTimes[stats.processingTimeIndex] = processingTime;
-        stats.processingTimeIndex = (stats.processingTimeIndex + 1) % stats.processingTimes.length;
+        stats.processingTimeIndex =
+          (stats.processingTimeIndex + 1) % stats.processingTimes.length;
 
         if (processingTime > stats.peakProcessingTime) {
           stats.peakProcessingTime = processingTime;
@@ -407,6 +506,7 @@ export const useAudioStream = (
         return buffer;
       } catch (err) {
         console.error("Failed to create audio buffer:", err);
+
         return null;
       }
     },
@@ -416,14 +516,17 @@ export const useAudioStream = (
   /**
    * Return buffer to appropriate pool for reuse
    */
-  const returnBufferToPool = useCallback((buffer: AudioBuffer) => {
-    const poolKey = getBufferPoolKey(buffer.sampleRate, buffer.length);
-    const pool = audioBufferPoolRef.current.get(poolKey);
+  const returnBufferToPool = useCallback(
+    (buffer: AudioBuffer) => {
+      const poolKey = getBufferPoolKey(buffer.sampleRate, buffer.length);
+      const pool = audioBufferPoolRef.current.get(poolKey);
 
-    if (pool && pool.length < BUFFER_POOL_SIZE) {
-      pool.push(buffer);
-    }
-  }, [getBufferPoolKey]);
+      if (pool && pool.length < BUFFER_POOL_SIZE) {
+        pool.push(buffer);
+      }
+    },
+    [getBufferPoolKey],
+  );
 
   /**
    * Optimized audio buffer scheduling with minimal overhead
@@ -434,6 +537,7 @@ export const useAudioStream = (
 
       try {
         const sourceNode = audioContext.createBufferSource();
+
         sourceNode.buffer = buffer;
         sourceNode.connect(audioStreamNode.gainNode);
 
@@ -482,8 +586,10 @@ export const useAudioStream = (
       }
 
       const frame = queue.shift();
+
       if (frame) {
         const buffer = createAudioBufferOptimized(frame);
+
         if (buffer) {
           scheduleAudioBufferOptimized(buffer);
         }
@@ -492,7 +598,12 @@ export const useAudioStream = (
     }
 
     performanceStatsRef.current.totalProcessedFrames += processed;
-  }, [audioContext, isAudioReady, createAudioBufferOptimized, scheduleAudioBufferOptimized]);
+  }, [
+    audioContext,
+    isAudioReady,
+    createAudioBufferOptimized,
+    scheduleAudioBufferOptimized,
+  ]);
 
   /**
    * Optimized frame queuing with intelligent queue management (no dropping)
@@ -510,18 +621,24 @@ export const useAudioStream = (
       audioBufferQueueRef.current.push(frame);
 
       if (audioBufferQueueRef.current.length > maxBufferQueueSizeRef.current) {
-        console.warn(`Audio queue length: ${audioBufferQueueRef.current.length}, consider optimization`);
+        console.warn(
+          `Audio queue length: ${audioBufferQueueRef.current.length}, consider optimization`,
+        );
         // Increase queue size dynamically instead of dropping
-        maxBufferQueueSizeRef.current = Math.min(50, maxBufferQueueSizeRef.current + 5);
+        maxBufferQueueSizeRef.current = Math.min(
+          50,
+          maxBufferQueueSizeRef.current + 5,
+        );
       }
 
       // Intelligent processing scheduling
       const now = performance.now();
+
       if (now - lastProcessingTimeRef.current >= PROCESSING_THROTTLE_MS) {
         lastProcessingTimeRef.current = now;
 
         // Use requestIdleCallback for better performance when available
-        if ('requestIdleCallback' in window) {
+        if ("requestIdleCallback" in window) {
           requestIdleCallback(() => processAudioQueueBatched(), { timeout: 8 });
         } else {
           requestAnimationFrame(() => processAudioQueueBatched());
@@ -563,6 +680,7 @@ export const useAudioStream = (
         return result;
       } catch (error) {
         console.error("Failed to decode audio channel:", error);
+
         return new Float32Array(length);
       }
     },
@@ -610,6 +728,7 @@ export const useAudioStream = (
 
     // Keep only last 1 second of data
     const oneSecondAgo = now - 1000;
+
     fpsCalculationRef.current = fpsCalculationRef.current.filter(
       (time) => time > oneSecondAgo,
     );
@@ -643,6 +762,7 @@ export const useAudioStream = (
     if (frameSizes.length % 5 === 0) {
       const sum = frameSizes.reduce((acc, size) => acc + size, 0);
       const average = Math.round(sum / frameSizes.length);
+
       setAverageFrameSizeBytes(average);
     }
   }, []);
@@ -650,26 +770,31 @@ export const useAudioStream = (
   /**
    * Fixed frame size calculation
    */
-  const calculateFrameSize = useCallback((frame: AudioFrame, rawData?: string): number => {
-    if (rawData) {
-      // Use actual raw data size if available
-      return new TextEncoder().encode(rawData).length;
-    }
+  const calculateFrameSize = useCallback(
+    (frame: AudioFrame, rawData?: string): number => {
+      if (rawData) {
+        // Use actual raw data size if available
+        return new TextEncoder().encode(rawData).length;
+      }
 
-    if (useFastFormat) {
-      // For fast format, estimate based on base64 data + metadata
-      const base64Size = Math.ceil(frame.channel_a.length * 2 * 4 * 1.34); // Base64 overhead ~34%
-      const metadataSize = 200; // Approximate metadata overhead
-      return base64Size + metadataSize;
-    } else {
-      // For regular format, estimate JSON size
-      // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
-      const samplesPerChannel = frame.channel_a.length;
-      const totalSamples = samplesPerChannel * 2; // Both channels
-      const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
-      return estimatedJsonSize;
-    }
-  }, [useFastFormat]);
+      if (useFastFormat) {
+        // For fast format, estimate based on base64 data + metadata
+        const base64Size = Math.ceil(frame.channel_a.length * 2 * 4 * 1.34); // Base64 overhead ~34%
+        const metadataSize = 200; // Approximate metadata overhead
+
+        return base64Size + metadataSize;
+      } else {
+        // For regular format, estimate JSON size
+        // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
+        const samplesPerChannel = frame.channel_a.length;
+        const totalSamples = samplesPerChannel * 2; // Both channels
+        const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
+
+        return estimatedJsonSize;
+      }
+    },
+    [useFastFormat],
+  );
 
   // --- PERFORMANCE MONITORING ---
 
@@ -698,13 +823,18 @@ export const useAudioStream = (
       totalProcessedFrames: stats.totalProcessedFrames,
       totalReceivedFrames: stats.totalReceivedFrames,
       queueLength: audioBufferQueueRef.current.length,
-      bufferPoolSizes: Array.from(audioBufferPoolRef.current.entries()).map(([key, pool]) => ({
-        key,
-        size: pool.length,
-      })),
-      processingEfficiency: stats.totalReceivedFrames > 0
-        ? Math.round((stats.totalProcessedFrames / stats.totalReceivedFrames) * 100)
-        : 100,
+      bufferPoolSizes: Array.from(audioBufferPoolRef.current.entries()).map(
+        ([key, pool]) => ({
+          key,
+          size: pool.length,
+        }),
+      ),
+      processingEfficiency:
+        stats.totalReceivedFrames > 0
+          ? Math.round(
+              (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
+            )
+          : 100,
     };
   }, []);
 
@@ -730,6 +860,7 @@ export const useAudioStream = (
    */
   const processBatchedFrames = useCallback(() => {
     const batch = frameProcessingBatchRef.current;
+
     if (batch.length === 0) return;
 
     const startTime = performance.now();
@@ -742,6 +873,7 @@ export const useAudioStream = (
       // Check time budget periodically
       if (i > 0 && i % 4 === 0) {
         const elapsed = performance.now() - startTime;
+
         if (elapsed > MAX_PROCESSING_TIME_MS) {
           // Put remaining frames back at the front
           frameProcessingBatchRef.current.unshift(...framesToProcess.slice(i));
@@ -764,22 +896,25 @@ export const useAudioStream = (
   /**
    * Add frame to batch with intelligent scheduling
    */
-  const addFrameToBatch = useCallback((line: string) => {
-    frameProcessingBatchRef.current.push(line);
+  const addFrameToBatch = useCallback(
+    (line: string) => {
+      frameProcessingBatchRef.current.push(line);
 
-    if (frameProcessingBatchRef.current.length >= BATCH_SIZE) {
-      processBatchedFrames();
-    } else if (!batchProcessingTimeoutRef.current) {
-      batchProcessingTimeoutRef.current = setTimeout(() => {
+      if (frameProcessingBatchRef.current.length >= BATCH_SIZE) {
         processBatchedFrames();
-      }, BATCH_TIMEOUT_MS);
-    }
-  }, [processBatchedFrames]);
+      } else if (!batchProcessingTimeoutRef.current) {
+        batchProcessingTimeoutRef.current = setTimeout(() => {
+          processBatchedFrames();
+        }, BATCH_TIMEOUT_MS);
+      }
+    },
+    [processBatchedFrames],
+  );
 
   // --- SERVER-SENT EVENTS HANDLING ---
 
   /**
-   * Fixed server-sent event processing with proper FPS calculation
+   * Fixed server-sent event processing with timestamp validation
    */
   const processServerSentEvent = useCallback(
     async (line: string) => {
@@ -787,6 +922,7 @@ export const useAudioStream = (
         if (!line.startsWith("data:") && !line.startsWith("data: ")) return;
 
         const data = line.replace(/^data:\s*/, "");
+
         if (data === '{"type":"heartbeat"}' || !data.trim()) return;
 
         performanceStatsRef.current.totalReceivedFrames++;
@@ -796,6 +932,7 @@ export const useAudioStream = (
 
         if (useFastFormat) {
           const fastFrame: AudioFastFrame = JSON.parse(data);
+
           if (
             fastFrame.frame_number !== undefined &&
             fastFrame.channel_a &&
@@ -804,8 +941,7 @@ export const useAudioStream = (
             fastFrame.sample_rate
           ) {
             frame = convertFastFrameOptimized(fastFrame);
-            // Use actual raw data size for fast format
-            frameSize = data.length; // Raw JSON size
+            frameSize = data.length;
           } else {
             return;
           }
@@ -819,9 +955,11 @@ export const useAudioStream = (
           ) {
             return;
           }
-          // Use actual raw data size for normal format
-          frameSize = data.length; // Raw JSON size
+          frameSize = data.length;
         }
+
+        // Perform timestamp validation
+        validateFrameTimestamp(frame);
 
         // Update statistics with actual data
         updateFrameSizeStats(frameSize);
@@ -832,24 +970,32 @@ export const useAudioStream = (
         }
 
         setFrameCount((prev) => prev + 1);
-        updateFps(); // Call updateFps for every frame (not throttled)
+        updateFps();
         queueAudioFrameOptimized(frame);
 
-        // Simplified frame drop detection
+        // Simplified frame drop detection (keep existing logic)
         const lastFrameNumber = lastFrameTimeRef.current;
+
         if (lastFrameNumber > 0 && frame.frame_number > lastFrameNumber + 1) {
           const missed = frame.frame_number - lastFrameNumber - 1;
+
           setDroppedFrames((prev) => prev + missed);
         }
         lastFrameTimeRef.current = frame.frame_number;
       } catch (parseError) {
-        // Reduce error logging frequency
         if (Math.random() < 0.1) {
           console.error("Parse error:", parseError);
         }
       }
     },
-    [updateFps, queueAudioFrameOptimized, useFastFormat, convertFastFrameOptimized, updateFrameSizeStats, frameCount],
+    [
+      updateFps,
+      queueAudioFrameOptimized,
+      useFastFormat,
+      convertFastFrameOptimized,
+      updateFrameSizeStats,
+      frameCount,
+    ],
   );
 
   /**
@@ -916,6 +1062,7 @@ export const useAudioStream = (
         isConnecting,
         isConnected,
       });
+
       return;
     }
 
@@ -931,8 +1078,11 @@ export const useAudioStream = (
       setAverageFrameSizeBytes(0);
       lastFrameTimeRef.current = 0;
       fpsCalculationRef.current = [];
-      fpsDisplayThrottleRef.current = 0; // Reset FPS display throttle
-      frameSizesRef.current = []; // Reset to empty array
+      fpsDisplayThrottleRef.current = 0;
+      frameSizesRef.current = [];
+
+      // Reset timestamp validation
+      resetTimestampValidation();
 
       // Get access token
       const accessToken = await getAccessToken();
@@ -1030,6 +1180,7 @@ export const useAudioStream = (
         } catch (err) {
           if (err instanceof Error && err.name === "AbortError") {
             console.log("Stream aborted");
+
             return;
           }
           console.error("Stream reading error:", err);
@@ -1127,6 +1278,214 @@ export const useAudioStream = (
     nextPlayTimeRef.current = 0;
   }, [audioStreamNode, audioContext, resetPerformanceStats]);
 
+  // --- PERFORMANCE OPTIMIZATION CONSTANTS ---
+
+  /**
+   * Performance configuration - optimized for no frame dropping
+   */
+  const PROCESSING_THROTTLE_MS = 8; // ~120fps processing capability
+  const BATCH_SIZE = 8; // Larger batches for efficiency
+  const BATCH_TIMEOUT_MS = 4; // Faster timeout for responsiveness
+  const FPS_UPDATE_INTERVAL = 200; // Display FPS every 200ms (separate from calculation)
+  const BUFFER_POOL_SIZE = 5; // Buffer pool per configuration
+  const MAX_PROCESSING_TIME_MS = 12; // Generous time per cycle
+  const STATS_UPDATE_INTERVAL = 1000; // Update stats every second
+
+  // --- TIMESTAMP VALIDATION ---
+
+  /**
+   * Reset timestamp validation statistics
+   */
+  const resetTimestampValidation = useCallback(() => {
+    timestampValidationStatsRef.current = {
+      lastFrameTimestamp: 0,
+      frameIntervals: new Float32Array(100),
+      intervalIndex: 0,
+      gapSizes: [],
+      jitterValues: new Float32Array(50),
+      jitterIndex: 0,
+    };
+
+    setTimestampValidation((prev) => ({
+      ...prev,
+      totalGaps: 0,
+      totalMissedFrames: 0,
+      averageGapSize: 0,
+      maxGapSize: 0,
+      lastGapTimestamp: 0,
+      expectedFrameInterval: 0,
+    }));
+  }, []);
+
+  /**
+   * Calculate expected frame interval based on recent frames
+   */
+  const calculateExpectedInterval = useCallback((): number => {
+    const intervals = timestampValidationStatsRef.current.frameIntervals;
+    let sum = 0;
+    let count = 0;
+
+    for (let i = 0; i < intervals.length; i++) {
+      if (intervals[i] > 0) {
+        sum += intervals[i];
+        count++;
+      }
+    }
+
+    return count > 0 ? sum / count : 0;
+  }, []);
+
+  /**
+   * Auto-adjust tolerance based on observed jitter
+   */
+  const autoAdjustTolerance = useCallback(() => {
+    if (!timestampValidationConfigRef.current.autoAdjustTolerance) return;
+
+    const jitterValues = timestampValidationStatsRef.current.jitterValues;
+    let maxJitter = 0;
+
+    for (let i = 0; i < jitterValues.length; i++) {
+      if (jitterValues[i] > maxJitter) {
+        maxJitter = jitterValues[i];
+      }
+    }
+
+    if (maxJitter > 0) {
+      // Set tolerance to 3x the maximum observed jitter, with reasonable bounds
+      const newTolerance = Math.min(Math.max(maxJitter * 3, 20), 200);
+
+      timestampValidationConfigRef.current.toleranceMs = newTolerance;
+
+      setTimestampValidation((prev) => ({
+        ...prev,
+        toleranceMs: newTolerance,
+      }));
+    }
+  }, []);
+
+  /**
+   * Validate frame timestamps and detect gaps
+   */
+  const validateFrameTimestamp = useCallback(
+    (frame: AudioFrame) => {
+      const config = timestampValidationConfigRef.current;
+
+      if (!config.enabled) return;
+
+      const stats = timestampValidationStatsRef.current;
+      const currentTimestamp = frame.timestamp;
+
+      if (stats.lastFrameTimestamp > 0) {
+        const interval = currentTimestamp - stats.lastFrameTimestamp;
+
+        // Store interval for expected interval calculation
+        stats.frameIntervals[stats.intervalIndex] = interval;
+        stats.intervalIndex =
+          (stats.intervalIndex + 1) % stats.frameIntervals.length;
+
+        const expectedInterval = calculateExpectedInterval();
+
+        if (expectedInterval > 0) {
+          const jitter = Math.abs(interval - expectedInterval);
+
+          // Store jitter for auto-adjustment
+          stats.jitterValues[stats.jitterIndex] = jitter;
+          stats.jitterIndex =
+            (stats.jitterIndex + 1) % stats.jitterValues.length;
+
+          // Detect gaps
+          if (
+            interval > expectedInterval + (config.toleranceMs || 10) &&
+            interval > (config?.minGapSizeMs || 50)
+          ) {
+            const gapSize = interval - expectedInterval;
+            const estimatedMissedFrames = Math.round(
+              gapSize / expectedInterval,
+            );
+
+            stats.gapSizes.push(gapSize);
+
+            // Update statistics
+            setTimestampValidation((prev) => {
+              const newTotalGaps = prev.totalGaps + 1;
+              const newTotalMissedFrames =
+                prev.totalMissedFrames + estimatedMissedFrames;
+              const averageGapSize =
+                stats.gapSizes.reduce((a, b) => a + b, 0) /
+                stats.gapSizes.length;
+
+              return {
+                ...prev,
+                totalGaps: newTotalGaps,
+                totalMissedFrames: newTotalMissedFrames,
+                averageGapSize,
+                maxGapSize: Math.max(prev.maxGapSize, gapSize),
+                lastGapTimestamp: currentTimestamp,
+                expectedFrameInterval: expectedInterval,
+              };
+            });
+
+            // Update dropped frames count
+            setDroppedFrames((prev) => prev + estimatedMissedFrames);
+
+            if (config.logGaps) {
+              console.warn(`Frame gap detected:`, {
+                gapSize: Math.round(gapSize),
+                expectedInterval: Math.round(expectedInterval),
+                actualInterval: Math.round(interval),
+                estimatedMissedFrames,
+                frameNumber: frame.frame_number,
+                timestamp: currentTimestamp,
+              });
+            }
+          }
+
+          // Periodically auto-adjust tolerance
+          if (stats.intervalIndex % 50 === 0) {
+            autoAdjustTolerance();
+          }
+
+          // Update expected interval in state periodically
+          if (stats.intervalIndex % 10 === 0) {
+            setTimestampValidation((prev) => ({
+              ...prev,
+              expectedFrameInterval: expectedInterval,
+            }));
+          }
+        }
+      }
+
+      stats.lastFrameTimestamp = currentTimestamp;
+    },
+    [calculateExpectedInterval, autoAdjustTolerance],
+  );
+
+  /**
+   * Update timestamp validation configuration
+   */
+  const updateTimestampValidationConfig = useCallback(
+    (config: Partial<TimestampValidationConfig>) => {
+      timestampValidationConfigRef.current = {
+        ...timestampValidationConfigRef.current,
+        ...config,
+      };
+
+      setTimestampValidation((prev) => ({
+        ...prev,
+        enabled: config.enabled !== undefined ? config.enabled : prev.enabled,
+        toleranceMs:
+          config.toleranceMs !== undefined
+            ? config.toleranceMs
+            : prev.toleranceMs,
+      }));
+
+      if (config.enabled === false) {
+        resetTimestampValidation();
+      }
+    },
+    [resetTimestampValidation],
+  );
+
   // --- EFFECTS (SIDE EFFECTS) ---
 
   /**
@@ -1180,6 +1539,7 @@ export const useAudioStream = (
     currentBuffer,
     bufferDuration,
     latency,
+    timestampValidation,
     connect,
     disconnect,
     reconnect,
@@ -1187,5 +1547,7 @@ export const useAudioStream = (
     resumeAudio,
     suspendAudio,
     getPerformanceStats,
+    resetTimestampValidation,
+    updateTimestampValidationConfig,
   };
 };

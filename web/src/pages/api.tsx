@@ -18,7 +18,10 @@ import {
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
 import { useAuth, useSecuredApi } from "@/authentication";
-import { useAudioStream } from "@/hooks/useAudioStream";
+import {
+  TimestampValidationConfig,
+  useAudioStream,
+} from "@/hooks/useAudioStream";
 
 export default function ApiPage() {
   const { t } = useTranslation();
@@ -55,7 +58,9 @@ export default function ApiPage() {
     audioStreamNode,
     isAudioReady,
     averageFrameSizeBytes,
-  } = useAudioStream(`${generixConfig?.api_base_url}`, false, useFastStream);
+  } = useAudioStream(`${generixConfig?.api_base_url}`, false, useFastStream, {
+    enabled: false,
+  } as TimestampValidationConfig);
 
   // Initialize audio analyzer
   const initializeAnalyzer = async () => {

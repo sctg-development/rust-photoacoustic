@@ -16,6 +16,8 @@ Server → SSE Stream → Format Detection → Frame Parser → Audio Queue → 
                    [Regular/Fast Format]         [Optimized Processing]
                            ↓                              ↓
                    Frame Size Statistics          Performance Monitoring
+                           ↓                              ↓
+                   Timestamp Validation           Real-time Validation
 ```
 
 The audio reconstruction pipeline consists of several key components with **CPU optimization**:
@@ -23,11 +25,12 @@ The audio reconstruction pipeline consists of several key components with **CPU 
 1. **Server-Sent Events Stream**: Real-time data transport with authentication
 2. **Format Detection**: Automatic handling of regular or fast binary format
 3. **Frame Processing**: Parsing, validation, and decoding with **batch processing**
-4. **Frame Size Statistics**: Rolling window statistics for bandwidth monitoring
-5. **Audio Queue Management**: **Intelligent buffering** with no frame dropping
-6. **Web Audio Graph**: Audio processing pipeline using Web Audio API with **buffer pooling**
-7. **Audio Context Node**: Final output node for audio visualization and analysis
-8. **Performance Monitoring**: Real-time CPU usage and processing efficiency tracking
+4. **Timestamp Validation**: Real-time frame gap detection and statistics
+5. **Frame Size Statistics**: Rolling window statistics for bandwidth monitoring
+6. **Audio Queue Management**: **Intelligent buffering** with no frame dropping
+7. **Web Audio Graph**: Audio processing pipeline using Web Audio API with **buffer pooling**
+8. **Audio Context Node**: Final output node for audio visualization and analysis
+9. **Performance Monitoring**: Real-time CPU usage and processing efficiency tracking
 
 ## Performance Optimizations
 
@@ -149,6 +152,162 @@ const queueAudioFrameOptimized = (frame: AudioFrame) => {
 };
 ```
 
+### Timestamp Validation System
+
+#### Real-time Frame Gap Detection
+
+The system now includes comprehensive timestamp validation to detect missing frames and maintain stream integrity:
+
+```typescript
+// Timestamp validation configuration
+interface TimestampValidationConfig {
+  enabled: boolean;
+  toleranceMs?: number; // Gap tolerance (default: 50ms)
+  minGapSizeMs?: number; // Minimum gap size to consider as missing frames
+  logGaps?: boolean; // Log detected gaps to console
+  autoAdjustTolerance?: boolean; // Auto-adjust tolerance based on jitter
+}
+
+// Validation statistics
+interface TimestampValidationStats {
+  enabled: boolean;
+  totalGaps: number;
+  totalMissedFrames: number;
+  averageGapSize: number;
+  maxGapSize: number;
+  lastGapTimestamp: number;
+  expectedFrameInterval: number;
+  toleranceMs: number;
+}
+```
+
+#### Function Declaration Order Fix
+
+**Important**: The timestamp validation functions are now properly ordered to prevent initialization errors:
+
+```typescript
+// FIXED: Timestamp validation functions are declared in correct order
+// 1. Reset function (used in connect())
+const resetTimestampValidation = useCallback(() => {
+  // Reset implementation...
+}, []);
+
+// 2. Helper functions
+const calculateExpectedInterval = useCallback(() => {
+  // Calculate expected interval...
+}, []);
+
+const autoAdjustTolerance = useCallback(() => {
+  // Auto-adjust tolerance...
+}, []);
+
+// 3. Main validation function (uses helpers above)
+const validateFrameTimestamp = useCallback((frame: AudioFrame) => {
+  // Validation implementation using helpers...
+}, [calculateExpectedInterval, autoAdjustTolerance]);
+
+// 4. Configuration update function (uses reset)
+const updateTimestampValidationConfig = useCallback((config) => {
+  // Configuration update...
+  if (config.enabled === false) {
+    resetTimestampValidation();
+  }
+}, [resetTimestampValidation]);
+
+// 5. Process function (uses validation - NO dependency in useCallback)
+const processServerSentEvent = useCallback(async (line: string) => {
+  // ... frame parsing ...
+  
+  // Validation is called directly (not in dependency array)
+  validateFrameTimestamp(frame);
+  
+  // ... continue processing ...
+}, [
+  // validateFrameTimestamp is NOT in dependency array to avoid circular reference
+  updateFps, 
+  queueAudioFrameOptimized, 
+  useFastFormat, 
+  convertFastFrameOptimized, 
+  updateFrameSizeStats, 
+  frameCount
+]);
+```
+
+#### Adaptive Tolerance and Gap Detection
+
+```typescript
+// Auto-adjusting tolerance based on observed jitter
+const autoAdjustTolerance = useCallback(() => {
+  if (!timestampValidationConfigRef.current.autoAdjustTolerance) return;
+
+  const jitterValues = timestampValidationStatsRef.current.jitterValues;
+  let maxJitter = 0;
+
+  for (let i = 0; i < jitterValues.length; i++) {
+    if (jitterValues[i] > maxJitter) {
+      maxJitter = jitterValues[i];
+    }
+  }
+
+  if (maxJitter > 0) {
+    // Set tolerance to 3x the maximum observed jitter
+    const newTolerance = Math.min(Math.max(maxJitter * 3, 20), 200);
+    timestampValidationConfigRef.current.toleranceMs = newTolerance;
+    
+    setTimestampValidation(prev => ({
+      ...prev,
+      toleranceMs: newTolerance,
+    }));
+  }
+}, []);
+
+// Gap detection with intelligent frame counting
+const validateFrameTimestamp = useCallback((frame: AudioFrame) => {
+  const config = timestampValidationConfigRef.current;
+  if (!config.enabled) return;
+
+  const stats = timestampValidationStatsRef.current;
+  const currentTimestamp = frame.timestamp;
+
+  if (stats.lastFrameTimestamp > 0) {
+    const interval = currentTimestamp - stats.lastFrameTimestamp;
+    const expectedInterval = calculateExpectedInterval();
+    
+    if (expectedInterval > 0) {
+      // Detect gaps
+      if (interval > expectedInterval + config.toleranceMs && 
+          interval > config.minGapSizeMs) {
+        const gapSize = interval - expectedInterval;
+        const estimatedMissedFrames = Math.round(gapSize / expectedInterval);
+
+        // Update statistics
+        setTimestampValidation(prev => ({
+          ...prev,
+          totalGaps: prev.totalGaps + 1,
+          totalMissedFrames: prev.totalMissedFrames + estimatedMissedFrames,
+          maxGapSize: Math.max(prev.maxGapSize, gapSize),
+          lastGapTimestamp: currentTimestamp,
+        }));
+
+        // Update dropped frames count
+        setDroppedFrames(prev => prev + estimatedMissedFrames);
+
+        if (config.logGaps) {
+          console.warn(`Frame gap detected:`, {
+            gapSize: Math.round(gapSize),
+            expectedInterval: Math.round(expectedInterval),
+            estimatedMissedFrames,
+            frameNumber: frame.frame_number,
+          });
+        }
+      }
+    }
+  }
+
+  stats.lastFrameTimestamp = currentTimestamp;
+}, [calculateExpectedInterval, autoAdjustTolerance]);
+```
+
 ### Performance Monitoring
 
 #### Real-time Performance Statistics
@@ -241,7 +400,7 @@ interface AudioStreamNode {
 
 ### Enhanced Hook Return Interface
 
-The `useAudioStream` hook now provides performance monitoring:
+The `useAudioStream` hook now provides performance monitoring and timestamp validation:
 
 ```typescript
 interface UseAudioStreamReturn {
@@ -255,7 +414,7 @@ interface UseAudioStreamReturn {
   frameCount: number;
   droppedFrames: number;
   fps: number;
-  averageFrameSizeBytes: number; // Rolling average of frame sizes (1000 frames)
+  averageFrameSizeBytes: number; // Rolling average of frame sizes
 
   // Audio reconstruction
   audioContext: AudioContext | null;
@@ -265,6 +424,9 @@ interface UseAudioStreamReturn {
   bufferDuration: number;
   latency: number;
 
+  // Timestamp validation (NEW)
+  timestampValidation: TimestampValidationStats;
+
   // Controls
   connect: () => void;
   disconnect: () => void;
@@ -273,8 +435,12 @@ interface UseAudioStreamReturn {
   resumeAudio: () => Promise<void>;
   suspendAudio: () => Promise<void>;
 
-  // Performance monitoring (NEW)
+  // Performance monitoring
   getPerformanceStats: () => PerformanceStats;
+  
+  // Timestamp validation controls (NEW)
+  resetTimestampValidation: () => void;
+  updateTimestampValidationConfig: (config: Partial<TimestampValidationConfig>) => void;
 }
 ```
 
@@ -334,14 +500,23 @@ The fast format encodes audio data as base64 binary:
 
 ## Step-by-Step Reconstruction Process
 
-### 1. Hook Initialization
+### 1. Hook Initialization with Timestamp Validation
 
-Initialize the audio stream with format selection:
+Initialize the audio stream with format selection and timestamp validation:
 
 ```typescript
-import { useAudioStream } from "@/hooks/useAudioStream";
+import { useAudioStream, TimestampValidationConfig } from "@/hooks/useAudioStream";
 
 const AudioComponent = () => {
+  // Configure timestamp validation
+  const timestampConfig: TimestampValidationConfig = {
+    enabled: true,
+    toleranceMs: 50,
+    minGapSizeMs: 20,
+    logGaps: true,
+    autoAdjustTolerance: true,
+  };
+
   const {
     audioContext,
     audioStreamNode,
@@ -350,13 +525,25 @@ const AudioComponent = () => {
     frameCount,
     fps,
     averageFrameSizeBytes,
+    timestampValidation, // NEW: Timestamp validation stats
     connect,
     disconnect,
+    resetTimestampValidation,
+    updateTimestampValidationConfig,
   } = useAudioStream(
     "https://api.example.com", // Base URL
     true,                      // Auto-connect
-    true                       // Use fast format (false for regular)
+    true,                      // Use fast format
+    timestampConfig            // Timestamp validation config
   );
+
+  // Monitor timestamp validation
+  useEffect(() => {
+    if (timestampValidation.totalGaps > 0) {
+      console.log(`Detected ${timestampValidation.totalGaps} gaps, ` +
+                  `estimated ${timestampValidation.totalMissedFrames} missed frames`);
+    }
+  }, [timestampValidation]);
 
   // Component implementation...
 };
@@ -385,7 +572,7 @@ const response = await fetch(streamUrl, {
 
 ### 3. Format Detection and Parsing
 
-Enhanced with performance tracking:
+Enhanced with timestamp validation:
 
 ```typescript
 const processServerSentEvent = (line: string) => {
@@ -403,16 +590,19 @@ const processServerSentEvent = (line: string) => {
 
     if (useFastFormat) {
       const fastFrame: AudioFastFrame = JSON.parse(data);
-      frame = convertFastFrameOptimized(fastFrame); // Optimized conversion
-      frameSize = data.length; // Use actual raw data size
+      frame = convertFastFrameOptimized(fastFrame);
+      frameSize = data.length;
     } else {
       frame = JSON.parse(data);
-      frameSize = data.length; // Use actual raw data size
+      frameSize = data.length;
     }
+
+    // NEW: Perform timestamp validation
+    validateFrameTimestamp(frame);
 
     // Update statistics and process frame
     updateFrameSizeStats(frameSize);
-    queueAudioFrameOptimized(frame); // Optimized queuing
+    queueAudioFrameOptimized(frame);
   }
 };
 ```
@@ -527,7 +717,7 @@ const updateFps = () => {
 
 ## Accessing the Audio Context Node
 
-### Using the Hook with Performance Monitoring
+### Using the Hook with Performance Monitoring and Timestamp Validation
 
 ```typescript
 import { useAudioStream } from "@/hooks/useAudioStream";
@@ -539,12 +729,21 @@ const AudioVisualizationComponent = () => {
     isAudioReady,
     currentFrame,
     frameCount,
+    droppedFrames,
     fps,
     averageFrameSizeBytes,
-    getPerformanceStats, // NEW: Performance monitoring
+    timestampValidation, // NEW: Timestamp validation stats
+    getPerformanceStats,
+    resetTimestampValidation,
+    updateTimestampValidationConfig,
     connect,
     disconnect,
-  } = useAudioStream("https://api.example.com", true, true);
+  } = useAudioStream("https://api.example.com", true, true, {
+    enabled: true,
+    toleranceMs: 50,
+    logGaps: true,
+    autoAdjustTolerance: true,
+  });
 
   // Monitor performance
   const [perfStats, setPerfStats] = useState(null);
@@ -569,12 +768,28 @@ const AudioVisualizationComponent = () => {
     <div>
       <div>Status: {isAudioReady ? "Ready" : "Not Ready"}</div>
       <div>Frames: {frameCount}</div>
+      <div>Dropped Frames: {droppedFrames}</div>
       <div>FPS: {fps.toFixed(1)}</div>
       <div>Bandwidth: {bandwidthKbps} kbps</div>
       
+      {/* NEW: Timestamp Validation Statistics */}
+      {timestampValidation.enabled && (
+        <div style={{ border: '1px solid #orange', padding: '10px', margin: '10px 0' }}>
+          <h4>Stream Quality Monitor</h4>
+          <div>Total Gaps Detected: {timestampValidation.totalGaps}</div>
+          <div>Estimated Missed Frames: {timestampValidation.totalMissedFrames}</div>
+          <div>Average Gap Size: {timestampValidation.averageGapSize.toFixed(1)}ms</div>
+          <div>Max Gap Size: {timestampValidation.maxGapSize.toFixed(1)}ms</div>
+          <div>Expected Frame Interval: {timestampValidation.expectedFrameInterval.toFixed(1)}ms</div>
+          <div>Current Tolerance: {timestampValidation.toleranceMs.toFixed(1)}ms</div>
+          <button onClick={resetTimestampValidation}>Reset Stats</button>
+        </div>
+      )}
+      
       {/* Performance Statistics */}
       {perfStats && (
-        <div>
+        <div style={{ border: '1px solid #ccc', padding: '10px', margin: '10px 0' }}>
+          <h4>Performance Statistics</h4>
           <div>Processing Efficiency: {perfStats.processingEfficiency}%</div>
           <div>Avg Processing Time: {perfStats.averageProcessingTime}ms</div>
           <div>Queue Length: {perfStats.queueLength}</div>
@@ -602,6 +817,7 @@ const AudioVisualizationComponent = () => {
 
 - **Automatic Reconnection**: Progressive backoff strategy for connection failures
 - **Frame Validation**: Comprehensive validation of incoming audio data
+- **Timestamp Validation**: Real-time gap detection and missing frame estimation
 - **No Frame Dropping**: Dynamic queue management preserves all frames
 - **Performance Monitoring**: Real-time tracking of processing efficiency
 
@@ -611,6 +827,7 @@ const AudioVisualizationComponent = () => {
 - **Batch Processing**: Time-aware processing cycles
 - **Intelligent Scheduling**: Uses browser idle time when available
 - **Memory Efficiency**: Circular buffers for statistics tracking
+- **Function Declaration Order**: Proper ordering prevents initialization errors
 
 ## Performance Comparison
 
@@ -624,6 +841,18 @@ After optimization:
 | Frame Processing | Synchronous | Batched | 3x faster |
 | Memory Usage | Growing | Stable | Pool reuse |
 | FPS Accuracy | Throttled (17 fps) | Accurate (50 fps) | Fixed calculation |
+| Initialization Errors | Circular dependencies | None | Function ordering fix |
+
+### Stream Quality Monitoring
+
+New timestamp validation capabilities:
+
+| Metric | Without Validation | With Validation | Benefit |
+|--------|-------------------|-----------------|---------|
+| Gap Detection | Manual inspection | Automatic | Real-time monitoring |
+| Missing Frame Count | Unknown | Estimated | Accurate statistics |
+| Tolerance Adjustment | Manual | Adaptive | Self-optimizing |
+| Stream Quality | Unknown | Quantified | Quality assurance |
 
 ### Bandwidth Usage
 
@@ -645,33 +874,48 @@ Typical frame size comparison for 1024 samples per channel:
 
 ## Usage Examples
 
-### Basic Audio Streaming with Performance Monitoring
+### Basic Audio Streaming with Timestamp Validation
 
 ```typescript
-import { useAudioStream } from "@/hooks/useAudioStream";
+import { useAudioStream, TimestampValidationConfig } from "@/hooks/useAudioStream";
 
 const OptimizedAudioStreamComponent = () => {
+  // Configure timestamp validation for production use
+  const timestampConfig: TimestampValidationConfig = {
+    enabled: true,
+    toleranceMs: 50,        // 50ms tolerance for gaps
+    minGapSizeMs: 20,       // Ignore gaps smaller than 20ms
+    logGaps: false,         // Don't log in production
+    autoAdjustTolerance: true, // Auto-adjust based on network jitter
+  };
+
   const {
     isConnected,
     frameCount,
+    droppedFrames,
     fps,
     averageFrameSizeBytes,
+    timestampValidation,
     getPerformanceStats,
+    resetTimestampValidation,
+    updateTimestampValidationConfig,
     connect,
     disconnect,
     initializeAudio,
   } = useAudioStream(
     process.env.REACT_APP_API_URL,
     false, // Manual connection
-    true   // Use fast format for better performance
+    true,  // Use fast format for better performance
+    timestampConfig
   );
 
   const handleConnect = async () => {
     await initializeAudio();
+    resetTimestampValidation(); // Reset stats on new connection
     connect();
   };
 
-  // Monitor performance in real-time
+  // Monitor performance and stream quality
   const [stats, setStats] = useState(null);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -680,12 +924,37 @@ const OptimizedAudioStreamComponent = () => {
     return () => clearInterval(interval);
   }, [getPerformanceStats]);
 
+  // Alert on stream quality issues
+  useEffect(() => {
+    if (timestampValidation.totalGaps > 10) {
+      console.warn('Stream quality degraded: multiple gaps detected');
+    }
+  }, [timestampValidation.totalGaps]);
+
   return (
     <div>
       <div>Status: {isConnected ? "Connected" : "Disconnected"}</div>
-      <div>Frames: {frameCount}</div>
+      <div>Frames: {frameCount} (Dropped: {droppedFrames})</div>
       <div>FPS: {fps.toFixed(1)}</div>
       <div>Avg Frame Size: {(averageFrameSizeBytes / 1024).toFixed(2)} kB</div>
+      
+      {/* Stream Quality Dashboard */}
+      {timestampValidation.enabled && (
+        <div style={{ border: '1px solid #orange', padding: '10px', margin: '10px 0' }}>
+          <h4>Stream Quality</h4>
+          <div>Gaps: {timestampValidation.totalGaps}</div>
+          <div>Missed Frames: {timestampValidation.totalMissedFrames}</div>
+          <div>Avg Gap: {timestampValidation.averageGapSize.toFixed(1)}ms</div>
+          <div>Tolerance: {timestampValidation.toleranceMs.toFixed(1)}ms</div>
+          
+          <button onClick={() => updateTimestampValidationConfig({ logGaps: !timestampConfig.logGaps })}>
+            Toggle Gap Logging
+          </button>
+          <button onClick={resetTimestampValidation}>
+            Reset Stats
+          </button>
+        </div>
+      )}
       
       {/* Performance Dashboard */}
       {stats && (
@@ -712,38 +981,60 @@ const OptimizedAudioStreamComponent = () => {
 };
 ```
 
-### Performance Monitoring Hook
+### Performance and Quality Monitoring Hook
 
 ```typescript
-const usePerformanceMonitor = (stream: UseAudioStreamReturn) => {
+const useStreamQualityMonitor = (stream: UseAudioStreamReturn) => {
+  const [qualityHistory, setQualityHistory] = useState([]);
   const [performanceHistory, setPerformanceHistory] = useState([]);
   
   useEffect(() => {
     const interval = setInterval(() => {
-      const stats = stream.getPerformanceStats();
+      const perfStats = stream.getPerformanceStats();
+      const qualityStats = stream.timestampValidation;
       
+      const timestamp = Date.now();
+      
+      // Track performance history
       setPerformanceHistory(prev => [
         ...prev.slice(-30), // Keep last 30 samples
         {
-          timestamp: Date.now(),
-          ...stats,
+          timestamp,
+          ...perfStats,
+        }
+      ]);
+      
+      // Track quality history
+      setQualityHistory(prev => [
+        ...prev.slice(-30),
+        {
+          timestamp,
+          gaps: qualityStats.totalGaps,
+          missedFrames: qualityStats.totalMissedFrames,
+          avgGapSize: qualityStats.averageGapSize,
+          tolerance: qualityStats.toleranceMs,
         }
       ]);
       
       // Alert on performance issues
-      if (stats.processingEfficiency < 95) {
-        console.warn('Performance degradation detected:', stats);
+      if (perfStats.processingEfficiency < 95) {
+        console.warn('Performance degradation detected:', perfStats);
       }
       
-      if (stats.averageProcessingTime > 5) {
-        console.warn('High processing latency detected:', stats.averageProcessingTime);
+      if (perfStats.averageProcessingTime > 5) {
+        console.warn('High processing latency detected:', perfStats.averageProcessingTime);
+      }
+      
+      // Alert on quality issues
+      if (qualityStats.totalGaps > 0 && qualityStats.averageGapSize > 100) {
+        console.warn('Stream quality issues detected:', qualityStats);
       }
     }, 1000);
     
     return () => clearInterval(interval);
   }, [stream]);
   
-  return performanceHistory;
+  return { qualityHistory, performanceHistory };
 };
 ```
 
@@ -759,15 +1050,26 @@ const usePerformanceMonitor = (stream: UseAudioStreamReturn) => {
 **Memory Management:**
 - Let buffer pooling handle memory efficiently
 - Monitor queue lengths for performance issues
-- Clear performance stats periodically in long-running applications
+- Clear statistics arrays periodically
+
+**Function Declaration Order (CRITICAL):**
+- Declare timestamp validation functions in correct order
+- Avoid circular dependencies in useCallback
+- Use direct function calls instead of dependency arrays where appropriate
 
 ```typescript
-// Optimal configuration for performance
+// CORRECT: Proper function declaration order
 const useOptimalAudioStream = (baseUrl: string) => {
   return useAudioStream(
     baseUrl,
     false, // Manual connection for better control
     true,  // Use fast format for performance
+    {      // Timestamp validation config
+      enabled: true,
+      toleranceMs: 50,
+      autoAdjustTolerance: true,
+      logGaps: false, // Disable in production
+    }
   );
 };
 
@@ -783,6 +1085,12 @@ const usePerformanceAlerts = (stream: UseAudioStreamReturn) => {
       
       if (stats.processingEfficiency < 98) {
         console.warn('Processing efficiency low:', stats.processingEfficiency);
+      }
+      
+      // NEW: Monitor timestamp validation
+      const tsStats = stream.timestampValidation;
+      if (tsStats.enabled && tsStats.totalGaps > 5) {
+        console.warn('Stream quality degraded:', tsStats.totalGaps, 'gaps detected');
       }
     }, 5000);
     
@@ -814,8 +1122,11 @@ useEffect(() => {
 
     // Clear buffer pools
     audioBufferPoolRef.current.clear();
+    
+    // NEW: Clear timestamp validation
+    resetTimestampValidation();
   };
-}, []);
+}, [resetTimestampValidation]);
 ```
 
 ## Troubleshooting
@@ -838,12 +1149,39 @@ useEffect(() => {
 - Increase MAX_PROCESSING_TIME_MS if needed
 - Monitor peak processing times
 
+### Initialization Issues (NEW)
+
+**Circular Dependency Errors:**
+- Ensure timestamp validation functions are declared in correct order
+- Avoid including validation functions in useCallback dependency arrays
+- Use direct function calls instead of dependencies where possible
+
+**Function Reference Errors:**
+- Check that resetTimestampValidation is called in connect() function
+- Verify updateTimestampValidationConfig uses resetTimestampValidation properly
+- Ensure processServerSentEvent doesn't include validateFrameTimestamp in dependencies
+
+### Stream Quality Issues (NEW)
+
+**High Gap Count:**
+- Check network stability
+- Adjust tolerance settings
+- Monitor server performance
+- Consider using fast format for reduced bandwidth
+
+**Missing Frame Detection:**
+- Enable timestamp validation logging temporarily
+- Check expectedFrameInterval for realistic values
+- Adjust minGapSizeMs for your use case
+- Monitor auto-adjusted tolerance values
+
 ```typescript
 // Performance troubleshooting helper
 const useTroubleshootPerformance = (stream: UseAudioStreamReturn) => {
   useEffect(() => {
     const troubleshoot = setInterval(() => {
       const stats = stream.getPerformanceStats();
+      const tsStats = stream.timestampValidation;
       
       if (stats.averageProcessingTime > 10) {
         console.error('Processing time too high:', stats.averageProcessingTime, 'ms');
@@ -860,6 +1198,16 @@ const useTroubleshootPerformance = (stream: UseAudioStreamReturn) => {
         console.log('- Check for blocking operations');
         console.log('- Monitor memory usage');
       }
+      
+      // NEW: Stream quality troubleshooting
+      if (tsStats.enabled && tsStats.totalGaps > 10) {
+        console.error('Stream quality poor:', tsStats.totalGaps, 'gaps detected');
+        console.log('Quality Recommendations:');
+        console.log('- Check network stability');
+        console.log('- Increase tolerance if jitter is high');
+        console.log('- Enable fast format for bandwidth reduction');
+        console.log('- Monitor server performance');
+      }
     }, 10000);
     
     return () => clearInterval(troubleshoot);
@@ -867,4 +1215,4 @@ const useTroubleshootPerformance = (stream: UseAudioStreamReturn) => {
 };
 ```
 
-This updated guide provides comprehensive coverage of the performance optimizations, CPU usage improvements, and advanced monitoring capabilities that make the audio streaming system efficient and reliable for production use.
+This updated guide provides comprehensive coverage of the performance optimizations, CPU usage improvements, timestamp validation system, function declaration order fixes, and advanced monitoring capabilities that make the audio streaming system efficient and reliable for production use.
