@@ -99,15 +99,15 @@ fn default_mock_correlation() -> f32 {
 impl Default for PhotoacousticConfig {
     fn default() -> Self {
         Self {
-            input_device: Some("hw:0,0".to_string()), // Default to first ALSA device
-            input_file: None,                         // No file by default
-            mock_source: false,                       // Mock disabled by default
+            input_device: Some("first".to_string()), // Default to the first CPAL device
+            input_file: None,                        // No file by default
+            mock_source: false,                      // Mock disabled by default
             mock_correlation: default_mock_correlation(), // Default mock correlation
-            frequency: 1000.0,                        // 1kHz default frequency
-            bandwidth: 50.0,                          // 50Hz bandwidth
-            window_size: 4096,                        // 4K FFT window
-            sample_rate: default_sample_rate(),       // Default sample rate
-            averages: 10,                             // Average 10 spectra
+            frequency: 1000.0,                       // 1kHz default frequency
+            bandwidth: 50.0,                         // 50Hz bandwidth
+            window_size: 4096,                       // 4K FFT window
+            sample_rate: default_sample_rate(),      // Default sample rate
+            averages: 10,                            // Average 10 spectra
             precision: 16,
         }
     }

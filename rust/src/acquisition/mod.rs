@@ -8,6 +8,7 @@
 //! or from WAV files, with support for real-time streaming.
 
 use anyhow::Result;
+use log::info;
 use std::path::Path;
 
 pub mod daemon;
@@ -18,9 +19,11 @@ pub mod stream;
 
 pub use daemon::AcquisitionDaemon;
 use file::FileSource;
-use microphone::MicrophoneSource;
+pub use microphone::MicrophoneSource;
 pub use mock::MockSource;
 pub use stream::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
+
+use crate::config::PhotoacousticConfig;
 
 /// Represents an audio source (either live or from file)
 pub trait AudioSource: Send {
@@ -33,13 +36,13 @@ pub trait AudioSource: Send {
 }
 
 /// Get an audio source from the specified device
-pub fn get_audio_source_from_device(device_name: &str) -> Result<Box<dyn AudioSource>> {
-    Ok(Box::new(MicrophoneSource::new(device_name)?))
+pub fn get_audio_source_from_device(config: PhotoacousticConfig) -> Result<Box<dyn AudioSource>> {
+    Ok(Box::new(MicrophoneSource::new(config)?))
 }
 
 /// Get an audio source from the specified WAV file
-pub fn get_audio_source_from_file<P: AsRef<Path>>(file_path: P) -> Result<Box<dyn AudioSource>> {
-    Ok(Box::new(FileSource::new(file_path)?))
+pub fn get_audio_source_from_file(config: PhotoacousticConfig) -> Result<Box<dyn AudioSource>> {
+    Ok(Box::new(FileSource::new(config)?))
 }
 
 /// Get a mock audio source that generates synthetic photoacoustic signals
@@ -65,15 +68,17 @@ pub fn get_audio_source_from_file<P: AsRef<Path>>(file_path: P) -> Result<Box<dy
 /// ```
 pub fn get_mock_audio_source(
     config: crate::config::PhotoacousticConfig,
-    frame_size: usize,
-    correlation: f32,
 ) -> Result<Box<dyn AudioSource>> {
-    Ok(Box::new(MockSource::new(config, frame_size, correlation)?))
+    Ok(Box::new(MockSource::new(config)?))
 }
 
 /// Get the default audio source (first available device)
-pub fn get_default_audio_source() -> Result<Box<dyn AudioSource>> {
+pub fn get_default_audio_source(
+    config: crate::config::PhotoacousticConfig,
+) -> Result<Box<dyn AudioSource>> {
     // In a real implementation, this would enumerate devices and pick the first one
-    println!("Using default audio device");
-    Ok(Box::new(MicrophoneSource::new("default")?))
+    info!("Using default audio device");
+    let mut config = config.clone();
+    config.input_device = Some("default".to_string()); // Set default device
+    Ok(Box::new(MicrophoneSource::new(config)?))
 }

@@ -624,24 +624,22 @@ impl Daemon {
                 "Using mock audio source with correlation: {}",
                 config.photoacoustic.mock_correlation
             );
-            let frame_size = config.photoacoustic.window_size as usize;
-            let correlation = config.photoacoustic.mock_correlation;
-            get_mock_audio_source(config.photoacoustic.clone(), frame_size, correlation)?
+            get_mock_audio_source(config.photoacoustic.clone())?
         } else if let Some(ref file_path) = config.photoacoustic.input_file {
             // File-based audio source for testing and playback scenarios
             // Useful for reproducible testing and offline processing
             info!("Using file audio source: {}", file_path);
-            get_audio_source_from_file(file_path)?
+            get_audio_source_from_file(config.photoacoustic.clone())?
         } else if let Some(ref device_name) = config.photoacoustic.input_device {
             // Named device source for specific hardware targeting
             // Allows selection of particular microphones or audio interfaces
             info!("Using device audio source: {}", device_name);
-            get_audio_source_from_device(device_name)?
+            get_audio_source_from_device(config.photoacoustic.clone())?
         } else {
             // Default system audio input as fallback
             // Uses the system's preferred audio input device
             info!("Using default audio source");
-            get_default_audio_source()?
+            get_default_audio_source(config.photoacoustic.clone())?
         };
 
         // === PHASE 2: Performance Parameter Calculation ===

@@ -261,7 +261,10 @@ export const useAudioStream = (
     null,
   );
   const lastFrameTimeRef = useRef<number>(0);
-  const fpsCalculationRef = useRef<number[]>([]);
+  const fpsCalculationRef = useRef<{ timestamps: number[], lastDisplayUpdate: number }>({
+    timestamps: [],
+    lastDisplayUpdate: 0
+  });
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
@@ -717,28 +720,35 @@ export const useAudioStream = (
   // --- THROTTLED FPS AND STATS ---
 
   /**
-   * Fixed FPS calculation - tracks all frames, throttled display update
+   * Fixed FPS calculation based on server timestamps, not client reception time
    */
-  const updateFps = useCallback(() => {
+  const updateFps = useCallback((frameTimestamp: number) => {
     const now = Date.now();
+    const fpsData = fpsCalculationRef.current;
 
     // Always add frame timestamp for accurate FPS calculation
-    fpsCalculationRef.current.push(now);
+    fpsData.timestamps.push(frameTimestamp);
 
-    // Keep only last 1 second of data
-    const oneSecondAgo = now - 1000;
-
-    fpsCalculationRef.current = fpsCalculationRef.current.filter(
-      (time) => time > oneSecondAgo,
+    // Keep only last 1 second of data based on server timestamps
+    const oneSecondAgo = frameTimestamp - 1000;
+    fpsData.timestamps = fpsData.timestamps.filter(
+      (timestamp) => timestamp > oneSecondAgo,
     );
 
     // Only update the display every FPS_UPDATE_INTERVAL ms to reduce UI overhead
-    if (now - fpsDisplayThrottleRef.current >= FPS_UPDATE_INTERVAL) {
-      fpsDisplayThrottleRef.current = now;
+    if (now - fpsData.lastDisplayUpdate >= FPS_UPDATE_INTERVAL) {
+      fpsData.lastDisplayUpdate = now;
 
-      // Calculate FPS based on all frames from the last 1 second
-      if (fpsCalculationRef.current.length > 1) {
-        setFps(fpsCalculationRef.current.length);
+      // Calculate FPS based on server timestamps from the last 1 second
+      if (fpsData.timestamps.length > 1) {
+        // More accurate FPS calculation using actual time span
+        const timeSpanMs = fpsData.timestamps[fpsData.timestamps.length - 1] - fpsData.timestamps[0];
+        if (timeSpanMs > 0) {
+          const actualFps = ((fpsData.timestamps.length - 1) * 1000) / timeSpanMs;
+          setFps(Math.round(actualFps * 10) / 10); // Round to 1 decimal place
+        } else {
+          setFps(fpsData.timestamps.length);
+        }
       }
     }
   }, []);
@@ -922,7 +932,7 @@ export const useAudioStream = (
         }
 
         setFrameCount((prev) => prev + 1);
-        updateFps();
+        updateFps(frame.timestamp); // Use server timestamp for FPS calculation
         queueAudioFrameOptimized(frame);
 
         // Simplified frame drop detection (keep existing logic)
@@ -1029,7 +1039,7 @@ export const useAudioStream = (
       setCurrentFrame(null);
       setAverageFrameSizeBytes(0);
       lastFrameTimeRef.current = 0;
-      fpsCalculationRef.current = [];
+      fpsCalculationRef.current = { timestamps: [], lastDisplayUpdate: 0 };
       fpsDisplayThrottleRef.current = 0;
       frameSizesRef.current = [];
 

@@ -137,7 +137,7 @@
             "string",
             "null"
           ],
-          "description": "The input device to use for data acquisition"
+          "description": "The input device to use for data acquisition use first to use the first available device (mutually exclusive with input_file)"
         },
         "input_file": {
           "type": [

@@ -5,6 +5,7 @@
 //! Utility module for common utilities used throughout the project
 
 pub mod certificate_utilities;
+pub mod cpal;
 pub mod data_source;
 pub mod noise_generator;
 

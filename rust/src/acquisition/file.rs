@@ -6,13 +6,16 @@
 //!
 //! This module handles the acquisition of audio data from files.
 
+use crate::acquisition::file;
+
 use super::AudioSource;
 use anyhow::{anyhow, Result};
 use hound::{WavReader, WavSpec};
-use log::debug;
+use log::{debug, info};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 /// Audio source that reads from a WAV file using hound
 pub struct FileSource {
@@ -20,11 +23,25 @@ pub struct FileSource {
     spec: WavSpec,
     frame_size: usize,
     samples_read: usize,
+    // Timing control for real-time simulation
+    last_frame_time: Option<Instant>,
+    frame_duration: Duration,
+    real_time_mode: bool,
 }
 
 impl FileSource {
     /// Create a new FileSource for the given WAV file
-    pub fn new<P: AsRef<Path>>(file_path: P) -> Result<Self> {
+    pub fn new(config: crate::config::PhotoacousticConfig) -> Result<Self> {
+        // Validate that the input file is provided
+        if config.input_file.is_none() {
+            return Err(anyhow!("Input file is not set in configuration"));
+        }
+        let config = config.clone();
+        let input_file = config.input_file.as_ref().unwrap();
+        let file_path = Path::new(input_file);
+        if !file_path.exists() {
+            return Err(anyhow!("WAV file does not exist: {}", file_path.display()));
+        }
         let file = File::open(&file_path)?;
         let buf_reader = BufReader::new(file);
         let reader = WavReader::new(buf_reader)?;
@@ -38,27 +55,65 @@ impl FileSource {
             ));
         }
 
-        // Use a reasonable frame size (e.g., ~20ms of audio at 48kHz = ~1000 samples)
-        let frame_size = (spec.sample_rate as f64 * 0.02) as usize; // 20ms
+        // Use window_size from configuration instead of calculating
+        let frame_size = config.window_size as usize;
 
-        println!("Opened WAV file: {}", file_path.as_ref().display());
-        println!("  Sample rate: {} Hz", spec.sample_rate);
-        println!("  Channels: {}", spec.channels);
-        println!("  Bits per sample: {}", spec.bits_per_sample);
-        println!("  Sample format: {:?}", spec.sample_format);
-        println!("  Frame size: {} samples per channel", frame_size);
+        // Calculate frame duration for real-time simulation
+        let frame_duration = Duration::from_secs_f64(frame_size as f64 / spec.sample_rate as f64);
+
+        info!("Opened WAV file: {}", file_path.display());
+        info!("  Sample rate: {} Hz", spec.sample_rate);
+        info!("  Channels: {}", spec.channels);
+        info!("  Bits per sample: {}", spec.bits_per_sample);
+        info!("  Sample format: {:?}", spec.sample_format);
+        info!("  Frame size: {} samples per channel", frame_size);
+        info!(
+            "  Frame duration: {:.1}ms",
+            frame_duration.as_secs_f64() * 1000.0
+        );
+        info!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
 
         Ok(Self {
             reader,
             spec,
             frame_size,
             samples_read: 0,
+            last_frame_time: None,
+            frame_duration,
+            real_time_mode: true, // Enable real-time simulation by default
         })
+    }
+
+    /// Enable or disable real-time simulation
+    pub fn set_real_time_mode(&mut self, enabled: bool) {
+        self.real_time_mode = enabled;
+        if !enabled {
+            self.last_frame_time = None;
+        }
     }
 }
 
 impl AudioSource for FileSource {
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)> {
+        // Real-time timing simulation
+        if self.real_time_mode {
+            let now = Instant::now();
+
+            if let Some(last_time) = self.last_frame_time {
+                let elapsed = now.duration_since(last_time);
+                if elapsed < self.frame_duration {
+                    let sleep_duration = self.frame_duration - elapsed;
+                    // debug!(
+                    //     "File timing: sleeping for {:.1}ms to maintain real-time playback",
+                    //     sleep_duration.as_secs_f64() * 1000.0
+                    // );
+                    std::thread::sleep(sleep_duration);
+                }
+            }
+
+            self.last_frame_time = Some(Instant::now());
+        }
+
         let mut channel_a = Vec::with_capacity(self.frame_size);
         let mut channel_b = Vec::with_capacity(self.frame_size);
 
@@ -144,9 +199,10 @@ impl AudioSource for FileSource {
         // show debug information each 30s only
         if self.samples_read % (self.spec.sample_rate as usize * 30) == 0 {
             debug!(
-                "Read {} samples from WAV file (total samples read: {})",
+                "Read {} samples from WAV file (total samples read: {}, real-time mode: {})",
                 channel_a.len(),
-                self.samples_read
+                self.samples_read,
+                self.real_time_mode
             );
         }
 

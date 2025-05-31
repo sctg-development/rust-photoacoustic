@@ -69,7 +69,11 @@ impl AcquisitionDaemon {
 
         let frame_duration = Duration::from_secs_f64(1.0 / self.target_fps);
         let mut interval = interval(frame_duration);
-
+        info!(
+            "Acquitision daemon started, frame duration: {:?}ms, interval: {}ms",
+            frame_duration.as_millis(),
+            interval.period().as_millis()
+        );
         while self.running.load(Ordering::Relaxed) {
             interval.tick().await;
 
@@ -149,7 +153,8 @@ mod tests {
     #[tokio::test]
     async fn test_acquisition_daemon() {
         // Create a mock audio source
-        let audio_source = get_default_audio_source().unwrap();
+        let config = crate::config::PhotoacousticConfig::default();
+        let audio_source = get_default_audio_source(config).unwrap();
         let mut daemon = AcquisitionDaemon::new(audio_source, 10.0, 50);
 
         // Create a consumer

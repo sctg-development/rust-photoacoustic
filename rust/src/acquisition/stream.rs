@@ -87,6 +87,8 @@ pub struct StreamStats {
     pub fps: f64,
     /// Last update timestamp
     pub last_update: u64,
+    /// Frames processed since last FPS calculation
+    pub frames_since_last_update: u64,
 }
 
 impl Default for StreamStats {
@@ -100,6 +102,7 @@ impl Default for StreamStats {
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
+            frames_since_last_update: 0,
         }
     }
 }
@@ -136,6 +139,7 @@ impl SharedAudioStream {
         {
             let mut stats = self.stats.write().await;
             stats.total_frames += 1;
+            stats.frames_since_last_update += 1;
             stats.active_subscribers = self.sender.receiver_count();
 
             let now = SystemTime::now()
@@ -146,8 +150,9 @@ impl SharedAudioStream {
             // Calculate FPS every second
             if now - stats.last_update >= 1000 {
                 let time_diff = (now - stats.last_update) as f64 / 1000.0;
-                stats.fps = stats.total_frames as f64 / time_diff;
+                stats.fps = stats.frames_since_last_update as f64 / time_diff;
                 stats.last_update = now;
+                stats.frames_since_last_update = 0;
             }
         }
 

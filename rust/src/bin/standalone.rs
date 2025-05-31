@@ -4,7 +4,8 @@
 
 use anyhow::Result;
 use clap::Parser;
-use rust_photoacoustic::{acquisition, preprocessing, spectral};
+use rocket::config;
+use rust_photoacoustic::{acquisition, config::PhotoacousticConfig, preprocessing, spectral};
 
 use std::path::PathBuf;
 
@@ -49,16 +50,33 @@ async fn main() -> Result<()> {
     println!("Water Vapor Analyzer");
     println!("--------------------");
 
+    let input_file: Option<String> = args
+        .input_file
+        .as_ref()
+        .map(|p| p.to_string_lossy().to_string());
+
+    let config = PhotoacousticConfig {
+        input_device: args.input_device.clone(),
+        input_file: input_file,
+        frequency: args.frequency,
+        sample_rate: 48000, // Default sample rate
+        bandwidth: args.bandwidth,
+        window_size: args.window_size as u16,
+        averages: args.averages as u16,
+        precision: 16,         // Default precision,
+        mock_source: false,    // No mock source in standalone mode
+        mock_correlation: 0.0, // No correlation in standalone mode
+    };
     // Determine input source (device or file)
     let source = if let Some(device) = &args.input_device {
         println!("Using audio device: {}", device);
-        acquisition::get_audio_source_from_device(device)?
+        acquisition::get_audio_source_from_device(config)?
     } else if let Some(file_path) = &args.input_file {
         println!("Using audio file: {}", file_path.display());
         acquisition::get_audio_source_from_file(file_path)?
     } else {
         println!("No input source specified. Using default device.");
-        acquisition::get_default_audio_source()?
+        acquisition::get_default_audio_source(config)?
     };
 
     // Set up processing pipeline

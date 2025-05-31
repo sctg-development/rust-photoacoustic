@@ -96,12 +96,26 @@ pub struct Args {
     /// Disable all logging output
     #[arg(short = 'q', long = "quiet")]
     quiet: bool,
+
+    /// List all available audio input devices
+    #[arg(long = "list-devices", default_value_t = false)]
+    list_devices: bool,
 }
 
 #[rocket::main]
 async fn main() -> Result<()> {
     // Initialize logger with appropriate level based on verbose and quiet flags
     let args = Args::parse();
+
+    if args.list_devices {
+        // List available audio input devices
+        let devices = utility::cpal::list_audio_devices()?;
+        println!("Available audio input devices:");
+        for device in devices {
+            println!("- {}", device);
+        }
+        return Ok(());
+    }
 
     let log_level = if args.quiet {
         log::LevelFilter::Off

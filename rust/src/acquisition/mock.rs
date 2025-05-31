@@ -12,6 +12,7 @@ use crate::config::PhotoacousticConfig;
 use crate::utility::noise_generator::NoiseGenerator;
 use anyhow::Result;
 use log::debug;
+use std::time::{Duration, Instant};
 
 /// Mock audio source that generates synthetic photoacoustic signals with controlled correlation
 pub struct MockSource {
@@ -25,6 +26,10 @@ pub struct MockSource {
     min_pulse_amplitude: f32,
     max_pulse_amplitude: f32,
     correlation: f32,
+    // Timing control for real-time simulation
+    last_frame_time: Option<Instant>,
+    frame_duration: Duration,
+    real_time_mode: bool,
 }
 
 impl MockSource {
@@ -33,8 +38,6 @@ impl MockSource {
     /// # Arguments
     ///
     /// * `config` - PhotoacousticConfig containing frequency, sample_rate, and precision settings
-    /// * `frame_size` - Number of samples per frame per channel
-    /// * `correlation` - Correlation coefficient between channels [-1.0, 1.0]
     ///
     /// # Returns
     ///
@@ -47,17 +50,28 @@ impl MockSource {
     /// use rust_photoacoustic::config::PhotoacousticConfig;
     ///
     /// let config = PhotoacousticConfig::default();
-    /// let mock_source = MockSource::new(config, 1024, 0.7)?;
+    /// let mock_source = MockSource::new(config)?;
     /// ```
-    pub fn new(config: PhotoacousticConfig, frame_size: usize, correlation: f32) -> Result<Self> {
+    pub fn new(config: PhotoacousticConfig) -> Result<Self> {
         let generator = NoiseGenerator::new_from_system_time();
         let sample_rate = config.sample_rate as u32;
+        let frame_size = config.window_size as usize;
+
+        let correlation = config.mock_correlation.clamp(0.0, 1.0); // Ensure correlation is within valid range
+
+        // Calculate frame duration for real-time simulation
+        let frame_duration = Duration::from_secs_f64(frame_size as f64 / sample_rate as f64);
 
         debug!("Creating MockSource with config:");
         debug!("  Sample rate: {} Hz", sample_rate);
         debug!("  Frequency: {} Hz", config.frequency);
         debug!("  Precision: {} bits", config.precision);
         debug!("  Frame size: {} samples per channel", frame_size);
+        debug!(
+            "  Frame duration: {:.1}ms",
+            frame_duration.as_secs_f64() * 1000.0
+        );
+        debug!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
         debug!("  Correlation: {}", correlation);
 
         Ok(Self {
@@ -71,6 +85,9 @@ impl MockSource {
             min_pulse_amplitude: 0.8, // Minimum 80% pulse amplitude
             max_pulse_amplitude: 1.0, // Maximum 100% pulse amplitude
             correlation,
+            last_frame_time: None,
+            frame_duration,
+            real_time_mode: true, // Enable real-time simulation by default
         })
     }
 
@@ -79,7 +96,6 @@ impl MockSource {
     /// # Arguments
     ///
     /// * `config` - PhotoacousticConfig containing frequency, sample_rate, and precision settings
-    /// * `frame_size` - Number of samples per frame per channel
     /// * `correlation` - Correlation coefficient between channels [-1.0, 1.0]
     /// * `noise_amplitude` - Background noise amplitude [0.0, 1.0]
     /// * `pulse_width` - Width of each pulse in seconds
@@ -87,14 +103,15 @@ impl MockSource {
     /// * `max_pulse_amplitude` - Maximum pulse amplitude [0.0, 1.0]
     pub fn with_signal_params(
         config: PhotoacousticConfig,
-        frame_size: usize,
         correlation: f32,
         noise_amplitude: f32,
         pulse_width: f32,
         min_pulse_amplitude: f32,
         max_pulse_amplitude: f32,
     ) -> Result<Self> {
-        let mut mock_source = Self::new(config, frame_size, correlation)?;
+        let mut config = config.clone();
+        config.mock_correlation = correlation.clamp(0.0, 1.0); // Ensure correlation is within valid range
+        let mut mock_source = Self::new(config)?;
         mock_source.noise_amplitude = noise_amplitude;
         mock_source.pulse_width = pulse_width;
         mock_source.min_pulse_amplitude = min_pulse_amplitude;
@@ -116,10 +133,37 @@ impl MockSource {
     pub fn set_pulse_width(&mut self, width: f32) {
         self.pulse_width = width.max(0.0);
     }
+
+    /// Enable or disable real-time simulation
+    pub fn set_real_time_mode(&mut self, enabled: bool) {
+        self.real_time_mode = enabled;
+        if !enabled {
+            self.last_frame_time = None;
+        }
+    }
 }
 
 impl AudioSource for MockSource {
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)> {
+        // Real-time timing simulation
+        if self.real_time_mode {
+            let now = Instant::now();
+
+            if let Some(last_time) = self.last_frame_time {
+                let elapsed = now.duration_since(last_time);
+                if elapsed < self.frame_duration {
+                    let sleep_duration = self.frame_duration - elapsed;
+                    // debug!(
+                    //     "Mock timing: sleeping for {:.1}ms to maintain real-time generation",
+                    //     sleep_duration.as_secs_f64() * 1000.0
+                    // );
+                    std::thread::sleep(sleep_duration);
+                }
+            }
+
+            self.last_frame_time = Some(Instant::now());
+        }
+
         // Generate correlated stereo mock photoacoustic signal
         let samples = self.generator.generate_mock_photoacoustic_correlated(
             self.frame_size as u32,
@@ -143,12 +187,6 @@ impl AudioSource for MockSource {
             channel_b.push(right);
         }
 
-        debug!(
-            "Generated mock frame: {} samples per channel, correlation: {}",
-            channel_a.len(),
-            self.correlation
-        );
-
         Ok((channel_a, channel_b))
     }
 
@@ -164,15 +202,19 @@ mod tests {
 
     #[test]
     fn test_mock_source_creation() {
-        let config = PhotoacousticConfig::default();
-        let mock_source = MockSource::new(config, 1024, 0.7);
+        let mut config = PhotoacousticConfig::default();
+        config.window_size = 1024;
+        config.mock_correlation = 0.7;
+        let mock_source = MockSource::new(config);
         assert!(mock_source.is_ok());
     }
 
     #[test]
     fn test_mock_source_read_frame() {
-        let config = PhotoacousticConfig::default();
-        let mut mock_source = MockSource::new(config, 512, 0.5).unwrap();
+        let mut config = PhotoacousticConfig::default();
+        config.window_size = 512;
+        config.mock_correlation = 0.5;
+        let mut mock_source = MockSource::new(config).unwrap();
 
         let result = mock_source.read_frame();
         assert!(result.is_ok());
@@ -192,15 +234,19 @@ mod tests {
 
     #[test]
     fn test_mock_source_sample_rate() {
-        let config = PhotoacousticConfig::default();
-        let mock_source = MockSource::new(config.clone(), 1024, 0.7).unwrap();
+        let mut config = PhotoacousticConfig::default();
+        config.window_size = 1024;
+        config.mock_correlation = 0.7;
+        let mock_source = MockSource::new(config.clone()).unwrap();
         assert_eq!(mock_source.sample_rate(), config.sample_rate as u32);
     }
 
     #[test]
     fn test_mock_source_parameter_updates() {
-        let config = PhotoacousticConfig::default();
-        let mut mock_source = MockSource::new(config, 1024, 0.7).unwrap();
+        let mut config = PhotoacousticConfig::default();
+        config.window_size = 1024;
+        config.mock_correlation = 0.7;
+        let mut mock_source = MockSource::new(config).unwrap();
 
         mock_source.set_correlation(0.9);
         assert_eq!(mock_source.correlation, 0.9);
@@ -214,8 +260,10 @@ mod tests {
 
     #[test]
     fn test_mock_source_parameter_clamping() {
-        let config = PhotoacousticConfig::default();
-        let mut mock_source = MockSource::new(config, 1024, 0.7).unwrap();
+        let mut config = PhotoacousticConfig::default();
+        config.window_size = 1024;
+        config.mock_correlation = 0.7;
+        let mut mock_source = MockSource::new(config).unwrap();
 
         // Test correlation clamping
         mock_source.set_correlation(2.0);
