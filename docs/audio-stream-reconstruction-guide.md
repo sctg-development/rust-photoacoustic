@@ -737,8 +737,8 @@ Typical frame size comparison for 1024 samples per channel:
 
 | Format | Estimated Size | Actual Measured | Compression Ratio |
 |--------|---------------|-----------------|-------------------|
-| Regular | ~25KB | 24,576 bytes | 1.0x (baseline) |
-| Fast | ~5.5KB | 5,632 bytes | 4.4x smaller |
+| Regular | ~19KB | 19,576 bytes | 1.0x (baseline) |
+| Fast | ~10KB | 10,182 bytes | 1.92x smaller |
 
 ### Processing Performance
 
