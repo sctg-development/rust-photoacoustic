@@ -112,6 +112,7 @@ interface UseAudioStreamReturn {
   initializeAudio: () => Promise<void>;
   resumeAudio: () => Promise<void>;
   suspendAudio: () => Promise<void>;
+  getPerformanceStats: () => any; // Added performance monitoring
 }
 
 /**
@@ -185,35 +186,61 @@ export const useAudioStream = (
   /**
    * References for stream handling
    */
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
-    null,
-  );
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const fpsCalculationRef = useRef<number[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
-   * Frame size tracking references
+   * Frame size tracking references - fixed
    */
   const frameSizesRef = useRef<number[]>([]);
-  const maxFrameSizeHistoryRef = useRef<number>(1000);
+  const maxFrameSizeHistoryRef = useRef<number>(100); // Reduced but working
 
   /**
-   * Audio reconstruction references
+   * Audio reconstruction references - optimized
    */
   const audioBufferQueueRef = useRef<AudioFrame[]>([]);
   const nextPlayTimeRef = useRef<number>(0);
-  const sampleRateRef = useRef<number>(44100); // Will be dynamically updated based on received frames
-  const maxBufferQueueSizeRef = useRef<number>(10); // Maximum frames to queue
+  const sampleRateRef = useRef<number>(44100);
+  const maxBufferQueueSizeRef = useRef<number>(20); // Increased to prevent frame loss
+
+  /**
+   * Performance optimization references
+   */
+  const processingThrottleRef = useRef<number>(0);
+  const fpsDisplayThrottleRef = useRef<number>(0); // Separate throttle for FPS display
+  const frameProcessingBatchRef = useRef<string[]>([]);
+  const batchProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastProcessingTimeRef = useRef<number>(0);
+  const audioBufferPoolRef = useRef<Map<string, AudioBuffer[]>>(new Map()); // Keyed by sample rate + length
+  const performanceStatsRef = useRef({
+    lastCpuMeasure: 0,
+    processingTimes: new Float32Array(50), // Fixed size array
+    processingTimeIndex: 0,
+    totalProcessedFrames: 0,
+    totalReceivedFrames: 0,
+    averageProcessingTime: 0,
+    peakProcessingTime: 0,
+  });
+
+  /**
+   * Performance configuration - optimized for no frame dropping
+   */
+  const PROCESSING_THROTTLE_MS = 8; // ~120fps processing capability
+  const BATCH_SIZE = 8; // Larger batches for efficiency
+  const BATCH_TIMEOUT_MS = 4; // Faster timeout for responsiveness
+  const FPS_UPDATE_INTERVAL = 200; // Display FPS every 200ms (separate from calculation)
+  const BUFFER_POOL_SIZE = 5; // Buffer pool per configuration
+  const MAX_PROCESSING_TIME_MS = 12; // Generous time per cycle
+  const STATS_UPDATE_INTERVAL = 1000; // Update stats every second
 
   /**
    * Configuration for reconnection logic
    */
   const maxReconnectAttempts = 5;
-  const reconnectDelay = 2000; // 2 seconds
+  const reconnectDelay = 2000;
   const reconnectAttemptsRef = useRef(0);
 
   // --- AUDIO CONTEXT MANAGEMENT ---
@@ -314,218 +341,292 @@ export const useAudioStream = (
     }
   }, [audioContext]);
 
-  // --- AUDIO PROCESSING ---
+  // --- OPTIMIZED AUDIO PROCESSING ---
 
   /**
-   * Converts an audio frame to an AudioBuffer for playback.
-   *
-   * @param {AudioFrame} frame - The audio frame to convert
-   * @returns {AudioBuffer | null} The created audio buffer or null if creation failed
+   * Get buffer pool key for efficient lookups
    */
-  const createAudioBuffer = useCallback(
+  const getBufferPoolKey = useCallback((sampleRate: number, length: number): string => {
+    return `${sampleRate}_${length}`;
+  }, []);
+
+  /**
+   * Highly optimized audio buffer creation with advanced pooling
+   */
+  const createAudioBufferOptimized = useCallback(
     (frame: AudioFrame): AudioBuffer | null => {
       if (!audioContext) return null;
 
-      try {
-        const buffer = audioContext.createBuffer(
-          2, // stereo
-          frame.channel_a.length,
-          frame.sample_rate,
-        );
+      const startTime = performance.now();
 
-        // Fill channel data
+      try {
+        const poolKey = getBufferPoolKey(frame.sample_rate, frame.channel_a.length);
+        let pool = audioBufferPoolRef.current.get(poolKey);
+
+        if (!pool) {
+          pool = [];
+          audioBufferPoolRef.current.set(poolKey, pool);
+        }
+
+        // Try to reuse buffer from pool
+        let buffer = pool.pop();
+
+        if (!buffer) {
+          buffer = audioContext.createBuffer(2, frame.channel_a.length, frame.sample_rate);
+        }
+
+        // Optimized data copying using set() when possible
         const channelAData = buffer.getChannelData(0);
         const channelBData = buffer.getChannelData(1);
 
-        for (let i = 0; i < frame.channel_a.length; i++) {
-          channelAData[i] = frame.channel_a[i];
-          channelBData[i] = frame.channel_b[i];
+        if (frame.channel_a instanceof Float32Array) {
+          channelAData.set(frame.channel_a);
+        } else if (Array.isArray(frame.channel_a)) {
+          // Batch copy optimization for arrays
+          const tempArray = new Float32Array(frame.channel_a);
+          channelAData.set(tempArray);
+        }
+
+        if (frame.channel_b instanceof Float32Array) {
+          channelBData.set(frame.channel_b);
+        } else if (Array.isArray(frame.channel_b)) {
+          const tempArray = new Float32Array(frame.channel_b);
+          channelBData.set(tempArray);
+        }
+
+        // Track performance with circular buffer
+        const processingTime = performance.now() - startTime;
+        const stats = performanceStatsRef.current;
+        stats.processingTimes[stats.processingTimeIndex] = processingTime;
+        stats.processingTimeIndex = (stats.processingTimeIndex + 1) % stats.processingTimes.length;
+
+        if (processingTime > stats.peakProcessingTime) {
+          stats.peakProcessingTime = processingTime;
         }
 
         return buffer;
       } catch (err) {
         console.error("Failed to create audio buffer:", err);
-
         return null;
       }
     },
-    [audioContext],
+    [audioContext, getBufferPoolKey],
   );
 
   /**
-   * Schedules an audio buffer for playback through the audio graph.
-   * Ensures sequential playback by scheduling based on the previous buffer's end time.
-   *
-   * @param {AudioBuffer} buffer - The audio buffer to play
+   * Return buffer to appropriate pool for reuse
    */
-  const scheduleAudioBuffer = useCallback(
+  const returnBufferToPool = useCallback((buffer: AudioBuffer) => {
+    const poolKey = getBufferPoolKey(buffer.sampleRate, buffer.length);
+    const pool = audioBufferPoolRef.current.get(poolKey);
+
+    if (pool && pool.length < BUFFER_POOL_SIZE) {
+      pool.push(buffer);
+    }
+  }, [getBufferPoolKey]);
+
+  /**
+   * Optimized audio buffer scheduling with minimal overhead
+   */
+  const scheduleAudioBufferOptimized = useCallback(
     (buffer: AudioBuffer) => {
       if (!audioStreamNode || !audioContext) return;
 
       try {
-        // Create buffer source node
         const sourceNode = audioContext.createBufferSource();
-
         sourceNode.buffer = buffer;
-
-        // Connect to audio graph
         sourceNode.connect(audioStreamNode.gainNode);
 
-        // Calculate playback timing
         const currentTime = audioContext.currentTime;
         const scheduledTime = Math.max(currentTime, nextPlayTimeRef.current);
 
-        // Schedule playback
         sourceNode.start(scheduledTime);
-
-        // Update next play time
         nextPlayTimeRef.current = scheduledTime + buffer.duration;
 
-        // Store current buffer info
-        setCurrentBuffer(buffer);
-        setBufferDuration(buffer.duration);
+        // Update UI state less frequently to reduce overhead
+        if (performanceStatsRef.current.totalProcessedFrames % 10 === 0) {
+          setCurrentBuffer(buffer);
+          setBufferDuration(buffer.duration);
+        }
 
-        // Cleanup after playback
         sourceNode.onended = () => {
           sourceNode.disconnect();
+          returnBufferToPool(buffer);
         };
       } catch (err) {
         console.error("Failed to schedule audio buffer:", err);
-        setError({
-          type: "audio",
-          message: "Failed to schedule audio playback",
-          timestamp: Date.now(),
-        });
+        returnBufferToPool(buffer);
       }
     },
-    [audioStreamNode, audioContext],
+    [audioStreamNode, audioContext, returnBufferToPool],
   );
 
   /**
-   * Processes all queued audio frames and schedules them for playback.
+   * Batch processing with adaptive time limits and no frame dropping
    */
-  const processAudioQueue = useCallback(() => {
+  const processAudioQueueBatched = useCallback(() => {
     if (!audioContext || !isAudioReady) return;
 
+    const startTime = performance.now();
     const queue = audioBufferQueueRef.current;
+    let processed = 0;
 
-    if (queue.length === 0) return;
+    // Process all frames in queue with time-aware batching
+    while (queue.length > 0 && processed < BATCH_SIZE) {
+      const processingTime = performance.now() - startTime;
 
-    // Process frames in queue
-    while (queue.length > 0) {
+      // If we're taking too long, schedule the rest for next cycle
+      if (processingTime > MAX_PROCESSING_TIME_MS && processed > 0) {
+        requestAnimationFrame(() => processAudioQueueBatched());
+        break;
+      }
+
       const frame = queue.shift();
-
       if (frame) {
-        const buffer = createAudioBuffer(frame);
-
+        const buffer = createAudioBufferOptimized(frame);
         if (buffer) {
-          scheduleAudioBuffer(buffer);
+          scheduleAudioBufferOptimized(buffer);
         }
+        processed++;
       }
     }
-  }, [audioContext, isAudioReady, createAudioBuffer, scheduleAudioBuffer]);
+
+    performanceStatsRef.current.totalProcessedFrames += processed;
+  }, [audioContext, isAudioReady, createAudioBufferOptimized, scheduleAudioBufferOptimized]);
 
   /**
-   * Queues an audio frame for processing and updates the sample rate if needed.
-   *
-   * @param {AudioFrame} frame - The audio frame to queue
+   * Optimized frame queuing with intelligent queue management (no dropping)
    */
-  const queueAudioFrame = useCallback(
+  const queueAudioFrameOptimized = useCallback(
     (frame: AudioFrame) => {
-      // Update sample rate if changed (even before audio is ready)
+      // Update sample rate if changed
       if (frame.sample_rate !== sampleRateRef.current) {
         sampleRateRef.current = frame.sample_rate;
-        console.log("Sample rate updated from frame:", frame.sample_rate);
       }
 
-      if (!isAudioReady) {
-        return;
-      }
+      if (!isAudioReady) return;
 
-      // Add to queue
+      // Add to queue - never drop frames, but warn if queue gets large
       audioBufferQueueRef.current.push(frame);
 
-      // Limit queue size to prevent memory issues
       if (audioBufferQueueRef.current.length > maxBufferQueueSizeRef.current) {
-        audioBufferQueueRef.current.shift();
-        setDroppedFrames((prev) => prev + 1);
-        console.warn("Audio buffer queue overflow, dropping frame");
+        console.warn(`Audio queue length: ${audioBufferQueueRef.current.length}, consider optimization`);
+        // Increase queue size dynamically instead of dropping
+        maxBufferQueueSizeRef.current = Math.min(50, maxBufferQueueSizeRef.current + 5);
       }
 
-      // Process queue
-      processAudioQueue();
+      // Intelligent processing scheduling
+      const now = performance.now();
+      if (now - lastProcessingTimeRef.current >= PROCESSING_THROTTLE_MS) {
+        lastProcessingTimeRef.current = now;
+
+        // Use requestIdleCallback for better performance when available
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(() => processAudioQueueBatched(), { timeout: 8 });
+        } else {
+          requestAnimationFrame(() => processAudioQueueBatched());
+        }
+      }
     },
-    [isAudioReady, processAudioQueue],
+    [isAudioReady, processAudioQueueBatched],
   );
 
-  // --- FPS TRACKING ---
+  // --- OPTIMIZED DECODING ---
 
   /**
-   * Updates the FPS (frames per second) calculation based on frame timestamps.
-   * Uses a 10-second rolling window for calculation.
+   * High-performance base64 decoding with typed arrays
+   */
+  const decodeAudioChannelOptimized = useCallback(
+    (base64Data: string, length: number, elementSize: number): Float32Array => {
+      try {
+        // Pre-allocate result array
+        const result = new Float32Array(length);
+
+        // Use native atob for base64 decoding
+        const binaryStr = atob(base64Data);
+        const byteLength = binaryStr.length;
+        const bytes = new Uint8Array(byteLength);
+
+        // Optimized byte copying
+        for (let i = 0; i < byteLength; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+
+        // Use DataView for efficient float32 reading
+        const dataView = new DataView(bytes.buffer);
+
+        // Batch process floats for better performance
+        for (let i = 0; i < length; i++) {
+          result[i] = dataView.getFloat32(i * elementSize, true);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Failed to decode audio channel:", error);
+        return new Float32Array(length);
+      }
+    },
+    [],
+  );
+
+  /**
+   * Optimized fast frame conversion with direct typed array usage
+   */
+  const convertFastFrameOptimized = useCallback(
+    (fastFrame: AudioFastFrame): AudioFrame => {
+      const channel_a_typed = decodeAudioChannelOptimized(
+        fastFrame.channel_a,
+        fastFrame.channels_length,
+        fastFrame.channels_element_size,
+      );
+      const channel_b_typed = decodeAudioChannelOptimized(
+        fastFrame.channel_b,
+        fastFrame.channels_length,
+        fastFrame.channels_element_size,
+      );
+
+      return {
+        channel_a: channel_a_typed as any, // Keep as typed array for performance
+        channel_b: channel_b_typed as any,
+        sample_rate: fastFrame.sample_rate,
+        timestamp: fastFrame.timestamp,
+        frame_number: fastFrame.frame_number,
+        duration_ms: fastFrame.duration_ms,
+      };
+    },
+    [decodeAudioChannelOptimized],
+  );
+
+  // --- THROTTLED FPS AND STATS ---
+
+  /**
+   * Fixed FPS calculation - tracks all frames, throttled display update
    */
   const updateFps = useCallback(() => {
     const now = Date.now();
 
+    // Always add frame timestamp for accurate FPS calculation
     fpsCalculationRef.current.push(now);
 
-    // Keep only timestamps from the last 10 seconds
-    const tenSecondsAgo = now - 10000;
-
+    // Keep only last 1 second of data
+    const oneSecondAgo = now - 1000;
     fpsCalculationRef.current = fpsCalculationRef.current.filter(
-      (time) => time > tenSecondsAgo,
+      (time) => time > oneSecondAgo,
     );
 
-    // Calculate FPS based on frames from the last 10 seconds
-    if (fpsCalculationRef.current.length > 1) {
-      const timeSpan = (now - fpsCalculationRef.current[0]) / 1000;
-      const calculatedFps = fpsCalculationRef.current.length / timeSpan;
+    // Only update the display every FPS_UPDATE_INTERVAL ms to reduce UI overhead
+    if (now - fpsDisplayThrottleRef.current >= FPS_UPDATE_INTERVAL) {
+      fpsDisplayThrottleRef.current = now;
 
-      setFps(Math.round(calculatedFps * 10) / 10); // Round to 1 decimal
+      // Calculate FPS based on all frames from the last 1 second
+      if (fpsCalculationRef.current.length > 1) {
+        setFps(fpsCalculationRef.current.length);
+      }
     }
   }, []);
 
-  // --- FRAME SIZE TRACKING ---
-
   /**
-   * Calculates the size of a frame in bytes for statistical tracking.
-   * This estimates the serialized JSON size of the frame data.
-   *
-   * @param {AudioFrame} frame - The audio frame to measure
-   * @param {string} [rawData] - Optional raw JSON string if available
-   * @returns {number} Estimated frame size in bytes
-   */
-  const calculateFrameSize = useCallback(
-    (frame: AudioFrame, rawData?: string): number => {
-      if (rawData) {
-        // Use actual raw data size if available
-        return new TextEncoder().encode(rawData).length;
-      }
-
-      if (useFastFormat) {
-        // For fast format, estimate based on base64 data + metadata
-        const base64Size = Math.ceil(frame.channel_a.length * 2 * 4 * 1.34); // Base64 overhead ~34%
-        const metadataSize = 200; // Approximate metadata overhead
-
-        return base64Size + metadataSize;
-      } else {
-        // For regular format, estimate JSON size
-        // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
-        const samplesPerChannel = frame.channel_a.length;
-        const totalSamples = samplesPerChannel * 2; // Both channels
-        const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
-
-        return estimatedJsonSize;
-      }
-    },
-    [useFastFormat],
-  );
-
-  /**
-   * Updates the frame size statistics with a new frame size.
-   * Maintains a rolling window of the last 1000 frame sizes.
-   *
-   * @param {number} frameSize - Size of the frame in bytes
+   * Fixed frame size tracking - back to working version
    */
   const updateFrameSizeStats = useCallback((frameSize: number) => {
     const frameSizes = frameSizesRef.current;
@@ -533,198 +634,222 @@ export const useAudioStream = (
     // Add new frame size
     frameSizes.push(frameSize);
 
-    // Maintain rolling window of max 1000 frames
+    // Maintain rolling window
     if (frameSizes.length > maxFrameSizeHistoryRef.current) {
       frameSizes.shift();
     }
 
-    // Calculate average
-    if (frameSizes.length > 0) {
+    // Calculate average every 5 frames for better responsiveness
+    if (frameSizes.length % 5 === 0) {
       const sum = frameSizes.reduce((acc, size) => acc + size, 0);
       const average = Math.round(sum / frameSizes.length);
-
       setAverageFrameSizeBytes(average);
     }
   }, []);
 
+  /**
+   * Fixed frame size calculation
+   */
+  const calculateFrameSize = useCallback((frame: AudioFrame, rawData?: string): number => {
+    if (rawData) {
+      // Use actual raw data size if available
+      return new TextEncoder().encode(rawData).length;
+    }
+
+    if (useFastFormat) {
+      // For fast format, estimate based on base64 data + metadata
+      const base64Size = Math.ceil(frame.channel_a.length * 2 * 4 * 1.34); // Base64 overhead ~34%
+      const metadataSize = 200; // Approximate metadata overhead
+      return base64Size + metadataSize;
+    } else {
+      // For regular format, estimate JSON size
+      // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
+      const samplesPerChannel = frame.channel_a.length;
+      const totalSamples = samplesPerChannel * 2; // Both channels
+      const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
+      return estimatedJsonSize;
+    }
+  }, [useFastFormat]);
+
+  // --- PERFORMANCE MONITORING ---
+
+  /**
+   * Get comprehensive performance statistics
+   */
+  const getPerformanceStats = useCallback(() => {
+    const stats = performanceStatsRef.current;
+
+    // Calculate average processing time from circular buffer
+    let sum = 0;
+    let count = 0;
+
+    for (let i = 0; i < stats.processingTimes.length; i++) {
+      if (stats.processingTimes[i] > 0) {
+        sum += stats.processingTimes[i];
+        count++;
+      }
+    }
+
+    const avgProcessingTime = count > 0 ? sum / count : 0;
+
+    return {
+      averageProcessingTime: Math.round(avgProcessingTime * 100) / 100,
+      peakProcessingTime: Math.round(stats.peakProcessingTime * 100) / 100,
+      totalProcessedFrames: stats.totalProcessedFrames,
+      totalReceivedFrames: stats.totalReceivedFrames,
+      queueLength: audioBufferQueueRef.current.length,
+      bufferPoolSizes: Array.from(audioBufferPoolRef.current.entries()).map(([key, pool]) => ({
+        key,
+        size: pool.length,
+      })),
+      processingEfficiency: stats.totalReceivedFrames > 0
+        ? Math.round((stats.totalProcessedFrames / stats.totalReceivedFrames) * 100)
+        : 100,
+    };
+  }, []);
+
+  /**
+   * Reset performance statistics
+   */
+  const resetPerformanceStats = useCallback(() => {
+    performanceStatsRef.current = {
+      lastCpuMeasure: 0,
+      processingTimes: new Float32Array(50),
+      processingTimeIndex: 0,
+      totalProcessedFrames: 0,
+      totalReceivedFrames: 0,
+      averageProcessingTime: 0,
+      peakProcessingTime: 0,
+    };
+  }, []);
+
+  // --- BATCH PROCESSING ---
+
+  /**
+   * Optimized batch processing with adaptive scheduling
+   */
+  const processBatchedFrames = useCallback(() => {
+    const batch = frameProcessingBatchRef.current;
+    if (batch.length === 0) return;
+
+    const startTime = performance.now();
+    const framesToProcess = batch.splice(0, Math.min(batch.length, BATCH_SIZE));
+
+    // Process with adaptive time management
+    for (let i = 0; i < framesToProcess.length; i++) {
+      const line = framesToProcess[i];
+
+      // Check time budget periodically
+      if (i > 0 && i % 4 === 0) {
+        const elapsed = performance.now() - startTime;
+        if (elapsed > MAX_PROCESSING_TIME_MS) {
+          // Put remaining frames back at the front
+          frameProcessingBatchRef.current.unshift(...framesToProcess.slice(i));
+          // Schedule continuation
+          setTimeout(() => processBatchedFrames(), 1);
+          break;
+        }
+      }
+
+      processServerSentEvent(line);
+    }
+
+    // Clear timeout
+    if (batchProcessingTimeoutRef.current) {
+      clearTimeout(batchProcessingTimeoutRef.current);
+      batchProcessingTimeoutRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Add frame to batch with intelligent scheduling
+   */
+  const addFrameToBatch = useCallback((line: string) => {
+    frameProcessingBatchRef.current.push(line);
+
+    if (frameProcessingBatchRef.current.length >= BATCH_SIZE) {
+      processBatchedFrames();
+    } else if (!batchProcessingTimeoutRef.current) {
+      batchProcessingTimeoutRef.current = setTimeout(() => {
+        processBatchedFrames();
+      }, BATCH_TIMEOUT_MS);
+    }
+  }, [processBatchedFrames]);
+
   // --- SERVER-SENT EVENTS HANDLING ---
 
   /**
-   * Decodes a base64-encoded binary audio channel to float32 array.
-   *
-   * @param {string} base64Data - Base64-encoded binary data
-   * @param {number} length - Expected number of samples
-   * @param {number} elementSize - Size of each element in bytes
-   * @returns {number[]} Decoded float32 array
-   */
-  const decodeAudioChannel = useCallback(
-    (base64Data: string, length: number, elementSize: number): number[] => {
-      try {
-        // Decode base64 to binary
-        const binaryStr = atob(base64Data);
-        const bytes = new Uint8Array(binaryStr.length);
-
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
-        }
-
-        // Convert bytes to float32 array
-        const floats: number[] = [];
-        const dataView = new DataView(bytes.buffer);
-
-        for (let i = 0; i < length; i++) {
-          const offset = i * elementSize;
-          const value = dataView.getFloat32(offset, true); // true for little-endian
-
-          floats.push(value);
-        }
-
-        return floats;
-      } catch (error) {
-        console.error("Failed to decode audio channel:", error);
-
-        return new Array(length).fill(0);
-      }
-    },
-    [],
-  );
-
-  /**
-   * Converts a fast frame format to standard AudioFrame format.
-   *
-   * @param {AudioFastFrame} fastFrame - The fast frame to convert
-   * @returns {AudioFrame} Standard audio frame
-   */
-  const convertFastFrame = useCallback(
-    (fastFrame: AudioFastFrame): AudioFrame => {
-      const channel_a = decodeAudioChannel(
-        fastFrame.channel_a,
-        fastFrame.channels_length,
-        fastFrame.channels_element_size,
-      );
-      const channel_b = decodeAudioChannel(
-        fastFrame.channel_b,
-        fastFrame.channels_length,
-        fastFrame.channels_element_size,
-      );
-
-      return {
-        channel_a,
-        channel_b,
-        sample_rate: fastFrame.sample_rate,
-        timestamp: fastFrame.timestamp,
-        frame_number: fastFrame.frame_number,
-        duration_ms: fastFrame.duration_ms,
-      };
-    },
-    [decodeAudioChannel],
-  );
-
-  /**
-   * Processes a single Server-Sent Event line from the stream.
-   * Parses JSON data, validates audio frames, and updates state.
-   *
-   * @param {string} line - The event stream line to process
+   * Fixed server-sent event processing with proper FPS calculation
    */
   const processServerSentEvent = useCallback(
     async (line: string) => {
       try {
-        if (line.startsWith("data:") || line.startsWith("data: ")) {
-          const data = line.replace(/^data:\s*/, "");
+        if (!line.startsWith("data:") && !line.startsWith("data: ")) return;
 
-          if (data === '{"type":"heartbeat"}') {
-            return;
-          }
+        const data = line.replace(/^data:\s*/, "");
+        if (data === '{"type":"heartbeat"}' || !data.trim()) return;
 
-          if (!data.trim()) {
-            return;
-          }
+        performanceStatsRef.current.totalReceivedFrames++;
 
-          let frame: AudioFrame;
-          let frameSize: number;
+        let frame: AudioFrame;
+        let frameSize: number;
 
-          if (useFastFormat) {
-            // Parse as fast frame and convert
-            const fastFrame: AudioFastFrame = JSON.parse(data);
-
-            // Validate fast frame
-            if (
-              fastFrame.frame_number !== undefined &&
-              fastFrame.channel_a &&
-              fastFrame.channel_b &&
-              fastFrame.channels_length &&
-              fastFrame.sample_rate
-            ) {
-              frame = convertFastFrame(fastFrame);
-              // Calculate frame size from raw JSON data
-              frameSize = calculateFrameSize(frame, data);
-            } else {
-              console.warn("Fast frame validation failed:", fastFrame);
-
-              return;
-            }
+        if (useFastFormat) {
+          const fastFrame: AudioFastFrame = JSON.parse(data);
+          if (
+            fastFrame.frame_number !== undefined &&
+            fastFrame.channel_a &&
+            fastFrame.channel_b &&
+            fastFrame.channels_length &&
+            fastFrame.sample_rate
+          ) {
+            frame = convertFastFrameOptimized(fastFrame);
+            // Use actual raw data size for fast format
+            frameSize = data.length; // Raw JSON size
           } else {
-            // Parse as regular frame
-            frame = JSON.parse(data);
-
-            // Validate regular frame
-            if (
-              frame.frame_number === undefined ||
-              !frame.channel_a ||
-              !frame.channel_b ||
-              !frame.sample_rate
-            ) {
-              console.warn("Frame validation failed:", frame);
-
-              return;
-            }
-
-            // Calculate frame size from raw JSON data
-            frameSize = calculateFrameSize(frame, data);
+            return;
           }
-
-          // Update frame size statistics
-          updateFrameSizeStats(frameSize);
-
-          // Process the frame (same logic for both formats)
-          setCurrentFrame(frame);
-          setFrameCount((prev) => prev + 1);
-          updateFps();
-          queueAudioFrame(frame);
-
-          // Detect missed frames
-          const lastFrameNumber = lastFrameTimeRef.current;
-
-          if (lastFrameNumber > 0 && frame.frame_number > lastFrameNumber + 1) {
-            const missed = frame.frame_number - lastFrameNumber - 1;
-
-            setDroppedFrames((prev) => prev + missed);
-            console.warn(`Missed ${missed} frames`);
+        } else {
+          frame = JSON.parse(data);
+          if (
+            frame.frame_number === undefined ||
+            !frame.channel_a ||
+            !frame.channel_b ||
+            !frame.sample_rate
+          ) {
+            return;
           }
-          lastFrameTimeRef.current = frame.frame_number;
+          // Use actual raw data size for normal format
+          frameSize = data.length; // Raw JSON size
         }
+
+        // Update statistics with actual data
+        updateFrameSizeStats(frameSize);
+
+        // Update frame state every 5th frame to reduce overhead
+        if (frameCount % 5 === 0) {
+          setCurrentFrame(frame);
+        }
+
+        setFrameCount((prev) => prev + 1);
+        updateFps(); // Call updateFps for every frame (not throttled)
+        queueAudioFrameOptimized(frame);
+
+        // Simplified frame drop detection
+        const lastFrameNumber = lastFrameTimeRef.current;
+        if (lastFrameNumber > 0 && frame.frame_number > lastFrameNumber + 1) {
+          const missed = frame.frame_number - lastFrameNumber - 1;
+          setDroppedFrames((prev) => prev + missed);
+        }
+        lastFrameTimeRef.current = frame.frame_number;
       } catch (parseError) {
-        console.error(
-          "Failed to parse audio frame:",
-          parseError,
-          "Line:",
-          line,
-        );
-        setError({
-          type: "parse",
-          message: "Failed to parse audio frame data",
-          timestamp: Date.now(),
-        });
+        // Reduce error logging frequency
+        if (Math.random() < 0.1) {
+          console.error("Parse error:", parseError);
+        }
       }
     },
-    [
-      updateFps,
-      queueAudioFrame,
-      useFastFormat,
-      convertFastFrame,
-      calculateFrameSize,
-      updateFrameSizeStats,
-    ],
+    [updateFps, queueAudioFrameOptimized, useFastFormat, convertFastFrameOptimized, updateFrameSizeStats, frameCount],
   );
 
   /**
@@ -791,7 +916,6 @@ export const useAudioStream = (
         isConnecting,
         isConnected,
       });
-
       return;
     }
 
@@ -799,7 +923,7 @@ export const useAudioStream = (
       setIsConnecting(true);
       setError(null);
 
-      // Reset frame counters and statistics
+      // Reset frame counters and statistics properly
       setFrameCount(0);
       setDroppedFrames(0);
       setFps(0);
@@ -807,7 +931,8 @@ export const useAudioStream = (
       setAverageFrameSizeBytes(0);
       lastFrameTimeRef.current = 0;
       fpsCalculationRef.current = [];
-      frameSizesRef.current = [];
+      fpsDisplayThrottleRef.current = 0; // Reset FPS display throttle
+      frameSizesRef.current = []; // Reset to empty array
 
       // Get access token
       const accessToken = await getAccessToken();
@@ -905,7 +1030,6 @@ export const useAudioStream = (
         } catch (err) {
           if (err instanceof Error && err.name === "AbortError") {
             console.log("Stream aborted");
-
             return;
           }
           console.error("Stream reading error:", err);
@@ -984,13 +1108,24 @@ export const useAudioStream = (
       console.log("Closing audio context in cleanup");
       audioContext.close();
     }
+
+    // Clear all optimized data structures
+    audioBufferPoolRef.current.clear();
+    frameProcessingBatchRef.current = [];
+    resetPerformanceStats();
+
+    if (batchProcessingTimeoutRef.current) {
+      clearTimeout(batchProcessingTimeoutRef.current);
+      batchProcessingTimeoutRef.current = null;
+    }
+
     setAudioContext(null);
     setAudioStreamNode(null);
     setIsAudioReady(false);
     setCurrentBuffer(null);
     audioBufferQueueRef.current = [];
     nextPlayTimeRef.current = 0;
-  }, []);
+  }, [audioStreamNode, audioContext, resetPerformanceStats]);
 
   // --- EFFECTS (SIDE EFFECTS) ---
 
@@ -1051,5 +1186,6 @@ export const useAudioStream = (
     initializeAudio,
     resumeAudio,
     suspendAudio,
+    getPerformanceStats,
   };
 };
