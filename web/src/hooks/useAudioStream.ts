@@ -495,26 +495,31 @@ export const useAudioStream = (
    * @param {string} [rawData] - Optional raw JSON string if available
    * @returns {number} Estimated frame size in bytes
    */
-  const calculateFrameSize = useCallback((frame: AudioFrame, rawData?: string): number => {
-    if (rawData) {
-      // Use actual raw data size if available
-      return new TextEncoder().encode(rawData).length;
-    }
+  const calculateFrameSize = useCallback(
+    (frame: AudioFrame, rawData?: string): number => {
+      if (rawData) {
+        // Use actual raw data size if available
+        return new TextEncoder().encode(rawData).length;
+      }
 
-    if (useFastFormat) {
-      // For fast format, estimate based on base64 data + metadata
-      const base64Size = Math.ceil((frame.channel_a.length * 2 * 4) * 1.34); // Base64 overhead ~34%
-      const metadataSize = 200; // Approximate metadata overhead
-      return base64Size + metadataSize;
-    } else {
-      // For regular format, estimate JSON size
-      // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
-      const samplesPerChannel = frame.channel_a.length;
-      const totalSamples = samplesPerChannel * 2; // Both channels
-      const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
-      return estimatedJsonSize;
-    }
-  }, [useFastFormat]);
+      if (useFastFormat) {
+        // For fast format, estimate based on base64 data + metadata
+        const base64Size = Math.ceil(frame.channel_a.length * 2 * 4 * 1.34); // Base64 overhead ~34%
+        const metadataSize = 200; // Approximate metadata overhead
+
+        return base64Size + metadataSize;
+      } else {
+        // For regular format, estimate JSON size
+        // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
+        const samplesPerChannel = frame.channel_a.length;
+        const totalSamples = samplesPerChannel * 2; // Both channels
+        const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
+
+        return estimatedJsonSize;
+      }
+    },
+    [useFastFormat],
+  );
 
   /**
    * Updates the frame size statistics with a new frame size.
@@ -537,6 +542,7 @@ export const useAudioStream = (
     if (frameSizes.length > 0) {
       const sum = frameSizes.reduce((acc, size) => acc + size, 0);
       const average = Math.round(sum / frameSizes.length);
+
       setAverageFrameSizeBytes(average);
     }
   }, []);
@@ -654,6 +660,7 @@ export const useAudioStream = (
               frameSize = calculateFrameSize(frame, data);
             } else {
               console.warn("Fast frame validation failed:", fastFrame);
+
               return;
             }
           } else {
@@ -668,6 +675,7 @@ export const useAudioStream = (
               !frame.sample_rate
             ) {
               console.warn("Frame validation failed:", frame);
+
               return;
             }
 
@@ -709,7 +717,14 @@ export const useAudioStream = (
         });
       }
     },
-    [updateFps, queueAudioFrame, useFastFormat, convertFastFrame, calculateFrameSize, updateFrameSizeStats],
+    [
+      updateFps,
+      queueAudioFrame,
+      useFastFormat,
+      convertFastFrame,
+      calculateFrameSize,
+      updateFrameSizeStats,
+    ],
   );
 
   /**

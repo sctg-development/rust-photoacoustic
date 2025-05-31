@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState, useRef, use } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Snippet } from "@heroui/snippet";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
@@ -26,7 +26,7 @@ export default function ApiPage() {
   const { user, isAuthenticated, getAccessToken } = useAuth();
   const [apiResponse, setApiResponse] = useState("");
   const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null
+    null as GenerixConfig | null,
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
   const [useFastStream, setUseFastStream] = useState(false);
@@ -72,7 +72,7 @@ export default function ApiPage() {
           hasAudioContext: !!audioContext,
           hasAudioStreamNode: !!audioStreamNode,
           isAudioReady,
-        }
+        },
       );
 
       return;
@@ -205,7 +205,7 @@ export default function ApiPage() {
       if (isAuthenticated && generixConfig && user) {
         try {
           const response = await getJson(
-            `${generixConfig.api_base_url}/test/${user.sub}`
+            `${generixConfig.api_base_url}/test/${user.sub}`,
           );
 
           setApiResponse(response);
@@ -222,12 +222,12 @@ export default function ApiPage() {
     // Connected user is authenticated and the route is protected with the access token and the right permissions
     if (isAuthenticated && generixConfig && user) {
       console.log(
-        "User is authenticated, Generix config and user are available."
+        "User is authenticated, Generix config and user are available.",
       );
       console.log("Access Token:", accessToken);
     } else {
       console.log(
-        "User is not authenticated or Generix config/user is not available."
+        "User is not authenticated or Generix config/user is not available.",
       );
     }
   }, [accessToken, generixConfig, isAuthenticated, user]);
@@ -354,7 +354,7 @@ export default function ApiPage() {
                       if (isConnected) {
                         console.log(
                           "Reconnecting with fast stream mode:",
-                          value
+                          value,
                         );
                         reconnect();
                       }
