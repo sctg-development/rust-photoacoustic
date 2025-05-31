@@ -97,6 +97,13 @@ pub struct VisualizationConfig {
     /// Session secret key for cookie-based authentication.
     #[serde(default = "default_session_secret")]
     pub session_secret: String,
+
+    /// Optional enable compression for the server responses.
+    /// This can help reduce the size of the data sent over the network,
+    /// improving performance for large responses.
+    /// Default is `true`, meaning compression is enabled.
+    #[serde(default = "default_enabled")]
+    pub enable_compression: bool,
 }
 
 /// Provides the default TCP port (8080) for the visualization server.
@@ -217,6 +224,7 @@ impl Default for VisualizationConfig {
             rs256_public_key: default_rs256_public_key(),
             enabled: default_enabled(),
             session_secret: default_session_secret(),
+            enable_compression: default_enabled(),
         }
     }
 }

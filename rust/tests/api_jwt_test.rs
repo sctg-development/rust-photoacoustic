@@ -4,7 +4,7 @@
 
 use rocket::http::Header;
 use rocket::{config::LogLevel, http::Status};
-use rust_photoacoustic::config::AccessConfig;
+use rust_photoacoustic::config::{AccessConfig, VisualizationConfig};
 use serde_json::Value;
 
 fn get_figment() -> rocket::figment::Figment {
@@ -17,6 +17,7 @@ fn get_figment() -> rocket::figment::Figment {
             "test-hmac-secret-key-for-testing".to_string(),
         ))
         .merge(("access_config", AccessConfig::default()))
+        .merge(("visualization_config", VisualizationConfig::default()))
 }
 
 #[rocket::async_test]
