@@ -55,6 +55,14 @@ pub struct PhotoacousticConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_file: Option<String>,
 
+    /// Enable mock data source for testing and simulation
+    #[serde(default)]
+    pub mock_source: bool,
+
+    /// Correlation coefficient for mock source channels (0.0 to 1.0)
+    #[serde(default = "default_mock_correlation")]
+    pub mock_correlation: f32,
+
     /// The excitation frequency in Hz
     pub frequency: f32,
 
@@ -84,11 +92,17 @@ fn default_precision() -> u8 {
     16 // Default precision in bits
 }
 
+fn default_mock_correlation() -> f32 {
+    0.7 // Default correlation coefficient for mock data
+}
+
 impl Default for PhotoacousticConfig {
     fn default() -> Self {
         Self {
             input_device: Some("hw:0,0".to_string()), // Default to first ALSA device
             input_file: None,                         // No file by default
+            mock_source: false,                       // Mock disabled by default
+            mock_correlation: default_mock_correlation(), // Default mock correlation
             frequency: 1000.0,                        // 1kHz default frequency
             bandwidth: 50.0,                          // 50Hz bandwidth
             window_size: 4096,                        // 4K FFT window

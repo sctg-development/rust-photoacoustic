@@ -54,7 +54,7 @@ use tokio::time;
 
 use crate::acquisition::{
     get_audio_source_from_device, get_audio_source_from_file, get_default_audio_source,
-    AcquisitionDaemon, SharedAudioStream,
+    get_mock_audio_source, AcquisitionDaemon, SharedAudioStream,
 };
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
@@ -176,12 +176,12 @@ impl Daemon {
 
         // Start web server if enabled
         if config.visualization.enabled {
-            self.start_web_server(config).await?;
+            self.start_visualization_server(config).await?;
         }
 
         // Start data acquisition task if enabled
         if config.acquisition.enabled {
-            self.start_data_acquisition(config)?;
+            self.start_auxiliary_data_acquisition(config)?;
         }
 
         // Start modbus server if enabled
@@ -191,7 +191,7 @@ impl Daemon {
 
         // Start computation task if enabled
         if true {
-            self.start_computation(config)?;
+            self.start_photoacoustic_computation(config)?;
         }
         // Add additional tasks here as needed
 
@@ -224,7 +224,7 @@ impl Daemon {
     /// * TLS certificate decoding fails
     /// * The server fails to bind to the specified address/port
     /// * The Rocket server fails to initialize for any other reason
-    async fn start_web_server(&mut self, config: &Config) -> Result<()> {
+    async fn start_visualization_server(&mut self, config: &Config) -> Result<()> {
         info!(
             "Starting web server on {}:{}",
             config.visualization.address, config.visualization.port
@@ -294,7 +294,7 @@ impl Daemon {
         Ok(())
     }
 
-    /// Start the data acquisition task for collecting photoacoustic measurements
+    /// Start the data acquisition task for collecting auxiliaries measurements
     ///
     /// Initializes and launches a background task that periodically acquires data
     /// from the configured sensors. This task runs on a fixed interval and continues
@@ -317,8 +317,8 @@ impl Daemon {
     /// * The acquisition hardware is not available
     /// * Sensor initialization fails
     /// * Task spawning fails
-    fn start_data_acquisition(&mut self, config: &Config) -> Result<()> {
-        info!("Starting data acquisition task");
+    fn start_auxiliary_data_acquisition(&mut self, config: &Config) -> Result<()> {
+        info!("Starting auxliary data acquisition task");
 
         let running = self.running.clone();
         let config = config.clone();
@@ -336,8 +336,8 @@ impl Daemon {
         Ok(())
     }
 
-    fn start_computation(&mut self, config: &Config) -> Result<()> {
-        info!("Starting computation task");
+    fn start_photoacoustic_computation(&mut self, config: &Config) -> Result<()> {
+        info!("Starting photoacoustic computation task");
 
         let running = self.running.clone();
         let data_source_clone = self.data_source.clone();
@@ -617,7 +617,17 @@ impl Daemon {
         // === PHASE 1: Audio Source Selection ===
         // Select and initialize the appropriate audio source based on configuration priority.
         // The selection follows a clear hierarchy: file > device > default
-        let audio_source = if let Some(ref file_path) = config.photoacoustic.input_file {
+        let audio_source = if config.photoacoustic.mock_source {
+            // Mock audio source for testing and simulation
+            // Generates synthetic photoacoustic signals with controlled correlation
+            info!(
+                "Using mock audio source with correlation: {}",
+                config.photoacoustic.mock_correlation
+            );
+            let frame_size = config.photoacoustic.window_size as usize;
+            let correlation = config.photoacoustic.mock_correlation;
+            get_mock_audio_source(config.photoacoustic.clone(), frame_size, correlation)?
+        } else if let Some(ref file_path) = config.photoacoustic.input_file {
             // File-based audio source for testing and playback scenarios
             // Useful for reproducible testing and offline processing
             info!("Using file audio source: {}", file_path);

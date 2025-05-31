@@ -33,7 +33,6 @@ export default function ApiPage() {
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
   const [useFastStream, setUseFastStream] = useState(false);
-  const [averageFrameSize, setAverageFrameSize] = useState(0);
 
   // Audio analyzer states
   const [audioAnalyzer, setAudioAnalyzer] = useState<any>(null);

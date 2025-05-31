@@ -281,7 +281,6 @@ export const useAudioStream = (
   /**
    * Performance optimization references
    */
-  const processingThrottleRef = useRef<number>(0);
   const fpsDisplayThrottleRef = useRef<number>(0); // Separate throttle for FPS display
   const frameProcessingBatchRef = useRef<string[]>([]);
   const batchProcessingTimeoutRef = useRef<ReturnType<
@@ -767,35 +766,6 @@ export const useAudioStream = (
     }
   }, []);
 
-  /**
-   * Fixed frame size calculation
-   */
-  const calculateFrameSize = useCallback(
-    (frame: AudioFrame, rawData?: string): number => {
-      if (rawData) {
-        // Use actual raw data size if available
-        return new TextEncoder().encode(rawData).length;
-      }
-
-      if (useFastFormat) {
-        // For fast format, estimate based on base64 data + metadata
-        const base64Size = Math.ceil(frame.channel_a.length * 2 * 4 * 1.34); // Base64 overhead ~34%
-        const metadataSize = 200; // Approximate metadata overhead
-
-        return base64Size + metadataSize;
-      } else {
-        // For regular format, estimate JSON size
-        // Each f32 in JSON is approximately 8-15 characters (including commas, spaces)
-        const samplesPerChannel = frame.channel_a.length;
-        const totalSamples = samplesPerChannel * 2; // Both channels
-        const estimatedJsonSize = totalSamples * 12 + 200; // ~12 chars per number + metadata
-
-        return estimatedJsonSize;
-      }
-    },
-    [useFastFormat],
-  );
-
   // --- PERFORMANCE MONITORING ---
 
   /**
@@ -892,24 +862,6 @@ export const useAudioStream = (
       batchProcessingTimeoutRef.current = null;
     }
   }, []);
-
-  /**
-   * Add frame to batch with intelligent scheduling
-   */
-  const addFrameToBatch = useCallback(
-    (line: string) => {
-      frameProcessingBatchRef.current.push(line);
-
-      if (frameProcessingBatchRef.current.length >= BATCH_SIZE) {
-        processBatchedFrames();
-      } else if (!batchProcessingTimeoutRef.current) {
-        batchProcessingTimeoutRef.current = setTimeout(() => {
-          processBatchedFrames();
-        }, BATCH_TIMEOUT_MS);
-      }
-    },
-    [processBatchedFrames],
-  );
 
   // --- SERVER-SENT EVENTS HANDLING ---
 
@@ -1285,11 +1237,9 @@ export const useAudioStream = (
    */
   const PROCESSING_THROTTLE_MS = 8; // ~120fps processing capability
   const BATCH_SIZE = 8; // Larger batches for efficiency
-  const BATCH_TIMEOUT_MS = 4; // Faster timeout for responsiveness
   const FPS_UPDATE_INTERVAL = 200; // Display FPS every 200ms (separate from calculation)
   const BUFFER_POOL_SIZE = 5; // Buffer pool per configuration
   const MAX_PROCESSING_TIME_MS = 12; // Generous time per cycle
-  const STATS_UPDATE_INTERVAL = 1000; // Update stats every second
 
   // --- TIMESTAMP VALIDATION ---
 

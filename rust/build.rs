@@ -738,10 +738,12 @@ async fn main() {
 
     // Build the web console
     if let Err(e) = build_web_console(version_changed) {
-        println!("cargo:warning={}", e);
+        eprintln!("cargo:warning=build_web_console failed: {}", e);
+        panic!("Failed to build web console: {}", e);
     }
     // Build the rapidoc helper
     if let Err(e) = build_rapidoc() {
-        println!("cargo:warning={}", e);
+        eprintln!("cargo:warning=build_rapidoc failed: {}", e);
+        panic!("Failed to build rapidoc helper: {}", e);
     }
 }

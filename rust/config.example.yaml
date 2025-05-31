@@ -115,6 +115,13 @@ photoacoustic:
   # Number of spectra to average for noise reduction
   averages: 10
 
+  # Mock data generation settings
+  # If enabled, generates synthetic data instead of reading from input_device or input_file
+  mock_source: false
+  # Dual-channel correlation factor for mock data
+  # This simulates the correlation between two channels in mock data generation
+  mock_correlation: 0.7
+
 # =========================
 # Access control and user management
 # =========================

@@ -82,6 +82,10 @@ pub mod daemon;
 /// interaction with external devices and systems that support the Modbus protocol.
 pub mod modbus;
 
+/// Photoacoustic computations module.
+/// This module contains the core computations and algorithms used in photoacoustic analysis.
+pub mod photoacoustic;
+
 use serde::{Deserialize, Serialize};
 
 /// Result of a photoacoustic analysis operation.
