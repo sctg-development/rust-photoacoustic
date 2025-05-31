@@ -158,7 +158,7 @@ The fast format encodes audio data as base64 binary:
 ```
 
 **Advantages:**
-- Significantly reduced bandwidth (~80% reduction)
+- Significantly reduced bandwidth (~50% reduction)
 - Efficient binary representation
 - Maintains precision (bit-perfect)
 
