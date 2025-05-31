@@ -98,5 +98,8 @@
   "toggle-audio-analyzer-visibility": "تبديل رؤية محلل الصوت",
   "unknown": "مجهول",
   "yes": "نعم",
-  "analyzer": "محلل"
+  "analyzer": "محلل",
+  "average-frame-size": "الإطار (متوسط ​​الحجم)",
+  "toggle-fast-stream-mode": "تبديل وضع الدفق السريع",
+  "use-fast-stream": "استخدم تيار سريع"
 }

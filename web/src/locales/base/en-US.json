@@ -98,5 +98,8 @@
   "framecount": "FrameCount",
   "audiostate": "AudioState",
   "streamnode": "StreamNode",
-  "analyzer": "Analyzer"
+  "analyzer": "Analyzer",
+  "use-fast-stream": "Use fast stream",
+  "toggle-fast-stream-mode": "Toggle fast stream mode",
+  "average-frame-size": "Frame (average size)"
 }

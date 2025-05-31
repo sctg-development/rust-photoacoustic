@@ -98,5 +98,8 @@
   "toggle-audio-analyzer-visibility": "切换音频分析仪可见性",
   "unknown": "未知",
   "yes": "是的",
-  "analyzer": "分析仪"
+  "analyzer": "分析仪",
+  "average-frame-size": "框架（平均大小）",
+  "toggle-fast-stream-mode": "切换快速流模式",
+  "use-fast-stream": "使用快速流"
 }

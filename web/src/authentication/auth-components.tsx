@@ -24,7 +24,6 @@ import {
 export function Profile() {
   const { user } = useAuth();
 
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(user));
 
   return (
@@ -316,7 +315,6 @@ export const AuthenticationGuardWithPermission: FC<{
           setIsLoading(false);
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error("Permission check failed:", error);
         if (isMounted) {
           setPermitted(false);

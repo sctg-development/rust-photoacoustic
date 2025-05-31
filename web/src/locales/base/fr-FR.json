@@ -98,5 +98,8 @@
   "toggle-audio-analyzer-visibility": "Basculer la visibilité de l'analyseur audio",
   "unknown": "Inconnu",
   "yes": "Oui",
-  "analyzer": "Analyseur"
+  "analyzer": "Analyseur",
+  "average-frame-size": "Frame (taille moyenne)",
+  "toggle-fast-stream-mode": "Mode de flux rapide à bascule",
+  "use-fast-stream": "Utilisez un flux rapide"
 }

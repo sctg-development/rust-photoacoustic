@@ -98,5 +98,8 @@
   "toggle-audio-analyzer-visibility": "החלף נראות מנתח שמע",
   "unknown": "לֹא יְדוּעַ",
   "yes": "כֵּן",
-  "analyzer": "מנתח"
+  "analyzer": "מנתח",
+  "average-frame-size": "מסגרת (גודל ממוצע)",
+  "toggle-fast-stream-mode": "החלף מצב זרם מהיר",
+  "use-fast-stream": "השתמש בזרם מהיר"
 }
