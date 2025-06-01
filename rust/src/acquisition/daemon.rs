@@ -19,6 +19,7 @@ use tokio::time::{interval, sleep};
 
 /// Acquisition daemon that continuously reads from an audio source
 /// and streams the data to connected clients
+#[deprecated(note = "Use RealTimeAcquisitionDaemon instead for real-time streaming")]
 pub struct AcquisitionDaemon {
     /// Audio source (microphone or file)
     audio_source: Box<dyn AudioSource>,
