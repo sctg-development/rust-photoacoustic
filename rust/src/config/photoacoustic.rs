@@ -87,9 +87,9 @@ pub struct PhotoacousticConfig {
     #[serde(default = "default_precision")]
     pub precision: u8,
 
-    /// Flag to enable or disable the mock consumer daemon.
+    /// Flag to enable or disable the record consumer daemon.
     ///
-    /// When enabled, a mock consumer will be started to validate the producer/consumer
+    /// When enabled, a record consumer will be started to validate the producer/consumer
     /// system by consuming audio frames and saving them to a WAV file.
     #[serde(default)]
     pub record_consumer: bool,
@@ -124,7 +124,7 @@ impl Default for PhotoacousticConfig {
             sample_rate: default_sample_rate(),      // Default sample rate
             averages: 10,                            // Average 10 spectra
             precision: 16,
-            record_consumer: false, // Mock consumer disabled by default
+            record_consumer: false, // record consumer disabled by default
             record_file: "recorded_audio.wav".to_string(), // Default output file
         }
     }

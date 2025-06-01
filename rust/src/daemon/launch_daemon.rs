@@ -98,7 +98,7 @@ pub struct Daemon {
     /// Acquisition daemon for audio processing
     #[allow(dead_code)]
     acquisition_daemon: Option<AcquisitionDaemon>,
-    /// Mock consumer daemon for testing and validation
+    /// record consumer daemon for testing and validation
     record_consumer_daemon: Option<RecordConsumer>,
 }
 
@@ -180,7 +180,7 @@ impl Daemon {
         // Démarrer l'acquisition audio AVANT le serveur web
         self.start_audio_acquisition(config).await?;
 
-        // Start mock consumer if enabled
+        // Start record consumer if enabled
         if config.photoacoustic.record_consumer {
             self.start_record_consumer(config).await?;
         }
@@ -713,7 +713,7 @@ impl Daemon {
         Ok(())
     }
 
-    /// Start the mock consumer daemon for validation and testing
+    /// Start the record consumer daemon for validation and testing
     ///
     /// Creates and starts a RecordConsumerDaemon that consumes audio frames from the
     /// shared audio stream and saves them to a WAV file. This daemon is used for
@@ -721,11 +721,11 @@ impl Daemon {
     ///
     /// # Parameters
     ///
-    /// * `config` - Application configuration containing mock consumer settings
+    /// * `config` - Application configuration containing record consumer settings
     ///
     /// # Returns
     ///
-    /// * `Result<()>` - Success if mock consumer started successfully, or error details
+    /// * `Result<()>` - Success if record consumer started successfully, or error details
     ///
     /// # Requirements
     ///
@@ -735,7 +735,7 @@ impl Daemon {
     ///
     /// # Configuration
     ///
-    /// The mock consumer is controlled by the `config.acquisition.record_consumer` flag.
+    /// The record consumer is controlled by the `config.acquisition.record_consumer` flag.
     /// When enabled, it will:
     /// - Start consuming audio frames after audio acquisition begins
     /// - Save audio stream to WAV file with same precision and sample rate as producer
@@ -755,45 +755,45 @@ impl Daemon {
     /// // Start audio acquisition first
     /// daemon.start_audio_acquisition(&config).await?;
     ///
-    /// // Start mock consumer for validation
+    /// // Start record consumer for validation
     /// daemon.start_record_consumer(&config).await?;
     /// # Ok(())
     /// # }
     /// ```
     async fn start_record_consumer(&mut self, config: &Config) -> Result<()> {
-        info!("Starting mock consumer daemon for validation");
+        info!("Starting record consumer daemon for validation");
 
         // Ensure audio stream is available
         let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
             anyhow::anyhow!("Audio stream not available. Start audio acquisition first.")
         })?;
 
-        // Create mock consumer daemon
+        // Create record consumer daemon
         let record_consumer = RecordConsumer::new(
             audio_stream.clone(),
             config.photoacoustic.record_file.clone(),
         );
 
-        // Start the mock consumer in a background task
+        // Start the record consumer in a background task
         let mut record_consumer_for_task = record_consumer;
         let task = tokio::spawn(async move {
-            info!("Mock consumer task started");
+            info!("record consumer task started");
 
-            // Start the mock consumer daemon
+            // Start the record consumer daemon
             match record_consumer_for_task.start().await {
                 Ok(_) => {
-                    info!("Mock consumer daemon completed successfully");
+                    info!("record consumer daemon completed successfully");
                 }
                 Err(e) => {
-                    error!("Mock consumer daemon failed: {}", e);
+                    error!("record consumer daemon failed: {}", e);
                 }
             }
 
-            info!("Mock consumer task stopped");
+            info!("record consumer task stopped");
             Ok(())
         });
 
-        // Store a placeholder for the mock consumer daemon (already moved to task)
+        // Store a placeholder for the record consumer daemon (already moved to task)
         self.record_consumer_daemon = Some(RecordConsumer::new(
             audio_stream.clone(),
             "placeholder".to_string(),
@@ -801,7 +801,7 @@ impl Daemon {
 
         // Register the task for lifecycle management and graceful shutdown
         self.tasks.push(task);
-        info!("Mock consumer daemon started successfully");
+        info!("record consumer daemon started successfully");
         Ok(())
     }
 

@@ -1,11 +1,11 @@
-//! Mock Consumer Daemon Module
+//! Record Consumer Daemon Module
 //!
-//! Ce module fournit un daemon consommateur mock pour valider le système producteur/consommateur
-//! d'audio en temps réel. Il consomme les frames audio du SharedAudioStream et les sauvegarde
-//! dans un fichier WAV avec la même précision et fréquence d'échantillonnage que le producteur.
+//! This module provides a mock consumer daemon to validate the real-time audio
+//! producer/consumer system. It consumes audio frames from the SharedAudioStream
+//! and saves them to a WAV file with the same precision and sample rate as the producer.
 //!
-//! Le mock consumer produit également des messages de log détaillés pour analyser le comportement
-//! du système de consommation d'audio.
+//! The record consumer also produces detailed log messages to analyze the behavior
+//! of the audio consumption system.
 
 use crate::acquisition::{AudioFrame, AudioStreamConsumer, SharedAudioStream};
 use anyhow::{anyhow, Result};
@@ -20,46 +20,46 @@ use std::sync::{
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::time::timeout;
 
-/// Record Consumer Daemon pour la validation du système producteur/consommateur
+/// Record Consumer Daemon for producer/consumer system validation
 ///
-/// Ce daemon consomme les frames audio depuis le SharedAudioStream et les écrit
-/// dans un fichier WAV pour validation. Il produit des logs détaillés pour analyser
-/// le comportement du consommateur.
+/// This daemon consumes audio frames from the SharedAudioStream and writes them
+/// to a WAV file for validation. It produces detailed logs to analyze
+/// consumer behavior.
 pub struct RecordConsumer {
-    /// Stream audio partagé à consommer
+    /// Shared audio stream to consume
     audio_stream: Arc<SharedAudioStream>,
-    /// Flag de contrôle d'exécution
+    /// Execution control flag
     running: Arc<AtomicBool>,
-    /// Compteur de frames consommées
+    /// Counter of consumed frames
     frames_consumed: Arc<AtomicU64>,
-    /// Compteur de frames perdues (lag)
+    /// Counter of dropped frames (lag)
     frames_dropped: Arc<AtomicU64>,
-    /// Chemin du fichier WAV de sortie
+    /// Output WAV file path
     output_path: String,
-    /// Writer WAV pour sauvegarder l'audio
+    /// WAV writer for saving audio
     wav_writer: Option<WavWriter<BufWriter<File>>>,
-    /// Consommateur de stream audio
+    /// Audio stream consumer
     consumer: Option<AudioStreamConsumer>,
-    /// Timestamp du dernier frame reçu pour mesurer les délais
+    /// Timestamp of last received frame for delay measurement
     last_frame_time: Option<Instant>,
-    /// Statistiques de débit
+    /// Throughput statistics
     throughput_stats: ThroughputStats,
 }
 
-/// Statistiques de débit pour le record consumer
+/// Throughput statistics for the record consumer
 #[derive(Debug, Clone)]
 struct ThroughputStats {
-    /// Nombre de frames dans la fenêtre actuelle
+    /// Number of frames in current window
     frames_in_window: u64,
-    /// Timestamp du début de la fenêtre actuelle
+    /// Timestamp of current window start
     window_start: Instant,
-    /// Durée de la fenêtre de mesure (en secondes)
+    /// Measurement window duration (in seconds)
     window_duration: Duration,
-    /// FPS moyen de la fenêtre actuelle
+    /// Average FPS of current window
     current_fps: f64,
-    /// Délai moyen entre les frames (en ms)
+    /// Average delay between frames (in ms)
     avg_frame_delay: f64,
-    /// Délai min/max observés
+    /// Observed min/max delays
     min_frame_delay: f64,
     max_frame_delay: f64,
 }
@@ -99,7 +99,7 @@ impl ThroughputStats {
     fn update(&mut self, frame_delay_ms: f64) {
         self.frames_in_window += 1;
 
-        // Mettre à jour les délais min/max
+        // Update min/max delays
         self.min_frame_delay = self.min_frame_delay.min(frame_delay_ms);
         self.max_frame_delay = self.max_frame_delay.max(frame_delay_ms);
 
@@ -107,13 +107,13 @@ impl ThroughputStats {
         let elapsed = now.duration_since(self.window_start);
 
         if elapsed >= self.window_duration {
-            // Calculer le FPS pour cette fenêtre
+            // Calculate FPS for this window
             self.current_fps = self.frames_in_window as f64 / elapsed.as_secs_f64();
 
-            // Calculer le délai moyen (approximatif)
+            // Calculate average delay (approximate)
             self.avg_frame_delay = (self.min_frame_delay + self.max_frame_delay) / 2.0;
 
-            // Log des statistiques
+            // Log statistics
             debug!(
                 "RecordConsumer Stats - FPS: {:.2}, Avg Delay: {:.2}ms, Min: {:.2}ms, Max: {:.2}ms, Frames: {}",
                 self.current_fps,
@@ -123,7 +123,7 @@ impl ThroughputStats {
                 self.frames_in_window
             );
 
-            // Réinitialiser pour la prochaine fenêtre
+            // Reset for next window
             self.frames_in_window = 0;
             self.window_start = now;
             self.min_frame_delay = f64::MAX;
@@ -133,16 +133,16 @@ impl ThroughputStats {
 }
 
 impl RecordConsumer {
-    /// Créer un nouveau RecordConsumerDaemon
+    /// Create a new RecordConsumerDaemon
     ///
     /// # Arguments
     ///
-    /// * `audio_stream` - Stream audio partagé à consommer
-    /// * `output_path` - Chemin du fichier WAV de sortie
+    /// * `audio_stream` - Shared audio stream to consume
+    /// * `output_path` - Output WAV file path
     ///
     /// # Returns
     ///
-    /// Une nouvelle instance de RecordConsumerDaemon
+    /// A new RecordConsumerDaemon instance
     pub fn new(audio_stream: Arc<SharedAudioStream>, output_path: String) -> Self {
         info!("Creating RecordConsumerDaemon with output: {}", output_path);
 
@@ -155,11 +155,11 @@ impl RecordConsumer {
             wav_writer: None,
             consumer: None,
             last_frame_time: None,
-            throughput_stats: ThroughputStats::new(5), // Fenêtre de 5 secondes
+            throughput_stats: ThroughputStats::new(5), // 5-second window
         }
     }
 
-    /// Démarrer le daemon mock consumer
+    /// Start the record consumer daemon
     pub async fn start(&mut self) -> Result<()> {
         if self.running.load(Ordering::Relaxed) {
             warn!("RecordConsumerDaemon is already running");
@@ -169,12 +169,12 @@ impl RecordConsumer {
         info!("Starting RecordConsumerDaemon");
         self.running.store(true, Ordering::Relaxed);
 
-        // Créer le consommateur
+        // Create the consumer
         self.consumer = Some(AudioStreamConsumer::new(&self.audio_stream));
 
         debug!("RecordConsumerDaemon: Consumer created, waiting for first frame");
 
-        // Attendre le premier frame pour déterminer les spécifications WAV
+        // Wait for first frame to determine WAV specifications
         if let Some(first_frame) = self.wait_for_first_frame().await? {
             debug!(
                 "RecordConsumerDaemon: First frame received - Sample Rate: {}Hz, Channels: A={}, B={}",
@@ -183,17 +183,17 @@ impl RecordConsumer {
                 first_frame.channel_b.len()
             );
 
-            // Initialiser le writer WAV avec les spécifications du premier frame
+            // Initialize WAV writer with first frame specifications
             self.initialize_wav_writer(&first_frame)?;
 
-            // Traiter le premier frame
+            // Process the first frame
             self.process_frame(&first_frame)?;
 
-            // Boucle principale de consommation
+            // Main consumption loop
             while self.running.load(Ordering::Relaxed) {
                 match self.consume_next_frame().await {
                     Ok(true) => {
-                        // Frame traité avec succès
+                        // Frame processed successfully
                         let count = self.frames_consumed.fetch_add(1, Ordering::Relaxed);
 
                         if count % 100 == 0 {
@@ -201,7 +201,7 @@ impl RecordConsumer {
                         }
                     }
                     Ok(false) => {
-                        // Timeout - pas de nouveau frame
+                        // Timeout - no new frame
                         debug!("RecordConsumerDaemon: Timeout waiting for frame");
                     }
                     Err(e) => {
@@ -214,7 +214,7 @@ impl RecordConsumer {
             warn!("RecordConsumerDaemon: No frames received, stopping");
         }
 
-        // Nettoyer
+        // Cleanup
         self.cleanup();
         info!(
             "RecordConsumerDaemon stopped - {} frames consumed, {} frames dropped",
@@ -224,32 +224,32 @@ impl RecordConsumer {
 
         Ok(())
     }
-    /// Arrêter le daemon
+    /// Stop the daemon
     #[allow(dead_code)]
     pub fn stop(&self) {
         info!("Stopping RecordConsumerDaemon");
         self.running.store(false, Ordering::Relaxed);
     }
 
-    /// Vérifier si le daemon est en cours d'exécution
+    /// Check if the daemon is running
     #[allow(dead_code)]
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
     }
 
-    /// Obtenir le nombre de frames consommées
+    /// Get the number of consumed frames
     #[allow(dead_code)]
     pub fn frames_consumed(&self) -> u64 {
         self.frames_consumed.load(Ordering::Relaxed)
     }
 
-    /// Obtenir le nombre de frames perdues
+    /// Get the number of dropped frames
     #[allow(dead_code)]
     pub fn frames_dropped(&self) -> u64 {
         self.frames_dropped.load(Ordering::Relaxed)
     }
 
-    /// Attendre le premier frame pour déterminer les spécifications
+    /// Wait for the first frame to determine specifications
     async fn wait_for_first_frame(&mut self) -> Result<Option<AudioFrame>> {
         debug!("RecordConsumerDaemon: Waiting for first frame");
 
@@ -275,12 +275,12 @@ impl RecordConsumer {
         }
     }
 
-    /// Initialiser le writer WAV avec les spécifications du frame
+    /// Initialize WAV writer with frame specifications
     fn initialize_wav_writer(&mut self, frame: &AudioFrame) -> Result<()> {
         let spec = WavSpec {
-            channels: 2, // Stéréo (channel_a et channel_b)
+            channels: 2, // Stereo (channel_a and channel_b)
             sample_rate: frame.sample_rate,
-            bits_per_sample: 32, // Utiliser 32 bits pour les données f32
+            bits_per_sample: 32, // Use 32 bits for f32 data
             sample_format: SampleFormat::Float,
         };
 
@@ -302,7 +302,7 @@ impl RecordConsumer {
         Ok(())
     }
 
-    /// Consommer le prochain frame
+    /// Consume the next frame
     async fn consume_next_frame(&mut self) -> Result<bool> {
         let timeout_duration = Duration::from_millis(100);
         let consumer = self
@@ -314,14 +314,14 @@ impl RecordConsumer {
 
         match timeout(timeout_duration, consumer.next_frame()).await {
             Ok(Some(frame)) => {
-                // Calculer le délai depuis le dernier frame
+                // Calculate delay since last frame
                 if let Some(last_time) = self.last_frame_time {
                     let delay_ms = now.duration_since(last_time).as_millis() as f64;
                     self.throughput_stats.update(delay_ms);
                 }
                 self.last_frame_time = Some(now);
 
-                // Traiter le frame
+                // Process the frame
                 self.process_frame(&frame)?;
                 Ok(true)
             }
@@ -330,20 +330,20 @@ impl RecordConsumer {
                 Ok(false)
             }
             Err(_) => {
-                // Timeout - pas de nouveau frame disponible
+                // Timeout - no new frame available
                 Ok(false)
             }
         }
     }
 
-    /// Traiter un frame audio
+    /// Process an audio frame
     fn process_frame(&mut self, frame: &AudioFrame) -> Result<()> {
         let writer = self
             .wav_writer
             .as_mut()
             .ok_or_else(|| anyhow!("WAV writer not initialized"))?;
 
-        // Vérifier que les deux canaux ont la même taille
+        // Check that both channels have the same size
         if frame.channel_a.len() != frame.channel_b.len() {
             return Err(anyhow!(
                 "Channel size mismatch: A={}, B={}",
@@ -352,7 +352,7 @@ impl RecordConsumer {
             ));
         }
 
-        // Entrelacer les échantillons des deux canaux (LRLRLR...)
+        // Interleave samples from both channels (LRLRLR...)
         for (sample_a, sample_b) in frame.channel_a.iter().zip(frame.channel_b.iter()) {
             writer
                 .write_sample(*sample_a)
@@ -362,7 +362,7 @@ impl RecordConsumer {
                 .map_err(|e| anyhow!("Failed to write channel B sample: {}", e))?;
         }
 
-        // Log détaillé pour analyser le comportement
+        // Detailed logging to analyze behavior
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -378,7 +378,7 @@ impl RecordConsumer {
         Ok(())
     }
 
-    /// Nettoyer les ressources
+    /// Clean up resources
     fn cleanup(&mut self) {
         debug!("RecordConsumerDaemon: Cleaning up resources");
 
@@ -393,7 +393,7 @@ impl RecordConsumer {
         self.consumer = None;
         self.last_frame_time = None;
     }
-    /// Obtenir les statistiques de débit actuelles
+    /// Get current throughput statistics
     #[allow(dead_code)]
     pub fn get_throughput_stats(&self) -> (f64, f64, f64, f64) {
         (
@@ -438,36 +438,36 @@ mod tests {
 
         let mut consumer = RecordConsumer::new(stream.clone(), output_path);
 
-        // Créer les frames de test
+        // Create test frames
         let frame1 = AudioFrame::new(vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6], 48000, 1);
         let frame2 = AudioFrame::new(vec![0.7, 0.8, 0.9], vec![1.0, 1.1, 1.2], 48000, 2);
 
-        // Références pour contrôler le consumer
+        // References to control the consumer
         let running = consumer.running.clone();
         let frames_consumed = consumer.frames_consumed.clone();
 
-        // Démarrer le consumer dans un task séparé
+        // Start the consumer in a separate task
         let consumer_task = tokio::spawn(async move {
             consumer.start().await.unwrap();
         });
 
-        // Attendre un peu pour que le consumer soit prêt à recevoir
+        // Wait a bit for the consumer to be ready to receive
         sleep(Duration::from_millis(50)).await;
 
-        // Maintenant publier les frames après que le consumer soit en écoute
+        // Now publish frames after the consumer is listening
         stream.publish(frame1).await.unwrap();
         stream.publish(frame2).await.unwrap();
 
-        // Attendre que le consumer traite les frames
+        // Wait for the consumer to process frames
         sleep(Duration::from_millis(200)).await;
 
-        // Arrêter le consumer
+        // Stop the consumer
         running.store(false, Ordering::Relaxed);
 
-        // Attendre que le task se termine
+        // Wait for the task to finish
         let _ = tokio::time::timeout(Duration::from_secs(2), consumer_task).await;
 
-        // Vérifier que des frames ont été consommées
+        // Check that frames were consumed
         let consumed = frames_consumed.load(Ordering::Relaxed);
         println!("Frames consumed: {}", consumed);
         assert!(

@@ -200,7 +200,7 @@
         "record_consumer": {
           "type": "boolean",
           "default": false,
-          "description": "Use a mock consumer for testing purposes"
+          "description": "Use a record consumer for testing purposes"
         },
         "record_file": {
           "type": [
