@@ -377,17 +377,17 @@ impl AudioSource for MicrophoneSource {
         let frame_b: Vec<f32> = self.internal_buffer_b.drain(..self.frame_size).collect();
 
         // Debug logging every 100 calls to avoid spam
-        static mut CALL_COUNT: u32 = 0;
-        unsafe {
-            CALL_COUNT += 1;
-            if CALL_COUNT % 100 == 0 {
-                debug!(
-                    "Microphone frame: {} samples per channel, buffer remaining: {}",
-                    frame_a.len(),
-                    self.internal_buffer_a.len()
-                );
-            }
-        }
+        // static mut CALL_COUNT: u32 = 0;
+        // unsafe {
+        //     CALL_COUNT += 1;
+        //     if CALL_COUNT % 100 == 0 {
+        //         debug!(
+        //             "Microphone frame: {} samples per channel, buffer remaining: {}",
+        //             frame_a.len(),
+        //             self.internal_buffer_a.len()
+        //         );
+        //     }
+        // }
 
         Ok((frame_a, frame_b))
     }

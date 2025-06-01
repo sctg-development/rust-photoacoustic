@@ -106,7 +106,11 @@ photoacoustic:
   # Bandwidth of the band-pass filter (Hz)
   bandwidth: 100.0
 
-  # FFT analyzer window size (samples)
+  # Analyzer window size (samples)
+  # The length is seconds of this window can be calculated as:
+  #   window_size / sampling_rate
+  # For example, with a window_size of 4096 and sampling_rate of 44100:
+  #   4096 / 44100 = 0.0929 seconds (approximately 93 ms)
   window_size: 4096
 
   # Sampling rate in Hz
