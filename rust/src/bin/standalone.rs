@@ -66,9 +66,11 @@ async fn main() -> Result<()> {
         bandwidth: args.bandwidth,
         frame_size: args.frame_size as u16,
         averages: args.averages as u16,
-        precision: 16,         // Default precision,
-        mock_source: false,    // No mock source in standalone mode
-        mock_correlation: 0.0, // No correlation in standalone mode
+        precision: 16,              // Default precision,
+        mock_source: false,         // No mock source in standalone mode
+        mock_correlation: 0.0,      // No correlation in standalone mode
+        record_consumer: false,     // No record consumer in standalone mode
+        record_file: String::new(), // No record file in standalone mode
     };
     // Determine input source (device or file)
     let source = if let Some(device) = &args.input_device {

@@ -84,6 +84,17 @@ pub struct PhotoacousticConfig {
     /// Sampling precision in bits (16 bits for standard PCM)
     #[serde(default = "default_precision")]
     pub precision: u8,
+
+    /// Flag to enable or disable the mock consumer daemon.
+    ///
+    /// When enabled, a mock consumer will be started to validate the producer/consumer
+    /// system by consuming audio frames and saving them to a WAV file.
+    #[serde(default)]
+    pub record_consumer: bool,
+
+    /// Optional output file for recording audio frames
+    #[serde(default)]
+    pub record_file: String,
 }
 
 fn default_sample_rate() -> u16 {
@@ -111,6 +122,8 @@ impl Default for PhotoacousticConfig {
             sample_rate: default_sample_rate(),      // Default sample rate
             averages: 10,                            // Average 10 spectra
             precision: 16,
+            record_consumer: false, // Mock consumer disabled by default
+            record_file: "recorded_audio.wav".to_string(), // Default output file
         }
     }
 }

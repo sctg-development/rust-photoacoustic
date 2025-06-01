@@ -196,6 +196,18 @@
           "minimum": 0,
           "maximum": 1,
           "description": "Correlation factor for the mock source, between 0 and 1"
+        },
+        "record_consumer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use a mock consumer for testing purposes"
+        },
+        "record_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "File to record the data to)"
         }
       },
       "required": [

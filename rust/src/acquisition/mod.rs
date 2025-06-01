@@ -82,3 +82,5 @@ pub fn get_default_audio_source(
     config.input_device = Some("first".to_string()); // Set default device
     Ok(Box::new(MicrophoneSource::new(config)?))
 }
+
+pub mod record_consumer;

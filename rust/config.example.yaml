@@ -126,6 +126,10 @@ photoacoustic:
   # This simulates the correlation between two channels in mock data generation
   mock_correlation: 0.7
 
+  # Record consumer settings
+  # If enabled, the stream data will be consumed by the record consumer
+  record_consumer: true
+
 # =========================
 # Access control and user management
 # =========================

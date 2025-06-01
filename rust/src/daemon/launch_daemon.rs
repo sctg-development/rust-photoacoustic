@@ -52,6 +52,7 @@ use std::{
 use tokio::task::JoinHandle;
 use tokio::time;
 
+use crate::acquisition::record_consumer::RecordConsumerDaemon;
 use crate::acquisition::{
     get_audio_source_from_device, get_audio_source_from_file, get_default_audio_source,
     get_mock_audio_source, AcquisitionDaemon, SharedAudioStream,
@@ -90,11 +91,15 @@ pub struct Daemon {
     tasks: Vec<JoinHandle<Result<()>>>,
     running: Arc<AtomicBool>,
     data_source: Arc<PhotoacousticDataSource>,
+    #[allow(dead_code)]
     modbus_server: Option<Arc<PhotoacousticModbusServer>>,
     /// Shared audio stream for real-time streaming to web clients
     audio_stream: Option<Arc<SharedAudioStream>>,
     /// Acquisition daemon for audio processing
+    #[allow(dead_code)]
     acquisition_daemon: Option<AcquisitionDaemon>,
+    /// Mock consumer daemon for testing and validation
+    record_consumer_daemon: Option<RecordConsumerDaemon>,
 }
 
 impl Default for Daemon {
@@ -129,6 +134,7 @@ impl Daemon {
             modbus_server: None,
             audio_stream: None,
             acquisition_daemon: None,
+            record_consumer_daemon: None,
         }
     }
 
@@ -173,6 +179,11 @@ impl Daemon {
     pub async fn launch(&mut self, config: &Config) -> Result<()> {
         // Démarrer l'acquisition audio AVANT le serveur web
         self.start_audio_acquisition(config).await?;
+
+        // Start mock consumer if enabled
+        if config.photoacoustic.record_consumer {
+            self.start_record_consumer(config).await?;
+        }
 
         // Start web server if enabled
         if config.visualization.enabled {
@@ -321,7 +332,7 @@ impl Daemon {
         info!("Starting auxliary data acquisition task");
 
         let running = self.running.clone();
-        let config = config.clone();
+        let _config = config.clone();
         let task = tokio::spawn(async move {
             while running.load(Ordering::SeqCst) {
                 // Perform data acquisition
@@ -487,7 +498,7 @@ impl Daemon {
             });
 
             // Create a cancellation token for the server task
-            let running_clone = running.clone();
+            let _running_clone = running.clone();
 
             // Periodically update the modbus server with latest measurement data
             while running.load(Ordering::SeqCst) {
@@ -678,7 +689,7 @@ impl Daemon {
         // === PHASE 6: Background Task Spawning ===
         // Start the acquisition daemon in a dedicated async task to avoid blocking
         // the main daemon loop. This ensures responsive system behavior.
-        let running = self.running.clone();
+        let _running = self.running.clone();
         let task = tokio::spawn(async move {
             info!("Audio acquisition task started");
 
@@ -702,6 +713,98 @@ impl Daemon {
         Ok(())
     }
 
+    /// Start the mock consumer daemon for validation and testing
+    ///
+    /// Creates and starts a RecordConsumerDaemon that consumes audio frames from the
+    /// shared audio stream and saves them to a WAV file. This daemon is used for
+    /// validating the producer/consumer system and studying consumer behavior.
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Application configuration containing mock consumer settings
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Success if mock consumer started successfully, or error details
+    ///
+    /// # Requirements
+    ///
+    /// This method requires that `start_audio_acquisition` has been called first to
+    /// establish the audio stream. If no audio stream is available, this method will
+    /// return an error.
+    ///
+    /// # Configuration
+    ///
+    /// The mock consumer is controlled by the `config.acquisition.record_consumer` flag.
+    /// When enabled, it will:
+    /// - Start consuming audio frames after audio acquisition begins
+    /// - Save audio stream to WAV file with same precision and sample rate as producer
+    /// - Generate debug log messages for studying consumer behavior
+    /// - Track throughput statistics (FPS, frame delays)
+    ///
+    /// # Examples
+    ///
+    /// ```no_run,ignore
+    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
+    /// use rust_photoacoustic::config::Config;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let mut daemon = Daemon::new();
+    /// let config = Config::load("config.yaml")?;
+    ///
+    /// // Start audio acquisition first
+    /// daemon.start_audio_acquisition(&config).await?;
+    ///
+    /// // Start mock consumer for validation
+    /// daemon.start_record_consumer(&config).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn start_record_consumer(&mut self, config: &Config) -> Result<()> {
+        info!("Starting mock consumer daemon for validation");
+
+        // Ensure audio stream is available
+        let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("Audio stream not available. Start audio acquisition first.")
+        })?;
+
+        // Create mock consumer daemon
+        let record_consumer = RecordConsumerDaemon::new(
+            audio_stream.clone(),
+            config.photoacoustic.record_file.clone(),
+        );
+
+        // Start the mock consumer in a background task
+        let mut record_consumer_for_task = record_consumer;
+        let task = tokio::spawn(async move {
+            info!("Mock consumer task started");
+
+            // Start the mock consumer daemon
+            match record_consumer_for_task.start().await {
+                Ok(_) => {
+                    info!("Mock consumer daemon completed successfully");
+                }
+                Err(e) => {
+                    error!("Mock consumer daemon failed: {}", e);
+                }
+            }
+
+            info!("Mock consumer task stopped");
+            Ok(())
+        });
+
+        // Store a placeholder for the mock consumer daemon (already moved to task)
+        self.record_consumer_daemon = Some(RecordConsumerDaemon::new(
+            audio_stream.clone(),
+            "placeholder".to_string(),
+        ));
+
+        // Register the task for lifecycle management and graceful shutdown
+        self.tasks.push(task);
+        info!("Mock consumer daemon started successfully");
+        Ok(())
+    }
+
     /// Get the shared data source
     ///
     /// # Returns
@@ -715,6 +818,7 @@ impl Daemon {
     ///
     /// Returns the shared audio stream if acquisition is enabled and running.
     /// This is used by the web server to provide real-time streaming endpoints.
+    #[allow(dead_code)]
     pub fn get_audio_stream(&self) -> Option<Arc<SharedAudioStream>> {
         self.audio_stream.clone()
     }
