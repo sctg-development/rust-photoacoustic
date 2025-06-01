@@ -56,14 +56,14 @@ struct AcquisitionDaemon // ⚠️ Legacy - and probable timing issues
 │                    Real-Time Audio Pipeline                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│ ┌───────────────────┐  async streaming  ┌─────────────────────┐ │
-│ │RealTimeAudioSource│─────────────────▶│ SharedAudioStream    │ │
-│ │                   │                   │                     │ │
-│ │ ┌───────────────┐ │                   │ ┌─────────────────┐ │ │
-│ │ │ MicrophoneSource│    publish_frame()│ │ Circular Buffer │ │ │
-│ │ │ FileSource    │ │◀──────────────────│ │ (lock-free)    │ │ │
-│ │ │ MockSource    │ │                   │ └─────────────────┘ │ │
-│ └───────────────────┘                   └─────────────────────┘ │
+│ ┌─────────────────────┐  async streaming  ┌───────────────────┐ │
+│ │RealTimeAudioSource  │─────────────────> │ SharedAudioStream │ │
+│ │                     │                   │                   │ │
+│ │ ┌─────────────────┐ │                   │ ┌────────────────┐│ │
+│ │ │ MicrophoneSource│ │   publish_frame() │ │ Circular Buffer││ │
+│ │ │ FileSource      │ │<──────────────────│ │ (lock-free)    ││ │
+│ │ │ MockSource      │ │                   │ └────────────────┘│ │
+│ └───────────────────┘─┘                   └───────────────────┘ │
 │         │                                         │             │
 │         │ start_streaming()                       │ subscribe() │
 │         ▼                                         ▼             │
