@@ -58,16 +58,48 @@ fn extract_params_from_url(url: &str) -> HashMap<String, String> {
     params
 }
 
+use rocket::local::asynchronous::LocalResponse;
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+fn init_test_logging() {
+    INIT.call_once(|| {
+        let _ = env_logger::builder()
+            .is_test(true)
+            .filter_level(log::LevelFilter::Debug)
+            .try_init();
+    });
+}
+
+// Helper function to extract cookies from response
+fn extract_cookies(response: &LocalResponse) -> Vec<String> {
+    response
+        .headers()
+        .get("Set-Cookie")
+        .map(|cookie| cookie.to_string())
+        .collect()
+}
+
+// Helper function to add cookies to request
+fn add_cookies_to_request(cookies: &[String]) -> String {
+    cookies
+        .iter()
+        .map(|cookie| {
+            // Extract just the cookie name=value part before the first semicolon
+            cookie.split(';').next().unwrap_or(cookie)
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 #[rocket::async_test]
 async fn test_oauth2_pkce_flow() {
-    // Initialize the logger for tests
-    let _ = env_logger::builder()
-        .is_test(true)
-        .filter_level(log::LevelFilter::Debug)
-        .try_init();
+    // Initialize logging once
+    init_test_logging();
 
-    // Test HMAC secret
-    let test_hmac_secret = "test-hmac-secret-key-for-testing";
+    // Test HMAC secret - use a longer, more secure key for testing
+    let test_hmac_secret = "test-hmac-secret-key-for-testing-with-sufficient-length-32-chars";
 
     // Test AccessConfig with default admin user
     let test_access_config = AccessConfig::default();
@@ -75,11 +107,11 @@ async fn test_oauth2_pkce_flow() {
     // Configure the Rocket test client with additional configuration
     let figment = get_figment()
         .merge(("shutdown.ctrlc", false))
-        .merge(("shutdown.grace", 1))
-        .merge(("shutdown.mercy", 1))
+        .merge(("shutdown.grace", 2)) // Increased grace period
+        .merge(("shutdown.mercy", 2)) // Increased mercy period
         .merge(("shutdown.force", true))
         .merge(("hmac_secret", test_hmac_secret))
-        .merge(("access_config", test_access_config)); // Add access config
+        .merge(("access_config", test_access_config));
 
     let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None).await;
     let client = Client::tracked(rocket)
@@ -107,6 +139,10 @@ async fn test_oauth2_pkce_flow() {
     assert_eq!(response.status(), Status::Ok);
     assert!(response.content_type().unwrap().is_html());
 
+    // Extract cookies from the initial response
+    let cookies = extract_cookies(&response);
+    println!("Cookies from initial request: {:?}", cookies);
+
     let body = response.into_string().await.expect("Response body");
 
     // Should now receive a login form instead of consent form
@@ -123,10 +159,9 @@ async fn test_oauth2_pkce_flow() {
         "The login page should contain a Login button"
     );
 
-    // Step 2: Extract form action and submit login credentials
+    // Step 2: Submit login credentials with cookies
     println!("Submitting login credentials...");
 
-    // Submit login form with default admin credentials
     let mut form_data = HashMap::new();
     form_data.insert("username", "admin");
     form_data.insert("password", "admin123");
@@ -135,13 +170,21 @@ async fn test_oauth2_pkce_flow() {
     form_data.insert("redirect_uri", "http://localhost:8080/client/");
     form_data.insert("scope", "openid profile email read:api write:api");
     form_data.insert("state", "test-state");
+    form_data.insert("code_challenge", &code_challenge);
+    form_data.insert("code_challenge_method", "S256");
 
-    let login_response = client
+    let mut login_request = client
         .post("/login")
         .header(ContentType::Form)
-        .body(serde_urlencoded::to_string(&form_data).unwrap())
-        .dispatch()
-        .await;
+        .body(serde_urlencoded::to_string(&form_data).unwrap());
+
+    // Add cookies if available
+    if !cookies.is_empty() {
+        let cookie_header = add_cookies_to_request(&cookies);
+        login_request = login_request.header(rocket::http::Header::new("Cookie", cookie_header));
+    }
+
+    let login_response = login_request.dispatch().await;
 
     // Should redirect back to /authorize with session established
     assert_eq!(login_response.status(), Status::Found);
@@ -153,8 +196,20 @@ async fn test_oauth2_pkce_flow() {
 
     println!("Login redirect location: {}", redirect_location);
 
-    // Step 3: Follow redirect to get consent page
-    let consent_response = client.get(redirect_location).dispatch().await;
+    // Update cookies with any new ones from login
+    let login_cookies = extract_cookies(&login_response);
+    let all_cookies = [cookies, login_cookies].concat();
+
+    // Step 3: Follow redirect to get consent page with cookies
+    let mut consent_request = client.get(redirect_location);
+
+    if !all_cookies.is_empty() {
+        let cookie_header = add_cookies_to_request(&all_cookies);
+        consent_request =
+            consent_request.header(rocket::http::Header::new("Cookie", cookie_header));
+    }
+
+    let consent_response = consent_request.dispatch().await;
 
     assert_eq!(consent_response.status(), Status::Ok);
     assert!(consent_response.content_type().unwrap().is_html());
@@ -163,9 +218,11 @@ async fn test_oauth2_pkce_flow() {
         .into_string()
         .await
         .expect("Consent page body");
+
     assert!(
         consent_body.contains("Accept"),
-        "The consent page should contain an Accept button"
+        "The consent page should contain an Accept button. Body: {}",
+        consent_body
     );
     assert!(
         consent_body.contains("Deny"),
@@ -175,7 +232,6 @@ async fn test_oauth2_pkce_flow() {
     // Step 4: Extract consent form action and simulate user consent (accept)
     println!("Simulating user consent (Accept)...");
 
-    // Extract the form action for the Accept button
     let accept_form_regex =
         regex::Regex::new(r#"<form method="post" action="([^"]*allow=true[^"]*)">"#).unwrap();
     let consent_action = accept_form_regex
@@ -186,8 +242,16 @@ async fn test_oauth2_pkce_flow() {
 
     println!("Consent form action: {}", consent_action);
 
-    // Submit the consent form
-    let consent_submit_response = client.post(&consent_action).dispatch().await;
+    // Submit the consent form with cookies
+    let mut consent_submit_request = client.post(&consent_action);
+
+    if !all_cookies.is_empty() {
+        let cookie_header = add_cookies_to_request(&all_cookies);
+        consent_submit_request =
+            consent_submit_request.header(rocket::http::Header::new("Cookie", cookie_header));
+    }
+
+    let consent_submit_response = consent_submit_request.dispatch().await;
 
     // The response should be a redirect to the callback URI with an authorization code
     assert_eq!(consent_submit_response.status(), Status::Found);
@@ -205,17 +269,33 @@ async fn test_oauth2_pkce_flow() {
 
     // Step 5: Exchange authorization code for tokens
     println!("Exchanging authorization code for tokens...");
-    let token_body = format!(
-        "grant_type=authorization_code&code={}&redirect_uri=http://localhost:8080/client/&client_id=LaserSmartClient&code_verifier={}&code_challenge_method=S256",
-        authorization_code, code_verifier
-    );
 
-    let token_response = client
+    // Prepare token request form data
+    let mut token_form_data = HashMap::new();
+    token_form_data.insert("grant_type", "authorization_code");
+    token_form_data.insert("code", authorization_code.as_str());
+    token_form_data.insert("redirect_uri", "http://localhost:8080/client/");
+    token_form_data.insert("client_id", "LaserSmartClient");
+    token_form_data.insert("code_verifier", &code_verifier);
+
+    let mut token_request = client
         .post("/token")
         .header(ContentType::Form)
-        .body(token_body)
-        .dispatch()
-        .await;
+        .body(serde_urlencoded::to_string(&token_form_data).unwrap());
+
+    // Include cookies in token request to maintain session
+    if !all_cookies.is_empty() {
+        let cookie_header = add_cookies_to_request(&all_cookies);
+        token_request = token_request.header(rocket::http::Header::new("Cookie", cookie_header));
+    }
+
+    let token_response = token_request.dispatch().await;
+
+    // Add more detailed error handling
+    if token_response.status() != Status::Ok {
+        let error_body = token_response.into_string().await.unwrap_or_default();
+        panic!("Token request failed. Response: {}", error_body);
+    }
 
     assert_eq!(token_response.status(), Status::Ok);
 
@@ -226,12 +306,16 @@ async fn test_oauth2_pkce_flow() {
         .expect("Token response body");
     println!("Token response: {}", token_response_body);
 
-    let token_json: Value = serde_json::from_str(&token_response_body).expect("Valid JSON");
+    let token_json: Value = serde_json::from_str(&token_response_body).expect(&format!(
+        "Valid JSON. Response was: {}",
+        token_response_body
+    ));
 
     // Verify that we received an access_token
     assert!(
         token_json.get("access_token").is_some(),
-        "Response should contain an access_token"
+        "Response should contain an access_token. Response was: {}",
+        token_response_body
     );
 
     // Note: The token_type case is not standardized, but our implementation uses lowercase
@@ -241,7 +325,8 @@ async fn test_oauth2_pkce_flow() {
             .and_then(Value::as_str)
             .map(|s| s.to_lowercase()),
         Some("bearer".to_lowercase()),
-        "Token type should be Bearer (case insensitive)"
+        "Token type should be Bearer (case insensitive). Response was: {}",
+        token_response_body
     );
 
     // Check that the token is a valid JWT (should have 3 parts separated by dots)
@@ -265,11 +350,41 @@ async fn test_oauth2_pkce_flow() {
             header_json.contains("alg"),
             "JWT header should contain algorithm"
         );
-
-        // We could decode the payload too, but this is enough to verify it's a JWT
     }
 
-    // Step 6: Test with invalid credentials (should fail)
+    // The complete OAuth2 PKCE flow has been successfully tested
+    println!("OAuth2 PKCE flow test with authentication completed successfully!");
+}
+
+// Add a separate test for invalid credentials to avoid interference
+#[rocket::async_test]
+async fn test_oauth2_invalid_credentials() {
+    init_test_logging();
+
+    let test_hmac_secret = "test-hmac-secret-key-for-testing-with-sufficient-length-32-chars";
+    let test_access_config = AccessConfig::default();
+
+    let figment = get_figment()
+        .merge(("shutdown.ctrlc", false))
+        .merge(("shutdown.grace", 2))
+        .merge(("shutdown.mercy", 2))
+        .merge(("shutdown.force", true))
+        .merge(("hmac_secret", test_hmac_secret))
+        .merge(("access_config", test_access_config));
+
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None).await;
+    let client = Client::tracked(rocket)
+        .await
+        .expect("valid rocket instance");
+
+    // Generate PKCE pair
+    let (_, code_challenge) = generate_pkce_pair();
+
+    let query_params = format!(
+        "response_type=code&response_mode=query&client_id=LaserSmartClient&redirect_uri=http://localhost:8080/client/&scope=openid+profile+email+read:api+write:api&state=test-state&audience=https://myname.local&code_challenge={}&code_challenge_method=S256",
+        code_challenge
+    );
+
     println!("Testing with invalid credentials...");
 
     // Make a new authorization request
@@ -298,10 +413,9 @@ async fn test_oauth2_pkce_flow() {
     // Should return unauthorized status or redirect back to login
     assert!(
         invalid_login_response.status() == Status::Unauthorized
-            || invalid_login_response.status() == Status::Ok, // Might return OK with error message
+            || invalid_login_response.status() == Status::Ok,
         "Invalid credentials should be rejected"
     );
 
-    // The complete OAuth2 PKCE flow has been successfully tested
-    println!("OAuth2 PKCE flow test with authentication completed successfully!");
+    println!("Invalid credentials test completed successfully!");
 }
