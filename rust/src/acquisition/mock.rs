@@ -50,7 +50,7 @@ impl MockSource {
     /// use rust_photoacoustic::config::PhotoacousticConfig;
     ///
     /// let config = PhotoacousticConfig::default();
-    /// let mock_source = MockSource::new(config)?;
+    /// let mock_source = MockSource::new(config);
     /// ```
     pub fn new(config: PhotoacousticConfig) -> Result<Self> {
         let generator = NoiseGenerator::new_from_system_time();

@@ -64,7 +64,7 @@ pub fn get_audio_source_from_file(config: PhotoacousticConfig) -> Result<Box<dyn
 /// use rust_photoacoustic::config::PhotoacousticConfig;
 ///
 /// let config = PhotoacousticConfig::default();
-/// let mock_source = get_mock_audio_source(config, 1024, 0.7)?;
+/// let mock_source = get_mock_audio_source(config);
 /// ```
 pub fn get_mock_audio_source(
     config: crate::config::PhotoacousticConfig,

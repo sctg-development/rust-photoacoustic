@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// # Input Sources
 ///
 /// The configuration supports two mutually exclusive input sources:
-/// * `input_device` - A hardware audio device (e.g., "hw:0,0" for ALSA)
+/// * `input_device` - A hardware audio device (e.g., "hw:0,0" for ALSA) "first" for the first available device
 /// * `input_file` - A path to a WAV file for offline analysis
 ///
 /// One of these must be specified, but not both simultaneously.
@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 /// use rust_photoacoustic::config::PhotoacousticConfig;
 ///
 /// let pa_config = PhotoacousticConfig {
-///     input_device: Some("hw:0,0".to_string()),
+///     input_device: Some("first".to_string()),
 ///     input_file: None,
 ///     frequency: 1000.0,
 ///     sample_rate: 48000,
@@ -43,6 +43,8 @@ use serde::{Deserialize, Serialize};
 ///     frame_size: 4096,
 ///     averages: 10,
 ///     precision: 16,
+///     mock_source: false,
+///     mock_correlation: 0.7,
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
