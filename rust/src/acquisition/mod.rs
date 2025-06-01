@@ -77,8 +77,8 @@ pub fn get_default_audio_source(
     config: crate::config::PhotoacousticConfig,
 ) -> Result<Box<dyn AudioSource>> {
     // In a real implementation, this would enumerate devices and pick the first one
-    info!("Using default audio device");
-    let mut config = config.clone();
-    config.input_device = Some("default".to_string()); // Set default device
+    info!("Using first audio device");
+    let mut config: PhotoacousticConfig = config.clone();
+    config.input_device = Some("first".to_string()); // Set default device
     Ok(Box::new(MicrophoneSource::new(config)?))
 }
