@@ -52,7 +52,7 @@ use std::{
 use tokio::task::JoinHandle;
 use tokio::time;
 
-use crate::acquisition::record_consumer::RecordConsumerDaemon;
+use crate::acquisition::record_consumer::RecordConsumer;
 use crate::acquisition::{
     get_audio_source_from_device, get_audio_source_from_file, get_default_audio_source,
     get_mock_audio_source, AcquisitionDaemon, SharedAudioStream,
@@ -99,7 +99,7 @@ pub struct Daemon {
     #[allow(dead_code)]
     acquisition_daemon: Option<AcquisitionDaemon>,
     /// Mock consumer daemon for testing and validation
-    record_consumer_daemon: Option<RecordConsumerDaemon>,
+    record_consumer_daemon: Option<RecordConsumer>,
 }
 
 impl Default for Daemon {
@@ -769,7 +769,7 @@ impl Daemon {
         })?;
 
         // Create mock consumer daemon
-        let record_consumer = RecordConsumerDaemon::new(
+        let record_consumer = RecordConsumer::new(
             audio_stream.clone(),
             config.photoacoustic.record_file.clone(),
         );
@@ -794,7 +794,7 @@ impl Daemon {
         });
 
         // Store a placeholder for the mock consumer daemon (already moved to task)
-        self.record_consumer_daemon = Some(RecordConsumerDaemon::new(
+        self.record_consumer_daemon = Some(RecordConsumer::new(
             audio_stream.clone(),
             "placeholder".to_string(),
         ));

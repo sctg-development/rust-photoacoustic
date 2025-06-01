@@ -20,12 +20,12 @@ use std::sync::{
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::time::timeout;
 
-/// Mock Consumer Daemon pour la validation du système producteur/consommateur
+/// Record Consumer Daemon pour la validation du système producteur/consommateur
 ///
 /// Ce daemon consomme les frames audio depuis le SharedAudioStream et les écrit
 /// dans un fichier WAV pour validation. Il produit des logs détaillés pour analyser
 /// le comportement du consommateur.
-pub struct RecordConsumerDaemon {
+pub struct RecordConsumer {
     /// Stream audio partagé à consommer
     audio_stream: Arc<SharedAudioStream>,
     /// Flag de contrôle d'exécution
@@ -46,7 +46,7 @@ pub struct RecordConsumerDaemon {
     throughput_stats: ThroughputStats,
 }
 
-/// Statistiques de débit pour le mock consumer
+/// Statistiques de débit pour le record consumer
 #[derive(Debug, Clone)]
 struct ThroughputStats {
     /// Nombre de frames dans la fenêtre actuelle
@@ -132,7 +132,7 @@ impl ThroughputStats {
     }
 }
 
-impl RecordConsumerDaemon {
+impl RecordConsumer {
     /// Créer un nouveau RecordConsumerDaemon
     ///
     /// # Arguments
@@ -405,7 +405,7 @@ impl RecordConsumerDaemon {
     }
 }
 
-impl Drop for RecordConsumerDaemon {
+impl Drop for RecordConsumer {
     fn drop(&mut self) {
         self.cleanup();
     }
@@ -425,7 +425,7 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let output_path = temp_file.path().to_string_lossy().to_string();
 
-        let consumer = RecordConsumerDaemon::new(stream, output_path);
+        let consumer = RecordConsumer::new(stream, output_path);
         assert!(!consumer.is_running());
         assert_eq!(consumer.frames_consumed(), 0);
     }
@@ -436,34 +436,44 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let output_path = temp_file.path().to_string_lossy().to_string();
 
-        let mut consumer = RecordConsumerDaemon::new(stream.clone(), output_path);
+        let mut consumer = RecordConsumer::new(stream.clone(), output_path);
 
-        // Publier quelques frames de test
+        // Créer les frames de test
         let frame1 = AudioFrame::new(vec![0.1, 0.2, 0.3], vec![0.4, 0.5, 0.6], 48000, 1);
         let frame2 = AudioFrame::new(vec![0.7, 0.8, 0.9], vec![1.0, 1.1, 1.2], 48000, 2);
 
-        // Publier les frames
-        stream.publish(frame1).await.unwrap();
-        stream.publish(frame2).await.unwrap();
-
-        // Démarrer le consumer dans un task séparé
+        // Références pour contrôler le consumer
         let running = consumer.running.clone();
         let frames_consumed = consumer.frames_consumed.clone();
 
+        // Démarrer le consumer dans un task séparé
         let consumer_task = tokio::spawn(async move {
             consumer.start().await.unwrap();
         });
 
-        // Attendre un peu pour que le consumer traite les frames
-        sleep(Duration::from_millis(100)).await;
+        // Attendre un peu pour que le consumer soit prêt à recevoir
+        sleep(Duration::from_millis(50)).await;
+
+        // Maintenant publier les frames après que le consumer soit en écoute
+        stream.publish(frame1).await.unwrap();
+        stream.publish(frame2).await.unwrap();
+
+        // Attendre que le consumer traite les frames
+        sleep(Duration::from_millis(200)).await;
 
         // Arrêter le consumer
         running.store(false, Ordering::Relaxed);
 
         // Attendre que le task se termine
-        let _ = tokio::time::timeout(Duration::from_secs(1), consumer_task).await;
+        let _ = tokio::time::timeout(Duration::from_secs(2), consumer_task).await;
 
         // Vérifier que des frames ont été consommées
-        assert!(frames_consumed.load(Ordering::Relaxed) > 0);
+        let consumed = frames_consumed.load(Ordering::Relaxed);
+        println!("Frames consumed: {}", consumed);
+        assert!(
+            consumed > 0,
+            "Expected frames to be consumed, but got {}",
+            consumed
+        );
     }
 }

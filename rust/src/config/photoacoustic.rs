@@ -45,6 +45,8 @@ use serde::{Deserialize, Serialize};
 ///     precision: 16,
 ///     mock_source: false,
 ///     mock_correlation: 0.7,
+///     record_consumer: false,
+///     record_file: "recorded_audio.wav".to_string(),
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
