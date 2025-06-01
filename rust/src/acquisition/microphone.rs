@@ -6,19 +6,23 @@
 //!
 //! This module handles the acquisition of audio data from microphones using CPAL
 
+use crate::acquisition::{AudioFrame, RealTimeAudioSource, SharedAudioStream};
 use crate::config::PhotoacousticConfig;
 
 use super::AudioSource;
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, Stream, StreamConfig,
 };
 use log::{debug, error, info, warn};
 use std::sync::{
+    atomic::{AtomicBool, Ordering},
     mpsc::{self, Receiver, Sender},
     Arc, Mutex,
 };
+use std::time::Duration;
 
 /// Error types for microphone source
 #[derive(thiserror::Error, Debug)]
@@ -41,11 +45,94 @@ pub struct MicrophoneSource {
     config: StreamConfig,
     sample_rate: u32,
     frame_size: usize,
-    receiver: Receiver<(Vec<f32>, Vec<f32>)>,
+    receiver: Arc<Mutex<Receiver<(Vec<f32>, Vec<f32>)>>>,
     // Internal buffer for smoother streaming
     internal_buffer_a: Vec<f32>,
     internal_buffer_b: Vec<f32>,
     target_chunk_size: usize,
+    // Real-time streaming support
+    streaming: Arc<AtomicBool>,
+    stream_handle: Option<tokio::task::JoinHandle<()>>,
+}
+
+#[async_trait]
+impl RealTimeAudioSource for MicrophoneSource {
+    async fn start_streaming(&mut self, stream: Arc<SharedAudioStream>) -> Result<()> {
+        if self.streaming.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        self.streaming.store(true, Ordering::Relaxed);
+        let receiver = self.receiver.clone();
+        let frame_size = self.frame_size;
+        let sample_rate = self.sample_rate;
+        let streaming = self.streaming.clone();
+
+        let handle = tokio::spawn(async move {
+            let mut frame_number = 0u64;
+            let mut internal_buffer_a = Vec::new();
+            let mut internal_buffer_b = Vec::new();
+
+            while streaming.load(Ordering::Relaxed) {
+                // Wait for audio chunks from the CPAL stream
+                let chunk_result = {
+                    let receiver = receiver.lock().unwrap();
+                    receiver.recv_timeout(Duration::from_millis(100))
+                };
+
+                match chunk_result {
+                    Ok((chunk_a, chunk_b)) => {
+                        internal_buffer_a.extend_from_slice(&chunk_a);
+                        internal_buffer_b.extend_from_slice(&chunk_b);
+
+                        // When we have enough data for a complete frame, publish it
+                        while internal_buffer_a.len() >= frame_size {
+                            let frame_a: Vec<f32> = internal_buffer_a.drain(..frame_size).collect();
+                            let frame_b: Vec<f32> = internal_buffer_b.drain(..frame_size).collect();
+
+                            frame_number += 1;
+                            let audio_frame =
+                                AudioFrame::new(frame_a, frame_b, sample_rate, frame_number);
+
+                            if let Err(e) = stream.publish(audio_frame).await {
+                                error!("Failed to publish microphone frame: {}", e);
+                                break;
+                            }
+                        }
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        // No data available, continue waiting
+                        continue;
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                        warn!("Microphone audio stream disconnected");
+                        break;
+                    }
+                }
+            }
+        });
+
+        self.stream_handle = Some(handle);
+        Ok(())
+    }
+
+    async fn stop_streaming(&mut self) -> Result<()> {
+        self.streaming.store(false, Ordering::Relaxed);
+
+        if let Some(handle) = self.stream_handle.take() {
+            handle.abort();
+        }
+
+        Ok(())
+    }
+
+    fn is_streaming(&self) -> bool {
+        self.streaming.load(Ordering::Relaxed)
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
 }
 
 impl MicrophoneSource {
@@ -143,10 +230,12 @@ impl MicrophoneSource {
             config: stream_config,
             sample_rate,
             frame_size,
-            receiver,
+            receiver: Arc::new(Mutex::new(receiver)),
             internal_buffer_a: Vec::new(),
             internal_buffer_b: Vec::new(),
             target_chunk_size,
+            streaming: Arc::new(AtomicBool::new(false)),
+            stream_handle: None,
         })
     }
 
@@ -365,7 +454,10 @@ impl AudioSource for MicrophoneSource {
         // Keep collecting chunks until we have enough for smooth streaming
         while self.internal_buffer_a.len() < target_buffer_size {
             // Wait for a chunk from the audio thread
-            let (chunk_a, chunk_b) = self.receiver.recv().context("Audio stream has stopped")?;
+            let (chunk_a, chunk_b) = {
+                let receiver = self.receiver.lock().unwrap();
+                receiver.recv().context("Audio stream has stopped")?
+            };
 
             // Add to internal buffers
             self.internal_buffer_a.extend_from_slice(&chunk_a);
@@ -375,19 +467,6 @@ impl AudioSource for MicrophoneSource {
         // Extract a full frame from the internal buffers
         let frame_a: Vec<f32> = self.internal_buffer_a.drain(..self.frame_size).collect();
         let frame_b: Vec<f32> = self.internal_buffer_b.drain(..self.frame_size).collect();
-
-        // Debug logging every 100 calls to avoid spam
-        // static mut CALL_COUNT: u32 = 0;
-        // unsafe {
-        //     CALL_COUNT += 1;
-        //     if CALL_COUNT % 100 == 0 {
-        //         debug!(
-        //             "Microphone frame: {} samples per channel, buffer remaining: {}",
-        //             frame_a.len(),
-        //             self.internal_buffer_a.len()
-        //         );
-        //     }
-        // }
 
         Ok((frame_a, frame_b))
     }

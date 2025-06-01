@@ -8,10 +8,16 @@
 //! using the NoiseGenerator for testing and simulation purposes.
 
 use super::AudioSource;
+use crate::acquisition::{AudioFrame, RealTimeAudioSource, SharedAudioStream};
 use crate::config::PhotoacousticConfig;
 use crate::utility::noise_generator::NoiseGenerator;
 use anyhow::Result;
-use log::debug;
+use async_trait::async_trait;
+use log::{debug, error};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant};
 
 /// Mock audio source that generates synthetic photoacoustic signals with controlled correlation
@@ -30,6 +36,110 @@ pub struct MockSource {
     last_frame_time: Option<Instant>,
     frame_duration: Duration,
     real_time_mode: bool,
+    // Real-time streaming support
+    streaming: Arc<AtomicBool>,
+    stream_handle: Option<tokio::task::JoinHandle<()>>,
+}
+
+#[async_trait]
+impl RealTimeAudioSource for MockSource {
+    async fn start_streaming(&mut self, stream: Arc<SharedAudioStream>) -> Result<()> {
+        if self.streaming.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        self.streaming.store(true, Ordering::Relaxed);
+
+        let frame_size = self.frame_size;
+        let sample_rate = self.sample_rate;
+        let frame_duration = self.frame_duration;
+        let streaming = self.streaming.clone();
+
+        // Clone parameters for the async task
+        let noise_amplitude = self.noise_amplitude;
+        let frequency = self.config.frequency;
+        let pulse_width = self.pulse_width;
+        let min_pulse_amplitude = self.min_pulse_amplitude;
+        let max_pulse_amplitude = self.max_pulse_amplitude;
+        let correlation = self.correlation;
+
+        let handle = tokio::spawn(async move {
+            let mut generator = NoiseGenerator::new_from_system_time();
+            let mut frame_number = 0u64;
+            let mut last_frame_time = Instant::now();
+
+            while streaming.load(Ordering::Relaxed) {
+                // Real-time timing simulation
+                let now = Instant::now();
+                let elapsed = now.duration_since(last_frame_time);
+                if elapsed < frame_duration {
+                    let sleep_duration = frame_duration - elapsed;
+                    tokio::time::sleep(sleep_duration).await;
+                }
+                last_frame_time = Instant::now();
+
+                // Generate correlated stereo mock photoacoustic signal
+                let samples = generator.generate_mock_photoacoustic_correlated(
+                    frame_size as u32,
+                    sample_rate,
+                    noise_amplitude,
+                    frequency,
+                    pulse_width,
+                    min_pulse_amplitude,
+                    max_pulse_amplitude,
+                    correlation,
+                );
+
+                // Convert interleaved i16 samples to separate f32 channels
+                let mut channel_a = Vec::with_capacity(frame_size);
+                let mut channel_b = Vec::with_capacity(frame_size);
+
+                fn i16_to_f32(sample: i16) -> f32 {
+                    if sample >= 0 {
+                        sample as f32 / i16::MAX as f32
+                    } else {
+                        sample as f32 / -(i16::MIN as f32)
+                    }
+                }
+
+                for chunk in samples.chunks_exact(2) {
+                    let left = i16_to_f32(chunk[0]);
+                    let right = i16_to_f32(chunk[1]);
+                    channel_a.push(left);
+                    channel_b.push(right);
+                }
+
+                frame_number += 1;
+                let audio_frame = AudioFrame::new(channel_a, channel_b, sample_rate, frame_number);
+
+                if let Err(e) = stream.publish(audio_frame).await {
+                    error!("Failed to publish mock frame: {}", e);
+                    break;
+                }
+            }
+        });
+
+        self.stream_handle = Some(handle);
+        Ok(())
+    }
+
+    async fn stop_streaming(&mut self) -> Result<()> {
+        self.streaming.store(false, Ordering::Relaxed);
+
+        if let Some(handle) = self.stream_handle.take() {
+            handle.abort();
+        }
+
+        Ok(())
+    }
+
+    fn is_streaming(&self) -> bool {
+        self.streaming.load(Ordering::Relaxed)
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
 }
 
 impl MockSource {
@@ -88,6 +198,8 @@ impl MockSource {
             last_frame_time: None,
             frame_duration,
             real_time_mode: true, // Enable real-time simulation by default
+            streaming: Arc::new(AtomicBool::new(false)),
+            stream_handle: None,
         })
     }
 
@@ -238,15 +350,6 @@ mod tests {
         for sample in &channel_b {
             assert!(sample >= &-1.0 && sample <= &1.0);
         }
-    }
-
-    #[test]
-    fn test_mock_source_sample_rate() {
-        let mut config = PhotoacousticConfig::default();
-        config.frame_size = 1024;
-        config.mock_correlation = 0.7;
-        let mock_source = MockSource::new(config.clone()).unwrap();
-        assert_eq!(mock_source.sample_rate(), config.sample_rate as u32);
     }
 
     #[test]

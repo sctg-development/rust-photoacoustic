@@ -54,8 +54,9 @@ use tokio::time;
 
 use crate::acquisition::record_consumer::RecordConsumer;
 use crate::acquisition::{
-    get_audio_source_from_device, get_audio_source_from_file, get_default_audio_source,
-    get_mock_audio_source, AcquisitionDaemon, SharedAudioStream,
+    get_default_realtime_audio_source, get_realtime_audio_source_from_device,
+    get_realtime_audio_source_from_file, get_realtime_mock_audio_source, RealTimeAcquisitionDaemon,
+    SharedAudioStream,
 };
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
@@ -95,9 +96,9 @@ pub struct Daemon {
     modbus_server: Option<Arc<PhotoacousticModbusServer>>,
     /// Shared audio stream for real-time streaming to web clients
     audio_stream: Option<Arc<SharedAudioStream>>,
-    /// Acquisition daemon for audio processing
+    /// Real-time acquisition daemon for audio processing
     #[allow(dead_code)]
-    acquisition_daemon: Option<AcquisitionDaemon>,
+    realtime_acquisition_daemon: Option<RealTimeAcquisitionDaemon>,
     /// record consumer daemon for testing and validation
     record_consumer_daemon: Option<RecordConsumer>,
 }
@@ -133,7 +134,7 @@ impl Daemon {
             data_source: Arc::new(PhotoacousticDataSource::new()),
             modbus_server: None,
             audio_stream: None,
-            acquisition_daemon: None,
+            realtime_acquisition_daemon: None,
             record_consumer_daemon: None,
         }
     }
@@ -529,43 +530,35 @@ impl Daemon {
         Ok(())
     }
 
-    /// Start the audio acquisition daemon
+    /// Start the real-time audio acquisition daemon
     ///
-    /// Initializes and starts a background task for audio acquisition from the configured
-    /// source (microphone or file). The acquired audio data is streamed to the shared
-    /// audio stream for real-time consumption by web clients via SSE endpoints.
+    /// Initializes and starts a background task for real-time audio acquisition from the
+    /// configured source (microphone, file, or mock). The acquired audio data is streamed
+    /// directly to the shared audio stream for real-time consumption by web clients via SSE endpoints.
+    ///
+    /// This new implementation uses the RealTimeAudioSource trait which provides native
+    /// streaming capabilities, eliminating the batching issues present in the previous
+    /// AudioSource-based implementation.
     ///
     /// # Audio Source Priority
     ///
     /// The function selects the audio source based on configuration priority:
-    /// 1. **File source** - If `config.photoacoustic.input_file` is specified
-    /// 2. **Device source** - If `config.photoacoustic.input_device` is specified  
-    /// 3. **Default source** - Uses the system's default audio input device
+    /// 1. **Mock source** - If `config.photoacoustic.mock_source` is enabled
+    /// 2. **File source** - If `config.photoacoustic.input_file` is specified
+    /// 3. **Device source** - If `config.photoacoustic.input_device` is specified  
+    /// 4. **Default source** - Uses the system's default audio input device
     ///
-    /// # Performance Calculations
+    /// # Real-Time Architecture
     ///
-    /// The function calculates optimal performance parameters:
-    /// - **Buffer size**: Uses `config.photoacoustic.frame_size` for stream buffering
-    /// - **Target FPS**: Computed as `sample_rate / samples_per_window`
-    /// - **Samples per window**: `frame_size / (channels * bytes_per_sample)`
-    ///
-    /// # Architecture
-    ///
-    /// This function creates and orchestrates several key components:
-    /// - **AudioSource**: Handles low-level audio input (file/device/default)
+    /// This function creates and orchestrates the new real-time components:
+    /// - **RealTimeAudioSource**: Handles low-level audio input with native streaming
     /// - **SharedAudioStream**: Thread-safe streaming buffer for real-time data sharing
-    /// - **AcquisitionDaemon**: Core acquisition loop with precise timing control
+    /// - **RealTimeAcquisitionDaemon**: Core acquisition manager with direct streaming
     /// - **Background Task**: Async task for non-blocking operation
     ///
     /// # Parameters
     ///
-    /// * `config` - Application configuration containing acquisition settings:
-    ///   - `config.acquisition.enabled` - Global acquisition enable/disable flag
-    ///   - `config.photoacoustic.input_file` - Optional path to audio file source
-    ///   - `config.photoacoustic.input_device` - Optional name of audio input device
-    ///   - `config.photoacoustic.frame_size` - Audio processing window size (samples)
-    ///   - `config.photoacoustic.sample_rate` - Audio sample rate (Hz)
-    ///   - `config.photoacoustic.precision` - Audio bit depth (8, 16, 24, 32)
+    /// * `config` - Application configuration containing acquisition settings
     ///
     /// # Returns
     ///
@@ -574,142 +567,96 @@ impl Daemon {
     /// # Errors
     ///
     /// This function can fail if:
-    /// * **Audio source initialization fails**:
-    ///   - File not found or unreadable (for file sources)
-    ///   - Audio device unavailable or access denied (for device sources)
-    ///   - No default audio device available (for default source)
-    /// * **Configuration validation fails**:
-    ///   - Invalid window size (must be > 0)
-    ///   - Invalid sample rate or precision values
-    /// * **Task spawning fails** due to runtime limitations
-    ///
-    /// # State Management
-    ///
-    /// The function updates the daemon's internal state:
-    /// - Stores `SharedAudioStream` reference in `self.audio_stream`
-    /// - Stores `AcquisitionDaemon` instance in `self.acquisition_daemon`
-    /// - Adds the background task to `self.tasks` for lifecycle management
-    ///
-    /// # Concurrency
-    ///
-    /// The acquisition runs in a separate async task to avoid blocking the main thread.
-    /// The task respects the shared `running` flag for graceful shutdown coordination.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run,ignore
-    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
-    /// use rust_photoacoustic::config::Config;
-    ///
-    /// # async fn example() -> anyhow::Result<()> {
-    /// let mut daemon = Daemon::new();
-    /// let config = Config::load("config.yaml")?;
-    ///
-    /// // Start audio acquisition
-    /// daemon.start_audio_acquisition(&config).await?;
-    ///
-    /// // Audio stream is now available for web endpoints
-    /// if let Some(stream) = daemon.get_audio_stream() {
-    ///     println!("Audio streaming active");
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// * **Audio source initialization fails**
+    /// * **Real-time daemon creation fails**
+    /// * **Task spawning fails**
     async fn start_audio_acquisition(&mut self, config: &Config) -> Result<()> {
         // Early return if acquisition is disabled in configuration
-        // This allows for graceful degradation when audio features are not needed
         if !config.acquisition.enabled {
             info!("Audio acquisition is disabled in configuration");
             return Ok(());
         }
 
-        info!("Starting audio acquisition system");
+        info!("Starting real-time audio acquisition system");
 
-        // === PHASE 1: Audio Source Selection ===
-        // Select and initialize the appropriate audio source based on configuration priority.
-        // The selection follows a clear hierarchy: file > device > default
+        // === PHASE 1: Real-Time Audio Source Selection ===
+        // Select and initialize the appropriate real-time audio source based on configuration
         let audio_source = if config.photoacoustic.mock_source {
             // Mock audio source for testing and simulation
-            // Generates synthetic photoacoustic signals with controlled correlation
             info!(
-                "Using mock audio source with correlation: {}",
+                "Using real-time mock audio source with correlation: {}",
                 config.photoacoustic.mock_correlation
             );
-            get_mock_audio_source(config.photoacoustic.clone())?
+            get_realtime_mock_audio_source(config.photoacoustic.clone())?
         } else if let Some(ref file_path) = config.photoacoustic.input_file {
-            // File-based audio source for testing and playback scenarios
-            // Useful for reproducible testing and offline processing
-            info!("Using file audio source: {}", file_path);
-            get_audio_source_from_file(config.photoacoustic.clone())?
+            // File-based real-time audio source for testing and playback scenarios
+            info!("Using real-time file audio source: {}", file_path);
+            get_realtime_audio_source_from_file(config.photoacoustic.clone())?
         } else if let Some(ref device_name) = config.photoacoustic.input_device {
             // Named device source for specific hardware targeting
-            // Allows selection of particular microphones or audio interfaces
-            info!("Using device audio source: {}", device_name);
-            get_audio_source_from_device(config.photoacoustic.clone())?
+            info!("Using real-time device audio source: {}", device_name);
+            get_realtime_audio_source_from_device(config.photoacoustic.clone())?
         } else {
             // Default system audio input as fallback
-            // Uses the system's preferred audio input device
-            info!("Using default audio source");
-            get_default_audio_source(config.photoacoustic.clone())?
+            info!("Using default real-time audio source");
+            get_default_realtime_audio_source(config.photoacoustic.clone())?
         };
 
-        // === PHASE 2: Performance Parameter Calculation ===
-        // Calculate optimal acquisition parameters based on audio configuration.
-        // These calculations are essential for maintaining real-time performance.
-
-        // Calculate samples per processing window
-        // Formula: frame_size / (channels * bytes_per_sample)
-        // Assumptions: 2 channels (stereo), precision determines bytes per sample
-        let sample_per_window = config.photoacoustic.frame_size
-            / (2u16 * (config.photoacoustic.precision as u16) / 8u16);
-
-        // Calculate target frames per second for acquisition timing
-        // This ensures the acquisition rate matches the audio source characteristics
-        // Formula: sample_rate / samples_per_window
-        // Example: 44100 Hz / 1024 samples = ~43 FPS for real-time streaming
-        let target_fps = (config.photoacoustic.sample_rate as f64) / (sample_per_window as f64);
-
-        // Buffer size for the acquisition daemon's internal stream
+        // === PHASE 2: Real-Time Acquisition Daemon Creation ===
+        // Create the real-time acquisition daemon with the selected source
         let buffer_size: usize = config.photoacoustic.frame_size.into();
+        let mut realtime_daemon = RealTimeAcquisitionDaemon::new(audio_source, buffer_size);
 
-        // === PHASE 3: Acquisition Daemon Creation ===
-        // Create the core acquisition daemon with calculated parameters.
-        // The daemon will create its own SharedAudioStream internally.
-        let mut acquisition_daemon = AcquisitionDaemon::new(audio_source, target_fps, buffer_size);
-
-        // === PHASE 4: Stream Connection ===
+        // === PHASE 3: Stream Connection ===
         // Get a reference to the daemon's internal stream for web server use
-        // This ensures the web server receives the actual audio data from the acquisition daemon
-        let audio_stream = Arc::new(acquisition_daemon.get_stream().clone());
+        let audio_stream = realtime_daemon.get_shared_stream();
 
-        // === PHASE 5: State Management ===
+        // === PHASE 4: State Management ===
         // Store the acquisition daemon's stream for access by web server components
         self.audio_stream = Some(audio_stream.clone());
 
-        // === PHASE 6: Background Task Spawning ===
-        // Start the acquisition daemon in a dedicated async task to avoid blocking
-        // the main daemon loop. This ensures responsive system behavior.
-        let _running = self.running.clone();
+        // === PHASE 5: Background Task Spawning ===
+        // Start the real-time acquisition daemon in a dedicated async task
+        let running = self.running.clone();
         let task = tokio::spawn(async move {
-            info!("Audio acquisition task started");
+            info!("Real-time audio acquisition task started");
 
-            // Start the acquisition daemon properly
-            match acquisition_daemon.start().await {
+            // Start the real-time acquisition daemon
+            match realtime_daemon.start().await {
                 Ok(_) => {
-                    info!("Audio acquisition daemon completed successfully");
+                    info!("Real-time audio acquisition daemon started successfully");
                 }
                 Err(e) => {
-                    error!("Audio acquisition daemon failed: {}", e);
+                    error!("Failed to start real-time audio acquisition daemon: {}", e);
+                    return Ok(());
                 }
             }
 
-            info!("Audio acquisition task stopped");
+            // Keep the daemon running until shutdown is signaled
+            while running.load(Ordering::Relaxed) {
+                // Check daemon status
+                if !realtime_daemon.is_running() {
+                    warn!("Real-time acquisition daemon stopped unexpectedly");
+                    break;
+                }
+
+                // Wait a bit before checking again
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+            }
+
+            // Graceful shutdown
+            info!("Stopping real-time audio acquisition daemon");
+            if let Err(e) = realtime_daemon.stop().await {
+                error!("Error stopping real-time acquisition daemon: {}", e);
+            }
+
+            info!("Real-time audio acquisition task stopped");
             Ok(())
         });
 
         // Register the task for lifecycle management and graceful shutdown
         self.tasks.push(task);
-        info!("Audio acquisition daemon started successfully");
+        info!("Real-time audio acquisition system started successfully");
         Ok(())
     }
 

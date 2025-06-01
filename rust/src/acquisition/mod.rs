@@ -8,19 +8,22 @@
 //! or from WAV files, with support for real-time streaming.
 
 use anyhow::Result;
+use async_trait::async_trait;
 use log::info;
-use std::path::Path;
+use std::sync::Arc;
 
 pub mod daemon;
 mod file;
 mod microphone;
 mod mock;
+pub mod realtime_daemon;
 pub mod stream;
 
 pub use daemon::AcquisitionDaemon;
 use file::FileSource;
 pub use microphone::MicrophoneSource;
 pub use mock::MockSource;
+pub use realtime_daemon::RealTimeAcquisitionDaemon;
 pub use stream::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 
 use crate::config::PhotoacousticConfig;
@@ -30,6 +33,22 @@ pub trait AudioSource: Send {
     /// Read the next frame of audio data from both channels
     /// Returns a tuple containing (channel_A, channel_B) data as `Vec<f32>`
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)>;
+
+    /// Get the sample rate of this audio source
+    fn sample_rate(&self) -> u32;
+}
+
+/// Trait for real-time audio sources that can stream directly to SharedAudioStream
+#[async_trait]
+pub trait RealTimeAudioSource: Send + Sync {
+    /// Start streaming audio frames to the shared stream
+    async fn start_streaming(&mut self, stream: Arc<SharedAudioStream>) -> Result<()>;
+
+    /// Stop the streaming
+    async fn stop_streaming(&mut self) -> Result<()>;
+
+    /// Check if currently streaming
+    fn is_streaming(&self) -> bool;
 
     /// Get the sample rate of this audio source
     fn sample_rate(&self) -> u32;
@@ -80,6 +99,36 @@ pub fn get_default_audio_source(
     info!("Using first audio device");
     let mut config: PhotoacousticConfig = config.clone();
     config.input_device = Some("first".to_string()); // Set default device
+    Ok(Box::new(MicrophoneSource::new(config)?))
+}
+
+/// Get a real-time audio source from the specified device
+pub fn get_realtime_audio_source_from_device(
+    config: PhotoacousticConfig,
+) -> Result<Box<dyn RealTimeAudioSource>> {
+    Ok(Box::new(MicrophoneSource::new(config)?))
+}
+
+/// Get a real-time audio source from the specified WAV file
+pub fn get_realtime_audio_source_from_file(
+    config: PhotoacousticConfig,
+) -> Result<Box<dyn RealTimeAudioSource>> {
+    Ok(Box::new(FileSource::new(config)?))
+}
+
+/// Get a real-time mock audio source that generates synthetic photoacoustic signals
+pub fn get_realtime_mock_audio_source(
+    config: PhotoacousticConfig,
+) -> Result<Box<dyn RealTimeAudioSource>> {
+    Ok(Box::new(MockSource::new(config)?))
+}
+
+/// Get the default real-time audio source (first available device)
+pub fn get_default_realtime_audio_source(
+    config: PhotoacousticConfig,
+) -> Result<Box<dyn RealTimeAudioSource>> {
+    let mut config: PhotoacousticConfig = config.clone();
+    config.input_device = Some("first".to_string());
     Ok(Box::new(MicrophoneSource::new(config)?))
 }
 

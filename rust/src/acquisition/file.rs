@@ -6,15 +6,20 @@
 //!
 //! This module handles the acquisition of audio data from files.
 
-use crate::acquisition::file;
+use crate::acquisition::{AudioFrame, RealTimeAudioSource, SharedAudioStream};
 
 use super::AudioSource;
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use hound::{WavReader, WavSpec};
-use log::{debug, info};
+use log::{debug, error, info};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant};
 
 /// Audio source that reads from a WAV file using hound
@@ -27,6 +32,105 @@ pub struct FileSource {
     last_frame_time: Option<Instant>,
     frame_duration: Duration,
     real_time_mode: bool,
+    // Real-time streaming support
+    streaming: Arc<AtomicBool>,
+    stream_handle: Option<tokio::task::JoinHandle<()>>,
+    input_file: String,
+}
+
+#[async_trait]
+impl RealTimeAudioSource for FileSource {
+    async fn start_streaming(&mut self, stream: Arc<SharedAudioStream>) -> Result<()> {
+        if self.streaming.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        self.streaming.store(true, Ordering::Relaxed);
+
+        let frame_size = self.frame_size;
+        let frame_duration = self.frame_duration;
+        let streaming = self.streaming.clone();
+        let input_file = self.input_file.clone();
+
+        let handle = tokio::spawn(async move {
+            // Reopen the file in the async context
+            let file = match File::open(&input_file) {
+                Ok(f) => f,
+                Err(e) => {
+                    error!("Failed to reopen WAV file: {}", e);
+                    return;
+                }
+            };
+
+            let buf_reader = BufReader::new(file);
+            let mut reader = match WavReader::new(buf_reader) {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Failed to create WAV reader: {}", e);
+                    return;
+                }
+            };
+
+            let spec = reader.spec();
+            let mut frame_number = 0u64;
+            let mut last_frame_time = Instant::now();
+
+            while streaming.load(Ordering::Relaxed) {
+                // Real-time timing simulation
+                let now = Instant::now();
+                let elapsed = now.duration_since(last_frame_time);
+                if elapsed < frame_duration {
+                    let sleep_duration = frame_duration - elapsed;
+                    tokio::time::sleep(sleep_duration).await;
+                }
+                last_frame_time = Instant::now();
+
+                // Read frame from file
+                let (channel_a, channel_b) =
+                    match Self::read_frame_from_reader(&mut reader, &spec, frame_size) {
+                        Ok((a, b)) if !a.is_empty() => (a, b),
+                        Ok(_) => {
+                            info!("Reached end of WAV file, stopping stream");
+                            break;
+                        }
+                        Err(e) => {
+                            error!("Error reading WAV frame: {}", e);
+                            break;
+                        }
+                    };
+
+                frame_number += 1;
+                let audio_frame =
+                    AudioFrame::new(channel_a, channel_b, spec.sample_rate, frame_number);
+
+                if let Err(e) = stream.publish(audio_frame).await {
+                    error!("Failed to publish file frame: {}", e);
+                    break;
+                }
+            }
+        });
+
+        self.stream_handle = Some(handle);
+        Ok(())
+    }
+
+    async fn stop_streaming(&mut self) -> Result<()> {
+        self.streaming.store(false, Ordering::Relaxed);
+
+        if let Some(handle) = self.stream_handle.take() {
+            handle.abort();
+        }
+
+        Ok(())
+    }
+
+    fn is_streaming(&self) -> bool {
+        self.streaming.load(Ordering::Relaxed)
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.spec.sample_rate
+    }
 }
 
 impl FileSource {
@@ -36,9 +140,8 @@ impl FileSource {
         if config.input_file.is_none() {
             return Err(anyhow!("Input file is not set in configuration"));
         }
-        let config = config.clone();
-        let input_file = config.input_file.as_ref().unwrap();
-        let file_path = Path::new(input_file);
+        let input_file = config.input_file.as_ref().unwrap().clone();
+        let file_path = Path::new(&input_file);
         if !file_path.exists() {
             return Err(anyhow!("WAV file does not exist: {}", file_path.display()));
         }
@@ -80,7 +183,10 @@ impl FileSource {
             samples_read: 0,
             last_frame_time: None,
             frame_duration,
-            real_time_mode: true, // Enable real-time simulation by default
+            real_time_mode: true,
+            streaming: Arc::new(AtomicBool::new(false)),
+            stream_handle: None,
+            input_file,
         })
     }
 
@@ -90,6 +196,59 @@ impl FileSource {
         if !enabled {
             self.last_frame_time = None;
         }
+    }
+
+    // Helper method to read frame from reader (moved from read_frame)
+    fn read_frame_from_reader(
+        reader: &mut WavReader<BufReader<File>>,
+        spec: &WavSpec,
+        frame_size: usize,
+    ) -> Result<(Vec<f32>, Vec<f32>)> {
+        let mut channel_a = Vec::with_capacity(frame_size);
+        let mut channel_b = Vec::with_capacity(frame_size);
+
+        match spec.sample_format {
+            hound::SampleFormat::Int => {
+                let samples: Result<Vec<i16>, _> =
+                    reader.samples::<i16>().take(frame_size * 2).collect();
+
+                match samples {
+                    Ok(sample_vec) => {
+                        if sample_vec.is_empty() {
+                            return Ok((Vec::new(), Vec::new()));
+                        }
+
+                        for chunk in sample_vec.chunks_exact(2) {
+                            let left = chunk[0] as f32 / i16::MAX as f32;
+                            let right = chunk[1] as f32 / i16::MAX as f32;
+                            channel_a.push(left);
+                            channel_b.push(right);
+                        }
+                    }
+                    Err(_) => return Ok((Vec::new(), Vec::new())),
+                }
+            }
+            hound::SampleFormat::Float => {
+                let samples: Result<Vec<f32>, _> =
+                    reader.samples::<f32>().take(frame_size * 2).collect();
+
+                match samples {
+                    Ok(sample_vec) => {
+                        if sample_vec.is_empty() {
+                            return Ok((Vec::new(), Vec::new()));
+                        }
+
+                        for chunk in sample_vec.chunks_exact(2) {
+                            channel_a.push(chunk[0]);
+                            channel_b.push(chunk[1]);
+                        }
+                    }
+                    Err(_) => return Ok((Vec::new(), Vec::new())),
+                }
+            }
+        }
+
+        Ok((channel_a, channel_b))
     }
 }
 

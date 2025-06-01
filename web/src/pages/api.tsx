@@ -32,7 +32,7 @@ export default function ApiPage() {
     null as GenerixConfig | null,
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
-  const [useFastStream, setUseFastStream] = useState(false);
+  const [useFastStream, setUseFastStream] = useState(true);
 
   // Audio analyzer states
   const [audioAnalyzer, setAudioAnalyzer] = useState<any>(null);
@@ -416,15 +416,15 @@ export default function ApiPage() {
                 <div className="mt-2">
                   <div className="flex justify-between text-sm mb-1">
                     <span>{t("fps-performance")}</span>
-                    <span>{fps.toFixed(1)}/60</span>
+                    <span>{fps.toFixed(1)}/8</span>
                   </div>
                   <Progress
                     aria-label={t("fps-performance-progress")}
                     color={
-                      fps > 30 ? "success" : fps > 15 ? "warning" : "danger"
+                      fps > 4.9 ? "success" : fps > 4 ? "warning" : "danger"
                     }
                     size="sm"
-                    value={Math.min((fps / 60) * 100, 100)}
+                    value={Math.min((fps / 8) * 100, 100)}
                   />
                 </div>
               </div>
