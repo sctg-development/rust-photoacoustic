@@ -1,6 +1,6 @@
 //! Record Consumer Daemon Module
 //!
-//! This module provides a mock consumer daemon to validate the real-time audio
+//! This module provides a record consumer daemon to validate the real-time audio
 //! producer/consumer system. It consumes audio frames from the SharedAudioStream
 //! and saves them to a WAV file with the same precision and sample rate as the producer.
 //!
