@@ -55,7 +55,7 @@ impl MockSource {
     pub fn new(config: PhotoacousticConfig) -> Result<Self> {
         let generator = NoiseGenerator::new_from_system_time();
         let sample_rate = config.sample_rate as u32;
-        let frame_size = config.window_size as usize;
+        let frame_size = config.frame_size as usize;
 
         let correlation = config.mock_correlation.clamp(0.0, 1.0); // Ensure correlation is within valid range
 
@@ -180,9 +180,17 @@ impl AudioSource for MockSource {
         let mut channel_a = Vec::with_capacity(self.frame_size);
         let mut channel_b = Vec::with_capacity(self.frame_size);
 
+        fn i16_to_f32(sample: i16) -> f32 {
+            if sample >= 0 {
+                sample as f32 / i16::MAX as f32
+            } else {
+                sample as f32 / -(i16::MIN as f32)
+            }
+        }
+
         for chunk in samples.chunks_exact(2) {
-            let left = chunk[0] as f32 / i16::MAX as f32;
-            let right = chunk[1] as f32 / i16::MAX as f32;
+            let left = i16_to_f32(chunk[0]);
+            let right = i16_to_f32(chunk[1]);
             channel_a.push(left);
             channel_b.push(right);
         }
@@ -203,7 +211,7 @@ mod tests {
     #[test]
     fn test_mock_source_creation() {
         let mut config = PhotoacousticConfig::default();
-        config.window_size = 1024;
+        config.frame_size = 1024;
         config.mock_correlation = 0.7;
         let mock_source = MockSource::new(config);
         assert!(mock_source.is_ok());
@@ -212,7 +220,7 @@ mod tests {
     #[test]
     fn test_mock_source_read_frame() {
         let mut config = PhotoacousticConfig::default();
-        config.window_size = 512;
+        config.frame_size = 512;
         config.mock_correlation = 0.5;
         let mut mock_source = MockSource::new(config).unwrap();
 
@@ -235,7 +243,7 @@ mod tests {
     #[test]
     fn test_mock_source_sample_rate() {
         let mut config = PhotoacousticConfig::default();
-        config.window_size = 1024;
+        config.frame_size = 1024;
         config.mock_correlation = 0.7;
         let mock_source = MockSource::new(config.clone()).unwrap();
         assert_eq!(mock_source.sample_rate(), config.sample_rate as u32);
@@ -244,7 +252,7 @@ mod tests {
     #[test]
     fn test_mock_source_parameter_updates() {
         let mut config = PhotoacousticConfig::default();
-        config.window_size = 1024;
+        config.frame_size = 1024;
         config.mock_correlation = 0.7;
         let mut mock_source = MockSource::new(config).unwrap();
 
@@ -261,7 +269,7 @@ mod tests {
     #[test]
     fn test_mock_source_parameter_clamping() {
         let mut config = PhotoacousticConfig::default();
-        config.window_size = 1024;
+        config.frame_size = 1024;
         config.mock_correlation = 0.7;
         let mut mock_source = MockSource::new(config).unwrap();
 

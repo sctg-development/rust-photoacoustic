@@ -47,7 +47,7 @@ pub struct Args {
 
     /// Window size for FFT analysis
     #[arg(long)]
-    window_size: Option<u16>,
+    frame_size: Option<u16>,
 
     /// Number of spectra to average
     #[arg(long)]
@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
         args.input_file.clone(),
         args.frequency,
         args.bandwidth,
-        args.window_size,
+        args.frame_size,
         args.averages,
         args.modbus_enabled,
         args.modbus_address.clone(),

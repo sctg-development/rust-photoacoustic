@@ -158,7 +158,7 @@
           "maximum": 250,
           "description": "Filter bandwidth in Hz"
         },
-        "window_size": {
+        "frame_size": {
           "type": "integer",
           "minimum": 256,
           "maximum": 8192,
@@ -201,7 +201,7 @@
       "required": [
         "frequency",
         "bandwidth",
-        "window_size",
+        "frame_size",
         "averages"
       ],
       "oneOf": [

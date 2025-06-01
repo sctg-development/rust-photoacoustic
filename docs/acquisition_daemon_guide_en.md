@@ -186,20 +186,20 @@ pub fn is_running(&self) -> bool {
 | ------------- | ------- | ---------------------- | --------------------------- |
 | `target_fps`  | `f64`   | Frames per second rate | 30.0 - 60.0 for real-time   |
 | `buffer_size` | `usize` | Broadcast buffer size  | 512 - 4096 depending on RAM |
-| `window_size` | `u32`   | Spectral window size   | 1024, 2048, 4096            |
+| `frame_size`  | `u32`   | Spectral window size   | 1024, 2048, 4096            |
 | `sample_rate` | `u32`   | Sampling frequency     | 44100, 48000 Hz             |
 
 ### Target FPS Calculation
 
 ```rust
-// Formula: FPS = sample_rate / (window_size * channels * bytes_per_sample)
+// Formula: FPS = sample_rate / (frame_size * channels * bytes_per_sample)
 fn calculate_target_fps(config: &Config) -> f64 {
     let sample_rate = config.photoacoustic.sample_rate as f64;
-    let window_size = config.photoacoustic.window_size as f64;
+    let frame_size = config.photoacoustic.frame_size as f64;
     let channels = 2.0; // Stereo
     let bytes_per_sample = (config.photoacoustic.precision as f64) / 8.0;
 
-    sample_rate / (window_size * channels * bytes_per_sample)
+    sample_rate / (frame_size * channels * bytes_per_sample)
 }
 
 // Example for 44.1kHz, window 4096, 16-bit, stereo

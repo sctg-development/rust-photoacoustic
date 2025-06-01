@@ -55,8 +55,8 @@ impl FileSource {
             ));
         }
 
-        // Use window_size from configuration instead of calculating
-        let frame_size = config.window_size as usize;
+        // Use frame_size from configuration instead of calculating
+        let frame_size = config.frame_size as usize;
 
         // Calculate frame duration for real-time simulation
         let frame_duration = Duration::from_secs_f64(frame_size as f64 / spec.sample_rate as f64);

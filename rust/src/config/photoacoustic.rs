@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// * `frequency` - The primary excitation frequency in Hz
 /// * `bandwidth` - Filter bandwidth in Hz around the excitation frequency
-/// * `window_size` - FFT window size (power of 2 recommended)
+/// * `frame_size` - FFT window size (power of 2 recommended)
 /// * `averages` - Number of spectra to average for noise reduction
 ///
 /// # Example
@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 ///     frequency: 1000.0,
 ///     sample_rate: 48000,
 ///     bandwidth: 50.0,
-///     window_size: 4096,
+///     frame_size: 4096,
 ///     averages: 10,
 ///     precision: 16,
 /// };
@@ -70,7 +70,7 @@ pub struct PhotoacousticConfig {
     pub bandwidth: f32,
 
     /// Window size for FFT analysis and frame sharing
-    pub window_size: u16,
+    pub frame_size: u16,
 
     /// Number of spectra to average
     pub averages: u16,
@@ -105,7 +105,7 @@ impl Default for PhotoacousticConfig {
             mock_correlation: default_mock_correlation(), // Default mock correlation
             frequency: 1000.0,                       // 1kHz default frequency
             bandwidth: 50.0,                         // 50Hz bandwidth
-            window_size: 4096,                       // 4K FFT window
+            frame_size: 4096,                        // 4K FFT window
             sample_rate: default_sample_rate(),      // Default sample rate
             averages: 10,                            // Average 10 spectra
             precision: 16,

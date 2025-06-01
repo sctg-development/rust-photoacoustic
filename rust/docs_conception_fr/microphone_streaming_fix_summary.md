@@ -73,7 +73,7 @@ fn process_audio_data(
 
 ## Résultats de Performance
 
-### Avant Correction (window_size: 8192)
+### Avant Correction (frame_size: 8192)
 
 ```
 Testing Microphone Source:
@@ -84,7 +84,7 @@ Time variance: 277ms
 ⚠ High time variance detected - possible chunky delivery
 ```
 
-### Après Correction (window_size: 8192)
+### Après Correction (frame_size: 8192)
 
 ```
 Testing Microphone Source:
@@ -96,7 +96,7 @@ Frames 2-10: 138-166ms (très consistent!)
 ✓ Frames suivantes dans la plage attendue (~170ms)
 ```
 
-### Tests avec Fenêtre Plus Petite (window_size: 2048)
+### Tests avec Fenêtre Plus Petite (frame_size: 2048)
 
 ```
 Expected frame duration: 42ms
@@ -136,9 +136,9 @@ Frames 2-20: 18.2-42.2ms (très régulier)
 
 Pour un streaming optimal, considérer :
 
-- `window_size: 2048` pour une latence plus faible (42ms)
-- `window_size: 4096` pour un bon compromis (85ms)
-- `window_size: 8192` pour la qualité spectrale actuelle (170ms)
+- `frame_size: 2048` pour une latence plus faible (42ms)
+- `frame_size: 4096` pour un bon compromis (85ms)
+- `frame_size: 8192` pour la qualité spectrale actuelle (170ms)
 
 ### 2. Améliorations Futures Potentielles
 

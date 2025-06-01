@@ -534,9 +534,9 @@ impl Daemon {
     /// # Performance Calculations
     ///
     /// The function calculates optimal performance parameters:
-    /// - **Buffer size**: Uses `config.photoacoustic.window_size` for stream buffering
+    /// - **Buffer size**: Uses `config.photoacoustic.frame_size` for stream buffering
     /// - **Target FPS**: Computed as `sample_rate / samples_per_window`
-    /// - **Samples per window**: `window_size / (channels * bytes_per_sample)`
+    /// - **Samples per window**: `frame_size / (channels * bytes_per_sample)`
     ///
     /// # Architecture
     ///
@@ -552,7 +552,7 @@ impl Daemon {
     ///   - `config.acquisition.enabled` - Global acquisition enable/disable flag
     ///   - `config.photoacoustic.input_file` - Optional path to audio file source
     ///   - `config.photoacoustic.input_device` - Optional name of audio input device
-    ///   - `config.photoacoustic.window_size` - Audio processing window size (samples)
+    ///   - `config.photoacoustic.frame_size` - Audio processing window size (samples)
     ///   - `config.photoacoustic.sample_rate` - Audio sample rate (Hz)
     ///   - `config.photoacoustic.precision` - Audio bit depth (8, 16, 24, 32)
     ///
@@ -647,9 +647,9 @@ impl Daemon {
         // These calculations are essential for maintaining real-time performance.
 
         // Calculate samples per processing window
-        // Formula: window_size / (channels * bytes_per_sample)
+        // Formula: frame_size / (channels * bytes_per_sample)
         // Assumptions: 2 channels (stereo), precision determines bytes per sample
-        let sample_per_window = config.photoacoustic.window_size
+        let sample_per_window = config.photoacoustic.frame_size
             / (2u16 * (config.photoacoustic.precision as u16) / 8u16);
 
         // Calculate target frames per second for acquisition timing
@@ -659,7 +659,7 @@ impl Daemon {
         let target_fps = (config.photoacoustic.sample_rate as f64) / (sample_per_window as f64);
 
         // Buffer size for the acquisition daemon's internal stream
-        let buffer_size: usize = config.photoacoustic.window_size.into();
+        let buffer_size: usize = config.photoacoustic.frame_size.into();
 
         // === PHASE 3: Acquisition Daemon Creation ===
         // Create the core acquisition daemon with calculated parameters.

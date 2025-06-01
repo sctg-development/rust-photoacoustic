@@ -214,7 +214,7 @@ pub struct FFTAnalyzer {
     ///
     /// For best performance, this should be a power of 2.
     /// Larger windows provide better frequency resolution but worse time resolution.
-    window_size: usize,
+    frame_size: usize,
 
     /// Number of FFT frames to average
     ///
@@ -250,7 +250,7 @@ impl FFTAnalyzer {
     ///
     /// # Parameters
     ///
-    /// * `window_size` - The size of the FFT window in samples. For best performance,
+    /// * `frame_size` - The size of the FFT window in samples. For best performance,
     ///   this should be a power of 2 (e.g., 1024, 2048, 4096).
     /// * `averages` - The number of FFT frames to average. Higher values reduce noise
     ///   but increase processing latency. Set to 1 for no averaging.
@@ -268,9 +268,9 @@ impl FFTAnalyzer {
     /// // Create an FFT analyzer with a 4096-point FFT and 3x averaging
     /// let analyzer = FFTAnalyzer::new(4096, 3);
     /// ```
-    pub fn new(window_size: usize, averages: usize) -> Self {
+    pub fn new(frame_size: usize, averages: usize) -> Self {
         Self {
-            window_size,
+            frame_size,
             averages,
             window_function: WindowFunction::Hann, // Default to Hann window
             spectrum_data: None,
@@ -479,16 +479,16 @@ impl SpectralAnalyzer for FFTAnalyzer {
     /// ```
     fn analyze(&mut self, signal: &[f32], sample_rate: u32) -> Result<SpectrumData> {
         // Check if signal is long enough
-        if signal.len() < self.window_size {
+        if signal.len() < self.frame_size {
             return Err(anyhow::anyhow!(
                 "Signal too short: {} samples (need {})",
                 signal.len(),
-                self.window_size
+                self.frame_size
             ));
         }
 
         // Apply window function
-        let windowed = self.apply_window(&signal[0..self.window_size]);
+        let windowed = self.apply_window(&signal[0..self.frame_size]);
 
         // Compute FFT
         let fft_result = self.compute_fft(&windowed);
@@ -500,7 +500,7 @@ impl SpectralAnalyzer for FFTAnalyzer {
         }
 
         // Average spectra
-        let mut avg_spectrum = vec![Complex32::new(0.0, 0.0); self.window_size];
+        let mut avg_spectrum = vec![Complex32::new(0.0, 0.0); self.frame_size];
 
         for spectrum in &self.previous_spectra {
             for (i, &complex_val) in spectrum.iter().enumerate() {
@@ -563,7 +563,7 @@ impl SpectralAnalyzer for FFTAnalyzer {
             .ok_or_else(|| anyhow::anyhow!("No spectrum data available. Call analyze() first."))?;
 
         // Find the closest frequency bin
-        let df = spectrum.sample_rate as f32 / (self.window_size as f32);
+        let df = spectrum.sample_rate as f32 / (self.frame_size as f32);
         let bin = (frequency / df).round() as usize;
 
         if bin >= spectrum.frequencies.len() {

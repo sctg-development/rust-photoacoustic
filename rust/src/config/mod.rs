@@ -318,7 +318,7 @@ impl Config {
     /// * `input_file` - Optional input file path for photoacoustic analysis
     /// * `frequency` - Optional excitation frequency in Hz
     /// * `bandwidth` - Optional filter bandwidth in Hz
-    /// * `window_size` - Optional FFT window size
+    /// * `frame_size` - Optional FFT window size
     /// * `averages` - Optional number of spectra to average
     /// * `modbus_enabled` - Optional flag to enable/disable Modbus server
     /// * `modbus_port` - Optional TCP port for Modbus server
@@ -355,7 +355,7 @@ impl Config {
         input_file: Option<PathBuf>,
         frequency: Option<f32>,
         bandwidth: Option<f32>,
-        window_size: Option<u16>,
+        frame_size: Option<u16>,
         averages: Option<u16>,
         modbus_enabled: Option<bool>,
         modbus_address: Option<String>,
@@ -399,9 +399,9 @@ impl Config {
             debug!("Overriding bandwidth from command line: {}", band);
             self.photoacoustic.bandwidth = band;
         }
-        if let Some(size) = window_size {
+        if let Some(size) = frame_size {
             debug!("Overriding window size from command line: {}", size);
-            self.photoacoustic.window_size = size;
+            self.photoacoustic.frame_size = size;
         }
         if let Some(avg) = averages {
             debug!("Overriding averages from command line: {}", avg);

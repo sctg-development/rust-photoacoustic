@@ -108,10 +108,10 @@ photoacoustic:
 
   # Analyzer window size (samples)
   # The length is seconds of this window can be calculated as:
-  #   window_size / sampling_rate
-  # For example, with a window_size of 4096 and sampling_rate of 44100:
+  #   frame_size / sampling_rate
+  # For example, with a frame_size of 4096 and sampling_rate of 44100:
   #   4096 / 44100 = 0.0929 seconds (approximately 93 ms)
-  window_size: 4096
+  frame_size: 4096
 
   # Sampling rate in Hz
   sampling_rate: 44100

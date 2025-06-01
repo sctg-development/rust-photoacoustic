@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
 
 fn create_mock_source() -> Result<Box<dyn AudioSource>> {
     let mut config = PhotoacousticConfig::default();
-    config.window_size = 8192; // Match the actual config
+    config.frame_size = 8192; // Match the actual config
     config.mock_source = true;
     config.mock_correlation = 0.8;
     config.frequency = 2000.0;
@@ -46,7 +46,7 @@ fn create_mock_source() -> Result<Box<dyn AudioSource>> {
 
 fn create_microphone_source() -> Result<Box<dyn AudioSource>> {
     let mut config = PhotoacousticConfig::default();
-    config.window_size = 8192; // Match the actual config
+    config.frame_size = 8192; // Match the actual config
     config.input_device = Some("first".to_string());
 
     Ok(Box::new(MicrophoneSource::new(config)?))

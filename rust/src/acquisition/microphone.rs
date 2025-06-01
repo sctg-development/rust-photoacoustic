@@ -83,7 +83,7 @@ impl MicrophoneSource {
         // Use the device's native configuration
         let stream_config: StreamConfig = supported_config.clone().into();
         let sample_rate = stream_config.sample_rate.0;
-        let frame_size = config.window_size as usize;
+        let frame_size = config.frame_size as usize;
 
         info!(
             "Audio configuration: {} Hz, {} channels, format: {:?}",

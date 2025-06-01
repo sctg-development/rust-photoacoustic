@@ -34,7 +34,7 @@ async fn test_mock_source() -> Result<()> {
     println!("-----------------------------");
 
     let mut config = PhotoacousticConfig::default();
-    config.window_size = 512;
+    config.frame_size = 512;
     config.mock_source = true;
     config.mock_correlation = 0.8;
     config.frequency = 2000.0;
@@ -67,7 +67,7 @@ async fn test_microphone_source() {
     println!("-----------------------------------");
 
     let mut config = PhotoacousticConfig::default();
-    config.window_size = 1024;
+    config.frame_size = 1024;
     config.input_device = Some("first".to_string()); // Use the first device
 
     match MicrophoneSource::new(config) {

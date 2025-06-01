@@ -64,7 +64,7 @@ pub use fft::SpectralAnalyzer;
 ///
 /// # Parameters
 ///
-/// * `window_size` - The size of the analysis window in samples. For FFT
+/// * `frame_size` - The size of the analysis window in samples. For FFT
 ///   analysis, this should ideally be a power of 2 (e.g., 1024, 2048, 4096)
 ///   for optimal performance.
 ///
@@ -86,6 +86,6 @@ pub use fft::SpectralAnalyzer;
 ///
 /// // Now you can use this analyzer with any compatible signal
 /// ```
-pub fn create_spectral_analyzer(window_size: usize, averages: usize) -> Box<dyn SpectralAnalyzer> {
-    Box::new(fft::FFTAnalyzer::new(window_size, averages))
+pub fn create_spectral_analyzer(frame_size: usize, averages: usize) -> Box<dyn SpectralAnalyzer> {
+    Box::new(fft::FFTAnalyzer::new(frame_size, averages))
 }

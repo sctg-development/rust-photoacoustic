@@ -668,14 +668,14 @@ async fn main() -> Result<()> {
 ```rust
 pub struct SpectralAnalysisConsumer {
     consumer: AudioStreamConsumer,
-    window_size: usize,
+    frame_size: usize,
 }
 
 impl SpectralAnalysisConsumer {
-    pub fn new(stream: &SharedAudioStream, window_size: usize) -> Self {
+    pub fn new(stream: &SharedAudioStream, frame_size: usize) -> Self {
         Self {
             consumer: AudioStreamConsumer::new(stream),
-            window_size,
+            frame_size,
         }
     }
 
@@ -683,7 +683,7 @@ impl SpectralAnalysisConsumer {
         let frame = self.consumer.next_frame().await?;
 
         // Analyse spectrale personnalisée
-        let fft_result = perform_fft(&frame.channel_a, self.window_size);
+        let fft_result = perform_fft(&frame.channel_a, self.frame_size);
 
         Some(SpectralData {
             frequencies: fft_result.frequencies,

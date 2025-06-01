@@ -35,7 +35,7 @@ pub struct Args {
 
     /// Window size for FFT analysis
     #[arg(long, default_value_t = 4096)]
-    window_size: usize,
+    frame_size: usize,
 
     /// Number of spectra to average
     #[arg(long, default_value_t = 10)]
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
         frequency: args.frequency,
         sample_rate: 48000, // Default sample rate
         bandwidth: args.bandwidth,
-        window_size: args.window_size as u16,
+        frame_size: args.frame_size as u16,
         averages: args.averages as u16,
         precision: 16,         // Default precision,
         mock_source: false,    // No mock source in standalone mode
@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
 
     // Set up processing pipeline
     let filter = preprocessing::create_bandpass_filter(args.frequency, args.bandwidth);
-    let analyzer = spectral::create_spectral_analyzer(args.window_size, args.averages);
+    let analyzer = spectral::create_spectral_analyzer(args.frame_size, args.averages);
 
     // Process audio data
     println!("Processing audio data...");
