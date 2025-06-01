@@ -43,7 +43,7 @@ pub async fn proxy_to_vite_dev_server(
                 Ok(bytes) => {
                     let response_content: Vec<u8> = bytes.iter().copied().collect();
                     let content = StaticFileResponse(response_content, content_type);
-                    debug!("Returning content from development server: {:?}", content);
+                    //debug!("Returning content from development server: {:?}", content);
                     Some(content)
                 }
                 Err(e) => {
