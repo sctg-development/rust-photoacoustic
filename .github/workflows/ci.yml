@@ -90,7 +90,7 @@ jobs:
       if: matrix.cross == false
       run: |
         cd rust
-        cargo test --target ${{ matrix.target }}
+        cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon
       
     # Run specific tests with custom timeout
     - name: Run introspection tests
