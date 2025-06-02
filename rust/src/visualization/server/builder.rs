@@ -58,7 +58,7 @@ use std::sync::Arc;
 ///
 /// async fn example() {
 ///     let config = Figment::from(rocket::Config::default());
-///     let rocket = server::build_rocket(config, None).await;
+///     let rocket = server::build_rocket(config, None, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }

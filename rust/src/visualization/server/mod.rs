@@ -45,7 +45,7 @@
 //!         .merge(("port", 8000))
 //!         .merge(("hmac_secret", "your-secret-key".to_string()));
 //!     
-//!     let rocket = server::build_rocket(config, None).await;
+//!     let rocket = server::build_rocket(config, None, None).await;
 //!     rocket.launch().await.expect("Failed to launch server");
 //! }
 //! ```

@@ -89,7 +89,17 @@ impl SharedVisualizationState {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,no_run
+/// use rust_photoacoustic::visualization::shared_state::SharedVisualizationState;
+/// use rocket::get;
+/// use serde::Serialize;
+/// use rocket::State;
+/// use rocket::serde::json::Json;
+/// #[derive(Serialize)]
+/// struct StatusResponse {
+///     processing_active: bool,
+/// }
+///
 /// #[get("/api/status")]
 /// async fn get_status(state: &State<SharedVisualizationState>) -> Json<StatusResponse> {
 ///     let has_stats = state.has_processing_statistics().await;
