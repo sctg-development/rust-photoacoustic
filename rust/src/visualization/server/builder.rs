@@ -165,7 +165,10 @@ pub async fn build_rocket(
         debug!("Adding SharedVisualizationState to Rocket state management");
         // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
         let shared_state = (*vis_state).clone();
-        rocket_builder.manage(shared_state)
+        rocket_builder.manage(shared_state).mount(
+            "/api",
+            routes![crate::visualization::api::get::graph_statistics::get_graph_statistics,],
+        )
     } else {
         debug!("No visualization state provided, API will return 404 for statistics");
         rocket_builder
@@ -200,7 +203,6 @@ pub async fn build_rocket(
                 crate::visualization::api_auth::get_profile,
                 crate::visualization::api_auth::get_data,
                 crate::visualization::api::test_api,
-                crate::visualization::api::get::graph_statistics::get_graph_statistics,
             ],
         )
         .manage(oxide_state)
