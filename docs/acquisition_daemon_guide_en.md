@@ -51,34 +51,62 @@ struct AcquisitionDaemon // ⚠️ Legacy - and probable timing issues
 
 ### New Architecture Flow
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Real-Time Audio Pipeline                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ ┌─────────────────────┐  async streaming  ┌───────────────────┐ │
-│ │RealTimeAudioSource  │─────────────────> │ SharedAudioStream │ │
-│ │                     │                   │                   │ │
-│ │ ┌─────────────────┐ │                   │ ┌────────────────┐│ │
-│ │ │ MicrophoneSource│ │   publish_frame() │ │ Circular Buffer││ │
-│ │ │ FileSource      │ │<──────────────────│ │ (lock-free)    ││ │
-│ │ │ MockSource      │ │                   │ └────────────────┘│ │
-│ └───────────────────┘─┘                   └───────────────────┘ │
-│         │                                         │             │
-│         │ start_streaming()                       │ subscribe() │
-│         ▼                                         ▼             │
-│ ┌───────────────────┐                   ┌─────────────────────┐ │
-│ │RealTimeAcquisition│                   │ AudioStreamConsumer │ │
-│ │     Daemon        │                   │                     │ │
-│ │                   │                   │ ┌─────────────────┐ │ │
-│ │ ┌───────────────┐ │                   │ │ Consumer 1      │ │ │
-│ │ │ Timing Control│ │                   │ │ (Web SSE)       │ │ │
-│ │ │ Error Recovery│ │                   │ │ Consumer 2      │ │ │
-│ │ │ Stats Monitor │ │                   │ │ (RecordConsumer)│ │ │
-│ │ └───────────────┘ │                   │ │ Consumer N      │ │ │
-│ └───────────────────┘                   │ └─────────────────┘ │ │
-│                                         └─────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Real-Time Audio Pipeline"
+        subgraph "Audio Sources"
+            MIC[MicrophoneSource]
+            FILE[FileSource]
+            MOCK[MockSource]
+        end
+        
+        subgraph "Real-Time Interface"
+            RTS[RealTimeAudioSource]
+        end
+        
+        subgraph "Streaming Core"
+            SAS[SharedAudioStream]
+            CB[Circular Buffer<br/>lock-free]
+        end
+        
+        subgraph "Daemon Management"
+            RTD[RealTimeAcquisitionDaemon]
+            TC[Timing Control]
+            ER[Error Recovery]
+            SM[Stats Monitor]
+        end
+        
+        subgraph "Consumers"
+            ASC[AudioStreamConsumer]
+            C1[Consumer 1<br/>Web SSE]
+            C2[Consumer 2<br/>RecordConsumer]
+            CN[Consumer N]
+        end
+        
+        MIC --> RTS
+        FILE --> RTS
+        MOCK --> RTS
+        
+        RTS -->|start_streaming| RTD
+        RTD -->|publish_frame| SAS
+        SAS --> CB
+        
+        TC --> RTD
+        ER --> RTD
+        SM --> RTD
+        
+        SAS -->|subscribe| ASC
+        ASC --> C1
+        ASC --> C2
+        ASC --> CN
+        
+        RTD -.->|async streaming| SAS
+    end
+    
+    style SAS fill:#e1f5fe
+    style RTD fill:#f3e5f5
+    style ASC fill:#e8f5e8
+    style CB fill:#fff3e0
 ```
 
 ### Legacy vs Real-Time Comparison
