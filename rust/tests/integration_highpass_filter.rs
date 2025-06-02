@@ -22,21 +22,24 @@ fn test_highpass_filter_from_config() {
                 parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "highpass".into()),
                     ("cutoff_frequency".into(), 100.0.into()),
-                ])).unwrap(),
+                ]))
+                .unwrap(),
             },
         ],
-        connections: vec![
-            ConnectionConfig {
-                from: "input".to_string(),
-                to: "highpass".to_string(),
-            },
-        ],
+        connections: vec![ConnectionConfig {
+            from: "input".to_string(),
+            to: "highpass".to_string(),
+        }],
         output_node: Some("highpass".to_string()),
     };
 
     // Test that the graph can be created from config
     let graph = ProcessingGraph::from_config(&config);
-    assert!(graph.is_ok(), "Failed to create graph with highpass filter: {:?}", graph.err());
+    assert!(
+        graph.is_ok(),
+        "Failed to create graph with highpass filter: {:?}",
+        graph.err()
+    );
 }
 
 #[test]
@@ -55,21 +58,24 @@ fn test_lowpass_filter_from_config() {
                 parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "lowpass".into()),
                     ("cutoff_frequency".into(), 5000.0.into()),
-                ])).unwrap(),
+                ]))
+                .unwrap(),
             },
         ],
-        connections: vec![
-            ConnectionConfig {
-                from: "input".to_string(),
-                to: "lowpass".to_string(),
-            },
-        ],
+        connections: vec![ConnectionConfig {
+            from: "input".to_string(),
+            to: "lowpass".to_string(),
+        }],
         output_node: Some("lowpass".to_string()),
     };
 
     // Test that the graph can be created from config
     let graph = ProcessingGraph::from_config(&config);
-    assert!(graph.is_ok(), "Failed to create graph with lowpass filter: {:?}", graph.err());
+    assert!(
+        graph.is_ok(),
+        "Failed to create graph with lowpass filter: {:?}",
+        graph.err()
+    );
 }
 
 #[test]
@@ -88,7 +94,8 @@ fn test_filter_chain_from_config() {
                 parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "highpass".into()),
                     ("cutoff_frequency".into(), 100.0.into()),
-                ])).unwrap(),
+                ]))
+                .unwrap(),
             },
             NodeConfig {
                 id: "bandpass".to_string(),
@@ -97,7 +104,8 @@ fn test_filter_chain_from_config() {
                     ("type".into(), "bandpass".into()),
                     ("center_frequency".into(), 2000.0.into()),
                     ("bandwidth".into(), 200.0.into()),
-                ])).unwrap(),
+                ]))
+                .unwrap(),
             },
             NodeConfig {
                 id: "lowpass".to_string(),
@@ -105,7 +113,8 @@ fn test_filter_chain_from_config() {
                 parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "lowpass".into()),
                     ("cutoff_frequency".into(), 5000.0.into()),
-                ])).unwrap(),
+                ]))
+                .unwrap(),
             },
         ],
         connections: vec![
@@ -127,5 +136,9 @@ fn test_filter_chain_from_config() {
 
     // Test that a complex filter chain can be created from config
     let graph = ProcessingGraph::from_config(&config);
-    assert!(graph.is_ok(), "Failed to create graph with filter chain: {:?}", graph.err());
+    assert!(
+        graph.is_ok(),
+        "Failed to create graph with filter chain: {:?}",
+        graph.err()
+    );
 }
