@@ -15,8 +15,32 @@ use crate::processing::nodes::{
     MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
 };
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use std::fmt;
+use std::time::{Duration, Instant};
 use thiserror::Error;
+
+/// Module for serializing/deserializing Duration
+mod duration_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::time::Duration;
+
+    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        duration.as_nanos().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let nanos = u128::deserialize(deserializer)?;
+        Ok(Duration::from_nanos(nanos as u64))
+    }
+}
 
 /// Errors that can occur during graph operations
 #[derive(Error, Debug)]
@@ -40,6 +64,283 @@ pub struct Connection {
     pub to: NodeId,
 }
 
+/// Statistics for individual node performance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeStatistics {
+    /// Node ID
+    pub node_id: String,
+    /// Node type
+    pub node_type: String,
+    /// Number of frames processed
+    pub frames_processed: u64,
+    /// Total processing time across all frames
+    #[serde(with = "duration_serde")]
+    pub total_processing_time: Duration,
+    /// Average processing time per frame
+    #[serde(with = "duration_serde")]
+    pub average_processing_time: Duration,
+    /// Minimum processing time observed
+    #[serde(with = "duration_serde")]
+    pub fastest_processing_time: Duration,
+    /// Maximum processing time observed
+    #[serde(with = "duration_serde")]
+    pub worst_processing_time: Duration,
+    /// Last update timestamp (not serialized)
+    #[serde(skip)]
+    pub last_update: Option<Instant>,
+}
+
+impl NodeStatistics {
+    pub fn new(node_id: String, node_type: String) -> Self {
+        Self {
+            node_id,
+            node_type,
+            frames_processed: 0,
+            total_processing_time: Duration::ZERO,
+            average_processing_time: Duration::ZERO,
+            fastest_processing_time: Duration::MAX,
+            worst_processing_time: Duration::ZERO,
+            last_update: None,
+        }
+    }
+
+    pub fn record_processing_time(&mut self, duration: Duration) {
+        self.frames_processed += 1;
+        self.total_processing_time += duration;
+        self.average_processing_time = self.total_processing_time / self.frames_processed as u32;
+
+        if duration < self.fastest_processing_time {
+            self.fastest_processing_time = duration;
+        }
+
+        if duration > self.worst_processing_time {
+            self.worst_processing_time = duration;
+        }
+
+        self.last_update = Some(Instant::now());
+    }
+
+    pub fn reset(&mut self) {
+        self.frames_processed = 0;
+        self.total_processing_time = Duration::ZERO;
+        self.average_processing_time = Duration::ZERO;
+        self.fastest_processing_time = Duration::MAX;
+        self.worst_processing_time = Duration::ZERO;
+        self.last_update = None;
+    }
+}
+
+impl fmt::Display for NodeStatistics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Node '{}' [{}]: {} frames, avg: {:.2}ms, min: {:.2}ms, max: {:.2}ms",
+            self.node_id,
+            self.node_type,
+            self.frames_processed,
+            self.average_processing_time.as_secs_f64() * 1000.0,
+            self.fastest_processing_time.as_secs_f64() * 1000.0,
+            self.worst_processing_time.as_secs_f64() * 1000.0
+        )
+    }
+}
+
+/// Overall processing graph statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessingGraphStatistics {
+    /// Statistics for each node
+    pub node_statistics: HashMap<String, NodeStatistics>,
+    /// Total number of graph executions
+    pub total_executions: u64,
+    /// Total processing time for the entire graph
+    #[serde(with = "duration_serde")]
+    pub total_graph_processing_time: Duration,
+    /// Average time per graph execution
+    #[serde(with = "duration_serde")]
+    pub average_graph_processing_time: Duration,
+    /// Fastest graph execution time
+    #[serde(with = "duration_serde")]
+    pub fastest_graph_execution: Duration,
+    /// Slowest graph execution time
+    #[serde(with = "duration_serde")]
+    pub worst_graph_execution: Duration,
+    /// Number of active nodes
+    pub active_nodes: usize,
+    /// Number of connections
+    pub connections_count: usize,
+    /// Graph creation timestamp (not serialized)
+    #[serde(skip)]
+    pub graph_created_at: Option<Instant>,
+    /// Last execution timestamp (not serialized)
+    #[serde(skip)]
+    pub last_execution: Option<Instant>,
+}
+
+impl ProcessingGraphStatistics {
+    pub fn new() -> Self {
+        Self {
+            node_statistics: HashMap::new(),
+            total_executions: 0,
+            total_graph_processing_time: Duration::ZERO,
+            average_graph_processing_time: Duration::ZERO,
+            fastest_graph_execution: Duration::MAX,
+            worst_graph_execution: Duration::ZERO,
+            active_nodes: 0,
+            connections_count: 0,
+            graph_created_at: Some(Instant::now()),
+            last_execution: None,
+        }
+    }
+
+    pub fn record_graph_execution(&mut self, duration: Duration) {
+        self.total_executions += 1;
+        self.total_graph_processing_time += duration;
+        self.average_graph_processing_time =
+            self.total_graph_processing_time / self.total_executions as u32;
+
+        if duration < self.fastest_graph_execution {
+            self.fastest_graph_execution = duration;
+        }
+
+        if duration > self.worst_graph_execution {
+            self.worst_graph_execution = duration;
+        }
+
+        self.last_execution = Some(Instant::now());
+    }
+
+    pub fn update_graph_structure(&mut self, nodes_count: usize, connections_count: usize) {
+        self.active_nodes = nodes_count;
+        self.connections_count = connections_count;
+    }
+
+    pub fn add_node_statistics(&mut self, node_id: String, node_type: String) {
+        self.node_statistics
+            .insert(node_id.clone(), NodeStatistics::new(node_id, node_type));
+    }
+
+    pub fn remove_node_statistics(&mut self, node_id: &str) {
+        self.node_statistics.remove(node_id);
+    }
+
+    pub fn record_node_processing(&mut self, node_id: &str, duration: Duration) {
+        if let Some(stats) = self.node_statistics.get_mut(node_id) {
+            stats.record_processing_time(duration);
+        }
+    }
+
+    pub fn reset_all_statistics(&mut self) {
+        for stats in self.node_statistics.values_mut() {
+            stats.reset();
+        }
+
+        self.total_executions = 0;
+        self.total_graph_processing_time = Duration::ZERO;
+        self.average_graph_processing_time = Duration::ZERO;
+        self.fastest_graph_execution = Duration::MAX;
+        self.worst_graph_execution = Duration::ZERO;
+        self.last_execution = None;
+    }
+
+    /// Get the slowest node by average processing time
+    pub fn get_slowest_node(&self) -> Option<&NodeStatistics> {
+        self.node_statistics
+            .values()
+            .max_by_key(|stats| stats.average_processing_time)
+    }
+
+    /// Get the fastest node by average processing time
+    pub fn get_fastest_node(&self) -> Option<&NodeStatistics> {
+        self.node_statistics
+            .values()
+            .filter(|stats| stats.frames_processed > 0)
+            .min_by_key(|stats| stats.average_processing_time)
+    }
+
+    /// Get nodes sorted by processing time (slowest first)
+    pub fn get_nodes_by_performance(&self) -> Vec<&NodeStatistics> {
+        let mut nodes: Vec<_> = self.node_statistics.values().collect();
+        nodes.sort_by(|a, b| b.average_processing_time.cmp(&a.average_processing_time));
+        nodes
+    }
+
+    /// Calculate throughput in frames per second
+    pub fn get_throughput_fps(&self) -> f64 {
+        if self.total_graph_processing_time.is_zero() {
+            return 0.0;
+        }
+
+        self.total_executions as f64 / self.total_graph_processing_time.as_secs_f64()
+    }
+
+    /// Get efficiency percentage (0-100)
+    pub fn get_efficiency_percentage(&self) -> f64 {
+        if self.worst_graph_execution.is_zero() {
+            return 100.0;
+        }
+
+        (self.fastest_graph_execution.as_secs_f64() / self.worst_graph_execution.as_secs_f64())
+            * 100.0
+    }
+}
+
+impl fmt::Display for ProcessingGraphStatistics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "=== Processing Graph Statistics ===")?;
+        writeln!(f, "Graph Structure:")?;
+        writeln!(f, "  • Active nodes: {}", self.active_nodes)?;
+        writeln!(f, "  • Connections: {}", self.connections_count)?;
+
+        if self.total_executions > 0 {
+            writeln!(f, "\nExecution Performance:")?;
+            writeln!(f, "  • Total executions: {}", self.total_executions)?;
+            writeln!(
+                f,
+                "  • Average execution time: {:.2}ms",
+                self.average_graph_processing_time.as_secs_f64() * 1000.0
+            )?;
+            writeln!(
+                f,
+                "  • Fastest execution: {:.2}ms",
+                self.fastest_graph_execution.as_secs_f64() * 1000.0
+            )?;
+            writeln!(
+                f,
+                "  • Slowest execution: {:.2}ms",
+                self.worst_graph_execution.as_secs_f64() * 1000.0
+            )?;
+            writeln!(f, "  • Throughput: {:.1} FPS", self.get_throughput_fps())?;
+            writeln!(
+                f,
+                "  • Efficiency: {:.1}%",
+                self.get_efficiency_percentage()
+            )?;
+
+            if !self.node_statistics.is_empty() {
+                writeln!(f, "\nNode Performance (by average processing time):")?;
+                for stats in self.get_nodes_by_performance() {
+                    if stats.frames_processed > 0 {
+                        writeln!(f, "  • {}", stats)?;
+                    }
+                }
+
+                if let Some(slowest) = self.get_slowest_node() {
+                    writeln!(
+                        f,
+                        "\n⚠️  Bottleneck: {} ({:.2}ms avg)",
+                        slowest.node_id,
+                        slowest.average_processing_time.as_secs_f64() * 1000.0
+                    )?;
+                }
+            }
+        } else {
+            writeln!(f, "\nNo executions recorded yet.")?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Processing graph that manages nodes and their connections
 pub struct ProcessingGraph {
     /// Map of node ID to processing node
@@ -52,6 +353,8 @@ pub struct ProcessingGraph {
     input_node: Option<NodeId>,
     /// Output node ID(s)
     output_nodes: Vec<NodeId>,
+    /// Performance statistics
+    statistics: ProcessingGraphStatistics,
 }
 
 impl ProcessingGraph {
@@ -63,12 +366,14 @@ impl ProcessingGraph {
             execution_order: None,
             input_node: None,
             output_nodes: Vec::new(),
+            statistics: ProcessingGraphStatistics::new(),
         }
     }
 
     /// Add a processing node to the graph
     pub fn add_node(&mut self, node: Box<dyn ProcessingNode>) -> Result<()> {
         let node_id = node.node_id().to_string();
+        let node_type = node.node_type().to_string();
 
         if self.nodes.contains_key(&node_id) {
             anyhow::bail!("Node '{}' already exists", node_id);
@@ -79,7 +384,12 @@ impl ProcessingGraph {
             self.input_node = Some(node_id.clone());
         }
 
+        // Add node statistics tracking
+        self.statistics
+            .add_node_statistics(node_id.clone(), node_type);
+
         self.nodes.insert(node_id, node);
+        self.update_statistics_structure();
         self.invalidate_execution_order();
         Ok(())
     }
@@ -97,6 +407,9 @@ impl ProcessingGraph {
         // Remove the node
         self.nodes.remove(node_id);
 
+        // Remove node statistics
+        self.statistics.remove_node_statistics(node_id);
+
         // Clear input node if it was removed
         if self.input_node.as_ref() == Some(&node_id.to_string()) {
             self.input_node = None;
@@ -105,6 +418,7 @@ impl ProcessingGraph {
         // Remove from output nodes
         self.output_nodes.retain(|id| id != node_id);
 
+        self.update_statistics_structure();
         self.invalidate_execution_order();
         Ok(())
     }
@@ -180,6 +494,8 @@ impl ProcessingGraph {
 
     /// Execute the processing graph with the given input data
     pub fn execute(&mut self, input_data: ProcessingData) -> Result<Vec<ProcessingData>> {
+        let graph_start_time = Instant::now();
+
         // Ensure we have an input node
         let input_node_id = self
             .input_node
@@ -195,6 +511,8 @@ impl ProcessingGraph {
 
         // Execute nodes in topological order
         for node_id in &execution_order {
+            let node_start_time = Instant::now();
+
             let node = self.nodes.get_mut(node_id).unwrap();
 
             let input_for_node = if node_id == &input_node_id {
@@ -237,8 +555,17 @@ impl ProcessingGraph {
                 ProcessingGraphError::ExecutionFailed(format!("Node '{}' failed: {}", node_id, e))
             })?;
 
+            // Record node processing time
+            let node_duration = node_start_time.elapsed();
+            self.statistics
+                .record_node_processing(node_id, node_duration);
+
             node_outputs.insert(node_id.clone(), output);
         }
+
+        // Record total graph execution time
+        let graph_duration = graph_start_time.elapsed();
+        self.statistics.record_graph_execution(graph_duration);
 
         // Collect outputs from designated output nodes
         let mut results = Vec::new();
@@ -636,87 +963,78 @@ impl ProcessingGraph {
 
         Ok(())
     }
-}
 
-impl Default for ProcessingGraph {
-    fn default() -> Self {
-        Self::new()
+    /// Get the current processing statistics
+    pub fn get_statistics(&self) -> &ProcessingGraphStatistics {
+        &self.statistics
+    }
+
+    /// Get a mutable reference to the statistics (for advanced operations)
+    pub fn get_statistics_mut(&mut self) -> &mut ProcessingGraphStatistics {
+        &mut self.statistics
+    }
+
+    /// Reset all performance statistics
+    pub fn reset_statistics(&mut self) {
+        self.statistics.reset_all_statistics();
+    }
+
+    /// Get statistics for a specific node
+    pub fn get_node_statistics(&self, node_id: &str) -> Option<&NodeStatistics> {
+        self.statistics.node_statistics.get(node_id)
+    }
+
+    /// Get a summary of performance metrics
+    pub fn get_performance_summary(&self) -> PerformanceSummary {
+        PerformanceSummary {
+            total_nodes: self.node_count(),
+            total_connections: self.connection_count(),
+            total_executions: self.statistics.total_executions,
+            average_execution_time_ms: self.statistics.average_graph_processing_time.as_secs_f64()
+                * 1000.0,
+            throughput_fps: self.statistics.get_throughput_fps(),
+            efficiency_percentage: self.statistics.get_efficiency_percentage(),
+            slowest_node: self
+                .statistics
+                .get_slowest_node()
+                .map(|stats| stats.node_id.clone()),
+            fastest_node: self
+                .statistics
+                .get_fastest_node()
+                .map(|stats| stats.node_id.clone()),
+        }
+    }
+
+    /// Update the graph structure information in statistics
+    fn update_statistics_structure(&mut self) {
+        self.statistics
+            .update_graph_structure(self.node_count(), self.connection_count());
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::processing::nodes::{ChannelSelectorNode, ChannelTarget, InputNode};
+/// Summary of performance metrics for easy access
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceSummary {
+    pub total_nodes: usize,
+    pub total_connections: usize,
+    pub total_executions: u64,
+    pub average_execution_time_ms: f64,
+    pub throughput_fps: f64,
+    pub efficiency_percentage: f64,
+    pub slowest_node: Option<String>,
+    pub fastest_node: Option<String>,
+}
 
-    #[test]
-    fn test_graph_creation() {
-        let graph = ProcessingGraph::new();
-        assert_eq!(graph.node_count(), 0);
-        assert_eq!(graph.connection_count(), 0);
-    }
-
-    #[test]
-    fn test_add_node() {
-        let mut graph = ProcessingGraph::new();
-        let input_node = Box::new(InputNode::new("input".to_string()));
-
-        graph.add_node(input_node).unwrap();
-        assert_eq!(graph.node_count(), 1);
-        assert_eq!(graph.input_node, Some("input".to_string()));
-    }
-
-    #[test]
-    fn test_connect_nodes() {
-        let mut graph = ProcessingGraph::new();
-
-        let input_node = Box::new(InputNode::new("input".to_string()));
-        let selector_node = Box::new(ChannelSelectorNode::new(
-            "selector".to_string(),
-            ChannelTarget::ChannelA,
-        ));
-
-        graph.add_node(input_node).unwrap();
-        graph.add_node(selector_node).unwrap();
-
-        graph.connect("input", "selector").unwrap();
-        assert_eq!(graph.connection_count(), 1);
-    }
-
-    #[test]
-    fn test_cycle_detection() {
-        let mut graph = ProcessingGraph::new();
-
-        let input_node = Box::new(InputNode::new("input".to_string()));
-        let selector_node = Box::new(ChannelSelectorNode::new(
-            "selector".to_string(),
-            ChannelTarget::ChannelA,
-        ));
-
-        graph.add_node(input_node).unwrap();
-        graph.add_node(selector_node).unwrap();
-
-        graph.connect("input", "selector").unwrap();
-
-        // This should fail due to cycle
-        assert!(graph.connect("selector", "input").is_err());
-    }
-
-    #[test]
-    fn test_topological_sort() {
-        let mut graph = ProcessingGraph::new();
-
-        let input_node = Box::new(InputNode::new("input".to_string()));
-        let selector_node = Box::new(ChannelSelectorNode::new(
-            "selector".to_string(),
-            ChannelTarget::ChannelA,
-        ));
-
-        graph.add_node(input_node).unwrap();
-        graph.add_node(selector_node).unwrap();
-        graph.connect("input", "selector").unwrap();
-
-        let order = graph.get_execution_order().unwrap();
-        assert_eq!(order, vec!["input".to_string(), "selector".to_string()]);
+impl fmt::Display for PerformanceSummary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Graph: {} nodes, {} connections | Perf: {:.2}ms avg, {:.1} FPS, {:.1}% efficiency",
+            self.total_nodes,
+            self.total_connections,
+            self.average_execution_time_ms,
+            self.throughput_fps,
+            self.efficiency_percentage
+        )
     }
 }

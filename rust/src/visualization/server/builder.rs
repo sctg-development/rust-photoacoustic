@@ -186,6 +186,7 @@ pub async fn build_rocket(
                 crate::visualization::api_auth::get_profile,
                 crate::visualization::api_auth::get_data,
                 crate::visualization::api::test_api,
+                crate::visualization::api::get::graph_statistics::get_graph_statistics,
             ],
         )
         .manage(oxide_state)
