@@ -182,7 +182,7 @@ async fn test_oidc_endpoints_with_rs256() {
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None).await;
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -264,7 +264,7 @@ async fn test_token_endpoint_with_rs256() {
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None).await;
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await

@@ -17,6 +17,7 @@ use crate::visualization::auth::{
     OxideState,
 };
 use crate::visualization::oidc::{jwks, openid_configuration};
+use crate::visualization::shared_state::SharedVisualizationState;
 use crate::visualization::streaming::AudioStreamState;
 use crate::visualization::vite_dev_proxy;
 use anyhow::Context;
@@ -65,6 +66,7 @@ use std::sync::Arc;
 pub async fn build_rocket(
     figment: Figment,
     audio_stream: Option<Arc<SharedAudioStream>>,
+    visualization_state: Option<Arc<SharedVisualizationState>>,
 ) -> Rocket<Build> {
     let hmac_secret = figment
         .extract_inner::<String>("hmac_secret")
@@ -156,8 +158,20 @@ pub async fn build_rocket(
         }
     };
 
-    let rocket_builder = rocket::custom(figment)
-        .attach(CORS)
+    let rocket_builder = rocket::custom(figment).attach(CORS);
+
+    // Add visualization state if available (before mounting routes that need it)
+    let rocket_builder = if let Some(vis_state) = visualization_state {
+        debug!("Adding SharedVisualizationState to Rocket state management");
+        // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
+        let shared_state = (*vis_state).clone();
+        rocket_builder.manage(shared_state)
+    } else {
+        debug!("No visualization state provided, API will return 404 for statistics");
+        rocket_builder
+    };
+
+    let rocket_builder = rocket_builder
         .mount(
             "/",
             openapi_get_routes![webclient_index, webclient_index_html, options],

@@ -10,6 +10,7 @@
 use crate::acquisition::{AudioStreamConsumer, SharedAudioStream};
 use crate::processing::result::{FrameInfo, ProcessingMetadata};
 use crate::processing::{PhotoacousticAnalysis, ProcessingData, ProcessingGraph, ProcessingResult};
+use crate::visualization::shared_state::SharedVisualizationState;
 use anyhow::Result;
 use log::{debug, error, info, warn};
 use std::sync::{
@@ -39,6 +40,8 @@ pub struct ProcessingConsumer {
     result_sender: Option<broadcast::Sender<ProcessingResult>>,
     /// Processing statistics
     stats: Arc<RwLock<ProcessingStats>>,
+    /// Shared visualization state for API access
+    visualization_state: Option<Arc<SharedVisualizationState>>,
 }
 
 /// Processing statistics
@@ -76,6 +79,35 @@ impl ProcessingConsumer {
             consumer_id,
             result_sender: None,
             stats: Arc::new(RwLock::new(ProcessingStats::default())),
+            visualization_state: None,
+        }
+    }
+
+    /// Create a new processing consumer with shared visualization state
+    pub fn new_with_visualization_state(
+        audio_stream: Arc<SharedAudioStream>,
+        processing_graph: ProcessingGraph,
+        visualization_state: Arc<SharedVisualizationState>,
+    ) -> Self {
+        let consumer_id = format!(
+            "processing_consumer_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+
+        Self {
+            audio_stream,
+            processing_graph: Arc::new(RwLock::new(processing_graph)),
+            consumer: None,
+            running: Arc::new(AtomicBool::new(false)),
+            frames_processed: Arc::new(AtomicU64::new(0)),
+            processing_failures: Arc::new(AtomicU64::new(0)),
+            consumer_id,
+            result_sender: None,
+            stats: Arc::new(RwLock::new(ProcessingStats::default())),
+            visualization_state: Some(visualization_state),
         }
     }
 
@@ -87,6 +119,20 @@ impl ProcessingConsumer {
     ) -> (Self, broadcast::Receiver<ProcessingResult>) {
         let (sender, receiver) = broadcast::channel(result_buffer_size);
         let mut consumer = Self::new(audio_stream, processing_graph);
+        consumer.result_sender = Some(sender);
+        (consumer, receiver)
+    }
+
+    /// Create a new processing consumer with result broadcasting and visualization state
+    pub fn new_with_broadcast_and_visualization(
+        audio_stream: Arc<SharedAudioStream>,
+        processing_graph: ProcessingGraph,
+        result_buffer_size: usize,
+        visualization_state: Arc<SharedVisualizationState>,
+    ) -> (Self, broadcast::Receiver<ProcessingResult>) {
+        let (sender, receiver) = broadcast::channel(result_buffer_size);
+        let mut consumer =
+            Self::new_with_visualization_state(audio_stream, processing_graph, visualization_state);
         consumer.result_sender = Some(sender);
         (consumer, receiver)
     }
@@ -123,9 +169,14 @@ impl ProcessingConsumer {
     }
 
     /// Stop the processing consumer
-    pub fn stop(&self) {
+    pub async fn stop(&self) {
         info!("Stopping ProcessingConsumer '{}'", self.consumer_id);
         self.running.store(false, Ordering::Relaxed);
+
+        // Clear visualization state when stopping
+        if let Some(ref visualization_state) = self.visualization_state {
+            visualization_state.clear_processing_statistics().await;
+        }
     }
 
     /// Check if the consumer is running
@@ -423,13 +474,36 @@ impl ProcessingConsumer {
                 stats.total_frames_processed as f64 / ((now - stats.last_update) as f64 / 1000.0);
             stats.last_update = now;
         }
+
+        // Update shared visualization state if available
+        if let Some(ref visualization_state) = self.visualization_state {
+            // Get the processing graph statistics
+            let graph_stats = {
+                let graph = self.processing_graph.read().await;
+                graph.get_statistics().clone()
+            };
+
+            // Update the shared state with current graph statistics
+            visualization_state
+                .update_processing_statistics(graph_stats)
+                .await;
+        }
+    }
+
+    /// Stop the processing consumer (synchronous version for Drop)
+    pub fn stop_sync(&self) {
+        info!("Stopping ProcessingConsumer '{}'", self.consumer_id);
+        self.running.store(false, Ordering::Relaxed);
+
+        // Note: Cannot clear visualization state in sync context
+        // The caller should use stop() method instead for proper cleanup
     }
 }
 
 impl Drop for ProcessingConsumer {
     fn drop(&mut self) {
         if self.running.load(Ordering::Relaxed) {
-            self.stop();
+            self.stop_sync();
         }
     }
 }

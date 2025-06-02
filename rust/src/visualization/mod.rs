@@ -62,6 +62,9 @@ pub mod api;
 /// Audio streaming endpoints for real-time data
 pub mod streaming;
 
+/// Shared state management for visualization components
+pub mod shared_state;
+
 /// API authentication mechanisms
 ///
 /// This module provides JWT-based authentication for API endpoints, including:

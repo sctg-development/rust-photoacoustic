@@ -18,6 +18,27 @@
 //! ## Architecture
 //!
 //! The daemon system uses Tokio's asynchronous runtime to manage concurrent tasks.
+//! Each service runs as an independent task, a    /// Get the shared audio stream
+    ///
+    /// Returns the shared audio stream if acquisition is enabled and running.
+    /// This is used by the web server to provide real-time streaming endpoints.
+    #[allow(dead_code)]
+    pub fn get_audio_stream(&self) -> Option<Arc<SharedAudioStream>> {
+        self.audio_stream.clone()
+    }
+
+    /// Get the shared visualization state
+    ///
+    /// Returns the shared visualization state that contains runtime statistics
+    /// and other data that needs to be accessed by web API endpoints.
+    pub fn get_visualization_state(&self) -> Arc<SharedVisualizationState> {
+        Arc::clone(&self.visualization_state)
+    }
+}
+
+//! ## Architecture
+//!
+//! The daemon system uses Tokio's asynchronous runtime to manage concurrent tasks.
 //! Each service runs as an independent task, and the main daemon structure tracks
 //! and coordinates these tasks.
 //!
@@ -874,14 +895,6 @@ impl Daemon {
     #[allow(dead_code)]
     pub fn get_audio_stream(&self) -> Option<Arc<SharedAudioStream>> {
         self.audio_stream.clone()
-    }
-
-    /// Get the shared visualization state
-    ///
-    /// Returns the shared visualization state that contains runtime statistics
-    /// and other data that needs to be accessed by web API endpoints.
-    pub fn get_visualization_state(&self) -> Arc<SharedVisualizationState> {
-        Arc::clone(&self.visualization_state)
     }
 
     /// Stop all running tasks gracefully
