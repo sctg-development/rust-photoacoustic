@@ -14,7 +14,7 @@ pub mod filters;
 mod filters_test;
 
 pub use differential::DifferentialCalculator;
-pub use filters::{BandpassFilter, Filter};
+pub use filters::{BandpassFilter, Filter, HighpassFilter, LowpassFilter};
 
 /// Create a bandpass filter centered at the given frequency with the specified bandwidth
 pub fn create_bandpass_filter(center_freq: f32, bandwidth: f32) -> Box<dyn Filter> {

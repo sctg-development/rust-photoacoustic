@@ -9,7 +9,7 @@
 
 use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
-use crate::preprocessing::filters::{BandpassFilter, LowpassFilter};
+use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, InputNode,
     MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
@@ -409,6 +409,21 @@ impl ProcessingGraph {
                             })? as f32;
 
                         let filter = LowpassFilter::new(cutoff_freq);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "highpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("Highpass filter requires 'cutoff_frequency'")
+                            })? as f32;
+
+                        let filter = HighpassFilter::new(cutoff_freq);
                         Ok(Box::new(FilterNode::new(
                             config.id.clone(),
                             Box::new(filter),

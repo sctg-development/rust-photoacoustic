@@ -15,7 +15,7 @@
 //! - **ProcessingGraph**: Container that manages processing nodes and their connections
 //! - **ProcessingNode**: Individual processing units with specific roles:
 //!   - `InputNode`: Entry point for audio data from acquisition
-//!   - `FilterNode`: Applies filters (bandpass, lowpass) to audio channels
+//!   - `FilterNode`: Applies filters (bandpass, lowpass, highpass) to audio channels
 //!   - `DifferentialNode`: Calculates differential between channels
 //!   - `ChannelSelectorNode`: Selects a specific channel (A or B)
 //!   - `ChannelMixerNode`: Mixes channels using various strategies
@@ -37,6 +37,8 @@
 //!
 //! ### Filter Nodes
 //! - `filter` with `type: "bandpass"`: Bandpass filter with center frequency and bandwidth
+//! - `filter` with `type: "lowpass"`: Lowpass filter with cutoff frequency  
+//! - `filter` with `type: "highpass"`: Highpass filter with cutoff frequency
 //! - `filter` with `type: "lowpass"`: Lowpass filter with cutoff frequency
 //!
 //! ### Channel Operations
@@ -104,7 +106,7 @@
 //! ```rust
 //! use rust_photoacoustic::processing::*;
 //! use rust_photoacoustic::processing::nodes::*;
-//! use rust_photoacoustic::preprocessing::filters::BandpassFilter;
+//! use rust_photoacoustic::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 //! use rust_photoacoustic::preprocessing::differential::SimpleDifferential;
 //! use rust_photoacoustic::acquisition::AudioFrame;
 //!

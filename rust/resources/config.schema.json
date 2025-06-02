@@ -386,7 +386,84 @@
                     "description": "Type of processing node"
                   },
                   "parameters": {
-                    "description": "Node-specific parameters"
+                    "description": "Node-specific parameters",
+                    "anyOf": [
+                      {
+                        "type": "null",
+                        "description": "No parameters"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Filter node parameters",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["bandpass", "lowpass", "highpass"],
+                            "description": "Filter type"
+                          },
+                          "center_frequency": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 50000,
+                            "description": "Center frequency in Hz (required for bandpass filters)"
+                          },
+                          "bandwidth": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 10000,
+                            "description": "Bandwidth in Hz (required for bandpass filters)"
+                          },
+                          "cutoff_frequency": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 50000,
+                            "description": "Cutoff frequency in Hz (required for lowpass and highpass filters)"
+                          }
+                        },
+                        "required": ["type"],
+                        "allOf": [
+                          {
+                            "if": {
+                              "properties": {
+                                "type": {
+                                  "const": "bandpass"
+                                }
+                              }
+                            },
+                            "then": {
+                              "required": ["center_frequency", "bandwidth"]
+                            }
+                          },
+                          {
+                            "if": {
+                              "properties": {
+                                "type": {
+                                  "enum": ["lowpass", "highpass"]
+                                }
+                              }
+                            },
+                            "then": {
+                              "required": ["cutoff_frequency"]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "description": "Channel selector parameters",
+                        "properties": {
+                          "target_channel": {
+                            "type": "string",
+                            "enum": ["ChannelA", "ChannelB"],
+                            "description": "Target channel for selection"
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "description": "Other node parameters"
+                      }
+                    ]
                   }
                 },
                 "required": ["id", "node_type"]
