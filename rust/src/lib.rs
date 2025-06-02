@@ -51,6 +51,12 @@ pub mod config;
 /// used in preparing raw signals for spectral analysis.
 pub mod preprocessing;
 
+/// Processing pipeline for modular audio analysis.
+///
+/// Provides a graph-based processing system for real-time audio processing
+/// with configurable nodes and connections.
+pub mod processing;
+
 /// Spectral analysis tools for frequency domain operations.
 ///
 /// Provides implementations of FFT and other spectral analysis methods for

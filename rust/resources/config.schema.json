@@ -26,17 +26,11 @@
           "type": "string"
         },
         "cert": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "PEM TLS certificate file (base64 encoded)"
         },
         "key": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "PEM TLS private key file (base64 encoded)"
         },
         "hmac_secret": {
@@ -44,23 +38,15 @@
           "description": "HMAC secret for JWT token signing"
         },
         "rs256_private_key": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "RS256 private key for JWT token signing (base64 encoded)"
         },
         "rs256_public_key": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "RS256 public key for JWT token verification (base64 encoded)"
         },
         "session_secret": {
-          "type": [
-            "string"
-          ],
+          "type": ["string"],
           "description": "Session secret for cookie signing (base64 encoded) can be generated with openssl rand -base64 32"
         },
         "compression": {
@@ -105,10 +91,7 @@
           "description": "Enable Modbus TCP server"
         }
       },
-      "required": [
-        "port",
-        "address"
-      ]
+      "required": ["port", "address"]
     },
     "acquisition": {
       "type": "object",
@@ -125,25 +108,17 @@
           "description": "Data acquisition interval in milliseconds"
         }
       },
-      "required": [
-        "enabled"
-      ]
+      "required": ["enabled"]
     },
     "photoacoustic": {
       "type": "object",
       "properties": {
         "input_device": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "The input device to use for data acquisition use first to use the first available device (mutually exclusive with input_file)"
         },
         "input_file": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "The input file to use for data acquisition (mutually exclusive with input_device)"
         },
         "frequency": {
@@ -178,12 +153,7 @@
         },
         "precision": {
           "type": "integer",
-          "enum": [
-            8,
-            16,
-            24,
-            32
-          ],
+          "enum": [8, 16, 24, 32],
           "description": "Precision of sampling (bits, allowed: 8, 16, 24, 32)"
         },
         "mock_source": {
@@ -203,29 +173,17 @@
           "description": "Use a record consumer for testing purposes"
         },
         "record_file": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "File to record the data to)"
         }
       },
-      "required": [
-        "frequency",
-        "bandwidth",
-        "frame_size",
-        "averages"
-      ],
+      "required": ["frequency", "bandwidth", "frame_size", "averages"],
       "oneOf": [
         {
-          "required": [
-            "input_device"
-          ]
+          "required": ["input_device"]
         },
         {
-          "required": [
-            "input_file"
-          ]
+          "required": ["input_file"]
         }
       ]
     },
@@ -281,11 +239,7 @@
                 "description": "Full name of the user"
               }
             },
-            "required": [
-              "user",
-              "pass",
-              "permissions"
-            ]
+            "required": ["user", "pass", "permissions"]
           },
           "description": "List of users with their credentials and permissions"
         },
@@ -313,18 +267,12 @@
                 "description": "Default scopes granted to this client"
               }
             },
-            "required": [
-              "client_id",
-              "allowed_callbacks"
-            ]
+            "required": ["client_id", "allowed_callbacks"]
           },
           "description": "List of OAuth2 clients with their identifiers and allowed callback URLs"
         }
       },
-      "required": [
-        "users",
-        "clients"
-      ]
+      "required": ["users", "clients"]
     },
     "generix": {
       "type": "object",
@@ -332,9 +280,7 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": [
-            "generix"
-          ],
+          "enum": ["generix"],
           "description": "OAuth provider type. Only 'generix' is supported"
         },
         "api_base_url": {
@@ -395,9 +341,103 @@
         "domain",
         "issuer"
       ]
+    },
+    "processing": {
+      "type": "object",
+      "description": "Audio processing pipeline configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable or disable the processing consumer"
+        },
+        "result_buffer_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Buffer size for processing results broadcasting"
+        },
+        "default_graph": {
+          "type": "object",
+          "description": "Default processing graph configuration",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Graph identifier"
+            },
+            "nodes": {
+              "type": "array",
+              "description": "List of processing nodes",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Node identifier"
+                  },
+                  "node_type": {
+                    "type": "string",
+                    "enum": [
+                      "input",
+                      "filter",
+                      "differential",
+                      "channel_selector",
+                      "channel_mixer",
+                      "photoacoustic_output"
+                    ],
+                    "description": "Type of processing node"
+                  },
+                  "parameters": {
+                    "description": "Node-specific parameters"
+                  }
+                },
+                "required": ["id", "node_type"]
+              }
+            },
+            "connections": {
+              "type": "array",
+              "description": "List of connections between nodes",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "description": "Source node identifier"
+                  },
+                  "to": {
+                    "type": "string",
+                    "description": "Target node identifier"
+                  }
+                },
+                "required": ["from", "to"]
+              }
+            },
+            "output_node": {
+              "type": ["string", "null"],
+              "description": "Output node identifier"
+            }
+          }
+        },
+        "performance": {
+          "type": "object",
+          "description": "Processing performance settings",
+          "properties": {
+            "max_processing_time_us": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum processing time per frame (microseconds)"
+            },
+            "enable_stats": {
+              "type": "boolean",
+              "description": "Enable detailed processing statistics"
+            },
+            "stats_interval_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Statistics update interval (milliseconds)"
+            }
+          }
+        }
+      }
     }
   },
-  "required": [
-    "visualization"
-  ]
+  "required": ["visualization"]
 }

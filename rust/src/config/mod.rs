@@ -58,6 +58,7 @@ pub mod acquisition;
 pub mod generix;
 pub mod modbus;
 pub mod photoacoustic;
+pub mod processing;
 pub mod utils;
 pub mod visualization;
 
@@ -75,6 +76,7 @@ pub use acquisition::AcquisitionConfig;
 pub use generix::GenerixConfig;
 pub use modbus::ModbusConfig;
 pub use photoacoustic::PhotoacousticConfig;
+pub use processing::ProcessingConfig;
 pub use utils::output_config_schema;
 pub use visualization::VisualizationConfig;
 
@@ -140,6 +142,14 @@ pub struct Config {
     #[serde(default)]
     pub access: AccessConfig,
 
+    /// Processing settings for the photoacoustic application.
+    ///
+    /// This section controls parameters related to the audio processing pipeline,
+    /// such as processing graphs, nodes configuration, and performance settings.
+    /// If not specified, default values will be used.
+    #[serde(default)]
+    pub processing: ProcessingConfig,
+
     #[serde(default)]
     pub generix: GenerixConfig,
 }
@@ -152,6 +162,7 @@ impl Default for Config {
             modbus: ModbusConfig::default(),
             photoacoustic: PhotoacousticConfig::default(),
             access: AccessConfig::default(),
+            processing: ProcessingConfig::default(),
             generix: GenerixConfig::default(),
         }
     }

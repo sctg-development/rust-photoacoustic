@@ -9,6 +9,7 @@ mod daemon;
 mod modbus;
 mod photoacoustic;
 mod preprocessing;
+mod processing;
 mod spectral;
 mod utility;
 mod visualization;

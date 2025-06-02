@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 //! # Daemon Management Module
 //!
 //! This module provides functionality for running and manageing background
@@ -58,6 +62,7 @@ use crate::acquisition::{
     get_realtime_audio_source_from_file, get_realtime_mock_audio_source, RealTimeAcquisitionDaemon,
     SharedAudioStream,
 };
+use crate::processing::{ProcessingConsumer, ProcessingGraph};
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
 use crate::{config::Config, modbus::PhotoacousticModbusServer};
@@ -101,6 +106,8 @@ pub struct Daemon {
     realtime_acquisition_daemon: Option<RealTimeAcquisitionDaemon>,
     /// record consumer daemon for testing and validation
     record_consumer_daemon: Option<RecordConsumer>,
+    /// processing consumer daemon for audio processing pipeline
+    processing_consumer_daemon: Option<ProcessingConsumer>,
 }
 
 impl Default for Daemon {
@@ -136,6 +143,7 @@ impl Daemon {
             audio_stream: None,
             realtime_acquisition_daemon: None,
             record_consumer_daemon: None,
+            processing_consumer_daemon: None,
         }
     }
 
@@ -184,6 +192,11 @@ impl Daemon {
         // Start record consumer if enabled
         if config.photoacoustic.record_consumer {
             self.start_record_consumer(config).await?;
+        }
+
+        // Start processing consumer if enabled
+        if config.processing.enabled {
+            self.start_processing_consumer(config).await?;
         }
 
         // Start web server if enabled
@@ -749,6 +762,85 @@ impl Daemon {
         // Register the task for lifecycle management and graceful shutdown
         self.tasks.push(task);
         info!("record consumer daemon started successfully");
+        Ok(())
+    }
+
+    /// Start the processing consumer daemon
+    ///
+    /// Initializes and starts the processing consumer daemon which handles audio processing
+    /// using a configurable processing graph. The daemon consumes audio data from the
+    /// shared audio stream and processes it through the configured processing nodes.
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Application configuration containing processing settings
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Success if the processing consumer started successfully
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// * Audio stream is not available (acquisition must be started first)
+    /// * Processing graph configuration is invalid
+    /// * Processing consumer fails to initialize
+    async fn start_processing_consumer(&mut self, config: &Config) -> Result<()> {
+        info!("Starting processing consumer daemon");
+
+        // Ensure audio stream is available
+        let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("Audio stream not available. Start audio acquisition first.")
+        })?;
+
+        // Validate processing configuration
+        config
+            .processing
+            .validate()
+            .map_err(|e| anyhow::anyhow!("Invalid processing configuration: {}", e))?;
+
+        // Create processing graph from configuration
+        let processing_graph = ProcessingGraph::from_config(&config.processing.default_graph)
+            .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
+
+        // Create processing consumer daemon
+        let processing_consumer = ProcessingConsumer::new(audio_stream.clone(), processing_graph);
+
+        // Start the processing consumer in a background task
+        let mut processing_consumer_for_task = processing_consumer;
+
+        let task = tokio::spawn(async move {
+            info!("Processing consumer task started");
+
+            // Start the processing consumer daemon
+            match processing_consumer_for_task.start().await {
+                Ok(_) => {
+                    info!("Processing consumer daemon completed successfully");
+                }
+                Err(e) => {
+                    error!("Processing consumer daemon failed: {}", e);
+                }
+            }
+
+            info!("Processing consumer task stopped");
+            Ok(())
+        });
+
+        // Store a placeholder for the processing consumer daemon (already moved to task)
+        // We create a new instance for tracking purposes
+        let processing_graph_placeholder =
+            ProcessingGraph::from_config(&config.processing.default_graph).map_err(|e| {
+                anyhow::anyhow!("Failed to create placeholder processing graph: {}", e)
+            })?;
+
+        self.processing_consumer_daemon = Some(ProcessingConsumer::new(
+            audio_stream.clone(),
+            processing_graph_placeholder,
+        ));
+
+        // Register the task for lifecycle management and graceful shutdown
+        self.tasks.push(task);
+        info!("Processing consumer daemon started successfully");
         Ok(())
     }
 

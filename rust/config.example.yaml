@@ -176,3 +176,28 @@ access:
     token_issuer: https://localhost:8080 # Token issuer base URL
     jwks_endpoint: https://localhost:8080/.well-known/jwks.json # JWKS endpoint for public keys
     domain: localhost # Domain for the client application
+
+# =========================
+# Signal processing configuration
+# =========================
+processing:
+  enabled: true
+  result_buffer_size: 1000
+  default_graph:
+    id: default
+    nodes:
+    - id: input
+      node_type: input
+      parameters: null
+    - id: channel_selector
+      node_type: channel_selector
+      parameters:
+        target_channel: ChannelA
+    connections:
+    - from: input
+      to: channel_selector
+    output_node: channel_selector
+  performance:
+    max_processing_time_us: 10000
+    enable_stats: true
+    stats_interval_ms: 1000
