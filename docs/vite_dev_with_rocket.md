@@ -13,14 +13,38 @@ The integration allows developers to run a Vite development server alongside the
 
 ## Architecture
 
-```text
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Browser       │    │   Rocket Server  │    │  Vite Dev Server│
-│                 │    │                  │    │                 │
-│ http://localhost│───▶│ :8080/client/*   │───▶│ :5173/client/*  │
-│      :8080      │    │                  │    │                 │
-│                 │◀───│  (Proxy Mode)    │◀───│ (Dev Mode Only) │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+```mermaid
+graph LR
+    subgraph "Client Layer"
+        BROWSER[Browser<br/>localhost:8080]
+    end
+    
+    subgraph "Backend Layer"
+        ROCKET[Rocket Server<br/>Port 8080]
+    end
+    
+    subgraph "Development Layer"
+        VITE[Vite Dev Server<br/>Port 5173]
+    end
+    
+    subgraph "Production Layer"
+        ASSETS[Embedded Assets<br/>web/dist/]
+    end
+    
+    BROWSER -->|/client/*| ROCKET
+    
+    ROCKET -->|Dev Mode<br/>VITE_DEVELOPMENT=true| VITE
+    ROCKET -->|Production Mode<br/>Static Assets| ASSETS
+    
+    VITE -->|HMR + Fast Builds| ROCKET
+    ASSETS -->|Optimized Bundle| ROCKET
+    
+    ROCKET -->|Response| BROWSER
+    
+    style BROWSER fill:#e3f2fd
+    style ROCKET fill:#f3e5f5
+    style VITE fill:#e8f5e8
+    style ASSETS fill:#fff3e0
 ```
 
 ### Development Mode Flow

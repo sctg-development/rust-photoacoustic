@@ -11,14 +11,68 @@ The system supports two streaming formats:
 
 ## Architecture Overview
 
-```
-Server → SSE Stream → Format Detection → Frame Parser → Audio Queue → Web Audio Graph → Audio Context Node
-                           ↓                              ↓
-                   [Regular/Fast Format]         [Optimized Processing]
-                           ↓                              ↓
-                   Frame Size Statistics          Performance Monitoring
-                           ↓                              ↓
-                   Timestamp Validation           Real-time Validation
+```mermaid
+graph LR
+    subgraph "Data Source"
+        SERVER[Server]
+    end
+    
+    subgraph "Transport Layer"
+        SSE[SSE Stream]
+    end
+    
+    subgraph "Processing Pipeline"
+        FD[Format Detection]
+        FP[Frame Parser]
+        AQ[Audio Queue]
+        WAG[Web Audio Graph]
+        ACN[Audio Context Node]
+    end
+    
+    subgraph "Format Handling"
+        RF[Regular Format<br/>JSON Arrays]
+        FF[Fast Format<br/>Base64 Binary]
+    end
+    
+    subgraph "Optimization Layer"
+        OP[Optimized Processing<br/>Batch Operations]
+        PM[Performance Monitoring<br/>CPU/Memory Tracking]
+    end
+    
+    subgraph "Quality Assurance"
+        FSS[Frame Size Statistics<br/>Bandwidth Monitoring]
+        TV[Timestamp Validation<br/>Gap Detection]
+        RTV[Real-time Validation<br/>Missing Frame Detection]
+    end
+    
+    SERVER --> SSE
+    SSE --> FD
+    
+    FD --> RF
+    FD --> FF
+    
+    RF --> FP
+    FF --> FP
+    
+    FP --> AQ
+    AQ --> WAG
+    WAG --> ACN
+    
+    FP --> OP
+    OP --> PM
+    
+    FP --> FSS
+    FP --> TV
+    TV --> RTV
+    
+    style SERVER fill:#e3f2fd
+    style SSE fill:#f3e5f5
+    style FP fill:#e8f5e8
+    style AQ fill:#fff3e0
+    style WAG fill:#fce4ec
+    style ACN fill:#e0f2f1
+    style OP fill:#fff8e1
+    style PM fill:#f1f8e9
 ```
 
 The audio reconstruction pipeline consists of several key components with **CPU optimization**:
@@ -851,8 +905,11 @@ const AudioVisualizationComponent = () => {
           <h4>Performance Statistics</h4>
           <div>Processing Efficiency: {perfStats.processingEfficiency}%</div>
           <div>Avg Processing Time: {perfStats.averageProcessingTime}ms</div>
+          <div>Peak Processing Time: {perfStats.peakProcessingTime}ms</div>
           <div>Queue Length: {perfStats.queueLength}</div>
-          <div>Buffer Pools: {perfStats.bufferPoolSizes.length}</div>
+          <div>Total Processed: {perfStats.totalProcessedFrames}</div>
+          <div>Total Received: {perfStats.totalReceivedFrames}</div>
+          <div>Buffer Pools Active: {perfStats.bufferPoolSizes.length}</div>
         </div>
       )}
 
