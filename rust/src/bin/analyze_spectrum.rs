@@ -33,10 +33,13 @@ struct Args {
     /// FFT size (power of 2)
     #[arg(long, default_value_t = 8192)]
     fft_size: usize,
-
     /// Show full spectrum in analyzed range
     #[arg(long, short = 'f')]
     full_spectrum: bool,
+
+    /// Position in seconds from start of file to analyze
+    #[arg(short, long)]
+    position: Option<f32>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,11 +50,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Error: Input file '{}' does not exist", args.input);
         std::process::exit(1);
     }
-
     println!("Analyzing spectrum of: {}", args.input);
     println!("Target frequency: {} Hz", args.target_frequency);
     println!("Analysis range: ±{} Hz", args.range);
     println!("FFT size: {}", args.fft_size);
+    if let Some(pos) = args.position {
+        println!("Analysis position: {:.3}s", pos);
+    }
     println!();
 
     // Read WAV file
@@ -84,19 +89,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let duration = samples.len() as f32 / spec.sample_rate as f32;
     println!("  Duration: {:.2} seconds", duration);
     println!("  Total samples: {}", samples.len());
-    println!();
-
-    // Perform FFT analysis
+    println!(); // Perform FFT analysis
     let fft_size = args.fft_size.min(samples.len());
     let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
+    let fft = planner.plan_fft_forward(fft_size); // Calculate start sample based on position or use middle of signal
+    let start_sample = if let Some(position_sec) = args.position {
+        let position_sample = (position_sec * spec.sample_rate as f32) as usize;
 
-    // Use middle portion of the signal for analysis
-    let start_sample = if samples.len() > fft_size {
-        (samples.len() - fft_size) / 2
+        // Validate that the analysis window fits within the file
+        if position_sample + fft_size > samples.len() {
+            let max_position_sec =
+                (samples.len().saturating_sub(fft_size)) as f32 / spec.sample_rate as f32;
+            eprintln!(
+                "Error: Position {:.3}s would place analysis window beyond file end",
+                position_sec
+            );
+            eprintln!(
+                "       File length: {:.3}s",
+                samples.len() as f32 / spec.sample_rate as f32
+            );
+            eprintln!(
+                "       Analysis window: {:.3}s",
+                fft_size as f32 / spec.sample_rate as f32
+            );
+            eprintln!("       Maximum allowed position: {:.3}s", max_position_sec);
+            std::process::exit(1);
+        }
+
+        position_sample
     } else {
-        0
+        // Use middle portion of the signal for analysis
+        if samples.len() > fft_size {
+            (samples.len() - fft_size) / 2
+        } else {
+            0
+        }
     };
+
+    // Display analysis window information
+    let analysis_start_time = start_sample as f32 / spec.sample_rate as f32;
+    let analysis_end_time = (start_sample + fft_size) as f32 / spec.sample_rate as f32;
+    println!(
+        "Analysis window: {:.3}s - {:.3}s ({} samples)",
+        analysis_start_time, analysis_end_time, fft_size
+    );
 
     // Apply Hann window and prepare complex input
     let mut buffer: Vec<Complex<f32>> = (0..fft_size)
