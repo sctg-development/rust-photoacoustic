@@ -5,11 +5,14 @@
 //! # Noise Generator
 //!
 //! A command-line utility for generating white noise audio files for testing and calibration.
-//! This tool creates WAV files containing Gaussian white noise with configurable parameters.
+//! This tool creates WAV files containing Gaussian white noise, mock photoacoustic signals,
+//! or realistic Helmholtz resonance cell simulations with configurable parameters.
 //!
 //! ## Features
 //!
 //! * Generates mono or stereo white noise signals
+//! * Mock photoacoustic signal generation with pulses over white noise
+//! * Realistic Helmholtz resonance cell simulation with gas flow effects
 //! * Supports different sample rates (44.1kHz, 48kHz, 192kHz)
 //! * Configurable amplitude and duration
 //! * Option for correlated noise between stereo channels
@@ -31,6 +34,12 @@
 //! noise_generator --output correlated.wav --correlated --correlation 0.8
 //! ```
 //!
+//! Generate a realistic Helmholtz cell simulation:
+//! ```shell
+//! noise_generator --output helmholtz.wav --noise-type helmholtz --resonance-frequency 2100 \
+//!                 --laser-modulation-depth 0.9 --signal-amplitude 0.7
+//! ```
+//!
 //! ## Applications in Photoacoustic Analysis
 //!
 //! White noise signals are useful in photoacoustic applications for:
@@ -40,6 +49,7 @@
 //! * Measuring frequency response of photoacoustic cells
 //! * Testing filter implementations
 //! * Simulating background noise for robustness testing
+//! * Realistic Helmholtz cell system simulation for algorithm development
 
 use clap::Parser;
 use hound::{SampleFormat, WavSpec, WavWriter};
@@ -114,11 +124,12 @@ struct Args {
     #[arg(short = 'r', long, default_value_t = 0.0)]
     correlation: f32,
 
-    /// Noise type to generate (white or mock)
+    /// Noise type to generate (white, mock, or helmholtz)
     ///
     /// Specifies the type of noise to generate:
     /// - "white": pure white noise (default)
     /// - "mock": mock photoacoustic signal with pulses over white noise
+    /// - "helmholtz": realistic Helmholtz resonance cell simulation
     #[arg(long, default_value = "white")]
     noise_type: String,
 
@@ -149,6 +160,55 @@ struct Args {
     /// Must be greater than or equal to min_pulse_amplitude.
     #[arg(long, default_value_t = 1.0)]
     max_pulse_amplitude: f32,
+
+    /// Resonance frequency for Helmholtz cell simulation (only used with --noise-type=helmholtz)
+    ///
+    /// The resonance frequency of the Helmholtz cell in Hz. Typical values are around 2000 Hz.
+    /// This frequency is enhanced in the generated signal to simulate resonance effects.
+    #[arg(long, default_value_t = 2000.0)]
+    resonance_frequency: f32,
+
+    /// Laser modulation depth for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Depth of laser modulation in the range [0.0, 1.0].
+    /// Controls how strong the laser-induced photoacoustic signal is.
+    #[arg(long, default_value_t = 0.8)]
+    laser_modulation_depth: f32,
+
+    /// Signal amplitude for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Amplitude of the photoacoustic signal in the range [0.0, 1.0].
+    /// This is the base amplitude before concentration variations.
+    #[arg(long, default_value_t = 0.6)]
+    signal_amplitude: f32,
+
+    /// Phase opposition in degrees for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Phase difference between microphones in degrees. 180° represents perfect opposition.
+    /// Real systems typically have slight deviations (e.g., 175°-185°).
+    #[arg(long, default_value_t = 175.0)]
+    phase_opposition_degrees: f32,
+
+    /// Temperature drift factor for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Factor affecting phase and frequency stability due to temperature variations [0.0, 0.1].
+    /// Higher values create more drift in the system.
+    #[arg(long, default_value_t = 0.02)]
+    temperature_drift_factor: f32,
+
+    /// Gas flow noise factor for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Factor controlling 1/f gas flow noise characteristics [0.0, 1.0].
+    /// Higher values increase the pink noise component from gas circulation.
+    #[arg(long, default_value_t = 0.7)]
+    gas_flow_noise_factor: f32,
+
+    /// Signal-to-noise ratio for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Signal-to-noise ratio in dB for the Helmholtz simulation.
+    /// This controls the relative strength of the photoacoustic signal compared to noise.
+    #[arg(long, default_value_t = 20.0)]
+    snr: f32,
 }
 
 /// Main entry point for the noise generator utility.
@@ -198,8 +258,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Validate noise type
-    if args.noise_type != "white" && args.noise_type != "mock" {
-        eprintln!("Error: Noise type must be 'white' or 'mock'");
+    if args.noise_type != "white" && args.noise_type != "mock" && args.noise_type != "helmholtz" {
+        eprintln!("Error: Noise type must be 'white', 'mock', or 'helmholtz'");
         std::process::exit(1);
     }
 
@@ -231,6 +291,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Validate Helmholtz parameters if using Helmholtz simulation
+    if args.noise_type == "helmholtz" {
+        if args.resonance_frequency <= 0.0 {
+            eprintln!("Error: Resonance frequency must be greater than 0");
+            std::process::exit(1);
+        }
+
+        if args.laser_modulation_depth < 0.0 || args.laser_modulation_depth > 1.0 {
+            eprintln!("Error: Laser modulation depth must be between 0.0 and 1.0");
+            std::process::exit(1);
+        }
+
+        if args.signal_amplitude < 0.0 || args.signal_amplitude > 1.0 {
+            eprintln!("Error: Signal amplitude must be between 0.0 and 1.0");
+            std::process::exit(1);
+        }
+
+        if args.phase_opposition_degrees < 0.0 || args.phase_opposition_degrees > 360.0 {
+            eprintln!("Error: Phase opposition degrees must be between 0.0 and 360.0");
+            std::process::exit(1);
+        }
+
+        if args.temperature_drift_factor < 0.0 || args.temperature_drift_factor > 0.1 {
+            eprintln!("Error: Temperature drift factor must be between 0.0 and 0.1");
+            std::process::exit(1);
+        }
+
+        if args.gas_flow_noise_factor < 0.0 || args.gas_flow_noise_factor > 1.0 {
+            eprintln!("Error: Gas flow noise factor must be between 0.0 and 1.0");
+            std::process::exit(1);
+        }
+
+        // Helmholtz simulation is only supported for stereo output
+        if args.channels != 2 {
+            eprintln!("Error: Helmholtz simulation requires stereo output (2 channels)");
+            std::process::exit(1);
+        }
+    }
+
     // Create WAV file specification
     let spec = WavSpec {
         channels: args.channels,
@@ -241,7 +340,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.noise_type == "white" {
         println!("Generating {} seconds of white noise...", args.duration);
-    } else {
+    } else if args.noise_type == "mock" {
         println!(
             "Generating {} seconds of mock photoacoustic signal...",
             args.duration
@@ -251,6 +350,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "Pulse amplitude range: {:.1} to {:.1}",
             args.min_pulse_amplitude, args.max_pulse_amplitude
+        );
+    } else if args.noise_type == "helmholtz" {
+        println!(
+            "Generating {} seconds of Helmholtz cell photoacoustic simulation...",
+            args.duration
+        );
+        println!("Resonance frequency: {} Hz", args.resonance_frequency);
+        println!(
+            "Laser modulation depth: {:.1}%",
+            args.laser_modulation_depth * 100.0
+        );
+        println!("Signal amplitude: {:.1}%", args.signal_amplitude * 100.0);
+        println!("Phase opposition: {:.1}°", args.phase_opposition_degrees);
+        println!(
+            "Temperature drift factor: {:.3}",
+            args.temperature_drift_factor
+        );
+        println!(
+            "Gas flow noise factor: {:.1}%",
+            args.gas_flow_noise_factor * 100.0
         );
     }
 
@@ -281,7 +400,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             generator.generate_stereo(num_samples, args.amplitude)
         }
-    } else {
+    } else if args.noise_type == "mock" {
         // Mock photoacoustic signal generation
         if args.channels == 1 {
             generator.generate_mock_photoacoustic_mono(
@@ -315,6 +434,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args.max_pulse_amplitude,
             )
         }
+    } else {
+        // Helmholtz resonance cell simulation (always stereo)
+        let snr = 10f32.powf(args.snr / 20.0); // Convert dB to linear scale
+        generator.generate_mock2_photoacoustic_stereo(
+            num_samples,
+            args.sample_rate,
+            args.amplitude,
+            args.resonance_frequency,
+            args.laser_modulation_depth,
+            args.signal_amplitude,
+            args.phase_opposition_degrees,
+            args.temperature_drift_factor,
+            args.gas_flow_noise_factor,
+            args.snr,
+        )
     };
 
     // Write all samples to the WAV file
@@ -326,7 +460,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Finalize the WAV file to ensure all data is written properly
     writer.finalize()?;
     println!(
-        "White noise successfully generated and saved to: {}",
+        "Audio signal successfully generated and saved to: {}",
         args.output.display()
     );
 
