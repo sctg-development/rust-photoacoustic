@@ -181,15 +181,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Status: ⚠ Signal weakly detectable");
     } else {
         println!("  Status: ✗ Signal not detectable above noise floor");
-    }
-
-    // Show spectrum around target frequency
+    } // Show spectrum around target frequency
     println!();
     println!("Spectrum around target frequency:");
     println!("Frequency (Hz) | Power | Power (dB)");
     println!("{}", "-".repeat(40));
 
-    for i in start_bin..=end_bin.min(start_bin + 20) {
+    // Show spectrum around the peak, not necessarily from start_bin
+    let display_range = 10; // Show ±10 bins around the peak
+    let display_start = max_bin.saturating_sub(display_range).max(start_bin);
+    let display_end = (max_bin + display_range)
+        .min(end_bin)
+        .min(power_spectrum.len() - 1);
+
+    for i in display_start..=display_end {
         let freq = i as f32 * freq_resolution;
         let power = power_spectrum[i];
         let power_db = 10.0 * (power / noise_floor).log10();
