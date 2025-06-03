@@ -747,7 +747,7 @@ impl NoiseGenerator {
     /// * `phase_opposition_degrees` - Phase difference between mics in degrees (180° = perfect opposition)
     /// * `temperature_drift_factor` - Factor affecting phase and frequency stability [0.0, 0.1]
     /// * `gas_flow_noise_factor` - Factor controlling 1/f gas flow noise characteristics [0.0, 1.0]
-    /// * `snr_factor` - Signal-to-noise ratio factor for the output signal [0.0, 1.0]
+    /// * `snr_factor` - Signal-to-noise ratio factor for the output signal in dB
     ///
     /// # Returns
     ///
