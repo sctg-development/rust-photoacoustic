@@ -32,7 +32,7 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 
-use super::{ProcessingNode, ProcessingData, ProcessingMetadata};
+use super::{ProcessingData, ProcessingMetadata, ProcessingNode};
 use anyhow::Result;
 
 /// Photoacoustic output node that converts processed signal to final photoacoustic result

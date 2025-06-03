@@ -34,8 +34,8 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 
+use super::{ProcessingData, ProcessingNode};
 use crate::preprocessing::DifferentialCalculator;
-use super::{ProcessingNode, ProcessingData};
 use anyhow::Result;
 
 /// Differential node that calculates the difference between two channels

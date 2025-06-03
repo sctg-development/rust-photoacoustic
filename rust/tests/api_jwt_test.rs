@@ -24,20 +24,23 @@ fn get_figment() -> rocket::figment::Figment {
 async fn test_protected_api_with_jwt() {
     // Initialize the Rocket instance with a test HMAC secret
     let _test_hmac_secret = "test-hmac-secret-key-for-testing";
-    
+
     // Create a SharedVisualizationState for the test
     let visualization_state = std::sync::Arc::new(
-        rust_photoacoustic::visualization::shared_state::SharedVisualizationState::new()
+        rust_photoacoustic::visualization::shared_state::SharedVisualizationState::new(),
     );
-      // Pre-populate the visualization state with some test data
+    // Pre-populate the visualization state with some test data
     let test_stats = rust_photoacoustic::processing::graph::ProcessingGraphStatistics::new();
-    visualization_state.update_processing_statistics(test_stats).await;
-    
+    visualization_state
+        .update_processing_statistics(test_stats)
+        .await;
+
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
-        get_figment(), 
-        None, 
-        Some(visualization_state)
-    ).await;
+        get_figment(),
+        None,
+        Some(visualization_state),
+    )
+    .await;
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

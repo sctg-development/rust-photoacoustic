@@ -8,9 +8,9 @@
 //! graph configuration, showing both programmatic usage and YAML configuration.
 
 use anyhow::Result;
-use rust_photoacoustic::config::processing::{NodeConfig, ProcessingGraphConfig, ConnectionConfig};
-use rust_photoacoustic::processing::{ProcessingGraph, ProcessingData};
+use rust_photoacoustic::config::processing::{ConnectionConfig, NodeConfig, ProcessingGraphConfig};
 use rust_photoacoustic::processing::nodes::{ProcessingNode, RecordNode};
+use rust_photoacoustic::processing::{ProcessingData, ProcessingGraph};
 use tempfile::tempdir;
 
 fn main() -> Result<()> {
@@ -35,11 +35,11 @@ fn test_programmatic_creation() -> Result<()> {
 
     let temp_dir = tempdir()?;
     let record_file = temp_dir.path().join("test_recording.wav");
-    
+
     let mut record_node = RecordNode::new(
         "test_record".to_string(),
         record_file.clone(),
-        512, // 512KB max size
+        512,  // 512KB max size
         true, // auto delete
         None, // no total limit
     );
@@ -53,11 +53,19 @@ fn test_programmatic_creation() -> Result<()> {
     };
 
     let result = record_node.process(mono_data.clone())?;
-    
+
     // Verify pass-through behavior
     match (&result, &mono_data) {
-        (ProcessingData::SingleChannel { samples: out_samples, .. }, 
-         ProcessingData::SingleChannel { samples: in_samples, .. }) => {
+        (
+            ProcessingData::SingleChannel {
+                samples: out_samples,
+                ..
+            },
+            ProcessingData::SingleChannel {
+                samples: in_samples,
+                ..
+            },
+        ) => {
             assert_eq!(out_samples, in_samples, "Output should match input exactly");
         }
         _ => panic!("Unexpected data type mismatch"),
@@ -153,12 +161,10 @@ fn test_processing_graph() -> Result<()> {
                 },
             },
         ],
-        connections: vec![
-            ConnectionConfig {
-                from: "input".to_string(),
-                to: "recorder".to_string(),
-            },
-        ],
+        connections: vec![ConnectionConfig {
+            from: "input".to_string(),
+            to: "recorder".to_string(),
+        }],
         output_node: Some("recorder".to_string()),
     };
 
