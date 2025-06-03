@@ -30,10 +30,13 @@ struct Args {
     /// Frequency range around target to analyze (±Hz)
     #[arg(short, long, default_value_t = 100.0)]
     range: f32,
-
     /// FFT size (power of 2)
     #[arg(long, default_value_t = 8192)]
     fft_size: usize,
+
+    /// Show full spectrum in analyzed range
+    #[arg(long, short = 'f')]
+    full_spectrum: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -172,9 +175,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  SNR: {:.1} dB", snr_db);
 
     let freq_error = (peak_frequency - args.target_frequency).abs();
-    println!("  Frequency error: {:.1} Hz", freq_error);
-
-    // Check if signal is detectable
+    println!("  Frequency error: {:.1} Hz", freq_error); // Check if signal is detectable
     if snr_db > 6.0 {
         println!("  Status: ✓ Signal clearly detectable!");
     } else if snr_db > 3.0 {
@@ -187,22 +188,73 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Frequency (Hz) | Power | Power (dB)");
     println!("{}", "-".repeat(40));
 
-    // Show spectrum around the peak, not necessarily from start_bin
-    let display_range = 10; // Show ±10 bins around the peak
-    let display_start = max_bin.saturating_sub(display_range).max(start_bin);
-    let display_end = (max_bin + display_range)
+    // Show spectrum around the target frequency, with a reasonable range
+    let display_range = 10; // Show ±10 bins around the target
+    let target_display_start = target_bin.saturating_sub(display_range).max(start_bin);
+    let target_display_end = (target_bin + display_range)
         .min(end_bin)
         .min(power_spectrum.len() - 1);
 
-    for i in display_start..=display_end {
+    for i in target_display_start..=target_display_end {
         let freq = i as f32 * freq_resolution;
         let power = power_spectrum[i];
         let power_db = 10.0 * (power / noise_floor).log10();
-        let marker = if i == max_bin { " ←PEAK" } else { "" };
+        let mut marker = "";
+        if i == max_bin {
+            marker = " ←PEAK";
+        } else if i == target_bin {
+            marker = " ←TARGET";
+        }
         println!(
             "{:10.1} | {:8.2e} | {:7.1} dB{}",
             freq, power, power_db, marker
         );
+    } // If peak is outside the displayed range, show spectrum around peak too
+    if max_bin < target_display_start || max_bin > target_display_end {
+        println!();
+        println!("Spectrum around detected peak:");
+        println!("Frequency (Hz) | Power | Power (dB)");
+        println!("{}", "-".repeat(40));
+
+        let peak_display_start = max_bin.saturating_sub(display_range).max(start_bin);
+        let peak_display_end = (max_bin + display_range)
+            .min(end_bin)
+            .min(power_spectrum.len() - 1);
+
+        for i in peak_display_start..=peak_display_end {
+            let freq = i as f32 * freq_resolution;
+            let power = power_spectrum[i];
+            let power_db = 10.0 * (power / noise_floor).log10();
+            let marker = if i == max_bin { " ←PEAK" } else { "" };
+            println!(
+                "{:10.1} | {:8.2e} | {:7.1} dB{}",
+                freq, power, power_db, marker
+            );
+        }
+    }
+
+    // Show full spectrum if requested
+    if args.full_spectrum {
+        println!();
+        println!("Full spectrum in analyzed range:");
+        println!("Frequency (Hz) | Power | Power (dB)");
+        println!("{}", "-".repeat(40));
+
+        for i in start_bin..=end_bin {
+            let freq = i as f32 * freq_resolution;
+            let power = power_spectrum[i];
+            let power_db = 10.0 * (power / noise_floor).log10();
+            let mut marker = "";
+            if i == max_bin {
+                marker = " ←PEAK";
+            } else if i == target_bin {
+                marker = " ←TARGET";
+            }
+            println!(
+                "{:10.1} | {:8.2e} | {:7.1} dB{}",
+                freq, power, power_db, marker
+            );
+        }
     }
 
     Ok(())
