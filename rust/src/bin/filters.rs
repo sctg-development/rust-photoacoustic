@@ -41,7 +41,9 @@
 
 use clap::{Parser, ValueEnum};
 use hound::{WavReader, WavWriter};
-use rust_photoacoustic::preprocessing::filters::{BandpassFilter, Filter, LowpassFilter};
+use rust_photoacoustic::preprocessing::filters::{
+    BandpassFilter, Filter, HighpassFilter, LowpassFilter,
+};
 use std::path::PathBuf;
 
 /// Types of audio filters available in this utility.
@@ -70,6 +72,14 @@ enum FilterType {
     /// Parameters:
     /// - Cutoff frequency (Hz)
     Lowpass,
+
+    /// Highpass filter - allows high frequencies to pass through while attenuating lower frequencies.
+    ///
+    /// A highpass filter attenuates frequencies lower than the cutoff frequency.
+    /// It's useful for removing low-frequency noise or drift in the signal.
+    /// Parameters:
+    /// - Cutoff frequency (Hz)
+    Highpass,
 }
 
 /// Command line arguments for the audio filter utility.
@@ -221,6 +231,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
 
             Box::new(LowpassFilter::new(args.cutoff_freq).with_sample_rate(sample_rate))
+        }
+        FilterType::Highpass => {
+            // Configure and create highpass filter
+            println!("Highpass filter parameters:");
+            println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
+
+            Box::new(HighpassFilter::new(args.cutoff_freq).with_sample_rate(sample_rate))
         }
     };
 
