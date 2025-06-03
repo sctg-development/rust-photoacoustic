@@ -218,13 +218,23 @@ Tests de validation (f₀ = 2 kHz, SNR = 20 dB, durée = 20s) :
 
 ### 4.3 Spectre de Bruit
 
+Le bruit de circulation gazeuse présente une caractéristique spectrale en 1/f typique :
+
 ```mermaid
-xychart-beta
-    title "Densité Spectrale de Puissance du Bruit"
-    x-axis [1, 10, 100, 1000, 10000]
-    y-axis "PSD (dB/Hz)" -60 0
-    line [0, -10, -20, -30, -40]
+graph TD
+    A["f = 1 Hz<br/>PSD = 0 dB/Hz"] --> B["f = 10 Hz<br/>PSD = -10 dB/Hz"]
+    B --> C["f = 100 Hz<br/>PSD = -20 dB/Hz"]
+    C --> D["f = 1 kHz<br/>PSD = -30 dB/Hz"]
+    D --> E["f = 10 kHz<br/>PSD = -40 dB/Hz"]
+
+    style A fill:#ffebee
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#e3f2fd
+    style E fill:#fff3e0
 ```
+
+**Caractéristique** : Décroissance de -10 dB/décade conforme au modèle théorique $S(f) \propto f^{-1}$
 
 ## 5. Paramètres de Configuration
 
