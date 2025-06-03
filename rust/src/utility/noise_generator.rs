@@ -922,7 +922,7 @@ impl NoiseGenerator {
 
             // Scale the entire signal to achieve target SNR
             let current_signal_power = signal_component.abs();
-            let current_noise_power = noise_component.abs().max(1e-10); // Avoid division by zero
+            let current_noise_power = noise_component.abs().max(f32::MIN_POSITIVE); // Avoid division by zero
             let desired_noise_amplitude = current_signal_power / target_snr_linear;
             let noise_scale = if current_noise_power > 0.0 {
                 desired_noise_amplitude / current_noise_power
