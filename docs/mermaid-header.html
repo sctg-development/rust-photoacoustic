@@ -5,10 +5,20 @@
 
   import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 
+  function isCurrentModeDark() {
+    // Check if the current mode is dark
+
+    let isDark = (
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    );
+    return isDark;
+  }
   // Mermaid configuration
   mermaid.initialize({
     startOnLoad: true,
-    theme: "default",
+    theme: isCurrentModeDark() ? "dark" : "default",
+    darkMode: isCurrentModeDark(),
     themeVariables: {
       fontFamily: "inherit",
     },
