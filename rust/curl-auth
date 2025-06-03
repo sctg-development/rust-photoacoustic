@@ -1,0 +1,26 @@
+#!/bin/bash
+# CCopyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+# This file is part of the rust-photoacoustic project and is licensed under the
+# SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
+# This script is used to retrieve a rust_photoacoustic GET endpoint using a token.
+# It requires the create_token binary to be built first.
+# Usage: ./curl-auth.sh <url>
+# Example: ./curl-auth.sh https://localhost:8080/api/graph-statistics
+
+CREATE_TOKEN_BASE_PATH=${CREATE_TOKEN_BASE_PATH:-"./target/release/"}
+CREATE_TOKEN=${CREATE_TOKEN_BASE_PATH}/create_token
+USERNAME=${USERNAME:-"admin"}
+CLIENT=${CLIENT:-"LaserSmartClient"}
+if [ ! -f "$CREATE_TOKEN" ]; then
+  echo "Error: $CREATE_TOKEN does not exist. Please build the project first."
+  exit 1
+fi
+TOKEN=$($CREATE_TOKEN -q --user=$USERNAME --client=$CLIENT)
+# echo $TOKEN
+URL=$1
+if [ -z "$URL" ]; then
+  echo "Usage: $0 <url>"
+  exit 1
+fi
+curl -k -H "Authorization: Bearer ${TOKEN}" "$URL"
