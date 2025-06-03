@@ -41,6 +41,7 @@ fn test_programmatic_creation() -> Result<()> {
         record_file.clone(),
         512, // 512KB max size
         true, // auto delete
+        None, // no total limit
     );
 
     // Test with mono audio data

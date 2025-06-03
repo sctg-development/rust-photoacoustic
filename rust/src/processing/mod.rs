@@ -163,6 +163,6 @@ pub use consumer::ProcessingConsumer;
 pub use graph::{ProcessingGraph, ProcessingGraphError};
 pub use nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, InputNode,
-    MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
+    MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode, RecordNode,
 };
 pub use result::{PhotoacousticAnalysis, ProcessingResult};

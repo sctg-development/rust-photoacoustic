@@ -462,6 +462,30 @@
                       },
                       {
                         "type": "object",
+                        "description": "Record node parameters",
+                        "properties": {
+                          "record_file": {
+                            "type": "string",
+                            "description": "Path to the output recording file"
+                          },
+                          "max_size_kb": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Maximum size per recording file in kilobytes"
+                          },
+                          "auto_delete": {
+                            "type": "boolean",
+                            "description": "Whether to automatically delete files when max_size_kb is reached"
+                          },
+                          "total_limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Maximum total size of all recordings in kilobytes. When exceeded, oldest files are deleted."
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
                         "description": "Other node parameters"
                       }
                     ]

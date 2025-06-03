@@ -798,7 +798,9 @@ impl ProcessingGraph {
                 let record_file = params
                     .get("record_file")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("Record node requires 'record_file' parameter"))?;
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Record node requires 'record_file' parameter")
+                    })?;
 
                 let max_size = params
                     .get("max_size")
@@ -810,11 +812,17 @@ impl ProcessingGraph {
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false); // Default false
 
+                let total_limit = params
+                    .get("total_limit")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize); // Optional total limit
+
                 Ok(Box::new(RecordNode::new(
                     config.id.clone(),
                     std::path::PathBuf::from(record_file),
                     max_size,
                     auto_delete,
+                    total_limit,
                 )))
             }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),

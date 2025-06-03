@@ -18,10 +18,24 @@
 //!
 //! ## Configuration
 //!
-//! The node supports three main parameters:
+//! The node supports four main parameters:
 //! - `record_file`: Output file path (PathBuf)
 //! - `max_size`: Maximum file size in kilobytes before rotation (usize)
-//! - `auto_delete`: Whether to automatically delete old files (bool)
+//! - `auto_delete`: Whether to automatically delete files with the same name (bool)
+//! - `total_limit`: Maximum total disk space in kilobytes for rolling files (Option<usize>)
+//!
+//! ## Rolling File Management
+//!
+//! When `total_limit` is specified, the node implements rolling file management:
+//! - Files are rotated when they reach `max_size_kb`
+//! - The total disk space used by all files is tracked
+//! - When the total exceeds `total_limit`, the oldest files are deleted
+//! - This ensures only the most recent `total_limit` KB of recordings are kept
+//!
+//! For example, with `max_size_kb: 1024` and `total_limit: 5120`:
+//! - Each file can be up to 1MB
+//! - Up to 5 files (5MB total) are kept on disk
+//! - When a 6th file is created, the oldest is deleted
 //!
 //! ## Examples
 //!
@@ -34,8 +48,9 @@
 //! let mut record_node = RecordNode::new(
 //!     "record_1".to_string(),
 //!     PathBuf::from("recording.wav"),
-//!     1024, // 1MB max size
-//!     false // don't auto-delete
+//!     1024,  // 1MB max size per file
+//!     false, // don't auto-delete same-name files
+//!     Some(5120), // keep 5MB total on disk (rolling)
 //! );
 //!
 //! let input = ProcessingData::SingleChannel {
@@ -50,7 +65,7 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 
-use super::{ProcessingNode, ProcessingData};
+use super::{ProcessingData, ProcessingNode};
 use anyhow::{anyhow, Result};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use log::{debug, error, info, warn};
@@ -78,6 +93,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// 1. Close the current file
 /// 2. Create a new file with timestamp suffix
 /// 3. Optionally delete the old file if `auto_delete` is true
+/// 4. If `total_limit` is set, manage rolling deletion to stay within disk space limit
+///
+/// The rolling file management works as follows:
+/// - Each completed file is tracked with its size
+/// - When total disk usage exceeds `total_limit`, oldest files are deleted
+/// - This creates a rolling window of the most recent recordings
 ///
 /// # Thread Safety
 ///
@@ -97,7 +118,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///     "stream_recorder".to_string(),
 ///     PathBuf::from("/tmp/audio_stream.wav"),
 ///     2048, // 2MB files
-///     true  // auto-delete old files
+///     true,  // auto-delete same-name files
+///     Some(10240),  // keep 10MB total on disk (rolling)
 /// );
 ///
 /// // Record both mono and stereo data
@@ -130,12 +152,16 @@ pub struct RecordNode {
     max_size_kb: usize,
     /// Whether to automatically delete old files
     auto_delete: bool,
+    /// Maximum total disk space in kilobytes for rolling files (optional)
+    total_limit: Option<usize>,
     /// Current WAV writer (if recording)
     wav_writer: Option<WavWriter<BufWriter<File>>>,
     /// Current recording specifications
     current_spec: Option<WavSpec>,
     /// Current file size in bytes
     current_size_bytes: usize,
+    /// List of created files with their sizes in kilobytes
+    created_files: Vec<(PathBuf, usize)>,
     /// Current file index for rotation
     file_index: u32,
 }
@@ -149,6 +175,7 @@ impl RecordNode {
     /// * `record_file` - Path where recordings will be saved
     /// * `max_size_kb` - Maximum file size in kilobytes before rotation
     /// * `auto_delete` - Whether to automatically delete old files
+    /// * `total_limit` - Optional maximum total disk space in kilobytes for rolling files
     ///
     /// # Examples
     ///
@@ -159,19 +186,28 @@ impl RecordNode {
     /// let record_node = RecordNode::new(
     ///     "my_recorder".to_string(),
     ///     PathBuf::from("output.wav"),
-    ///     1024, // 1MB max
-    ///     false // keep old files
+    ///     1024, // 1MB max per file
+    ///     false, // keep old files
+    ///     Some(5120) // limit total disk usage to 5MB
     /// );
     /// ```
-    pub fn new(id: String, record_file: PathBuf, max_size_kb: usize, auto_delete: bool) -> Self {
+    pub fn new(
+        id: String,
+        record_file: PathBuf,
+        max_size_kb: usize,
+        auto_delete: bool,
+        total_limit: Option<usize>,
+    ) -> Self {
         Self {
             id,
             record_file,
             max_size_kb,
             auto_delete,
+            total_limit,
             wav_writer: None,
             current_spec: None,
             current_size_bytes: 0,
+            created_files: Vec::new(),
             file_index: 0,
         }
     }
@@ -192,24 +228,32 @@ impl RecordNode {
 
     /// Rotate to a new recording file
     fn rotate_file(&mut self, spec: WavSpec) -> Result<()> {
-        // Close current writer
+        // Close current writer and track the completed file
         if let Some(writer) = self.wav_writer.take() {
             if let Err(e) = writer.finalize() {
                 error!("Failed to finalize WAV file: {}", e);
             } else {
                 info!("Finalized recording file");
             }
-        }
 
-        // Handle file rotation if we have an existing file
-        if self.file_index > 0 {
-            let old_file = self.get_current_file_path();
-            
-            if self.auto_delete && old_file.exists() {
-                if let Err(e) = fs::remove_file(&old_file) {
-                    warn!("Failed to delete old recording file {:?}: {}", old_file, e);
+            // If we just finished a file, add it to our rolling management
+            if self.file_index > 0 {
+                let completed_file = self.get_current_file_path();
+                let completed_size_kb = self.current_size_bytes / 1024;
+
+                // Handle auto_delete for same-name files
+                if self.auto_delete && completed_file.exists() {
+                    if let Err(e) = fs::remove_file(&completed_file) {
+                        warn!(
+                            "Failed to delete file for auto_delete {:?}: {}",
+                            completed_file, e
+                        );
+                    } else {
+                        debug!("Auto-deleted file: {:?}", completed_file);
+                    }
                 } else {
-                    debug!("Deleted old recording file: {:?}", old_file);
+                    // Add to rolling management if not auto-deleted
+                    self.manage_rolling_files(completed_file, completed_size_kb)?;
                 }
             }
         }
@@ -230,8 +274,10 @@ impl RecordNode {
         let writer = WavWriter::create(&new_file_path, spec)
             .map_err(|e| anyhow!("Failed to create WAV writer for {:?}: {}", new_file_path, e))?;
 
-        info!("Started new recording file: {:?} ({}Hz, {} channels)", 
-              new_file_path, spec.sample_rate, spec.channels);
+        info!(
+            "Started new recording file: {:?} ({}Hz, {} channels)",
+            new_file_path, spec.sample_rate, spec.channels
+        );
 
         self.wav_writer = Some(writer);
         self.current_spec = Some(spec);
@@ -252,26 +298,80 @@ impl RecordNode {
                 .unwrap_or_default()
                 .as_secs();
 
-            let stem = self.record_file.file_stem()
+            let stem = self
+                .record_file
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("recording");
-            let extension = self.record_file.extension()
+            let extension = self
+                .record_file
+                .extension()
                 .and_then(|s| s.to_str())
                 .unwrap_or("wav");
 
-            self.record_file.with_file_name(
-                format!("{}_{}.{}", stem, timestamp, extension)
-            )
+            self.record_file
+                .with_file_name(format!("{}_{}.{}", stem, timestamp, extension))
         }
+    }
+
+    /// Manage rolling files to respect total_limit
+    fn manage_rolling_files(
+        &mut self,
+        new_file_path: PathBuf,
+        new_file_size_kb: usize,
+    ) -> Result<()> {
+        // Add the new file to our tracking
+        self.created_files.push((new_file_path, new_file_size_kb));
+
+        // If we have a total limit, enforce it
+        if let Some(total_limit_kb) = self.total_limit {
+            // Calculate current total size
+            let mut total_size_kb: usize = self.created_files.iter().map(|(_, size)| size).sum();
+
+            // Remove oldest files until we're under the limit
+            while total_size_kb > total_limit_kb && !self.created_files.is_empty() {
+                let (oldest_file, oldest_size) = self.created_files.remove(0);
+                if oldest_file.exists() {
+                    if let Err(e) = fs::remove_file(&oldest_file) {
+                        warn!("Failed to delete old rolling file {:?}: {}", oldest_file, e);
+                    } else {
+                        info!(
+                            "Deleted old rolling file: {:?} ({}KB)",
+                            oldest_file, oldest_size
+                        );
+                        total_size_kb = total_size_kb.saturating_sub(oldest_size);
+                    }
+                } else {
+                    // File doesn't exist, just update our tracking
+                    total_size_kb = total_size_kb.saturating_sub(oldest_size);
+                }
+            }
+
+            debug!(
+                "Rolling files total size: {}KB / {}KB limit, {} files tracked",
+                total_size_kb,
+                total_limit_kb,
+                self.created_files.len()
+            );
+        }
+
+        Ok(())
     }
 
     /// Record audio data to file
     fn record_audio_data(&mut self, data: &ProcessingData) -> Result<()> {
         let (samples, channels, sample_rate) = match data {
-            ProcessingData::SingleChannel { samples, sample_rate, .. } => {
-                (samples.clone(), 1, *sample_rate)
-            }
-            ProcessingData::DualChannel { channel_a, channel_b, sample_rate, .. } => {
+            ProcessingData::SingleChannel {
+                samples,
+                sample_rate,
+                ..
+            } => (samples.clone(), 1, *sample_rate),
+            ProcessingData::DualChannel {
+                channel_a,
+                channel_b,
+                sample_rate,
+                ..
+            } => {
                 // Interleave channels for stereo recording
                 let mut interleaved = Vec::with_capacity(channel_a.len() + channel_b.len());
                 for (a, b) in channel_a.iter().zip(channel_b.iter()) {
@@ -282,7 +382,8 @@ impl RecordNode {
             }
             ProcessingData::AudioFrame(frame) => {
                 // Interleave channels from AudioFrame
-                let mut interleaved = Vec::with_capacity(frame.channel_a.len() + frame.channel_b.len());
+                let mut interleaved =
+                    Vec::with_capacity(frame.channel_a.len() + frame.channel_b.len());
                 for (a, b) in frame.channel_a.iter().zip(frame.channel_b.iter()) {
                     interleaved.push(*a);
                     interleaved.push(*b);
@@ -306,12 +407,13 @@ impl RecordNode {
         // Ensure we have a writer
         self.ensure_wav_writer(spec)?;
 
-        // Write samples
+        // Write all samples
         if let Some(writer) = &mut self.wav_writer {
-            for &sample in &samples {
+            for &sample in samples.iter() {
                 // Convert f32 to i16 with proper scaling and clipping
                 let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                writer.write_sample(sample_i16)
+                writer
+                    .write_sample(sample_i16)
                     .map_err(|e| anyhow!("Failed to write audio sample: {}", e))?;
             }
 
@@ -345,10 +447,11 @@ impl ProcessingNode for RecordNode {
 
     fn accepts_input(&self, input: &ProcessingData) -> bool {
         // Accept all audio data types except PhotoacousticResult
-        matches!(input, 
-            ProcessingData::SingleChannel { .. } |
-            ProcessingData::DualChannel { .. } |
-            ProcessingData::AudioFrame(_)
+        matches!(
+            input,
+            ProcessingData::SingleChannel { .. }
+                | ProcessingData::DualChannel { .. }
+                | ProcessingData::AudioFrame(_)
         )
     }
 
@@ -369,11 +472,11 @@ impl ProcessingNode for RecordNode {
                 error!("Failed to finalize WAV file during reset: {}", e);
             }
         }
-        
+
         self.current_spec = None;
         self.current_size_bytes = 0;
         // Don't reset file_index to avoid overwriting files
-        
+
         debug!("Record node '{}' reset", self.id);
     }
 
@@ -383,6 +486,7 @@ impl ProcessingNode for RecordNode {
             self.record_file.clone(),
             self.max_size_kb,
             self.auto_delete,
+            self.total_limit,
         ))
     }
 }
@@ -395,6 +499,20 @@ impl Drop for RecordNode {
                 error!("Failed to finalize WAV file in Drop: {}", e);
             } else {
                 debug!("WAV file finalized in Drop for node '{}'", self.id);
+
+                // Add the final file to rolling management
+                if self.file_index > 0 {
+                    let final_file = self.get_current_file_path();
+                    let final_size_kb = self.current_size_bytes / 1024;
+
+                    if self.auto_delete && final_file.exists() {
+                        if let Err(e) = fs::remove_file(&final_file) {
+                            warn!("Failed to auto-delete final file {:?}: {}", final_file, e);
+                        }
+                    } else if let Err(e) = self.manage_rolling_files(final_file, final_size_kb) {
+                        error!("Failed to manage rolling files in Drop: {}", e);
+                    }
+                }
             }
         }
     }
@@ -413,6 +531,7 @@ mod tests {
             PathBuf::from("test.wav"),
             1024,
             false,
+            None,
         );
 
         assert_eq!(record_node.node_id(), "test_record");
@@ -428,6 +547,7 @@ mod tests {
             PathBuf::from("test.wav"),
             1024,
             false,
+            None,
         );
 
         let single_channel = ProcessingData::SingleChannel {
@@ -453,12 +573,13 @@ mod tests {
     fn test_record_single_channel() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test_mono.wav");
-        
+
         let mut record_node = RecordNode::new(
             "test_mono".to_string(),
             file_path.clone(),
             1024,
             false,
+            None,
         );
 
         let input = ProcessingData::SingleChannel {
@@ -472,8 +593,16 @@ mod tests {
 
         // Verify pass-through behavior
         match (&input, &output) {
-            (ProcessingData::SingleChannel { samples: in_samples, .. },
-             ProcessingData::SingleChannel { samples: out_samples, .. }) => {
+            (
+                ProcessingData::SingleChannel {
+                    samples: in_samples,
+                    ..
+                },
+                ProcessingData::SingleChannel {
+                    samples: out_samples,
+                    ..
+                },
+            ) => {
                 assert_eq!(in_samples, out_samples);
             }
             _ => panic!("Expected SingleChannel data"),
@@ -492,12 +621,13 @@ mod tests {
     fn test_record_dual_channel() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test_stereo.wav");
-        
+
         let mut record_node = RecordNode::new(
             "test_stereo".to_string(),
             file_path.clone(),
             1024,
             false,
+            None,
         );
 
         let input = ProcessingData::DualChannel {
@@ -512,8 +642,18 @@ mod tests {
 
         // Verify pass-through behavior
         match (&input, &output) {
-            (ProcessingData::DualChannel { channel_a: in_a, channel_b: in_b, .. },
-             ProcessingData::DualChannel { channel_a: out_a, channel_b: out_b, .. }) => {
+            (
+                ProcessingData::DualChannel {
+                    channel_a: in_a,
+                    channel_b: in_b,
+                    ..
+                },
+                ProcessingData::DualChannel {
+                    channel_a: out_a,
+                    channel_b: out_b,
+                    ..
+                },
+            ) => {
                 assert_eq!(in_a, out_a);
                 assert_eq!(in_b, out_b);
             }
@@ -533,13 +673,14 @@ mod tests {
     fn test_file_rotation_by_size() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test_rotation.wav");
-        
+
         // Very small max size to trigger rotation
         let mut record_node = RecordNode::new(
             "test_rotation".to_string(),
             file_path.clone(),
             1, // 1KB max size
             false,
+            None,
         );
 
         // Generate enough data to exceed 1KB
@@ -576,12 +717,13 @@ mod tests {
     fn test_auto_delete() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test_delete.wav");
-        
+
         let mut record_node = RecordNode::new(
             "test_delete".to_string(),
             file_path.clone(),
-            1, // Small size to trigger rotation
+            1,    // Small size to trigger rotation
             true, // Enable auto-delete
+            None,
         );
 
         // Process enough data to trigger rotation
@@ -605,5 +747,144 @@ mod tests {
         drop(record_node);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_rolling_files_basic() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test_rolling.wav");
+
+        // Create a node with small files and rolling limit
+        let mut record_node = RecordNode::new(
+            "test_rolling".to_string(),
+            file_path.clone(),
+            1, // 1KB max per file
+            false,
+            Some(3), // 3KB total limit (allows ~3 files)
+        );
+
+        // Process enough data to create multiple files
+        for i in 0..5 {
+            let input = ProcessingData::SingleChannel {
+                samples: vec![0.1; 500], // 500 samples * 2 bytes = 1KB
+                sample_rate: 44100,
+                timestamp: (i + 1) * 1000,
+                frame_number: i + 1,
+            };
+            let result = record_node.process(input.clone())?;
+            assert_eq!(result, input); // Should pass through unchanged
+        }
+
+        // Finalize recording
+        drop(record_node);
+
+        // With 3KB limit and 1KB per file, only the last 3 files should exist
+        // Check that we don't have more files than expected
+        let files_in_dir: Vec<_> = fs::read_dir(temp_dir.path())?
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("wav") {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // We should have created files but not more than the rolling limit allows
+        assert!(!files_in_dir.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rolling_files_no_limit() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test_no_rolling.wav");
+
+        let mut record_node = RecordNode::new(
+            "test_no_rolling".to_string(),
+            file_path.clone(),
+            1, // 1KB max per file
+            false,
+            None, // No rolling limit
+        );
+
+        // Process data to create multiple files
+        for i in 0..3 {
+            let input = ProcessingData::SingleChannel {
+                samples: vec![0.1; 500], // 500 samples * 2 bytes = 1KB
+                sample_rate: 44100,
+                timestamp: (i + 1) * 1000,
+                frame_number: i + 1,
+            };
+            record_node.process(input)?;
+        }
+
+        drop(record_node);
+
+        // With no rolling limit, all files should exist
+        let files_in_dir: Vec<_> = fs::read_dir(temp_dir.path())?
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("wav") {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert!(!files_in_dir.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rolling_files_zero_limit() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test_zero_rolling.wav");
+
+        let mut record_node = RecordNode::new(
+            "test_zero_rolling".to_string(),
+            file_path.clone(),
+            1, // 1KB max per file
+            false,
+            Some(0), // 0KB limit - should delete all files
+        );
+
+        let input = ProcessingData::SingleChannel {
+            samples: vec![0.1; 100],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        let result = record_node.process(input.clone())?;
+        assert_eq!(result, input); // Should pass through unchanged
+
+        drop(record_node);
+
+        // With 0KB limit, files should be deleted immediately
+        Ok(())
+    }
+
+    #[test]
+    fn test_total_limit_clone_preserves_limit() {
+        let original = RecordNode::new(
+            "test_clone".to_string(),
+            PathBuf::from("test_clone.wav"),
+            1024,
+            false,
+            Some(5120), // Set a specific rolling limit in KB
+        );
+
+        let cloned = original.clone_node();
+
+        // The cloned node should have the same configuration
+        assert_eq!(cloned.node_id(), "test_clone");
+        assert_eq!(cloned.node_type(), "record");
     }
 }

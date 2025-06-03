@@ -34,6 +34,8 @@ processing:
           max_size: 1024
           # Automatically delete old files when creating new ones
           auto_delete: false
+          # Maximum total size in KB of all recordings (10MB = 10240KB)
+          total_limit: 10240
       
       # Final output for photoacoustic analysis
       - id: "photoacoustic_output"

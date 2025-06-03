@@ -75,7 +75,7 @@ pub type NodeId = String;
 ///     },
 /// };
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ProcessingData {
     /// Raw audio frame from acquisition
     AudioFrame(AudioFrame),
@@ -134,7 +134,7 @@ pub enum ProcessingData {
 ///
 /// println!("Processing took {} steps", metadata.processing_steps.len());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProcessingMetadata {
     pub original_frame_number: u64,
     pub original_timestamp: u64,
