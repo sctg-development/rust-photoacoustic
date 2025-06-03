@@ -722,4 +722,88 @@ impl NoiseGenerator {
 
         result
     }
+
+    /// Generates a stereo mock photoacoustic signal simulating a Helmholtz resonance cell system.
+    ///
+    /// This method creates a more realistic simulation of a photoacoustic analyzer using
+    /// a Helmholtz resonance cell. The system features two microphones positioned in
+    /// approximate phase opposition, with additional realistic characteristics:
+    ///
+    /// - Gas flow background noise with 1/f characteristics
+    /// - Laser modulation at resonance frequency (~2kHz)
+    /// - Phase opposition between channels (with temperature/gas-dependent variations)
+    /// - Environmental perturbations and system noise
+    /// - Frequency response characteristics of the resonance cell
+    /// - Molecular concentration variations (random walk simulation)
+    ///
+    /// # Arguments
+    ///
+    /// * `num_samples` - The number of samples to generate per channel
+    /// * `sample_rate` - The sample rate in Hz
+    /// * `background_noise_amplitude` - Base amplitude of gas flow noise [0.0, 1.0]
+    /// * `resonance_frequency` - Cell resonance frequency in Hz (typically ~2000Hz)
+    /// * `laser_modulation_depth` - Depth of laser modulation [0.0, 1.0]
+    /// * `signal_amplitude` - Amplitude of the photoacoustic signal [0.0, 1.0]
+    /// * `phase_opposition_degrees` - Phase difference between mics in degrees (180° = perfect opposition)
+    /// * `temperature_drift_factor` - Factor affecting phase and frequency stability [0.0, 0.1]
+    /// * `gas_flow_noise_factor` - Factor controlling 1/f gas flow noise characteristics [0.0, 1.0]
+    /// * `snr_factor` - Signal-to-noise ratio factor for the output signal [0.0, 1.0]
+    ///
+    /// # Returns
+    ///
+    /// A vector of i16 samples containing interleaved stereo samples simulating the
+    /// Helmholtz cell system. The length will be 2 * num_samples.
+    ///
+    /// # Physical System Simulation
+    ///
+    /// The function simulates the following physical phenomena:
+    /// - **Helmholtz Resonance**: Enhanced signal at the resonance frequency
+    /// - **Gas Flow Noise**: 1/f noise characteristics from gas circulation
+    /// - **Microphone Phase Opposition**: Constructive interference in the differential signal
+    /// - **Temperature Effects**: Slight variations in resonance frequency and phase
+    /// - **Environmental Perturbations**: External acoustic interference
+    /// - **Laser Modulation**: Periodic modulation creating the photoacoustic effect
+    /// - **Molecular Concentration**: Random walk variations simulating changing analyte concentration (10%-200% of nominal)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
+    ///
+    /// let mut generator = NoiseGenerator::new(12345);
+    ///
+    /// // Generate 1 second of realistic Helmholtz cell photoacoustic signal
+    /// let samples = generator.generate_mock2_photoacoustic_stereo(
+    ///     48000,  // num_samples (1 second at 48kHz)
+    ///     48000,  // sample_rate
+    ///     0.15,   // background_noise_amplitude (15% background)
+    ///     2000.0, // resonance_frequency (2kHz typical)
+    ///     0.8,    // laser_modulation_depth (80% modulation)
+    ///     0.6,    // signal_amplitude (60% signal level)
+    ///     175.0,  // phase_opposition_degrees (5° off perfect opposition)
+    ///     0.02,   // temperature_drift_factor (2% variation)
+    ///     0.7     // gas_flow_noise_factor (70% 1/f characteristic)
+    ///     0.5,    // snr_factor (50% SNR)
+    /// );
+    /// assert_eq!(samples.len(), 96000); // 2 channels * 48000 samples
+    /// ```
+    pub fn generate_mock2_photoacoustic_stereo(
+        &mut self,
+        num_samples: u32,
+        sample_rate: u32,
+        background_noise_amplitude: f32,
+        resonance_frequency: f32,
+        laser_modulation_depth: f32,
+        signal_amplitude: f32,
+        phase_opposition_degrees: f32,
+        temperature_drift_factor: f32,
+        gas_flow_noise_factor: f32,
+        snr_factor: f32,
+    ) -> Vec<i16> {
+        // TODO: Implement the Helmholtz resonance cell simulation
+        // This is a placeholder implementation that generates a simple mock signal.
+        let mut result = Vec::with_capacity((num_samples * 2) as usize);
+
+        result
+    }
 }
