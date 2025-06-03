@@ -89,17 +89,17 @@ $$S_{diff}(t) = Mic_1(t) - Mic_2(t) = S_{PA}(t) \cdot (1 + \cos(\theta_{opp}(t))
 ```mermaid
 flowchart TD
     A[Initialisation] --> B[Boucle Temporelle]
-    B --> C[Variation Concentration C(t)]
+    B --> C[Variation Concentration]
     C --> D[Effets Thermiques]
     D --> E[Bruit Circulation 1/f]
     E --> F[Modulation Laser]
-    F --> G[Résonance Helmholtz]
+    F --> G[Resonance Helmholtz]
     G --> H[Signal Photoacoustique]
     H --> I[Perturbations Environnementales]
     I --> J[Configuration Différentielle]
-    J --> K[Contrôle SNR]
+    J --> K[Controle SNR]
     K --> L[Quantification 16-bit]
-    L --> M{i < N_samples?}
+    L --> M{i - N_samples ?}
     M -->|Oui| C
     M -->|Non| N[Sortie Stéréo]
 ```
