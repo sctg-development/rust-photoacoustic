@@ -310,7 +310,7 @@ When issuing tokens, the system automatically includes user-specific claims:
 
 Additional claims can be added through the JWT issuer's `add_user_claims` method:
 
-```rust
+```rust,ignore
 issuer.add_user_claims("john_doe", &["read", "write", "admin"]);
 ```
 
@@ -351,7 +351,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 The server validates the token and extracts user information:
 
-```rust
+```rust,ignore
 // Token validation extracts these claims
 let user_id = "user123";
 let scopes = ["read:api", "write:api"];
@@ -385,7 +385,7 @@ let permissions = ["read", "write"];
 
 ### HMAC (Symmetric) Configuration
 
-```rust
+```rust,ignore
 let issuer = JwtIssuer::new(b"your-256-bit-secret-key")
     .with_issuer("rust-photoacoustic")
     .valid_for(Duration::hours(1));
@@ -393,7 +393,7 @@ let issuer = JwtIssuer::new(b"your-256-bit-secret-key")
 
 ### RSA (Asymmetric) Configuration
 
-```rust
+```rust,ignore
 let issuer = JwtTokenMap::with_rs256_pem(
     include_bytes!("private_key.pem"),
     include_bytes!("public_key.pem")
@@ -415,7 +415,7 @@ let issuer = JwtTokenMap::with_rs256_pem(
 
 Enable debug logging to see token validation details:
 
-```rust
+```rust,ignore
 log::debug!("JWT validation failed: {:?}", err);
 ```
 

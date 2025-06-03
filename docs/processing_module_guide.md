@@ -58,7 +58,7 @@ graph TD
 
 ### Core Components
 
-```rust
+```rust,ignore
 // Main processing module structure
 pub mod processing {
     pub mod consumer;     // ProcessingConsumer - main processing orchestrator
@@ -70,7 +70,7 @@ pub mod processing {
 
 ### Module Dependencies
 
-```rust
+```rust,ignore
 use crate::acquisition::AudioFrame;        // Input audio data
 use crate::preprocessing::{Filter, DifferentialCalculator}; // Processing algorithms
 use crate::config::processing::*;          // Configuration structures
@@ -84,7 +84,7 @@ use crate::config::processing::*;          // Configuration structures
 
 **Purpose**: Main orchestrator that receives audio frames from the acquisition system and processes them through the configured processing graph.
 
-```rust
+```rust,ignore
 pub struct ProcessingConsumer {
     graph: Arc<RwLock<ProcessingGraph>>,
     stats: Arc<RwLock<ProcessingStats>>,
@@ -103,7 +103,7 @@ pub struct ProcessingConsumer {
 
 **Purpose**: Container and execution engine for processing nodes. Manages node connections, validates graph structure, and executes processing chains.
 
-```rust
+```rust,ignore
 pub struct ProcessingGraph {
     nodes: HashMap<NodeId, Box<dyn ProcessingNode>>,
     connections: Vec<Connection>,
@@ -124,7 +124,7 @@ pub struct ProcessingGraph {
 
 **Purpose**: Core interface that all processing nodes must implement. Defines the contract for data transformation and node behavior.
 
-```rust
+```rust,ignore
 pub trait ProcessingNode: Send + Sync {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData>;
     fn node_id(&self) -> &str;
@@ -140,7 +140,7 @@ pub trait ProcessingNode: Send + Sync {
 
 **Purpose**: Type-safe representation of data flowing between nodes. Ensures correct data types and transformations.
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone)]
 pub enum ProcessingData {
     AudioFrame(AudioFrame),                    // Raw dual-channel audio
@@ -173,7 +173,7 @@ pub enum ProcessingData {
 #### InputNode
 **Purpose**: Entry point for audio data from the acquisition system.
 
-```rust
+```rust,ignore
 // Create input node
 let input_node = InputNode::new("audio_input".to_string());
 
@@ -193,7 +193,7 @@ graph.add_node(Box::new(input_node))?;
 #### FilterNode
 **Purpose**: Applies digital signal processing filters to audio channels.
 
-```rust
+```rust,ignore
 use rust_photoacoustic::preprocessing::BandpassFilter;
 
 // Create bandpass filter for both channels
@@ -206,7 +206,7 @@ let filter_node = FilterNode::new(
 ```
 
 **Channel Targeting**:
-```rust
+```rust,ignore
 pub enum ChannelTarget {
     ChannelA,    // Process only channel A
     ChannelB,    // Process only channel B  
@@ -225,7 +225,7 @@ pub enum ChannelTarget {
 #### DifferentialNode
 **Purpose**: Calculates the difference between two audio channels to enhance signal-to-noise ratio.
 
-```rust
+```rust,ignore
 use rust_photoacoustic::preprocessing::differential::SimpleDifferential;
 
 let calculator = Box::new(SimpleDifferential::new());
@@ -239,7 +239,7 @@ let diff_node = DifferentialNode::new("differential".to_string(), calculator);
 #### ChannelSelectorNode
 **Purpose**: Selects a specific channel from dual-channel audio data.
 
-```rust
+```rust,ignore
 // Select only channel A
 let selector = ChannelSelectorNode::new(
     "select_a".to_string(), 
@@ -254,7 +254,7 @@ let selector = ChannelSelectorNode::new(
 #### ChannelMixerNode
 **Purpose**: Mixes two audio channels using various strategies.
 
-```rust
+```rust,ignore
 // Average mixing
 let mixer = ChannelMixerNode::new(
     "mixer".to_string(),
@@ -269,7 +269,7 @@ let weighted_mixer = ChannelMixerNode::new(
 ```
 
 **Mix Strategies**:
-```rust
+```rust,ignore
 pub enum MixStrategy {
     Add,                                    // A + B
     Subtract,                              // A - B  
@@ -285,7 +285,7 @@ pub enum MixStrategy {
 #### PhotoacousticOutputNode
 **Purpose**: Final analysis node that produces photoacoustic analysis results.
 
-```rust
+```rust,ignore
 let output_node = PhotoacousticOutputNode::new("output".to_string())
     .with_detection_threshold(0.05)    // 5% detection threshold
     .with_analysis_window_size(2048);  // 2048 sample analysis window
@@ -320,7 +320,7 @@ graph LR
 ### Data Transformation Chain
 
 1. **AudioFrame** → **InputNode** → **DualChannel**
-   ```rust
+   ```rust,ignore
    // Raw acquisition data converted to processing format
    ProcessingData::DualChannel {
        channel_a: vec![0.1, 0.2, 0.3],
@@ -332,13 +332,13 @@ graph LR
    ```
 
 2. **DualChannel** → **FilterNode** → **DualChannel (Filtered)**
-   ```rust
+   ```rust,ignore
    // Both channels filtered through bandpass filter
    // Noise reduction and frequency selection
    ```
 
 3. **DualChannel** → **DifferentialNode** → **SingleChannel**
-   ```rust
+   ```rust,ignore
    // Differential calculation: channel_a - channel_b
    ProcessingData::SingleChannel {
        samples: vec![-0.3, -0.3, -0.3], // A - B
@@ -349,7 +349,7 @@ graph LR
    ```
 
 4. **SingleChannel** → **PhotoacousticOutputNode** → **PhotoacousticResult**
-   ```rust
+   ```rust,ignore
    // Final analysis with spectral data and detection results
    ProcessingData::PhotoacousticResult {
        signal: vec![...],
@@ -407,7 +407,7 @@ processing:
 
 ### Programmatic Configuration
 
-```rust
+```rust,ignore
 use rust_photoacoustic::processing::*;
 use rust_photoacoustic::preprocessing::*;
 
@@ -441,7 +441,7 @@ let graph = ProcessingGraph::from_config(&config)?;
 
 ### Basic Processing Chain
 
-```rust
+```rust,ignore
 use rust_photoacoustic::processing::*;
 use rust_photoacoustic::preprocessing::*;
 
@@ -490,7 +490,7 @@ fn create_basic_processing_chain() -> Result<ProcessingGraph> {
 
 ### Parallel Processing Chain
 
-```rust
+```rust,ignore
 fn create_parallel_processing_chain() -> Result<ProcessingGraph> {
     let mut graph = ProcessingGraph::new();
     
@@ -540,7 +540,7 @@ fn create_parallel_processing_chain() -> Result<ProcessingGraph> {
 
 ### Custom Processing Node
 
-```rust
+```rust,ignore
 use rust_photoacoustic::processing::*;
 
 // Custom gain node implementation
@@ -611,7 +611,7 @@ impl ProcessingNode for GainNode {
 
 ### 1. Node Design Principles
 
-```rust
+```rust,ignore
 // ✅ Good: Stateless processing when possible
 impl ProcessingNode for FilterNode {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
@@ -634,7 +634,7 @@ impl ProcessingNode for BufferNode {
 
 ### 2. Error Handling
 
-```rust
+```rust,ignore
 impl ProcessingNode for MyNode {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
         // ✅ Use anyhow for detailed error context
@@ -654,7 +654,7 @@ impl ProcessingNode for MyNode {
 
 ### 3. Performance Optimization
 
-```rust
+```rust,ignore
 // ✅ Reuse allocations
 pub struct EfficientNode {
     id: String,
@@ -682,7 +682,7 @@ impl ProcessingNode for EfficientNode {
 
 ### 4. Configuration Validation
 
-```rust
+```rust,ignore
 impl ProcessingGraph {
     pub fn validate(&self) -> Result<()> {
         // ✅ Check for cycles
@@ -710,7 +710,7 @@ impl ProcessingGraph {
 
 ### Dynamic Graph Reconfiguration
 
-```rust
+```rust,ignore
 use std::sync::{Arc, RwLock};
 
 pub struct DynamicProcessingSystem {
@@ -751,7 +751,7 @@ impl DynamicProcessingSystem {
 
 ### Performance Monitoring
 
-```rust
+```rust,ignore
 pub struct PerformanceMonitoringNode {
     id: String,
     metrics: Arc<RwLock<NodeMetrics>>,
@@ -787,7 +787,7 @@ pub struct NodeMetrics {
 
 ### Multi-threaded Processing
 
-```rust
+```rust,ignore
 use tokio::sync::mpsc;
 use std::sync::Arc;
 
@@ -827,7 +827,7 @@ impl ParallelProcessingGraph {
 
 ### Unit Testing Nodes
 
-```rust
+```rust,ignore
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -877,7 +877,7 @@ mod tests {
 
 ### Integration Testing
 
-```rust
+```rust,ignore
 #[cfg(test)]
 mod integration_tests {
     use super::*;
@@ -927,7 +927,7 @@ mod integration_tests {
 
 ### Benchmarking
 
-```rust
+```rust,ignore
 #[cfg(test)]
 mod benches {
     use super::*;
@@ -958,7 +958,7 @@ mod benches {
 
 ### Memory Management
 
-```rust
+```rust,ignore
 // ✅ Efficient memory usage
 impl ProcessingNode for EfficientNode {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
@@ -982,7 +982,7 @@ impl ProcessingNode for EfficientNode {
 
 ### Lock-Free Operations
 
-```rust
+```rust,ignore
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct LockFreeStats {
@@ -1011,7 +1011,7 @@ impl LockFreeStats {
 
 ### SIMD Optimization
 
-```rust
+```rust,ignore
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
@@ -1051,7 +1051,7 @@ impl ProcessingNode for SIMDFilterNode {
 
 #### 1. Graph Validation Errors
 
-```rust
+```rust,ignore
 // Problem: Cyclic connections
 graph.connect("node_a", "node_b")?;
 graph.connect("node_b", "node_a")?; // ❌ Creates cycle
@@ -1062,7 +1062,7 @@ graph.validate()?; // Will return CyclicConnection error
 
 #### 2. Type Compatibility Issues
 
-```rust
+```rust,ignore
 // Problem: Incompatible data types
 let filter_node = FilterNode::new(/* ... */); // Expects DualChannel
 let diff_node = DifferentialNode::new(/* ... */); // Outputs SingleChannel
@@ -1076,7 +1076,7 @@ graph.connect("selector", "differential")?; // ✅ Now compatible
 
 #### 3. Performance Issues
 
-```rust
+```rust,ignore
 // Problem: Expensive operations in hot path
 impl ProcessingNode for SlowNode {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
@@ -1098,7 +1098,7 @@ impl ProcessingNode for OptimizedNode {
 
 ### Debug Tools
 
-```rust
+```rust,ignore
 pub struct DebugNode {
     id: String,
     log_samples: bool,
@@ -1131,7 +1131,7 @@ fn calculate_rms(samples: &[f32]) -> f32 {
 
 ### Performance Profiling
 
-```rust
+```rust,ignore
 pub struct ProfilingGraph {
     inner: ProcessingGraph,
     node_timings: HashMap<String, Vec<std::time::Duration>>,

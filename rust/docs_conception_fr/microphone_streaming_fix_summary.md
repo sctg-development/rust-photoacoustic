@@ -21,7 +21,7 @@ Le problème venait du fait que :
 
 ### 1. Architecture de Chunking Intelligent
 
-```rust
+```rust,ignore
 // Nouveau struct avec buffers internes
 pub struct MicrophoneSource {
     // ...existing fields...
@@ -33,7 +33,7 @@ pub struct MicrophoneSource {
 
 ### 2. Stratégie de Pre-buffering
 
-```rust
+```rust,ignore
 impl AudioSource for MicrophoneSource {
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)> {
         // Maintenir un buffer de 2 frames pour un streaming fluide
@@ -58,7 +58,7 @@ impl AudioSource for MicrophoneSource {
 
 ### 3. Traitement Audio Optimisé
 
-```rust
+```rust,ignore
 fn process_audio_data(
     data: &[f32],
     buffer: &Arc<Mutex<Vec<f32>>>,

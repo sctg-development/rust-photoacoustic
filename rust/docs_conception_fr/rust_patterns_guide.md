@@ -25,7 +25,7 @@ Cette documentation détaille les patterns Rust avancés utilisés dans le proje
 
 **Cas d'usage**: Partage de données entre plusieurs tâches asynchrones
 
-```rust
+```rust,ignore
 // ✅ Pattern Arc pour partage thread-safe
 use std::sync::Arc;
 
@@ -66,7 +66,7 @@ impl Daemon {
 
 ### 2. Pattern RAII (Resource Acquisition Is Initialization)
 
-```rust
+```rust,ignore
 pub struct AcquisitionDaemon {
     audio_source: Box<dyn AudioSource>,
     stream: SharedAudioStream,
@@ -84,7 +84,7 @@ impl Drop for AcquisitionDaemon {
 
 ### 3. Pattern Borrowed Data vs Owned Data
 
-```rust
+```rust,ignore
 // ✅ Bon: Interface flexible qui accepte les deux
 pub fn process_audio_data<T: AsRef<[f32]>>(data: T) -> Result<Vec<f32>> {
     let data_slice = data.as_ref();
@@ -107,7 +107,7 @@ process_audio_data(&owned_data)?;    // Emprunte depuis owned
 
 ### 1. Producer-Consumer Pattern avec Broadcast
 
-```rust
+```rust,ignore
 use tokio::sync::broadcast;
 
 #[derive(Clone)]
@@ -155,7 +155,7 @@ async fn consumer_task(mut receiver: broadcast::Receiver<AudioFrame>) {
 
 ### 2. Supervision Pattern pour Tâches
 
-```rust
+```rust,ignore
 pub struct TaskSupervisor {
     tasks: Vec<JoinHandle<Result<()>>>,
     running: Arc<AtomicBool>,
@@ -209,7 +209,7 @@ impl TaskSupervisor {
 
 ### 3. Rate Limiting Pattern
 
-```rust
+```rust,ignore
 pub struct RateLimitedProcessor {
     target_fps: f64,
     last_process_time: Instant,
@@ -257,7 +257,7 @@ impl AcquisitionDaemon {
 
 ### 1. Message Passing Pattern
 
-```rust
+```rust,ignore
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
@@ -330,7 +330,7 @@ impl ControllableDaemon {
 
 ### 2. Event Bus Pattern
 
-```rust
+```rust,ignore
 use std::collections::HashMap;
 use tokio::sync::broadcast;
 
@@ -379,7 +379,7 @@ pub fn global_event_bus() -> &'static Mutex<EventBus> {
 
 ### 1. State Machine Pattern
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DaemonState {
     Stopped,
@@ -446,7 +446,7 @@ impl StatefulDaemon {
 
 ### 2. Configuration Pattern avec Validation
 
-```rust
+```rust,ignore
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -501,7 +501,7 @@ impl AsRef<StreamingConfig> for ValidatedConfig {
 
 ### 1. Error Chain Pattern
 
-```rust
+```rust,ignore
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -547,7 +547,7 @@ impl AcquisitionDaemon {
 
 ### 2. Circuit Breaker Pattern
 
-```rust
+```rust,ignore
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy)]
@@ -633,7 +633,7 @@ pub enum CircuitBreakerError<E> {
 
 ### 3. Retry Pattern avec Backoff
 
-```rust
+```rust,ignore
 use tokio::time::{sleep, Duration};
 
 pub struct RetryConfig {
@@ -706,7 +706,7 @@ impl AudioSource for MicrophoneSource {
 
 ### 1. Builder Pattern pour Configuration Complexe
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone)]
 pub struct AcquisitionDaemonBuilder {
     audio_source: Option<Box<dyn AudioSource>>,
@@ -770,7 +770,7 @@ let daemon = AcquisitionDaemonBuilder::new()
 
 ### 2. Extension Trait Pattern
 
-```rust
+```rust,ignore
 // Extension trait pour AudioFrame
 pub trait AudioFrameExt {
     fn is_silent(&self, threshold: f32) -> bool;
@@ -833,7 +833,7 @@ if !frame.is_silent(0.001) {
 
 ### 3. Type State Pattern
 
-```rust
+```rust,ignore
 // États pour le type state pattern
 pub struct Uninitialized;
 pub struct Configured;
@@ -907,7 +907,7 @@ let processed = processor.process_frame(frame)?;
 
 ### 1. Object Pool Pattern
 
-```rust
+```rust,ignore
 use std::collections::VecDeque;
 use tokio::sync::Mutex;
 
@@ -990,7 +990,7 @@ impl Drop for PooledFrame {
 
 ### 2. Zero-Copy Pattern
 
-```rust
+```rust,ignore
 use bytes::{Bytes, BytesMut};
 
 pub struct ZeroCopyAudioFrame {
@@ -1049,7 +1049,7 @@ impl ZeroCopyAudioFrame {
 
 ### 3. SIMD Optimization Pattern
 
-```rust
+```rust,ignore
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
@@ -1130,7 +1130,7 @@ impl Vec<f32> {
 
 ### 1. ❌ Arc<Mutex<T>> Abuse
 
-```rust
+```rust,ignore
 // ❌ Anti-pattern: Arc<Mutex<>> pour données read-heavy
 pub struct BadSharedState {
     data: Arc<Mutex<Vec<f32>>>,
@@ -1149,7 +1149,7 @@ pub struct BestSharedState {
 
 ### 2. ❌ Blocking dans Async Context
 
-```rust
+```rust,ignore
 // ❌ Anti-pattern: blocking dans async
 async fn bad_processing() -> Result<()> {
     let data = std::fs::read("large_file.dat")?; // Bloque le runtime!
@@ -1172,7 +1172,7 @@ async fn cpu_intensive_processing(data: Vec<f32>) -> Result<Vec<f32>> {
 
 ### 3. ❌ Unbounded Channel Abuse
 
-```rust
+```rust,ignore
 // ❌ Anti-pattern: unbounded channels partout
 let (tx, rx) = mpsc::unbounded_channel();
 
@@ -1185,7 +1185,7 @@ let (tx, _) = broadcast::channel(100);
 
 ### 4. ❌ Erreur de Clone Coûteux
 
-```rust
+```rust,ignore
 // ❌ Anti-pattern: clone de grandes structures
 async fn bad_frame_processing(frame: AudioFrame) {
     let frame_copy = frame.clone(); // Clone coûteux!
@@ -1208,7 +1208,7 @@ async fn shared_frame_processing(frame: Arc<AudioFrame>) {
 
 ### 5. ❌ Memory Leak avec Cyclic References
 
-```rust
+```rust,ignore
 // ❌ Anti-pattern: références cycliques avec Arc
 pub struct BadParent {
     children: Vec<Arc<BadChild>>,

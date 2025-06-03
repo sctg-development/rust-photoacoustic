@@ -23,7 +23,7 @@ Le module `audio_streaming` fournit des endpoints HTTP/SSE (Server-Sent Events) 
 
 ### Composants Principaux
 
-```rust
+```rust,ignore
 // Structure de gestion d'état
 pub struct AudioStreamState {
     stream: Arc<SharedAudioStream>,
@@ -77,7 +77,7 @@ pub fn stream_stats(state: &State<AudioStreamState>) -> Json<StreamStats>;
 
 ### Endpoint de Streaming Principal
 
-```rust
+```rust,ignore
 #[get("/stream")]
 pub fn audio_stream_sse(
     state: &State<AudioStreamState>,
@@ -136,7 +136,7 @@ pub fn audio_stream_sse(
 
 ### Endpoint de Statistiques
 
-```rust
+```rust,ignore
 #[get("/stats")]
 pub async fn stream_stats(
     state: &State<AudioStreamState>
@@ -191,7 +191,7 @@ pub struct DetailedStreamStats {
 
 ### Endpoint de Contrôle
 
-```rust
+```rust,ignore
 #[post("/control", data = "<command>")]
 pub async fn stream_control(
     state: &State<AudioStreamState>,
@@ -245,7 +245,7 @@ pub struct CommandResponse {
 
 ### Intégration avec Rocket Builder
 
-```rust
+```rust,ignore
 // Dans builder.rs
 use crate::visualization::audio_streaming::{
     AudioStreamState, audio_stream_sse, stream_stats, stream_control
@@ -294,7 +294,7 @@ pub fn build_rocket(
 
 ### Configuration CORS pour SSE
 
-```rust
+```rust,ignore
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
 fn cors_fairing() -> rocket_cors::Cors {
@@ -323,7 +323,7 @@ fn cors_fairing() -> rocket_cors::Cors {
 
 ### Middleware de Compression
 
-```rust
+```rust,ignore
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Request, Response};
 use flate2::write::GzEncoder;
@@ -672,7 +672,7 @@ visualization.start();
 
 ### Suivi des Connexions Actives
 
-```rust
+```rust,ignore
 use uuid::Uuid;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
@@ -778,7 +778,7 @@ impl AudioStreamState {
 
 ### Limitation du Débit par Connexion
 
-```rust
+```rust,ignore
 use std::time::Instant;
 use tokio::time::{sleep, Duration};
 
@@ -862,7 +862,7 @@ pub fn audio_stream_sse_with_rate_limit(
 
 ### Sérialisation Optimisée
 
-```rust
+```rust,ignore
 use serde_json::ser::to_vec;
 use flate2::write::DeflateEncoder;
 use flate2::Compression;
@@ -904,7 +904,7 @@ pub struct LightweightAudioFrame {
 
 ### Cache et Buffering Intelligents
 
-```rust
+```rust,ignore
 use lru::LruCache;
 use std::num::NonZeroUsize;
 
@@ -951,7 +951,7 @@ impl SmartBuffer {
 
 ### Monitoring des Performances
 
-```rust
+```rust,ignore
 use std::time::{Duration, Instant};
 use prometheus::{Counter, Histogram, Gauge};
 
@@ -1026,7 +1026,7 @@ impl PerformanceMonitor {
 
 ### Tests d'Intégration SSE
 
-```rust
+```rust,ignore
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1096,7 +1096,7 @@ mod tests {
 
 ### Tests de Charge
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use tokio::sync::Barrier;
 
@@ -1181,7 +1181,7 @@ async fn test_multiple_concurrent_connections() {
 
 ### Diagnostics des Connexions SSE
 
-```rust
+```rust,ignore
 #[get("/debug/connections")]
 pub async fn debug_connections(
     state: &State<AudioStreamState>,
@@ -1250,7 +1250,7 @@ async fn analyze_connection_health(connection: &ConnectionInfo) -> ConnectionHea
 
 ### Monitoring des Métriques Critiques
 
-```rust
+```rust,ignore
 use sysinfo::{SystemExt, ProcessExt};
 
 #[derive(Serialize)]

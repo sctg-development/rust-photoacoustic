@@ -40,7 +40,7 @@ The `protect_get` macro:
 ### 2. Type System Integration
 
 The macro transforms functions to return:
-```rust
+```rust,ignore
 rocket::Either<rocket::response::status::Forbidden<&'static str>, OriginalReturnType>
 ```
 
@@ -58,7 +58,7 @@ rocket::Either<rocket::response::status::Forbidden<&'static str>, OriginalReturn
 
 ### Basic Protected Route (Automatic Bearer Injection)
 
-```rust
+```rust,ignore
 use auth_macros::protect_get;
 use rocket::serde::json::Json;
 
@@ -77,7 +77,7 @@ fn list_users() -> Json<Vec<User>> {
 
 ### Explicit Bearer Parameter
 
-```rust
+```rust,ignore
 #[protect_get("/api/data", "read:data")]
 fn get_data(bearer: crate::visualization::auth::guards::OAuthBearer) -> Json<DataResponse> {
     // When Bearer is explicitly in signature, macro just adds permission checking
@@ -90,7 +90,7 @@ fn get_data(bearer: crate::visualization::auth::guards::OAuthBearer) -> Json<Dat
 
 ### With Route Parameters
 
-```rust
+```rust,ignore
 #[protect_get("/api/user/<user_id>/profile", "read:profiles")]
 fn get_user_profile(user_id: String) -> Json<Profile> {
     // Route parameters work normally, bearer is auto-injected
@@ -130,7 +130,7 @@ The macro uses modern syn 2.0 features:
 
 The macro ensures the `bearer` variable is available in the function scope:
 
-```rust
+```rust,ignore
 // For functions without explicit OAuthBearer parameter:
 fn original_function() -> Response {
     // bearer is available here automatically

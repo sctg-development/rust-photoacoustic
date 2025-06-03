@@ -31,7 +31,7 @@ L'`AcquisitionDaemon` est le cœur du système d'acquisition audio temps réel. 
 
 ### Cas d'Usage Principaux
 
-```rust
+```rust,ignore
 // Spectroscopie photoacoustique en temps réel
 let daemon = AcquisitionDaemon::new(microphone_source, 30.0, 1024);
 
@@ -48,7 +48,7 @@ let daemon = AcquisitionDaemon::new(device_source, 60.0, 512);
 
 ### Structure Interne
 
-```rust
+```rust,ignore
 pub struct AcquisitionDaemon {
     audio_source: Box<dyn AudioSource>,     // Source audio abstraite
     stream: SharedAudioStream,              // Hub de diffusion
@@ -101,7 +101,7 @@ pub struct AcquisitionDaemon {
 
 ### Création et Initialisation
 
-```rust
+```rust,ignore
 impl AcquisitionDaemon {
     /// Crée un nouveau daemon d'acquisition
     pub fn new(
@@ -122,7 +122,7 @@ impl AcquisitionDaemon {
 
 ### Démarrage Asynchrone
 
-```rust
+```rust,ignore
 pub async fn start(&mut self) -> Result<()> {
     // Vérification d'état
     if self.running.load(Ordering::Relaxed) {
@@ -165,7 +165,7 @@ pub async fn start(&mut self) -> Result<()> {
 
 ### Arrêt Gracieux
 
-```rust
+```rust,ignore
 pub fn stop(&self) {
     info!("Arrêt demandé pour le daemon d'acquisition");
     self.running.store(false, Ordering::Relaxed);
@@ -191,7 +191,7 @@ pub fn is_running(&self) -> bool {
 
 ### Calcul du Target FPS
 
-```rust
+```rust,ignore
 // Formule : FPS = sample_rate / (frame_size * channels * bytes_per_sample)
 fn calculate_target_fps(config: &Config) -> f64 {
     let sample_rate = config.photoacoustic.sample_rate as f64;
@@ -208,7 +208,7 @@ fn calculate_target_fps(config: &Config) -> f64 {
 
 ### Configuration Adaptative
 
-```rust
+```rust,ignore
 impl AcquisitionDaemon {
     /// Ajuste les paramètres en fonction de la charge système
     pub fn adjust_performance(&mut self, cpu_usage: f64, memory_usage: f64) {
@@ -232,7 +232,7 @@ impl AcquisitionDaemon {
 
 ### Interface AudioSource
 
-```rust
+```rust,ignore
 pub trait AudioSource: Send {
     fn read_frame(&mut self) -> Result<(Vec<f32>, Vec<f32>)>;
     fn sample_rate(&self) -> u32;
@@ -241,7 +241,7 @@ pub trait AudioSource: Send {
 
 ### Implémentation pour Microphone
 
-```rust
+```rust,ignore
 use cpal::{Device, Stream, StreamConfig};
 
 pub struct MicrophoneSource {
@@ -271,7 +271,7 @@ impl AudioSource for MicrophoneSource {
 
 ### Implémentation pour Fichier WAV
 
-```rust
+```rust,ignore
 use hound::{WavReader, WavSpec};
 
 pub struct FileSource {
@@ -314,7 +314,7 @@ impl AudioSource for FileSource {
 
 ### Métriques Collectées
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Serialize)]
 pub struct AcquisitionMetrics {
     pub total_frames: u64,
@@ -346,7 +346,7 @@ impl AcquisitionDaemon {
 
 ### Logging Structuré
 
-```rust
+```rust,ignore
 use slog::{info, warn, error, debug};
 
 impl AcquisitionDaemon {
@@ -382,7 +382,7 @@ impl AcquisitionDaemon {
 
 ### Intégration avec Prometheus
 
-```rust
+```rust,ignore
 use prometheus::{Counter, Gauge, Histogram, register_counter, register_gauge, register_histogram};
 
 lazy_static! {
@@ -419,7 +419,7 @@ impl AcquisitionDaemon {
 
 ### Optimisation de la Lecture Audio
 
-```rust
+```rust,ignore
 impl AcquisitionDaemon {
     /// Lecture optimisée avec buffer circulaire
     async fn read_and_publish_frame(&mut self) -> Result<bool> {
@@ -466,7 +466,7 @@ impl AcquisitionDaemon {
 
 ### Gestion Mémoire Avancée
 
-```rust
+```rust,ignore
 use std::alloc::{alloc, dealloc, Layout};
 
 /// Pool de buffers pré-alloués pour réduire les allocations
@@ -510,7 +510,7 @@ impl AudioBufferPool {
 
 ### Parallélisation des Traitements
 
-```rust
+```rust,ignore
 use rayon::prelude::*;
 
 impl AcquisitionDaemon {
@@ -559,7 +559,7 @@ impl AcquisitionDaemon {
 
 **Diagnostic:**
 
-```rust
+```rust,ignore
 // Vérifier les goulets d'étranglement
 async fn diagnose_latency(&self) -> LatencyReport {
     let start = Instant::now();
@@ -603,7 +603,7 @@ async fn diagnose_latency(&self) -> LatencyReport {
 
 **Diagnostic:**
 
-```rust
+```rust,ignore
 #[derive(Debug)]
 pub struct FrameLossReport {
     pub total_frames: u64,
@@ -632,7 +632,7 @@ impl AcquisitionDaemon {
 
 **Diagnostic:**
 
-```rust
+```rust,ignore
 use sysinfo::{System, SystemExt, ProcessExt};
 
 fn monitor_memory_usage() -> MemoryReport {
@@ -652,7 +652,7 @@ fn monitor_memory_usage() -> MemoryReport {
 
 ### Outils de Debug
 
-```rust
+```rust,ignore
 #[cfg(debug_assertions)]
 impl AcquisitionDaemon {
     /// Mode debug avec logging détaillé
@@ -686,7 +686,7 @@ impl AcquisitionDaemon {
 
 ### Exemple 1: Configuration de Base
 
-```rust
+```rust,ignore
 use rust_photoacoustic::acquisition::*;
 
 #[tokio::main]
@@ -729,7 +729,7 @@ async fn main() -> Result<()> {
 
 ### Exemple 2: Intégration avec Rocket
 
-```rust
+```rust,ignore
 use rocket::{State, get, routes};
 use rust_photoacoustic::acquisition::*;
 
@@ -787,7 +787,7 @@ fn rocket() -> _ {
 
 ### Exemple 3: Processing Pipeline
 
-```rust
+```rust,ignore
 use rust_photoacoustic::dsp::*;
 
 pub struct AudioProcessor {
@@ -834,7 +834,7 @@ impl AudioProcessor {
 
 ### Structure AcquisitionDaemon
 
-```rust
+```rust,ignore
 impl AcquisitionDaemon {
     /// Constructeur
     pub fn new(
@@ -869,7 +869,7 @@ impl AcquisitionDaemon {
 
 ### Erreurs Spécifiques
 
-```rust
+```rust,ignore
 #[derive(Debug, thiserror::Error)]
 pub enum AcquisitionError {
     #[error("Source audio non disponible: {0}")]

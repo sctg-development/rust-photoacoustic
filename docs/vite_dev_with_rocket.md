@@ -78,7 +78,7 @@ src/visualization/
 
 #### 1. Environment Detection
 
-```rust
+```rust,ignore
 /// Check if Vite development mode is enabled
 pub fn is_vite_development_enabled() -> bool {
     env::var("VITE_DEVELOPMENT").is_ok()
@@ -87,7 +87,7 @@ pub fn is_vite_development_enabled() -> bool {
 
 #### 2. URL Building
 
-```rust
+```rust,ignore
 fn build_vite_url(path: &PathBuf, raw_query: &RawQueryString, prefix: &str) -> String {
     let vite_base = get_vite_base_url();
     let path_str = path.to_str().unwrap_or("");
@@ -102,7 +102,7 @@ fn build_vite_url(path: &PathBuf, raw_query: &RawQueryString, prefix: &str) -> S
 
 #### 3. Generic Proxy Function
 
-```rust
+```rust,ignore
 async fn proxy_to_vite(url: &str, request_type: &str) -> Option<StaticFileResponse> {
     // HTTP request to Vite server
     // Content-Type detection and handling
@@ -115,7 +115,7 @@ async fn proxy_to_vite(url: &str, request_type: &str) -> Option<StaticFileRespon
 
 ### Standard Web Client Route
 
-```rust
+```rust,ignore
 #[get("/client/<path..>", rank = 2)]
 async fn webclient(path: PathBuf, raw_query: RawQueryString) -> Option<StaticFileResponse> {
     if vite_dev_proxy::is_vite_development_enabled() {
@@ -229,7 +229,7 @@ cargo build --release
 
 The proxy automatically detects and preserves content types from the Vite server:
 
-```rust
+```rust,ignore,ignore
 let content_type = response
     .headers()
     .get("content-type")
@@ -289,7 +289,7 @@ RUST_LOG=debug VITE_DEVELOPMENT=http://localhost:5173 cargo run
 
 Look for log messages like:
 
-```
+```log
 INFO  rust_photoacoustic::visualization::vite_dev_proxy] Proxying web client in development mode to: http://localhost:5173/client/index.html
 DEBUG rust_photoacoustic::visualization::vite_dev_proxy] Returning web client content: StaticFileResponse([60, 33, 68, ...], text/html)
 ```

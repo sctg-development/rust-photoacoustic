@@ -100,7 +100,7 @@ sequenceDiagram
 
 ### Constructor Parameters
 
-```rust
+```rust,ignore
 pub fn new(
     id: String,              // Unique node identifier
     record_file: PathBuf,    // Base file path for recordings
@@ -122,7 +122,7 @@ pub fn new(
 
 ### Configuration Examples
 
-```rust
+```rust,ignore
 // Basic recording without limits
 let basic_recorder = RecordNode::new(
     "basic".to_string(),
@@ -175,7 +175,7 @@ flowchart TD
 - **First file**: Uses the original `record_file` name
 - **Subsequent files**: Append timestamp suffix
 
-```
+```text
 recording.wav                    # First file
 recording_1672531200.wav         # Second file (with timestamp)
 recording_1672531260.wav         # Third file (with timestamp)
@@ -192,7 +192,7 @@ recording_1672531260.wav         # Third file (with timestamp)
 
 Configuration: `max_size_kb: 1024`, `total_limit: 5120`
 
-```
+```text
 File 1: recording.wav (1024KB)           # Total: 1024KB
 File 2: recording_1001.wav (1024KB)      # Total: 2048KB  
 File 3: recording_1002.wav (1024KB)      # Total: 3072KB
@@ -205,7 +205,7 @@ File 6: recording_1005.wav (1024KB)      # Delete File 1, Total: 5120KB
 
 ### Basic Integration
 
-```rust
+```rust,ignore
 use rust_photoacoustic::processing::{RecordNode, ProcessingNode, ProcessingData};
 use std::path::PathBuf;
 
@@ -236,7 +236,7 @@ fn create_recording_pipeline() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Processing Pipeline Integration
 
-```rust
+```rust,ignore
 use rust_photoacoustic::processing::{ProcessingGraph, RecordNode};
 
 fn setup_pipeline_with_recording() -> Result<ProcessingGraph, Box<dyn std::error::Error>> {
@@ -267,7 +267,7 @@ fn setup_pipeline_with_recording() -> Result<ProcessingGraph, Box<dyn std::error
 
 ### Real-time Streaming Recording
 
-```rust
+```rust,ignore
 use tokio::time::{Duration, interval};
 
 async fn streaming_recorder() -> Result<(), Box<dyn std::error::Error>> {
@@ -302,7 +302,7 @@ async fn get_audio_chunk() -> Option<ProcessingData> {
 
 ### Internal State Management
 
-```rust
+```rust,ignore
 pub struct RecordNode {
     id: String,                                    // Node identifier
     record_file: PathBuf,                         // Base file path
@@ -321,7 +321,7 @@ pub struct RecordNode {
 
 The node handles different input formats by converting them to interleaved 16-bit PCM:
 
-```rust
+```rust,ignore
 // Single channel: direct conversion
 samples -> i16_samples
 
@@ -334,7 +334,7 @@ sample_i16 = (sample_f32 * 32767.0).clamp(-32768.0, 32767.0) as i16
 
 ### File Rotation Logic
 
-```rust
+```rust,ignore
 fn ensure_wav_writer(&mut self, spec: WavSpec) -> Result<()> {
     let max_size_bytes = self.max_size_kb * 1024;
     let needs_rotation = self.current_size_bytes >= max_size_bytes;
@@ -351,7 +351,7 @@ fn ensure_wav_writer(&mut self, spec: WavSpec) -> Result<()> {
 
 The `Drop` trait ensures proper cleanup:
 
-```rust
+```rust,ignore
 impl Drop for RecordNode {
     fn drop(&mut self) {
         if let Some(writer) = self.wav_writer.take() {
@@ -368,7 +368,7 @@ impl Drop for RecordNode {
 
 The RecordNode implements a **fail-soft** approach:
 
-```rust
+```rust,ignore
 fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
     // Record the audio data
     if let Err(e) = self.record_audio_data(&input) {
@@ -446,7 +446,7 @@ The RecordNode includes comprehensive tests covering:
 
 ### Example Test
 
-```rust
+```rust,ignore
 #[test]
 fn test_rolling_files_basic() -> Result<()> {
     let temp_dir = TempDir::new()?;

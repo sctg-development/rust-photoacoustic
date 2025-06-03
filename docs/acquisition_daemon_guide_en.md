@@ -33,7 +33,7 @@ The **Real-Time Audio Acquisition System** is a new design of the audio processi
 
 ### Core Components
 
-```rust
+```rust,ignore
 // New real-time interfaces
 trait RealTimeAudioSource: Send + Sync
 struct RealTimeAcquisitionDaemon
@@ -126,7 +126,7 @@ graph TB
 
 ### Interface Definition
 
-```rust
+```rust,ignore
 #[async_trait]
 pub trait RealTimeAudioSource: Send + Sync {
     /// Start streaming audio frames directly to SharedAudioStream
@@ -145,7 +145,7 @@ pub trait RealTimeAudioSource: Send + Sync {
 
 ### Real-Time Microphone Implementation
 
-```rust
+```rust,ignore
 pub struct MicrophoneSource {
     device: Device,
     config: StreamConfig,
@@ -235,7 +235,7 @@ impl RealTimeAudioSource for MicrophoneSource {
 
 ### Real-Time File Source with Timing Simulation
 
-```rust
+```rust,ignore
 #[async_trait]
 impl RealTimeAudioSource for FileSource {
     async fn start_streaming(&mut self, stream: Arc<SharedAudioStream>) -> Result<()> {
@@ -327,7 +327,7 @@ impl RealTimeAudioSource for FileSource {
 
 ### Daemon Architecture
 
-```rust
+```rust,ignore
 pub struct RealTimeAcquisitionDaemon {
     /// Real-time audio source
     source: Box<dyn RealTimeAudioSource>,
@@ -342,7 +342,7 @@ pub struct RealTimeAcquisitionDaemon {
 
 ### Simplified Lifecycle Management
 
-```rust
+```rust,ignore
 impl RealTimeAcquisitionDaemon {
     /// Create a new real-time acquisition daemon
     pub fn new(source: Box<dyn RealTimeAudioSource>, buffer_size: usize) -> Self {
@@ -405,7 +405,7 @@ impl RealTimeAcquisitionDaemon {
 
 ### SharedAudioStream Architecture
 
-```rust
+```rust,ignore
 pub struct SharedAudioStream {
     buffer: Arc<RwLock<VecDeque<AudioFrame>>>,
     capacity: usize,
@@ -449,7 +449,7 @@ impl SharedAudioStream {
 
 ### Consumer Implementation
 
-```rust
+```rust,ignore
 pub struct AudioStreamConsumer {
     receiver: broadcast::Receiver<AudioFrame>,
     stream_ref: Arc<SharedAudioStream>,
@@ -488,7 +488,7 @@ impl AudioStreamConsumer {
 
 ### Real-Time Configuration
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone)]
 pub struct RealTimeConfig {
     /// Source type selection
@@ -515,7 +515,7 @@ pub enum SourceType {
 
 ### Timing Analysis
 
-```rust
+```rust,ignore
 /// Calculate optimal frame rate for real-time streaming
 pub fn calculate_optimal_frame_rate(config: &RealTimeConfig) -> f64 {
     let sample_rate = config.sample_rate as f64;
@@ -539,7 +539,7 @@ pub fn calculate_optimal_frame_rate(config: &RealTimeConfig) -> f64 {
 
 ### Performance Metrics
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Serialize)]
 pub struct RealTimeStreamStats {
     /// Total frames published
@@ -570,7 +570,7 @@ pub struct ConsumerLagStats {
 
 ### Benchmarking Tools
 
-```rust
+```rust,ignore
 pub struct StreamingBenchmark {
     start_time: Instant,
     frame_timestamps: VecDeque<Instant>,
@@ -631,7 +631,7 @@ impl StreamingBenchmark {
 
 ### Real-Time Monitoring Dashboard
 
-```rust
+```rust,ignore
 pub async fn create_monitoring_dashboard(
     daemon: &RealTimeAcquisitionDaemon
 ) -> MonitoringDashboard {
@@ -660,7 +660,7 @@ pub struct MonitoringDashboard {
 
 ### Alerting System
 
-```rust
+```rust,ignore
 pub struct RealTimeAlerts {
     alert_thresholds: AlertThresholds,
     alert_history: VecDeque<Alert>,
@@ -721,7 +721,7 @@ impl RealTimeAlerts {
 
 **Diagnosis:**
 
-```rust
+```rust,ignore
 pub async fn diagnose_timing_issues(daemon: &RealTimeAcquisitionDaemon) -> TimingDiagnosis {
     let benchmark = StreamingBenchmark::new(1000);
     let mut consumer = daemon.get_shared_stream().create_consumer();
@@ -762,7 +762,7 @@ pub async fn diagnose_timing_issues(daemon: &RealTimeAcquisitionDaemon) -> Timin
 
 **Diagnosis:**
 
-```rust
+```rust,ignore
 pub async fn diagnose_consumer_lag(stream: &SharedAudioStream) -> ConsumerDiagnosis {
     let stats = stream.get_stats().await;
     let consumers = stream.get_consumer_details().await;
@@ -802,7 +802,7 @@ pub async fn diagnose_consumer_lag(stream: &SharedAudioStream) -> ConsumerDiagno
 
 2. **Replace Audio Sources**
 
-   ```rust
+   ```rust,ignore
    // Old way
    let source = get_audio_source_from_device(config)?;
    let daemon = AcquisitionDaemon::new(source, 30.0, 1024);
@@ -814,7 +814,7 @@ pub async fn diagnose_consumer_lag(stream: &SharedAudioStream) -> ConsumerDiagno
 
 3. **Update Consumer Code**
 
-   ```rust
+   ```rust,ignore
    // Old way - polling with timeouts
    while running {
        match consumer.next_frame_timeout(Duration::from_millis(1000)).await {
@@ -846,7 +846,7 @@ pub async fn diagnose_consumer_lag(stream: &SharedAudioStream) -> ConsumerDiagno
 
 ### Example 1: Basic Real-Time Setup
 
-```rust
+```rust,ignore
 use rust_photoacoustic::acquisition::*;
 
 #[tokio::main]
@@ -886,7 +886,7 @@ async fn main() -> Result<()> {
 
 ### Example 2: Multi-Consumer Real-Time Processing
 
-```rust
+```rust,ignore
 use rust_photoacoustic::acquisition::*;
 
 async fn multi_consumer_example() -> Result<()> {
@@ -941,7 +941,7 @@ async fn multi_consumer_example() -> Result<()> {
 
 ### Example 3: Performance Monitoring Integration
 
-```rust
+```rust,ignore
 async fn monitored_streaming() -> Result<()> {
     let source = get_realtime_audio_source_from_file(config)?;
     let mut daemon = RealTimeAcquisitionDaemon::new(source, 1024);
@@ -986,7 +986,7 @@ async fn monitored_streaming() -> Result<()> {
 
 ### RealTimeAcquisitionDaemon
 
-```rust
+```rust,ignore
 impl RealTimeAcquisitionDaemon {
     /// Create a new real-time acquisition daemon
     pub fn new(source: Box<dyn RealTimeAudioSource>, buffer_size: usize) -> Self;
@@ -1013,7 +1013,7 @@ impl RealTimeAcquisitionDaemon {
 
 ### SharedAudioStream
 
-```rust
+```rust,ignore
 impl SharedAudioStream {
     /// Create new shared stream
     pub fn new(capacity: usize) -> Self;
@@ -1034,7 +1034,7 @@ impl SharedAudioStream {
 
 ### AudioStreamConsumer
 
-```rust
+```rust,ignore
 impl AudioStreamConsumer {
     /// Get next frame (non-blocking)
     pub async fn next_frame(&mut self) -> Option<AudioFrame>;

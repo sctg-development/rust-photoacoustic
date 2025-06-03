@@ -56,7 +56,7 @@ Le système de streaming audio repose sur une architecture producteur-consommate
 
 Le `AcquisitionDaemon` est le cœur du système d'acquisition. Il gère l'acquisition continue des données audio avec un contrôle précis du débit et la publication vers le stream partagé.
 
-```rust
+```rust,ignore
 pub struct AcquisitionDaemon {
     /// Source audio (microphone ou fichier)
     audio_source: Box<dyn AudioSource>,
@@ -75,7 +75,7 @@ pub struct AcquisitionDaemon {
 
 #### 1. Contrôle de Débit Adaptatif
 
-```rust
+```rust,ignore
 let frame_duration = Duration::from_secs_f64(1.0 / self.target_fps);
 let mut interval = interval(frame_duration);
 
@@ -89,7 +89,7 @@ Le daemon utilise `tokio::time::interval` pour maintenir un débit constant, cal
 
 #### 2. Gestion Asynchrone des Tâches
 
-```rust
+```rust,ignore
 impl AcquisitionDaemon {
     pub async fn start(&mut self) -> Result<()> {
         if self.running.load(Ordering::Relaxed) {
@@ -132,7 +132,7 @@ impl AcquisitionDaemon {
 
 #### 3. Publication des Données
 
-```rust
+```rust,ignore
 async fn read_and_publish_frame(&mut self) -> Result<bool> {
     match self.audio_source.read_frame() {
         Ok((channel_a, channel_b)) => {
@@ -175,7 +175,7 @@ async fn read_and_publish_frame(&mut self) -> Result<bool> {
 
 Le module `audio_streaming.rs` expose plusieurs endpoints HTTP utilisant le framework Rocket:
 
-```rust
+```rust,ignore
 pub fn get_audio_streaming_routes() -> Vec<rocket::Route> {
     rocket::routes![
         get_stream_stats,    // GET /stream/stats
@@ -190,7 +190,7 @@ pub fn get_audio_streaming_routes() -> Vec<rocket::Route> {
 
 #### 1. Stream Audio Temps Réel
 
-```rust
+```rust,ignore
 #[get("/stream/audio")]
 pub fn stream_audio(
     _user: AuthenticatedUser,
@@ -230,7 +230,7 @@ pub fn stream_audio(
 
 #### 2. Analyse Spectrale Temps Réel
 
-```rust
+```rust,ignore
 #[get("/stream/spectral")]
 pub fn stream_spectral_analysis(
     _user: AuthenticatedUser,
@@ -261,7 +261,7 @@ pub fn stream_spectral_analysis(
 
 #### AudioFrameResponse
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioFrameResponse {
     pub channel_a: Vec<f32>,
@@ -289,7 +289,7 @@ impl From<AudioFrame> for AudioFrameResponse {
 
 #### SpectralDataResponse
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectralDataResponse {
     pub frequencies: Vec<f32>,
@@ -311,7 +311,7 @@ pub struct SpectralDataResponse {
 
 Le `SharedAudioStream` implémente un pattern producteur-multiple consommateurs utilisant `tokio::broadcast`:
 
-```rust
+```rust,ignore
 #[derive(Clone)]
 pub struct SharedAudioStream {
     /// Canal broadcast pour streaming temps réel
@@ -327,7 +327,7 @@ pub struct SharedAudioStream {
 
 ##### 1. Publication Broadcast
 
-```rust
+```rust,ignore
 pub async fn publish(&self, frame: AudioFrame) -> Result<()> {
     // Mise à jour de la dernière frame
     {
@@ -367,7 +367,7 @@ pub async fn publish(&self, frame: AudioFrame) -> Result<()> {
 
 ##### 2. Abonnement de Consommateurs
 
-```rust
+```rust,ignore
 pub fn subscribe(&self) -> broadcast::Receiver<AudioFrame> {
     self.sender.subscribe()
 }
@@ -377,7 +377,7 @@ pub fn subscribe(&self) -> broadcast::Receiver<AudioFrame> {
 
 Interface de consommation avec gestion du lag:
 
-```rust
+```rust,ignore
 pub struct AudioStreamConsumer {
     receiver: broadcast::Receiver<AudioFrame>,
     stream: SharedAudioStream,
@@ -412,7 +412,7 @@ impl AudioStreamConsumer {
 
 Dans `builder.rs`, l'intégration se fait conditionnellement:
 
-```rust
+```rust,ignore
 pub fn build_rocket(
     config: &Config,
     figment: Figment,
@@ -444,7 +444,7 @@ pub fn build_rocket(
 
 ### Gestion d'État
 
-```rust
+```rust,ignore
 pub struct AudioStreamState {
     pub stream: Arc<SharedAudioStream>,
 }
@@ -458,7 +458,7 @@ L'état est géré par Rocket via `.manage()` et injecté dans les handlers via 
 
 ### 1. Arc (Atomic Reference Counting)
 
-```rust
+```rust,ignore
 // Partage du stream entre daemon et endpoints
 let audio_stream = Arc::new(SharedAudioStream::new(buffer_size));
 
@@ -468,7 +468,7 @@ let stream_clone = audio_stream.clone();
 
 ### 2. Atomic Operations
 
-```rust
+```rust,ignore
 // Contrôle thread-safe sans mutex
 let running = Arc::new(AtomicBool::new(false));
 let frame_counter = Arc::new(AtomicU64::new(0));
@@ -480,7 +480,7 @@ let count = frame_counter.fetch_add(1, Ordering::Relaxed);
 
 ### 3. RwLock pour Données Partagées
 
-```rust
+```rust,ignore
 // Lectures multiples, écritures exclusives
 latest_frame: Arc<RwLock<Option<AudioFrame>>>,
 stats: Arc<RwLock<StreamStats>>,
@@ -492,7 +492,7 @@ let mut stats = self.stats.write().await;
 
 ### 4. Broadcast Channel
 
-```rust
+```rust,ignore
 // Un producteur, multiples consommateurs
 let (sender, _) = broadcast::channel(buffer_size);
 
@@ -508,7 +508,7 @@ let receiver = sender.subscribe();
 
 #### AcquisitionDaemon
 
-```rust
+```rust,ignore
 // Erreurs de lecture: retry avec delay
 Err(e) => {
     error!("Error reading audio frame: {}", e);
@@ -523,7 +523,7 @@ if let Err(e) = self.stream.publish(frame).await {
 
 #### Audio Streaming
 
-```rust
+```rust,ignore
 // Timeout sur réception: heartbeat
 Err(_) => {
     yield Event::data(r#"{"type":"heartbeat"}"#);
@@ -538,7 +538,7 @@ Err(broadcast::error::RecvError::Lagged(skipped)) => {
 
 #### SharedAudioStream
 
-```rust
+```rust,ignore
 // Pas d'abonnés: pas d'erreur
 Err(broadcast::error::SendError(_)) => {
     // Comportement normal si aucun consommateur
@@ -554,7 +554,7 @@ Err(broadcast::error::SendError(_)) => {
 
 #### Test du Daemon
 
-```rust
+```rust,ignore
 #[tokio::test]
 async fn test_acquisition_daemon() {
     let audio_source = get_default_audio_source().unwrap();
@@ -579,7 +579,7 @@ async fn test_acquisition_daemon() {
 
 #### Test Multi-Consommateurs
 
-```rust
+```rust,ignore
 #[tokio::test]
 async fn test_multiple_consumers() {
     let stream = SharedAudioStream::new(10);
@@ -602,7 +602,7 @@ async fn test_multiple_consumers() {
 
 #### Test SSE Endpoint
 
-```rust
+```rust,ignore
 #[tokio::test]
 async fn test_sse_streaming() {
     // Configuration du serveur de test avec audio stream
@@ -628,7 +628,7 @@ async fn test_sse_streaming() {
 
 ### 1. Démarrage Complet du Système
 
-```rust
+```rust,ignore
 use rust_photoacoustic::{
     acquisition::{get_default_audio_source, AcquisitionDaemon, SharedAudioStream},
     config::Config,
@@ -665,7 +665,7 @@ async fn main() -> Result<()> {
 
 ### 2. Consumer Personnalisé
 
-```rust
+```rust,ignore
 pub struct SpectralAnalysisConsumer {
     consumer: AudioStreamConsumer,
     frame_size: usize,
@@ -696,7 +696,7 @@ impl SpectralAnalysisConsumer {
 
 ### 3. Monitoring et Métriques
 
-```rust
+```rust,ignore
 pub async fn monitor_stream_health(stream: &SharedAudioStream) {
     let mut last_frame_count = 0;
 
@@ -728,7 +728,7 @@ pub async fn monitor_stream_health(stream: &SharedAudioStream) {
 
 ### 1. Gestion de la Mémoire
 
-```rust
+```rust,ignore
 // ✅ Bon: Utilisation d'Arc pour partage léger
 let shared_stream = Arc::new(SharedAudioStream::new(buffer_size));
 
@@ -741,7 +741,7 @@ let expensive_copy = (*shared_stream).clone(); // Coûteux!
 
 ### 2. Gestion des Buffers
 
-```rust
+```rust,ignore
 // Configuration des tailles de buffer
 const SMALL_BUFFER: usize = 10;   // Faible latence, risque de perte
 const MEDIUM_BUFFER: usize = 100; // Équilibre latence/fiabilité
@@ -757,7 +757,7 @@ let buffer_size = match use_case {
 
 ### 3. Gestion des Erreurs Asynchrones
 
-```rust
+```rust,ignore
 // ✅ Bon: Gestion gracieuse avec logs
 match consumer.next_frame().await {
     Some(frame) => process_frame(frame),
@@ -784,7 +784,7 @@ loop {
 
 ### 4. Monitoring et Observabilité
 
-```rust
+```rust,ignore
 // Métriques utiles à surveiller
 #[derive(Debug)]
 pub struct SystemMetrics {
@@ -807,7 +807,7 @@ log::info!(
 
 ### 5. Configuration et Tuning
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone)]
 pub struct StreamingConfig {
     /// Taille du buffer broadcast
@@ -847,7 +847,7 @@ impl Default for StreamingConfig {
 
 ### 2. Optimisations CPU
 
-```rust
+```rust,ignore
 // Éviter les allocations fréquentes
 pub struct FrameProcessor {
     // Réutilisation des buffers
@@ -864,7 +864,7 @@ pub struct FramePool {
 
 ### 3. Optimisations Réseau
 
-```rust
+```rust,ignore
 // Compression des données JSON
 use flate2::write::GzEncoder;
 
