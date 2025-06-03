@@ -37,7 +37,7 @@ Le système utilise une configuration différentielle où deux microphones sont 
 
 ## 2. Modélisation Mathématique
 
-### 2.1 Équations Fundamentales
+### 2.1 Équations Fondamentales
 
 #### Signal Photoacoustique
 
