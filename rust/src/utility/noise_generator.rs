@@ -782,8 +782,8 @@ impl NoiseGenerator {
     ///     0.6,    // signal_amplitude (60% signal level)
     ///     175.0,  // phase_opposition_degrees (5° off perfect opposition)
     ///     0.02,   // temperature_drift_factor (2% variation)
-    ///     0.7     // gas_flow_noise_factor (70% 1/f characteristic)
-    ///     20.0,     // snr_factor (20dB SNR)
+    ///     0.7,    // gas_flow_noise_factor (70% 1/f characteristic)
+    ///     20.0,   // snr_factor (20dB SNR)
     /// );
     /// assert_eq!(samples.len(), 96000); // 2 channels * 48000 samples
     /// ```
