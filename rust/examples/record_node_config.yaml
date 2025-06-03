@@ -1,0 +1,134 @@
+# RecordNode Configuration Example
+# This example shows how to configure a RecordNode in the processing pipeline
+
+processing:
+  enabled: true
+  result_buffer_size: 1000
+  
+  # Example processing graph with RecordNode
+  default_graph:
+    id: "recording_example"
+    
+    nodes:
+      # Input node to capture audio
+      - id: "audio_input"
+        node_type: "input"
+        parameters: null
+      
+      # Optional: Apply a filter before recording
+      - id: "bandpass_filter"
+        node_type: "filter"
+        parameters:
+          type: "bandpass"
+          center_frequency: 1000.0
+          bandwidth: 500.0
+          target_channel: "Both"
+      
+      # Record the filtered audio to PCM file
+      - id: "audio_recorder"
+        node_type: "record"
+        parameters:
+          # Output file path (will create timestamped files when rotated)
+          record_file: "./recordings/audio_stream.wav"
+          # Maximum file size in KB before rotation (1MB = 1024KB)
+          max_size: 1024
+          # Automatically delete old files when creating new ones
+          auto_delete: false
+      
+      # Final output for photoacoustic analysis
+      - id: "photoacoustic_output"
+        node_type: "photoacoustic_output"
+        parameters:
+          detection_threshold: 0.1
+          analysis_window_size: 1024
+    
+    connections:
+      # Audio flow: input -> filter -> recorder -> output
+      - from: "audio_input"
+        to: "bandpass_filter"
+      - from: "bandpass_filter"
+        to: "audio_recorder"
+      - from: "audio_recorder"
+        to: "photoacoustic_output"
+    
+    # Set the final output node
+    output_node: "photoacoustic_output"
+
+# Example for recording raw unfiltered audio
+alternative_graphs:
+  raw_recording:
+    id: "raw_recording_example"
+    
+    nodes:
+      - id: "audio_input"
+        node_type: "input"
+        parameters: null
+      
+      # Record raw audio directly
+      - id: "raw_recorder"
+        node_type: "record"
+        parameters:
+          record_file: "./recordings/raw_audio.wav"
+          max_size: 2048  # 2MB files
+          auto_delete: true  # Keep only latest file
+      
+      - id: "photoacoustic_output"
+        node_type: "photoacoustic_output"
+        parameters:
+          detection_threshold: 0.05
+    
+    connections:
+      - from: "audio_input"
+        to: "raw_recorder"
+      - from: "raw_recorder"
+        to: "photoacoustic_output"
+    
+    output_node: "photoacoustic_output"
+
+  # Example for multiple simultaneous recordings
+  multi_recording:
+    id: "multi_recording_example"
+    
+    nodes:
+      - id: "audio_input"
+        node_type: "input"
+        parameters: null
+      
+      # Record original audio
+      - id: "original_recorder"
+        node_type: "record"
+        parameters:
+          record_file: "./recordings/original.wav"
+          max_size: 1024
+          auto_delete: false
+      
+      # Apply differential processing
+      - id: "differential"
+        node_type: "differential"
+        parameters: null
+      
+      # Record processed audio
+      - id: "processed_recorder"
+        node_type: "record"
+        parameters:
+          record_file: "./recordings/processed.wav"
+          max_size: 1024
+          auto_delete: false
+      
+      - id: "photoacoustic_output"
+        node_type: "photoacoustic_output"
+        parameters: null
+    
+    connections:
+      # Original path: input -> record original -> differential
+      - from: "audio_input"
+        to: "original_recorder"
+      - from: "original_recorder"
+        to: "differential"
+      # Processed path: differential -> record processed -> output
+      - from: "differential"
+        to: "processed_recorder"
+      - from: "processed_recorder"
+        to: "photoacoustic_output"
+    
+    output_node: "photoacoustic_output"

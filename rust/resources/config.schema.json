@@ -381,7 +381,8 @@
                       "differential",
                       "channel_selector",
                       "channel_mixer",
-                      "photoacoustic_output"
+                      "photoacoustic_output",
+                      "record"
                     ],
                     "description": "Type of processing node"
                   },

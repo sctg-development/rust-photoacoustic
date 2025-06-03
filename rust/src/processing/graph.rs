@@ -12,7 +12,7 @@ use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, InputNode,
-    MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
+    MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode, RecordNode,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -605,7 +605,7 @@ impl ProcessingGraph {
 
         // Set output node if specified
         if let Some(ref output_id) = config.output_node {
-            graph.set_output_node(output_id);
+            let _ = graph.set_output_node(output_id);
         }
 
         Ok(graph)
@@ -787,6 +787,35 @@ impl ProcessingGraph {
                 }
 
                 Ok(Box::new(node))
+            }
+            "record" => {
+                // Extract record parameters
+                let params = config
+                    .parameters
+                    .as_mapping()
+                    .ok_or_else(|| anyhow::anyhow!("Record node requires parameters"))?;
+
+                let record_file = params
+                    .get("record_file")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("Record node requires 'record_file' parameter"))?;
+
+                let max_size = params
+                    .get("max_size")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1024) as usize; // Default 1MB
+
+                let auto_delete = params
+                    .get("auto_delete")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false); // Default false
+
+                Ok(Box::new(RecordNode::new(
+                    config.id.clone(),
+                    std::path::PathBuf::from(record_file),
+                    max_size,
+                    auto_delete,
+                )))
             }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),
         }

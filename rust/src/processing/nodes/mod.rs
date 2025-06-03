@@ -16,6 +16,7 @@
 //! - [`channel`] - Channel operation nodes (`ChannelSelectorNode`, `ChannelMixerNode`, `MixStrategy`)
 //! - [`differential`] - Differential calculation nodes (`DifferentialNode`)
 //! - [`output`] - Output nodes (`PhotoacousticOutputNode`)
+//! - [`record`] - Recording nodes (`RecordNode`)
 //!
 //! # Examples
 //!
@@ -50,6 +51,7 @@ pub mod differential;
 pub mod filter;
 pub mod input;
 pub mod output;
+pub mod record;
 pub mod traits;
 
 // Re-export all public types for backward compatibility
@@ -59,4 +61,5 @@ pub use differential::DifferentialNode;
 pub use filter::{ChannelTarget, FilterNode};
 pub use input::InputNode;
 pub use output::PhotoacousticOutputNode;
+pub use record::RecordNode;
 pub use traits::ProcessingNode;
