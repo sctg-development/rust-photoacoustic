@@ -6,6 +6,7 @@
 //!
 //! This module provides HTTP endpoints for streaming audio data and spectral analysis
 //! to web clients in real-time using Server-Sent Events (SSE).
+#![doc = include_str!("../../../../docs/audio-stream-reconstruction-guide.md")]
 
 use crate::acquisition::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 use crate::visualization::api_auth::AuthenticatedUser;

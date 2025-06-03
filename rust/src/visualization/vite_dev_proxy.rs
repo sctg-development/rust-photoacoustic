@@ -34,6 +34,7 @@
 //! # Start Rust server with Vite proxy enabled
 //! VITE_DEVELOPMENT=http://localhost:5173 cargo run
 //! ```
+#![doc = include_str!("../../../docs/vite_dev_with_rocket.md")]
 
 use super::request_guard::{RawQueryString, StaticFileResponse};
 use log::{debug, info};

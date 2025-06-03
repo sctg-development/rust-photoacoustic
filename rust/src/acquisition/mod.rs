@@ -6,6 +6,7 @@
 //!
 //! This module handles the acquisition of audio data from microphones
 //! or from WAV files, with support for real-time streaming.
+#![doc = include_str!("../../../docs/acquisition_daemon_guide_en.md")]
 
 use anyhow::Result;
 use async_trait::async_trait;

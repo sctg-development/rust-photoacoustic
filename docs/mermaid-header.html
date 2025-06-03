@@ -1,0 +1,58 @@
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+  // Configuration de Mermaid
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "default",
+    themeVariables: {
+      fontFamily: "inherit",
+    },
+  });
+
+  // Fonction pour convertir les blocs de code Mermaid
+  function renderMermaid() {
+    const mermaidBlocks = document.querySelectorAll(
+      "pre.language-mermaid code"
+    );
+
+    mermaidBlocks.forEach((block, index) => {
+      const code = block.textContent;
+      const id = `mermaid-${index}`;
+
+      // Créer un div pour Mermaid
+      const mermaidDiv = document.createElement("div");
+      mermaidDiv.className = "mermaid";
+      mermaidDiv.textContent = code;
+      mermaidDiv.id = id;
+
+      // Remplacer le bloc pre/code par le div mermaid
+      block.parentElement.parentElement.replaceChild(
+        mermaidDiv,
+        block.parentElement
+      );
+    });
+
+    // Re-initialiser Mermaid pour les nouveaux éléments
+    mermaid.run();
+  }
+
+  // Attendre que le DOM soit chargé
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderMermaid);
+  } else {
+    renderMermaid();
+  }
+</script>
+
+<style>
+  .mermaid {
+    text-align: center;
+    margin: 1em 0;
+  }
+
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+</style>

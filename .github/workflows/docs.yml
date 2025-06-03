@@ -66,6 +66,7 @@ jobs:
         run: |
           cd rust
           # Build documentation with all features
+          export RUSTDOCFLAGS="--html-in-header ../docs/mermaid-header.html"
           cargo doc --all-features --document-private-items --no-deps --package rust_photoacoustic --package oxide-auth --package oxide-auth-rocket --package auth-macros
 
           # Create an index.html that redirects to the main crate documentation

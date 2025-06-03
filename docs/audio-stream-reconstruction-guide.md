@@ -1377,5 +1377,3 @@ const useTroubleshootPerformance = (stream: UseAudioStreamReturn) => {
   }, [stream]);
 };
 ```
-
-This updated guide provides comprehensive coverage of the performance optimizations, CPU usage improvements, timestamp validation system, function declaration order fixes, and advanced monitoring capabilities that make the audio streaming system efficient and reliable for production use.

@@ -64,6 +64,7 @@
 //! // result is identical to input, but audio has been recorded to file
 //! # Ok::<(), anyhow::Error>(())
 //! ```
+#![doc = include_str!("../../../../docs/record_node_comprehensive_guide.md")]
 
 use super::{ProcessingData, ProcessingNode};
 use anyhow::{anyhow, Result};
@@ -143,6 +144,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// let stereo_result = record_node.process(stereo_data)?;
 /// # Ok::<(), anyhow::Error>(())
 /// ```
+
 pub struct RecordNode {
     /// Node identifier
     id: String,
