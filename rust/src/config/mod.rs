@@ -59,6 +59,7 @@ pub mod generix;
 pub mod modbus;
 pub mod photoacoustic;
 pub mod processing;
+pub mod simulated_source;
 pub mod utils;
 pub mod visualization;
 
@@ -77,6 +78,7 @@ pub use generix::GenerixConfig;
 pub use modbus::ModbusConfig;
 pub use photoacoustic::PhotoacousticConfig;
 pub use processing::ProcessingConfig;
+pub use simulated_source::SimulatedSourceConfig;
 pub use utils::output_config_schema;
 pub use visualization::VisualizationConfig;
 

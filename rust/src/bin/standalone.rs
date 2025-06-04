@@ -67,8 +67,7 @@ async fn main() -> Result<()> {
         frame_size: args.frame_size as u16,
         averages: args.averages as u16,
         precision: 16,              // Default precision,
-        mock_source: false,         // No mock source in standalone mode
-        mock_correlation: 0.0,      // No correlation in standalone mode
+        simulated_source: None,     // No simulated source in standalone mode
         record_consumer: false,     // No record consumer in standalone mode
         record_file: String::new(), // No record file in standalone mode
     };

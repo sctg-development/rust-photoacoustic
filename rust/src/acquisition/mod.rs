@@ -8,6 +8,7 @@
 //! or from WAV files, with support for real-time streaming.
 #![doc = include_str!("../../../docs/acquisition_daemon_guide_en.md")]
 
+use crate::config::SimulatedSourceConfig;
 use anyhow::Result;
 use async_trait::async_trait;
 use log::info;
@@ -18,6 +19,7 @@ mod file;
 mod microphone;
 mod mock;
 pub mod realtime_daemon;
+mod simulated_photoacoustic;
 pub mod stream;
 
 pub use daemon::AcquisitionDaemon;
@@ -25,6 +27,7 @@ use file::FileSource;
 pub use microphone::MicrophoneSource;
 pub use mock::MockSource;
 pub use realtime_daemon::RealTimeAcquisitionDaemon;
+pub use simulated_photoacoustic::SimulatedPhotoacousticRealtimeAudioSource;
 pub use stream::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 
 use crate::config::PhotoacousticConfig;
@@ -122,6 +125,74 @@ pub fn get_realtime_mock_audio_source(
     config: PhotoacousticConfig,
 ) -> Result<Box<dyn RealTimeAudioSource>> {
     Ok(Box::new(MockSource::new(config)?))
+}
+
+/// Get a real-time simulated photoacoustic audio source
+///
+/// This function creates either a simple MockSource or an advanced SimulatedPhotoacousticRealtimeAudioSource
+/// based on the `source_type` parameter in the SimulatedSourceConfig.
+///
+/// # Source Types
+///
+/// * "mock" - Uses the existing MockSource with simple correlation-based signal generation
+/// * "universal" - Uses the new SimulatedPhotoacousticRealtimeAudioSource with comprehensive physics simulation
+///
+/// # Arguments
+///
+/// * `config` - PhotoacousticConfig containing simulated_source configuration
+///
+/// # Returns
+///
+/// A boxed audio source implementing RealTimeAudioSource trait
+///
+/// # Examples
+///
+/// ```no_run
+/// use rust_photoacoustic::acquisition::get_realtime_simulated_photoacoustic_source;
+/// use rust_photoacoustic::config::{PhotoacousticConfig, SimulatedSourceConfig};
+///
+/// // Use simple mock source
+/// let mut config = PhotoacousticConfig::default();
+/// let mut sim_config = SimulatedSourceConfig::default();
+/// sim_config.source_type = "mock".to_string();
+/// config.simulated_source = Some(sim_config);
+/// let mock_source = get_realtime_simulated_photoacoustic_source(config)?;
+///
+/// // Use advanced universal simulation
+/// let mut config = PhotoacousticConfig::default();
+/// let mut sim_config = SimulatedSourceConfig::default();
+/// sim_config.source_type = "universal".to_string();
+/// config.simulated_source = Some(sim_config);
+/// let universal_source = get_realtime_simulated_photoacoustic_source(config)?;
+/// # Ok::<(), anyhow::Error>(())
+/// ```
+pub fn get_realtime_simulated_photoacoustic_source(
+    config: PhotoacousticConfig,
+) -> Result<Box<dyn RealTimeAudioSource>> {
+    let simulation_config = config
+        .simulated_source
+        .clone()
+        .unwrap_or_else(|| SimulatedSourceConfig::default());
+
+    match simulation_config.source_type.as_str() {
+        "mock" => {
+            // Use the simple MockSource
+            Ok(Box::new(MockSource::new(config)?))
+        }
+        "universal" => {
+            // Use the advanced SimulatedPhotoacousticRealtimeAudioSource
+            Ok(Box::new(SimulatedPhotoacousticRealtimeAudioSource::new(
+                config,
+                simulation_config,
+            )?))
+        }
+        other => {
+            anyhow::bail!(
+                "Unknown simulated source type '{}'. Supported types: 'mock', 'universal'",
+                other
+            )
+        }
+    }
 }
 
 /// Get the default real-time audio source (first available device)

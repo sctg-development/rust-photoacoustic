@@ -156,16 +156,100 @@
           "enum": [8, 16, 24, 32],
           "description": "Precision of sampling (bits, allowed: 8, 16, 24, 32)"
         },
-        "mock_source": {
-          "type": "boolean",
-          "default": false,
-          "description": "Use a mock source for testing purposes"
-        },
-        "mock_correlation": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Correlation factor for the mock source, between 0 and 1"
+        "simulated_source": {
+          "type": ["object", "null"],
+          "description": "Configuration for simulated photoacoustic sources (replaces mock_source and mock_correlation)",
+          "properties": {
+            "source_type": {
+              "type": "string",
+              "enum": ["mock", "universal"],
+              "default": "mock",
+              "description": "Source type: 'mock' for simple MockSource or 'universal' for full physics simulation"
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1.0,
+              "maximum": 1.0,
+              "default": 0.8,
+              "description": "Inter-channel correlation coefficient [-1.0, 1.0] for dual-microphone configuration (used by mock source)"
+            },
+            "background_noise_amplitude": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "default": 0.1,
+              "description": "Background noise amplitude [0.0, 1.0] - thermal and electronic noise"
+            },
+            "resonance_frequency": {
+              "type": "number",
+              "minimum": 100.0,
+              "maximum": 20000.0,
+              "default": 2100.0,
+              "description": "Helmholtz resonance frequency [Hz] - cell acoustic resonance"
+            },
+            "laser_modulation_depth": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "default": 0.8,
+              "description": "Laser modulation depth [0.0, 1.0] - photoacoustic signal strength"
+            },
+            "signal_amplitude": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "default": 0.5,
+              "description": "Base photoacoustic signal amplitude [0.0, 1.0]"
+            },
+            "phase_opposition_degrees": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 180.0,
+              "default": 180.0,
+              "description": "Phase opposition between microphones [degrees] - differential configuration"
+            },
+            "temperature_drift_factor": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 0.1,
+              "default": 0.01,
+              "description": "Temperature drift effect factor [0.0, 0.1] - thermal stability"
+            },
+            "gas_flow_noise_factor": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "default": 0.05,
+              "description": "Gas flow noise factor [0.0, 1.0] - turbulent flow effects"
+            },
+            "snr_factor": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 100.0,
+              "default": 10.0,
+              "description": "Signal-to-noise ratio factor [0.1, 100.0] - measurement quality"
+            },
+            "modulation_mode": {
+              "type": "string",
+              "enum": ["amplitude", "pulsed"],
+              "default": "amplitude",
+              "description": "Laser modulation mode: 'amplitude' (continuous) or 'pulsed' (discrete)"
+            },
+            "pulse_width_seconds": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 1.0,
+              "default": 0.05,
+              "description": "Pulse width [seconds] - for pulsed modulation mode"
+            },
+            "pulse_frequency_hz": {
+              "type": "number",
+              "minimum": 1.0,
+              "maximum": 1000.0,
+              "default": 20.0,
+              "description": "Pulse frequency [Hz] - for pulsed modulation mode"
+            }
+          }
         },
         "record_consumer": {
           "type": "boolean",

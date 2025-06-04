@@ -8,6 +8,7 @@
 //! measurement process in the application.
 
 use serde::{Deserialize, Serialize};
+use super::SimulatedSourceConfig;
 
 /// Configuration for the photoacoustic measurement system.
 ///
@@ -31,8 +32,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Example
 ///
-/// ```
-/// use rust_photoacoustic::config::PhotoacousticConfig;
+/// ```no_run
+/// use rust_photoacoustic::config::{PhotoacousticConfig, SimulatedSourceConfig};
 ///
 /// let pa_config = PhotoacousticConfig {
 ///     input_device: Some("first".to_string()),
@@ -43,8 +44,7 @@ use serde::{Deserialize, Serialize};
 ///     frame_size: 4096,
 ///     averages: 10,
 ///     precision: 16,
-///     mock_source: false,
-///     mock_correlation: 0.7,
+///     simulated_source: Some(SimulatedSourceConfig::default()),
 ///     record_consumer: false,
 ///     record_file: "recorded_audio.wav".to_string(),
 /// };
@@ -59,13 +59,23 @@ pub struct PhotoacousticConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_file: Option<String>,
 
-    /// Enable mock data source for testing and simulation
-    #[serde(default)]
-    pub mock_source: bool,
-
-    /// Correlation coefficient for mock source channels (0.0 to 1.0)
-    #[serde(default = "default_mock_correlation")]
-    pub mock_correlation: f32,
+    /// Configuration for simulated photoacoustic sources
+    ///
+    /// When present, enables simulation mode using either the simple mock source
+    /// or the comprehensive universal photoacoustic generator. This replaces the
+    /// deprecated `mock_source` and `mock_correlation` parameters.
+    ///
+    /// **For Physics PhD Specialists:**
+    /// The simulated source can model realistic photoacoustic phenomena including
+    /// Helmholtz resonance, gas flow noise, thermal effects, and dual-microphone
+    /// differential configurations.
+    ///
+    /// **For Developers:**
+    /// When `simulated_source` is `Some(config)`, the acquisition system will use
+    /// synthetic data instead of hardware input. When `None`, real hardware sources
+    /// are used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub simulated_source: Option<SimulatedSourceConfig>,
 
     /// The excitation frequency in Hz
     pub frequency: f32,
@@ -107,17 +117,12 @@ fn default_precision() -> u8 {
     16 // Default precision in bits
 }
 
-fn default_mock_correlation() -> f32 {
-    0.7 // Default correlation coefficient for mock data
-}
-
 impl Default for PhotoacousticConfig {
     fn default() -> Self {
         Self {
             input_device: Some("first".to_string()), // Default to the first CPAL device
             input_file: None,                        // No file by default
-            mock_source: false,                      // Mock disabled by default
-            mock_correlation: default_mock_correlation(), // Default mock correlation
+            simulated_source: None,                  // No simulation by default (use real hardware)
             frequency: 1000.0,                       // 1kHz default frequency
             bandwidth: 50.0,                         // 50Hz bandwidth
             frame_size: 4096,                        // 4K FFT window

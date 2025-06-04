@@ -37,8 +37,9 @@ async fn main() -> Result<()> {
 fn create_mock_source() -> Result<Box<dyn AudioSource>> {
     let mut config = PhotoacousticConfig::default();
     config.frame_size = 8192; // Match the actual config
-    config.mock_source = true;
-    config.mock_correlation = 0.8;
+    let mut simulated_config = rust_photoacoustic::config::SimulatedSourceConfig::default();
+    simulated_config.correlation = 0.8;
+    config.simulated_source = Some(simulated_config);
     config.frequency = 2000.0;
 
     Ok(get_mock_audio_source(config)?)

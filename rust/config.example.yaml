@@ -119,12 +119,68 @@ photoacoustic:
   # Number of spectra to average for noise reduction
   averages: 10
 
-  # Mock data generation settings
-  # If enabled, generates synthetic data instead of reading from input_device or input_file
-  mock_source: false
-  # Dual-channel correlation factor for mock data
-  # This simulates the correlation between two channels in mock data generation
-  mock_correlation: 0.7
+  # Simulated photoacoustic source configuration
+  # When present, enables simulation mode with comprehensive physics modeling
+  # Comment out or set to null to use real hardware sources
+  simulated_source:
+    # Source type: 'mock' for simple MockSource or 'universal' for full physics simulation
+    # - mock: Lightweight simulation with correlation-based signal generation
+    # - universal: Complete physics simulation with Helmholtz resonance, gas flow, thermal drift
+    source_type: "mock"
+    
+    # Inter-channel correlation coefficient [-1.0, 1.0] for dual-microphone configuration
+    # Used by 'mock' source type for simple correlation-based generation
+    correlation: 0.8
+    
+    # Background noise amplitude [0.0, 1.0] - thermal and electronic noise
+    background_noise_amplitude: 0.1
+    
+    # Helmholtz resonance frequency [Hz] - cell acoustic resonance
+    resonance_frequency: 2100.0
+    
+    # Laser modulation depth [0.0, 1.0] - photoacoustic signal strength
+    laser_modulation_depth: 0.8
+    
+    # Base photoacoustic signal amplitude [0.0, 1.0]
+    signal_amplitude: 0.5
+    
+    # Phase opposition between microphones [degrees] - differential configuration
+    phase_opposition_degrees: 180.0
+    
+    # Temperature drift effect factor [0.0, 0.1] - thermal stability
+    temperature_drift_factor: 0.01
+    
+    # Gas flow noise factor [0.0, 1.0] - turbulent flow effects
+    gas_flow_noise_factor: 0.05
+    
+    # Signal-to-noise ratio factor [0.1, 100.0] - measurement quality
+    snr_factor: 10.0
+    
+    # Laser modulation mode: 'amplitude' (continuous) or 'pulsed' (discrete)
+    modulation_mode: "amplitude"
+    
+    # Pulse width [seconds] - for pulsed modulation mode
+    pulse_width_seconds: 0.05
+    
+    # Pulse frequency [Hz] - for pulsed modulation mode
+    pulse_frequency_hz: 20.0
+
+  # Alternative: Universal physics simulation configuration
+  # Uncomment and modify the source_type to "universal" to use comprehensive physics modeling
+  # simulated_source:
+  #   source_type: "universal"
+  #   correlation: 0.8
+  #   background_noise_amplitude: 0.1
+  #   resonance_frequency: 2100.0
+  #   laser_modulation_depth: 0.9
+  #   signal_amplitude: 0.7
+  #   phase_opposition_degrees: 175.0
+  #   temperature_drift_factor: 0.02
+  #   gas_flow_noise_factor: 0.3
+  #   snr_factor: 25.0
+  #   modulation_mode: "amplitude"
+  #   pulse_width_seconds: 0.005
+  #   pulse_frequency_hz: 100.0
 
   # Record consumer settings
   # If enabled, the stream data will be consumed by the record consumer

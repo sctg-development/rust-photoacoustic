@@ -59,7 +59,8 @@ use tokio::time;
 use crate::acquisition::record_consumer::RecordConsumer;
 use crate::acquisition::{
     get_default_realtime_audio_source, get_realtime_audio_source_from_device,
-    get_realtime_audio_source_from_file, get_realtime_mock_audio_source, RealTimeAcquisitionDaemon,
+    get_realtime_audio_source_from_file, get_realtime_mock_audio_source, 
+    get_realtime_simulated_photoacoustic_source, RealTimeAcquisitionDaemon,
     SharedAudioStream,
 };
 use crate::processing::{ProcessingConsumer, ProcessingGraph};
@@ -603,13 +604,13 @@ impl Daemon {
 
         // === PHASE 1: Real-Time Audio Source Selection ===
         // Select and initialize the appropriate real-time audio source based on configuration
-        let audio_source = if config.photoacoustic.mock_source {
-            // Mock audio source for testing and simulation
+        let audio_source = if let Some(ref simulated_config) = config.photoacoustic.simulated_source {
+            // Simulated photoacoustic source for testing and advanced simulation
             info!(
-                "Using real-time mock audio source with correlation: {}",
-                config.photoacoustic.mock_correlation
+                "Using simulated photoacoustic source with correlation: {}",
+                simulated_config.correlation
             );
-            get_realtime_mock_audio_source(config.photoacoustic.clone())?
+            get_realtime_simulated_photoacoustic_source(config.photoacoustic.clone())?
         } else if let Some(ref file_path) = config.photoacoustic.input_file {
             // File-based real-time audio source for testing and playback scenarios
             info!("Using real-time file audio source: {}", file_path);
