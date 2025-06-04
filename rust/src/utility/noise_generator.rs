@@ -82,6 +82,8 @@
 
 use std::time::SystemTime;
 
+use serde::{Deserialize, Serialize};
+
 /// Random number generator using XORShift algorithm for generating noise samples.
 ///
 /// This struct implements a fast and lightweight pseudo-random number generator
@@ -105,6 +107,7 @@ use std::time::SystemTime;
 /// // Generate a random value from a Gaussian distribution
 /// let gaussian_value = generator.random_gaussian();
 /// ```
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct NoiseGenerator {
     /// Internal state of the XORShift random number generator.
     /// This value evolves with each random number generation.
@@ -955,7 +958,7 @@ impl NoiseGenerator {
     /// This method implements a comprehensive numerical simulation of a photoacoustic spectrometer
     /// based on a Helmholtz resonance cell with differential dual-microphone configuration.
     /// The simulation integrates the main physical phenomena involved in photoacoustic detection:
-    /// acoustic resonance, laser modulation (both amplitude and pulsed modes), molecular 
+    /// acoustic resonance, laser modulation (both amplitude and pulsed modes), molecular
     /// concentration variations, thermal drifts, and gas flow noise with 1/f characteristics.
     ///
     /// ## Physical System Modeled
@@ -1060,7 +1063,7 @@ impl NoiseGenerator {
     ///     0.0,            // pulse_width (unused for amplitude mode)
     ///     0.0,            // pulse_frequency (unused for amplitude mode)
     /// );
-    /// 
+    ///
     /// assert_eq!(samples.len(), 96000); // 2 channels × 48000 samples
     /// ```
     ///
@@ -1132,43 +1135,43 @@ impl NoiseGenerator {
         let mut result = Vec::with_capacity((num_samples * 2) as usize);
 
         // === PHYSICAL CONSTANTS AND SYSTEM PARAMETERS ===
-        let dt = 1.0 / sample_rate as f32;           // Time step (seconds)
-        let pi = std::f32::consts::PI;               // Pi constant
+        let dt = 1.0 / sample_rate as f32; // Time step (seconds)
+        let pi = std::f32::consts::PI; // Pi constant
         let phase_opposition_rad = phase_opposition_degrees * pi / 180.0; // Convert to radians
 
         // === HELMHOLTZ RESONANCE CHARACTERISTICS ===
-        let q_factor = 50.0;                        // Quality factor (dimensionless)
-        
+        let q_factor = 50.0; // Quality factor (dimensionless)
+
         // Convert SNR from dB to linear scale for amplitude calculations
         let target_snr_linear = 10.0f32.powf(snr_factor / 10.0);
 
         // === STATE VARIABLES FOR PHYSICAL SIMULATION ===
-        
+
         // Molecular concentration simulation (relative to nominal)
-        let mut concentration_level = 1.0f32;       // 100% nominal concentration
-        let concentration_walk_rate = 0.00005;     // Random walk step size
-        let min_concentration = 0.9;               // 90% minimum
-        let max_concentration = 1.1;               // 110% maximum
-        
+        let mut concentration_level = 1.0f32; // 100% nominal concentration
+        let concentration_walk_rate = 0.00005; // Random walk step size
+        let min_concentration = 0.9; // 90% minimum
+        let max_concentration = 1.1; // 110% maximum
+
         // Thermal effects on system parameters
-        let mut temperature_phase_drift = 0.0f32;  // Accumulated phase drift (radians)
-        let mut frequency_drift = 0.0f32;          // Frequency deviation from nominal (Hz)
+        let mut temperature_phase_drift = 0.0f32; // Accumulated phase drift (radians)
+        let mut frequency_drift = 0.0f32; // Frequency deviation from nominal (Hz)
         let max_frequency_drift = resonance_frequency * 0.05; // ±5% maximum drift
-        
+
         // Pink noise filter state for gas flow simulation (6-stage IIR)
         let mut pink_noise_state = [0.0f32; 6];
-        
+
         // Pulsed mode parameters
         let pulse_period_samples = if pulse_frequency_hz > 0.0 {
             (sample_rate as f32 / pulse_frequency_hz) as u32
         } else {
-            u32::MAX  // Effectively disable pulsing if frequency is 0
+            u32::MAX // Effectively disable pulsing if frequency is 0
         };
         let pulse_width_samples = (pulse_width_seconds * sample_rate as f32) as u32;
 
         // === MAIN GENERATION LOOP ===
         for i in 0..num_samples {
-            let t = i as f32 * dt;                 // Current time (seconds)
+            let t = i as f32 * dt; // Current time (seconds)
 
             // === 1. MOLECULAR CONCENTRATION VARIATION ===
             // Simulate changing analyte concentration using bounded random walk
@@ -1180,23 +1183,23 @@ impl NoiseGenerator {
             // === 2. THERMAL EFFECTS ON SYSTEM PARAMETERS ===
             // Temperature affects both phase relationships and resonance frequency
             let temp_variation = self.random_gaussian() * temperature_drift_factor;
-            
+
             // Phase drift accumulation (much slower than frequency changes)
             temperature_phase_drift += temp_variation * 0.001;
-            
+
             // Frequency drift with mean reversion to prevent excessive wandering
             let drift_change = temp_variation * 0.1;
             frequency_drift += drift_change;
-            frequency_drift *= 0.9999;             // Exponential decay toward center
+            frequency_drift *= 0.9999; // Exponential decay toward center
             frequency_drift = frequency_drift.clamp(-max_frequency_drift, max_frequency_drift);
-            
+
             // Current effective resonance frequency
             let current_resonance_freq = resonance_frequency + frequency_drift;
 
             // === 3. GAS FLOW NOISE (1/f CHARACTERISTICS) ===
             // Generate pink noise to simulate gas circulation turbulence
             let white_input = self.random_gaussian() * gas_flow_noise_factor;
-            
+
             // 6-stage IIR filter for pink noise generation
             // Coefficients from Voss-McCartney algorithm for 1/f spectrum
             pink_noise_state[0] = 0.99886 * pink_noise_state[0] + white_input * 0.0555179;
@@ -1205,7 +1208,7 @@ impl NoiseGenerator {
             pink_noise_state[3] = 0.86650 * pink_noise_state[3] + white_input * 0.3104856;
             pink_noise_state[4] = 0.55000 * pink_noise_state[4] + white_input * 0.5329522;
             pink_noise_state[5] = -0.7616 * pink_noise_state[5] + white_input * 0.0168700;
-            
+
             let gas_flow_state = pink_noise_state.iter().sum::<f32>() + white_input * 0.5362;
             let gas_flow_noise = gas_flow_state * background_noise_amplitude;
 
@@ -1215,7 +1218,7 @@ impl NoiseGenerator {
                     // Continuous amplitude modulation at resonance frequency
                     let modulation_phase = 2.0 * pi * current_resonance_freq * t;
                     (modulation_phase.sin() * laser_modulation_depth).sin()
-                },
+                }
                 "pulsed" => {
                     // Pulsed operation: rectangular pulses at specified frequency
                     let sample_in_period = i % pulse_period_samples;
@@ -1227,7 +1230,7 @@ impl NoiseGenerator {
                         // Between pulses: no signal
                         0.0
                     }
-                },
+                }
                 _ => {
                     // Default to amplitude modulation for unknown modes
                     let modulation_phase = 2.0 * pi * current_resonance_freq * t;
@@ -1252,7 +1255,8 @@ impl NoiseGenerator {
             // Add low-frequency external acoustic interference
             let environmental_noise = {
                 let low_freq_component = (2.0 * pi * 50.0 * t).sin() * 0.1 * self.random_gaussian();
-                let mid_freq_component = (2.0 * pi * 150.0 * t).sin() * 0.05 * self.random_gaussian();
+                let mid_freq_component =
+                    (2.0 * pi * 150.0 * t).sin() * 0.05 * self.random_gaussian();
                 (low_freq_component + mid_freq_component) * background_noise_amplitude
             };
 
@@ -1271,15 +1275,15 @@ impl NoiseGenerator {
 
             // Microphone 2: Phase-shifted signal simulating opposite cell position
             // Signal component is inverted, background shows reduced correlation
-            let mic2_signal = -photoacoustic_signal * actual_phase_opposition.cos() 
-                            + total_background * 0.95;
+            let mic2_signal =
+                -photoacoustic_signal * actual_phase_opposition.cos() + total_background * 0.95;
 
             // === 11. SIGNAL-TO-NOISE RATIO CONTROL ===
             // Apply SNR scaling to achieve target differential signal quality
             let differential_signal = mic1_signal - mic2_signal;
             let signal_component = 2.0 * photoacoustic_signal; // Expected differential amplitude
-            let noise_component = total_background * 0.05;     // Residual noise after subtraction
-            
+            let noise_component = total_background * 0.05; // Residual noise after subtraction
+
             // Calculate noise scaling to achieve target SNR
             let current_signal_power = signal_component.abs();
             let current_noise_power = noise_component.abs().max(f32::MIN_POSITIVE);
@@ -1293,7 +1297,7 @@ impl NoiseGenerator {
             // Apply noise scaling to both channels
             let final_mic1 = photoacoustic_signal + total_background * noise_scale;
             let final_mic2 = -photoacoustic_signal * actual_phase_opposition.cos()
-                           + total_background * noise_scale * 0.95;
+                + total_background * noise_scale * 0.95;
 
             // === 12. DIGITAL CONVERSION WITH SOFT CLIPPING ===
             // Convert to 16-bit integer samples with tanh soft clipping to prevent harsh distortion
@@ -1302,8 +1306,8 @@ impl NoiseGenerator {
 
             // === 13. STEREO INTERLEAVING ===
             // Store samples in interleaved stereo format (L, R, L, R, ...)
-            result.push(mic1_sample);   // Left channel (Microphone 1)
-            result.push(mic2_sample);   // Right channel (Microphone 2)
+            result.push(mic1_sample); // Left channel (Microphone 1)
+            result.push(mic2_sample); // Right channel (Microphone 2)
         }
 
         result
