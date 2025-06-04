@@ -129,7 +129,7 @@ struct Args {
     /// Specifies the type of noise to generate:
     /// - "white": pure white noise (default)
     /// - "mock": mock photoacoustic signal with pulses over white noise
-    /// - "helmholtz": realistic Helmholtz resonance cell simulation
+    /// - "helmholtz": realistic Helmholtz resonance cell simulation with laser modulation
     #[arg(long, default_value = "white")]
     noise_type: String,
 
@@ -436,8 +436,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         // Helmholtz resonance cell simulation (always stereo)
-        let snr = 10f32.powf(args.snr / 20.0); // Convert dB to linear scale
-        generator.generate_mock2_photoacoustic_stereo(
+        generator.generate_modulated_photoacoustic_stereo(
             num_samples,
             args.sample_rate,
             args.amplitude,

@@ -723,7 +723,7 @@ impl NoiseGenerator {
         result
     }
 
-    /// Generates a stereo mock photoacoustic signal simulating a Helmholtz resonance cell system.
+    /// Generates a stereo modulated photoacoustic signal simulating a Helmholtz resonance cell system.
     ///
     /// This method creates a more realistic simulation of a photoacoustic analyzer using
     /// a Helmholtz resonance cell. The system features two microphones positioned in
@@ -773,7 +773,7 @@ impl NoiseGenerator {
     /// let mut generator = NoiseGenerator::new(12345);
     ///
     /// // Generate 1 second of realistic Helmholtz cell photoacoustic signal
-    /// let samples = generator.generate_mock2_photoacoustic_stereo(
+    /// let samples = generator.generate_modulated_photoacoustic_stereo(
     ///     48000,  // num_samples (1 second at 48kHz)
     ///     48000,  // sample_rate
     ///     0.15,   // background_noise_amplitude (15% background)
@@ -787,7 +787,7 @@ impl NoiseGenerator {
     /// );
     /// assert_eq!(samples.len(), 96000); // 2 channels * 48000 samples
     /// ```
-    pub fn generate_mock2_photoacoustic_stereo(
+    pub fn generate_modulated_photoacoustic_stereo(
         &mut self,
         num_samples: u32,
         sample_rate: u32,
@@ -820,6 +820,7 @@ impl NoiseGenerator {
         // Frequency drift limits to prevent excessive wandering
         let max_frequency_drift = resonance_frequency * 0.05; // ±5% maximum drift
 
+        // Pink noise filter state for gas flow noise (6-stage IIR)
         // 1/f noise state variables for gas flow simulation
         let mut pink_noise_state = [0.0f32; 6];
 
@@ -859,6 +860,7 @@ impl NoiseGenerator {
             let white_input = self.random_gaussian() * gas_flow_noise_factor;
 
             // Pink noise filter implementation (approximates 1/f spectrum)
+            // @see https://www.firstpr.com.au/dsp/pink-noise/
             pink_noise_state[0] = 0.99886 * pink_noise_state[0] + white_input * 0.0555179;
             pink_noise_state[1] = 0.99332 * pink_noise_state[1] + white_input * 0.0750759;
             pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.1538520;
@@ -930,6 +932,7 @@ impl NoiseGenerator {
                 1.0
             };
 
+            // Apply noise scaling to both channels
             let final_mic1 = photoacoustic_signal + total_background * noise_scale;
             let final_mic2 = -photoacoustic_signal * actual_phase_opposition.cos()
                 + total_background * noise_scale * 0.95;
@@ -942,6 +945,365 @@ impl NoiseGenerator {
             // === 13. INTERLEAVE STEREO SAMPLES ===
             result.push(mic1_clipped); // Left channel
             result.push(mic2_clipped); // Right channel
+        }
+
+        result
+    }
+
+    /// Universal Photoacoustic Signal Generator for Helmholtz Resonance Cell Simulation
+    ///
+    /// This method implements a comprehensive numerical simulation of a photoacoustic spectrometer
+    /// based on a Helmholtz resonance cell with differential dual-microphone configuration.
+    /// The simulation integrates the main physical phenomena involved in photoacoustic detection:
+    /// acoustic resonance, laser modulation (both amplitude and pulsed modes), molecular 
+    /// concentration variations, thermal drifts, and gas flow noise with 1/f characteristics.
+    ///
+    /// ## Physical System Modeled
+    ///
+    /// **For Physics Experts:**
+    /// The simulation models a classical photoacoustic analyzer consisting of:
+    /// - A Helmholtz resonance cell (Q-factor ≈ 50) tuned to a specific frequency (typically 2 kHz)
+    /// - Two microphones positioned in approximate phase opposition (θ ≈ 175°-185°)
+    /// - A modulated laser source creating photoacoustic waves through molecular absorption
+    /// - Gas flow system introducing 1/f noise characteristics
+    /// - Environmental perturbations and thermal effects
+    ///
+    /// **For Developers:**
+    /// This function generates interleaved stereo i16 samples representing the differential
+    /// microphone signals in a photoacoustic cell. The algorithm implements multiple
+    /// signal processing stages to create realistic sensor data for testing purposes.
+    ///
+    /// ## Mathematical Foundation
+    ///
+    /// ### Photoacoustic Signal Generation
+    /// The core photoacoustic signal follows:
+    /// ```text
+    /// S_PA(t) = A_sig · C(t) · f_mod(2πf_eff(t)·t, mode, depth)
+    /// ```
+    /// Where:
+    /// - `A_sig`: Signal amplitude scaling factor
+    /// - `C(t)`: Time-varying molecular concentration (random walk, 90%-110% nominal)
+    /// - `f_mod`: Modulation function (amplitude or pulsed mode)
+    /// - `f_eff(t)`: Effective resonance frequency with thermal drift
+    ///
+    /// ### Helmholtz Resonance Response
+    /// The resonance cell transfer function:
+    /// ```text
+    /// H(f) = 1 / sqrt(1 + ((|f - f₀|) / (f₀/Q))²)
+    /// ```
+    /// Where Q = 50 represents the quality factor of the resonance.
+    ///
+    /// ### Differential Configuration
+    /// The microphone signals are modeled as:
+    /// ```text
+    /// Mic₁(t) = S_PA(t) + N_total(t)
+    /// Mic₂(t) = -S_PA(t)·cos(θ_opp(t)) + N_total(t)·0.95
+    /// ```
+    /// Resulting differential signal:
+    /// ```text
+    /// S_diff(t) = Mic₁(t) - Mic₂(t) = S_PA(t)·(1 + cos(θ_opp(t))) + N_total(t)·0.05
+    /// ```
+    ///
+    /// ## Parameters
+    ///
+    /// * `num_samples` - Number of samples per channel to generate
+    /// * `sample_rate` - Audio sample rate (Hz), typically 48kHz for photoacoustic applications
+    /// * `background_noise_amplitude` - Base amplitude for environmental noise (0.0-1.0)
+    /// * `resonance_frequency` - Helmholtz cell resonance frequency (Hz), typically 1.5-3 kHz
+    /// * `laser_modulation_depth` - Modulation depth (0.0-1.0), affects signal visibility
+    /// * `signal_amplitude` - Photoacoustic signal strength (0.0-1.0)
+    /// * `phase_opposition_degrees` - Microphone phase offset (degrees), ideal ~180°
+    /// * `temperature_drift_factor` - Thermal stability coefficient (0.0-0.1)
+    /// * `gas_flow_noise_factor` - 1/f noise intensity from gas circulation (0.0-1.0)
+    /// * `snr_factor` - Target signal-to-noise ratio (dB)
+    /// * `modulation_mode` - Laser modulation type: "amplitude" or "pulsed"
+    /// * `pulse_width_seconds` - For pulsed mode: pulse duration (seconds)
+    /// * `pulse_frequency_hz` - For pulsed mode: pulse repetition rate (Hz)
+    ///
+    /// ## Returns
+    ///
+    /// A `Vec<i16>` containing interleaved stereo samples (Left, Right, Left, Right, ...)
+    /// representing the two microphone signals in the differential photoacoustic cell.
+    /// Total length: `num_samples * 2`
+    ///
+    /// ## Physical Phenomena Simulated
+    ///
+    /// 1. **Molecular Concentration Variations**: Random walk simulation (90%-110% nominal)
+    /// 2. **Thermal Effects**: Frequency drift (±5% max) and phase variations
+    /// 3. **Gas Flow Turbulence**: Pink noise (1/f spectrum) from circulation system
+    /// 4. **Laser Modulation**: Amplitude modulation or pulsed operation modes
+    /// 5. **Helmholtz Resonance**: Frequency-selective amplification with Q-factor
+    /// 6. **Environmental Perturbations**: Low-frequency acoustic interference
+    /// 7. **Differential Detection**: Phase-opposed microphone configuration
+    ///
+    /// ## Examples
+    ///
+    /// ### Basic Amplitude Modulated Signal
+    /// ```rust,no_run
+    /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
+    ///
+    /// let mut generator = NoiseGenerator::new_from_system_time();
+    ///
+    /// // Generate 1 second of amplitude-modulated photoacoustic signal
+    /// let samples = generator.generate_universal_photoacoustic_stereo(
+    ///     48000,          // 1 second at 48kHz
+    ///     48000,          // sample_rate
+    ///     0.1,            // 10% background noise
+    ///     2000.0,         // 2kHz resonance (typical)
+    ///     0.8,            // 80% modulation depth
+    ///     0.6,            // 60% signal amplitude
+    ///     178.0,          // 2° off perfect opposition
+    ///     0.02,           // 2% temperature drift
+    ///     0.5,            // 50% gas flow noise
+    ///     25.0,           // 25dB SNR target
+    ///     "amplitude",    // amplitude modulation mode
+    ///     0.0,            // pulse_width (unused for amplitude mode)
+    ///     0.0,            // pulse_frequency (unused for amplitude mode)
+    /// );
+    /// 
+    /// assert_eq!(samples.len(), 96000); // 2 channels × 48000 samples
+    /// ```
+    ///
+    /// ### Pulsed Operation Mode
+    /// ```rust,no_run
+    /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
+    ///
+    /// let mut generator = NoiseGenerator::new(42);
+    ///
+    /// // Generate pulsed photoacoustic signal with 5ms pulses at 100Hz
+    /// let pulsed_samples = generator.generate_universal_photoacoustic_stereo(
+    ///     96000,          // 2 seconds at 48kHz
+    ///     48000,          // sample_rate
+    ///     0.15,           // 15% background noise
+    ///     2100.0,         // 2.1kHz resonance
+    ///     0.9,            // 90% modulation depth
+    ///     0.7,            // 70% signal amplitude
+    ///     175.0,          // 5° off perfect opposition
+    ///     0.01,           // 1% temperature drift
+    ///     0.3,            // 30% gas flow noise
+    ///     20.0,           // 20dB SNR target
+    ///     "pulsed",       // pulsed modulation mode
+    ///     0.005,          // 5ms pulse width
+    ///     100.0,          // 100Hz pulse frequency
+    /// );
+    ///
+    /// assert_eq!(pulsed_samples.len(), 192000); // 2 channels × 96000 samples
+    /// ```
+    ///
+    /// ## Applications
+    ///
+    /// This generator is particularly useful for:
+    /// - Algorithm development and testing for photoacoustic signal processing
+    /// - Performance evaluation of noise reduction techniques
+    /// - Simulation of different operating conditions and environmental factors
+    /// - Training data generation for machine learning applications
+    /// - System calibration and validation procedures
+    ///
+    /// ## Technical Notes
+    ///
+    /// **For Physics Experts:**
+    /// - The quality factor Q=50 is typical for gas-phase photoacoustic cells
+    /// - Concentration variations simulate real analytical conditions
+    /// - Temperature effects model thermal expansion and gas property changes
+    /// - The 1/f noise characteristics match observed gas flow turbulence spectra
+    ///
+    /// **For Developers:**
+    /// - All floating-point calculations use f32 for performance
+    /// - Pink noise generation uses a 6-stage IIR filter implementation
+    /// - Soft clipping (tanh) prevents harsh digital distortion
+    /// - Mean reversion prevents frequency drift from accumulating indefinitely
+    pub fn generate_universal_photoacoustic_stereo(
+        &mut self,
+        num_samples: u32,
+        sample_rate: u32,
+        background_noise_amplitude: f32,
+        resonance_frequency: f32,
+        laser_modulation_depth: f32,
+        signal_amplitude: f32,
+        phase_opposition_degrees: f32,
+        temperature_drift_factor: f32,
+        gas_flow_noise_factor: f32,
+        snr_factor: f32,
+        modulation_mode: &str,
+        pulse_width_seconds: f32,
+        pulse_frequency_hz: f32,
+    ) -> Vec<i16> {
+        // Pre-allocate result vector for stereo output (2 channels)
+        let mut result = Vec::with_capacity((num_samples * 2) as usize);
+
+        // === PHYSICAL CONSTANTS AND SYSTEM PARAMETERS ===
+        let dt = 1.0 / sample_rate as f32;           // Time step (seconds)
+        let pi = std::f32::consts::PI;               // Pi constant
+        let phase_opposition_rad = phase_opposition_degrees * pi / 180.0; // Convert to radians
+
+        // === HELMHOLTZ RESONANCE CHARACTERISTICS ===
+        let q_factor = 50.0;                        // Quality factor (dimensionless)
+        
+        // Convert SNR from dB to linear scale for amplitude calculations
+        let target_snr_linear = 10.0f32.powf(snr_factor / 10.0);
+
+        // === STATE VARIABLES FOR PHYSICAL SIMULATION ===
+        
+        // Molecular concentration simulation (relative to nominal)
+        let mut concentration_level = 1.0f32;       // 100% nominal concentration
+        let concentration_walk_rate = 0.00005;     // Random walk step size
+        let min_concentration = 0.9;               // 90% minimum
+        let max_concentration = 1.1;               // 110% maximum
+        
+        // Thermal effects on system parameters
+        let mut temperature_phase_drift = 0.0f32;  // Accumulated phase drift (radians)
+        let mut frequency_drift = 0.0f32;          // Frequency deviation from nominal (Hz)
+        let max_frequency_drift = resonance_frequency * 0.05; // ±5% maximum drift
+        
+        // Pink noise filter state for gas flow simulation (6-stage IIR)
+        let mut pink_noise_state = [0.0f32; 6];
+        
+        // Pulsed mode parameters
+        let pulse_period_samples = if pulse_frequency_hz > 0.0 {
+            (sample_rate as f32 / pulse_frequency_hz) as u32
+        } else {
+            u32::MAX  // Effectively disable pulsing if frequency is 0
+        };
+        let pulse_width_samples = (pulse_width_seconds * sample_rate as f32) as u32;
+
+        // === MAIN GENERATION LOOP ===
+        for i in 0..num_samples {
+            let t = i as f32 * dt;                 // Current time (seconds)
+
+            // === 1. MOLECULAR CONCENTRATION VARIATION ===
+            // Simulate changing analyte concentration using bounded random walk
+            // This models real-world variations in sample composition
+            let concentration_change = (self.random_gaussian() * concentration_walk_rate).tanh();
+            concentration_level += concentration_change;
+            concentration_level = concentration_level.clamp(min_concentration, max_concentration);
+
+            // === 2. THERMAL EFFECTS ON SYSTEM PARAMETERS ===
+            // Temperature affects both phase relationships and resonance frequency
+            let temp_variation = self.random_gaussian() * temperature_drift_factor;
+            
+            // Phase drift accumulation (much slower than frequency changes)
+            temperature_phase_drift += temp_variation * 0.001;
+            
+            // Frequency drift with mean reversion to prevent excessive wandering
+            let drift_change = temp_variation * 0.1;
+            frequency_drift += drift_change;
+            frequency_drift *= 0.9999;             // Exponential decay toward center
+            frequency_drift = frequency_drift.clamp(-max_frequency_drift, max_frequency_drift);
+            
+            // Current effective resonance frequency
+            let current_resonance_freq = resonance_frequency + frequency_drift;
+
+            // === 3. GAS FLOW NOISE (1/f CHARACTERISTICS) ===
+            // Generate pink noise to simulate gas circulation turbulence
+            let white_input = self.random_gaussian() * gas_flow_noise_factor;
+            
+            // 6-stage IIR filter for pink noise generation
+            // Coefficients from Voss-McCartney algorithm for 1/f spectrum
+            pink_noise_state[0] = 0.99886 * pink_noise_state[0] + white_input * 0.0555179;
+            pink_noise_state[1] = 0.99332 * pink_noise_state[1] + white_input * 0.0750759;
+            pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.1538520;
+            pink_noise_state[3] = 0.86650 * pink_noise_state[3] + white_input * 0.3104856;
+            pink_noise_state[4] = 0.55000 * pink_noise_state[4] + white_input * 0.5329522;
+            pink_noise_state[5] = -0.7616 * pink_noise_state[5] + white_input * 0.0168700;
+            
+            let gas_flow_state = pink_noise_state.iter().sum::<f32>() + white_input * 0.5362;
+            let gas_flow_noise = gas_flow_state * background_noise_amplitude;
+
+            // === 4. LASER MODULATION (AMPLITUDE OR PULSED MODE) ===
+            let modulation_signal = match modulation_mode {
+                "amplitude" => {
+                    // Continuous amplitude modulation at resonance frequency
+                    let modulation_phase = 2.0 * pi * current_resonance_freq * t;
+                    (modulation_phase.sin() * laser_modulation_depth).sin()
+                },
+                "pulsed" => {
+                    // Pulsed operation: rectangular pulses at specified frequency
+                    let sample_in_period = i % pulse_period_samples;
+                    if sample_in_period < pulse_width_samples {
+                        // During pulse: modulated signal
+                        let pulse_phase = 2.0 * pi * current_resonance_freq * t;
+                        (pulse_phase.sin() * laser_modulation_depth).sin()
+                    } else {
+                        // Between pulses: no signal
+                        0.0
+                    }
+                },
+                _ => {
+                    // Default to amplitude modulation for unknown modes
+                    let modulation_phase = 2.0 * pi * current_resonance_freq * t;
+                    (modulation_phase.sin() * laser_modulation_depth).sin()
+                }
+            };
+
+            // === 5. HELMHOLTZ RESONANCE ENHANCEMENT ===
+            // Apply frequency-selective amplification characteristic of resonance cell
+            let resonance_response = {
+                let freq_deviation = (current_resonance_freq - resonance_frequency).abs();
+                let normalized_deviation = freq_deviation / (resonance_frequency / q_factor);
+                let resonance_gain = 1.0 / (1.0 + normalized_deviation.powi(2)).sqrt();
+                modulation_signal * resonance_gain
+            };
+
+            // === 6. PHOTOACOUSTIC SIGNAL ASSEMBLY ===
+            // Combine all signal components with concentration-dependent scaling
+            let photoacoustic_signal = resonance_response * concentration_level * signal_amplitude;
+
+            // === 7. ENVIRONMENTAL PERTURBATIONS ===
+            // Add low-frequency external acoustic interference
+            let environmental_noise = {
+                let low_freq_component = (2.0 * pi * 50.0 * t).sin() * 0.1 * self.random_gaussian();
+                let mid_freq_component = (2.0 * pi * 150.0 * t).sin() * 0.05 * self.random_gaussian();
+                (low_freq_component + mid_freq_component) * background_noise_amplitude
+            };
+
+            // === 8. BACKGROUND WHITE NOISE ===
+            let white_noise = self.random_gaussian() * background_noise_amplitude * 0.3;
+
+            // === 9. TOTAL BACKGROUND NOISE COMBINATION ===
+            let total_background = gas_flow_noise + environmental_noise + white_noise;
+
+            // === 10. DIFFERENTIAL MICROPHONE CONFIGURATION ===
+            // Calculate actual phase opposition including thermal drift effects
+            let actual_phase_opposition = phase_opposition_rad + temperature_phase_drift;
+
+            // Microphone 1: Reference signal (photoacoustic + background)
+            let mic1_signal = photoacoustic_signal + total_background;
+
+            // Microphone 2: Phase-shifted signal simulating opposite cell position
+            // Signal component is inverted, background shows reduced correlation
+            let mic2_signal = -photoacoustic_signal * actual_phase_opposition.cos() 
+                            + total_background * 0.95;
+
+            // === 11. SIGNAL-TO-NOISE RATIO CONTROL ===
+            // Apply SNR scaling to achieve target differential signal quality
+            let differential_signal = mic1_signal - mic2_signal;
+            let signal_component = 2.0 * photoacoustic_signal; // Expected differential amplitude
+            let noise_component = total_background * 0.05;     // Residual noise after subtraction
+            
+            // Calculate noise scaling to achieve target SNR
+            let current_signal_power = signal_component.abs();
+            let current_noise_power = noise_component.abs().max(f32::MIN_POSITIVE);
+            let desired_noise_amplitude = current_signal_power / target_snr_linear;
+            let noise_scale = if current_noise_power > 0.0 {
+                desired_noise_amplitude / current_noise_power
+            } else {
+                1.0
+            };
+
+            // Apply noise scaling to both channels
+            let final_mic1 = photoacoustic_signal + total_background * noise_scale;
+            let final_mic2 = -photoacoustic_signal * actual_phase_opposition.cos()
+                           + total_background * noise_scale * 0.95;
+
+            // === 12. DIGITAL CONVERSION WITH SOFT CLIPPING ===
+            // Convert to 16-bit integer samples with tanh soft clipping to prevent harsh distortion
+            let mic1_sample = (final_mic1.tanh() * 32767.0) as i16;
+            let mic2_sample = (final_mic2.tanh() * 32767.0) as i16;
+
+            // === 13. STEREO INTERLEAVING ===
+            // Store samples in interleaved stereo format (L, R, L, R, ...)
+            result.push(mic1_sample);   // Left channel (Microphone 1)
+            result.push(mic2_sample);   // Right channel (Microphone 2)
         }
 
         result

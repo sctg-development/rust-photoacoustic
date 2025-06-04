@@ -8,6 +8,8 @@ pub mod certificate_utilities;
 pub mod cpal;
 pub mod data_source;
 pub mod noise_generator;
+#[cfg(test)]
+pub mod noise_generator_test;
 
 // Re-exports for use in other modules
 pub use data_source::PhotoacousticDataSource;
