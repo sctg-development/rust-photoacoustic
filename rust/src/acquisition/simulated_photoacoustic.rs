@@ -104,10 +104,22 @@ impl SimulatedPhotoacousticRealtimeAudioSource {
             frame_duration.as_secs_f64() * 1000.0
         );
         debug!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
-        debug!("  Resonance frequency: {} Hz", simulation_config.resonance_frequency);
-        debug!("  Laser modulation depth: {:.1}%", simulation_config.laser_modulation_depth * 100.0);
-        debug!("  Signal amplitude: {:.1}%", simulation_config.signal_amplitude * 100.0);
-        debug!("  Phase opposition: {}°", simulation_config.phase_opposition_degrees);
+        debug!(
+            "  Resonance frequency: {} Hz",
+            simulation_config.resonance_frequency
+        );
+        debug!(
+            "  Laser modulation depth: {:.1}%",
+            simulation_config.laser_modulation_depth * 100.0
+        );
+        debug!(
+            "  Signal amplitude: {:.1}%",
+            simulation_config.signal_amplitude * 100.0
+        );
+        debug!(
+            "  Phase opposition: {}°",
+            simulation_config.phase_opposition_degrees
+        );
         debug!("  SNR factor: {} dB", simulation_config.snr_factor);
         debug!("  Modulation mode: {}", simulation_config.modulation_mode);
 
@@ -140,9 +152,18 @@ impl SimulatedPhotoacousticRealtimeAudioSource {
     pub fn update_simulation_config(&mut self, new_config: SimulatedSourceConfig) {
         self.simulation_config = new_config;
         debug!("Updated simulation configuration");
-        debug!("  Resonance frequency: {} Hz", self.simulation_config.resonance_frequency);
-        debug!("  Laser modulation depth: {:.1}%", self.simulation_config.laser_modulation_depth * 100.0);
-        debug!("  Signal amplitude: {:.1}%", self.simulation_config.signal_amplitude * 100.0);
+        debug!(
+            "  Resonance frequency: {} Hz",
+            self.simulation_config.resonance_frequency
+        );
+        debug!(
+            "  Laser modulation depth: {:.1}%",
+            self.simulation_config.laser_modulation_depth * 100.0
+        );
+        debug!(
+            "  Signal amplitude: {:.1}%",
+            self.simulation_config.signal_amplitude * 100.0
+        );
         debug!("  SNR factor: {} dB", self.simulation_config.snr_factor);
     }
 
@@ -184,7 +205,7 @@ impl RealTimeAudioSource for SimulatedPhotoacousticRealtimeAudioSource {
         let frame_duration = self.frame_duration;
         let real_time_mode = self.real_time_mode;
         let streaming = Arc::clone(&self.streaming);
-        
+
         // Clone simulation config for the async task
         let simulation_config = self.simulation_config.clone();
 

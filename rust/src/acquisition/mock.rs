@@ -225,7 +225,8 @@ impl MockSource {
         pulse_width: f32,
         min_pulse_amplitude: f32,
         max_pulse_amplitude: f32,
-    ) -> Result<Self> {        let mut config = config.clone();
+    ) -> Result<Self> {
+        let mut config = config.clone();
         // Create a temporary SimulatedSourceConfig with the provided correlation
         let mut simulated_config = crate::config::SimulatedSourceConfig::default();
         simulated_config.correlation = correlation.clamp(-1.0, 1.0);
@@ -325,7 +326,8 @@ impl AudioSource for MockSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::PhotoacousticConfig;    #[test]
+    use crate::config::PhotoacousticConfig;
+    #[test]
     fn test_mock_source_creation() {
         let mut config = PhotoacousticConfig::default();
         config.frame_size = 1024;
@@ -334,7 +336,8 @@ mod tests {
         config.simulated_source = Some(simulated_config);
         let mock_source = MockSource::new(config);
         assert!(mock_source.is_ok());
-    }    #[test]
+    }
+    #[test]
     fn test_mock_source_read_frame() {
         let mut config = PhotoacousticConfig::default();
         config.frame_size = 512;
@@ -357,7 +360,8 @@ mod tests {
         for sample in &channel_b {
             assert!(sample >= &-1.0 && sample <= &1.0);
         }
-    }    #[test]
+    }
+    #[test]
     fn test_mock_source_parameter_updates() {
         let mut config = PhotoacousticConfig::default();
         config.frame_size = 1024;
@@ -374,7 +378,8 @@ mod tests {
 
         mock_source.set_pulse_width(0.02);
         assert_eq!(mock_source.pulse_width, 0.02);
-    }    #[test]
+    }
+    #[test]
     fn test_mock_source_parameter_clamping() {
         let mut config = PhotoacousticConfig::default();
         config.frame_size = 1024;

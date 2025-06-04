@@ -7,8 +7,8 @@
 //! This module defines the structures for configuring the photoacoustic
 //! measurement process in the application.
 
-use serde::{Deserialize, Serialize};
 use super::SimulatedSourceConfig;
+use serde::{Deserialize, Serialize};
 
 /// Configuration for the photoacoustic measurement system.
 ///

@@ -31,7 +31,8 @@ async fn main() -> Result<()> {
 
 async fn test_mock_source() -> Result<()> {
     println!("\n1. Testing Mock Audio Source");
-    println!("-----------------------------");    let mut config = PhotoacousticConfig::default();
+    println!("-----------------------------");
+    let mut config = PhotoacousticConfig::default();
     config.frame_size = 512;
     let mut simulated_config = rust_photoacoustic::config::SimulatedSourceConfig::default();
     simulated_config.correlation = 0.8;
