@@ -209,7 +209,7 @@ impl JwtValidator {
             rs256_key,
             expected_issuer: None,
             expected_audience: None,
-            access_config,
+            access_config: access_config,
         })
     }
 

@@ -9,7 +9,7 @@ pub mod oauth2;
 
 // Re-export commonly used items for convenience
 pub use guards::OAuthBearer;
-pub use jwt::JwtValidator;
+pub use jwt::{JwtClaims, JwtValidator, UserSysInfo};
 pub use oauth2::{authorize, refresh, token, OxideState};
 
 use crate::config::AccessConfig;

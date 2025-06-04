@@ -10,8 +10,9 @@ mod token_map;
 mod validator;
 
 // Re-export public API
+pub use claims::JwtClaims;
 pub use issuer::JwtIssuer;
-pub use keys::JwkKeySet;
+pub use keys::{JwkKeySet, JwtKeyConfig};
 pub use validator::{JwtValidator, UserSysInfo};
 
 use crate::config::AccessConfig;

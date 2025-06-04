@@ -4,4 +4,5 @@
 pub mod get;
 mod post;
 
+pub use get::graph_statistics::get_graph_statistics;
 pub use get::test::test_api;

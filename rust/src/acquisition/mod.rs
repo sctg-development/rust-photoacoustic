@@ -8,6 +8,7 @@
 //! or from WAV files, with support for real-time streaming.
 #![doc = include_str!("../../../docs/acquisition_daemon_guide_en.md")]
 
+use crate::config::SimulatedSourceConfig;
 use anyhow::Result;
 use async_trait::async_trait;
 use log::info;
@@ -21,6 +22,7 @@ pub mod realtime_daemon;
 mod simulated_photoacoustic;
 pub mod stream;
 
+pub use daemon::AcquisitionDaemon;
 use file::FileSource;
 pub use microphone::MicrophoneSource;
 pub use mock::MockSource;
@@ -167,7 +169,10 @@ pub fn get_realtime_mock_audio_source(
 pub fn get_realtime_simulated_photoacoustic_source(
     config: PhotoacousticConfig,
 ) -> Result<Box<dyn RealTimeAudioSource>> {
-    let simulation_config = config.simulated_source.clone().unwrap_or_default();
+    let simulation_config = config
+        .simulated_source
+        .clone()
+        .unwrap_or_else(|| SimulatedSourceConfig::default());
 
     match simulation_config.source_type.as_str() {
         "mock" => {

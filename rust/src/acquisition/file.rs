@@ -145,7 +145,7 @@ impl FileSource {
         if !file_path.exists() {
             return Err(anyhow!("WAV file does not exist: {}", file_path.display()));
         }
-        let file = File::open(file_path)?;
+        let file = File::open(&file_path)?;
         let buf_reader = BufReader::new(file);
         let reader = WavReader::new(buf_reader)?;
         let spec = reader.spec();

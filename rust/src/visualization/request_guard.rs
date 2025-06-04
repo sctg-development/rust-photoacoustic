@@ -255,7 +255,7 @@ impl RawQueryString {
 }
 
 /// Implentaion of into string for RawQueryString
-impl From<RawQueryString> for String {
+impl Into<String> for RawQueryString {
     /// Converts the RawQueryString into a String
     ///
     /// This allows easy conversion to a string representation of the query string,
@@ -264,8 +264,8 @@ impl From<RawQueryString> for String {
     /// # Returns
     ///
     /// The raw query string as a String
-    fn from(val: RawQueryString) -> Self {
-        val.0
+    fn into(self) -> String {
+        self.0
     }
 }
 

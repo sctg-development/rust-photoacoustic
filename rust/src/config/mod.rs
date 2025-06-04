@@ -101,7 +101,7 @@ pub const USER_SESSION_SEPARATOR: char = '⛷';
 ///
 /// Each section uses default values when not explicitly specified in the configuration
 /// file, allowing for minimal configuration when custom settings are not required.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Settings for the visualization web server component.
     ///
@@ -154,6 +154,20 @@ pub struct Config {
 
     #[serde(default)]
     pub generix: GenerixConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            visualization: VisualizationConfig::default(),
+            acquisition: AcquisitionConfig::default(),
+            modbus: ModbusConfig::default(),
+            photoacoustic: PhotoacousticConfig::default(),
+            access: AccessConfig::default(),
+            processing: ProcessingConfig::default(),
+            generix: GenerixConfig::default(),
+        }
+    }
 }
 
 impl Config {

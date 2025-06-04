@@ -176,12 +176,6 @@ pub struct ProcessingGraphStatistics {
     pub last_execution: Option<Instant>,
 }
 
-impl Default for ProcessingGraphStatistics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ProcessingGraphStatistics {
     pub fn new() -> Self {
         Self {
@@ -361,12 +355,6 @@ pub struct ProcessingGraph {
     output_nodes: Vec<NodeId>,
     /// Performance statistics
     statistics: ProcessingGraphStatistics,
-}
-
-impl Default for ProcessingGraph {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl ProcessingGraph {
@@ -916,8 +904,10 @@ impl ProcessingGraph {
         }
 
         for node_id in self.nodes.keys() {
-            if !visited[node_id] && self.has_cycle_util(node_id, &mut visited, &mut rec_stack) {
-                return true;
+            if !visited[node_id] {
+                if self.has_cycle_util(node_id, &mut visited, &mut rec_stack) {
+                    return true;
+                }
             }
         }
 

@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use clap::Parser;
+use rocket::config;
 use rust_photoacoustic::{acquisition, config::PhotoacousticConfig, preprocessing, spectral};
 
 use std::path::PathBuf;

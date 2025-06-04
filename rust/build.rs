@@ -623,15 +623,14 @@ fn build_web_console(version_changed: bool) -> Result<()> {
 
 fn delete_dist_file(dist_path: &PathBuf, file: &str) -> Result<(), anyhow::Error> {
     let dist_file_path = dist_path.join(file);
-    if dist_file_path.exists() {
+    Ok(if dist_file_path.exists() {
         fs::remove_file(&dist_file_path)
             .with_context(|| format!("Failed to remove {}", dist_file_path.display()))?;
         println!(
             "cargo:warning=build_web_console: Removed existing generix.json at {}",
             dist_file_path.display()
         );
-    };
-    Ok(())
+    })
 }
 
 /// Biuld the rapidoc by calling the Node.js build process

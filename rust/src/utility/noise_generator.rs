@@ -866,7 +866,7 @@ impl NoiseGenerator {
             // @see https://www.firstpr.com.au/dsp/pink-noise/
             pink_noise_state[0] = 0.99886 * pink_noise_state[0] + white_input * 0.0555179;
             pink_noise_state[1] = 0.99332 * pink_noise_state[1] + white_input * 0.0750759;
-            pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.153_852;
+            pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.1538520;
             pink_noise_state[3] = 0.86650 * pink_noise_state[3] + white_input * 0.3104856;
             pink_noise_state[4] = 0.55000 * pink_noise_state[4] + white_input * 0.5329522;
             pink_noise_state[5] = -0.7616 * pink_noise_state[5] + white_input * 0.0168700;
@@ -1204,7 +1204,7 @@ impl NoiseGenerator {
             // Coefficients from Voss-McCartney algorithm for 1/f spectrum
             pink_noise_state[0] = 0.99886 * pink_noise_state[0] + white_input * 0.0555179;
             pink_noise_state[1] = 0.99332 * pink_noise_state[1] + white_input * 0.0750759;
-            pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.153_852;
+            pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.1538520;
             pink_noise_state[3] = 0.86650 * pink_noise_state[3] + white_input * 0.3104856;
             pink_noise_state[4] = 0.55000 * pink_noise_state[4] + white_input * 0.5329522;
             pink_noise_state[5] = -0.7616 * pink_noise_state[5] + white_input * 0.0168700;

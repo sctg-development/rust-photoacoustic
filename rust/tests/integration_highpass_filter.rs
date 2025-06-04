@@ -4,6 +4,7 @@
 
 use rust_photoacoustic::config::processing::*;
 use rust_photoacoustic::processing::ProcessingGraph;
+use serde_yml;
 
 #[test]
 fn test_highpass_filter_from_config() {
@@ -18,7 +19,7 @@ fn test_highpass_filter_from_config() {
             NodeConfig {
                 id: "highpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(serde_yml::mapping::Mapping::from_iter([
+                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "highpass".into()),
                     ("cutoff_frequency".into(), 100.0.into()),
                 ]))
@@ -54,7 +55,7 @@ fn test_lowpass_filter_from_config() {
             NodeConfig {
                 id: "lowpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(serde_yml::mapping::Mapping::from_iter([
+                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "lowpass".into()),
                     ("cutoff_frequency".into(), 5000.0.into()),
                 ]))
@@ -90,7 +91,7 @@ fn test_filter_chain_from_config() {
             NodeConfig {
                 id: "highpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(serde_yml::mapping::Mapping::from_iter([
+                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "highpass".into()),
                     ("cutoff_frequency".into(), 100.0.into()),
                 ]))
@@ -99,7 +100,7 @@ fn test_filter_chain_from_config() {
             NodeConfig {
                 id: "bandpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(serde_yml::mapping::Mapping::from_iter([
+                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "bandpass".into()),
                     ("center_frequency".into(), 2000.0.into()),
                     ("bandwidth".into(), 200.0.into()),
@@ -109,7 +110,7 @@ fn test_filter_chain_from_config() {
             NodeConfig {
                 id: "lowpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(serde_yml::mapping::Mapping::from_iter([
+                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
                     ("type".into(), "lowpass".into()),
                     ("cutoff_frequency".into(), 5000.0.into()),
                 ]))

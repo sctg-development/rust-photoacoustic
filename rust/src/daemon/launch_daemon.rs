@@ -59,8 +59,8 @@ use tokio::time;
 use crate::acquisition::record_consumer::RecordConsumer;
 use crate::acquisition::{
     get_default_realtime_audio_source, get_realtime_audio_source_from_device,
-    get_realtime_audio_source_from_file, get_realtime_simulated_photoacoustic_source,
-    RealTimeAcquisitionDaemon, SharedAudioStream,
+    get_realtime_audio_source_from_file, get_realtime_mock_audio_source,
+    get_realtime_simulated_photoacoustic_source, RealTimeAcquisitionDaemon, SharedAudioStream,
 };
 use crate::processing::{ProcessingConsumer, ProcessingGraph};
 use crate::utility::PhotoacousticDataSource;

@@ -253,8 +253,9 @@ impl JwtTokenMap {
 
         // Extract user information from grant extensions and additional claims
         for (key, value) in grant.extensions.public() {
-            if key == "nonce" {
-                nonce = value
+            match key {
+                "nonce" => nonce = value.clone(),
+                _ => {}
             }
         }
 

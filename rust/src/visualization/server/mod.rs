@@ -56,7 +56,10 @@ pub mod handlers;
 pub mod proxy;
 
 // Re-export main functions from builder
-pub use self::builder::build_rocket;
+pub use self::builder::{build_rocket, get_generix_config};
+
+#[cfg(test)]
+pub use self::builder::build_rocket_test_instance;
 
 use crate::config::AccessConfig;
 use crate::visualization::request_guard::ConnectionInfo;
@@ -82,7 +85,7 @@ impl Debug for ConnectionInfo<'_> {
     }
 }
 
-pub fn get_config_from_request(request: &Request<'_>) -> AccessConfig {
+pub fn get_config_from_request<'r>(request: &'r Request<'_>) -> AccessConfig {
     // Get the system configuration from the rocket figment key
     let access_config = request
         .rocket()
