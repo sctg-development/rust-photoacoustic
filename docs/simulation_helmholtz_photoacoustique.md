@@ -2,7 +2,7 @@
 
 ## Résumé
 
-Ce document décrit l'algorithme de simulation numérique `generate_mock2_photoacoustic_stereo` qui modélise un spectromètre photoacoustique basé sur une cellule de résonance Helmholtz avec configuration différentielle à deux microphones. La simulation intègre les phénomènes physiques principaux : résonance acoustique, modulation laser, variations de concentration moléculaire, dérives thermiques, et bruits de circulation gazeuse avec caractéristiques 1/f.
+Ce document décrit l'algorithme de simulation numérique `generate_modulated_photoacoustic_stereo` qui modélise un spectromètre photoacoustique basé sur une cellule de résonance Helmholtz avec configuration différentielle à deux microphones. La simulation intègre les phénomènes physiques principaux : résonance acoustique, modulation laser, variations de concentration moléculaire, dérives thermiques, et bruits de circulation gazeuse avec caractéristiques 1/f.
 
 ## 1. Architecture du Système Physique
 
@@ -59,6 +59,13 @@ La fonction de transfert du résonateur est modélisée par :
 $$H(f) = \frac{1}{\sqrt{1 + \left(\frac{|f - f_0|}{f_0/Q}\right)^2}}$$
 
 avec $Q = 50$ (facteur de qualité typique).
+- **Paramètre $Q$ (facteur de qualité)** :  
+  $Q$ mesure la « finesse » de la résonance. Plus $Q$ est élevé, plus la bande passante autour de $f_0$ est étroite :  
+  $$
+  \Delta f_{3dB} = \frac{f_0}{Q}
+  $$
+  où $\Delta f_{3dB}$ est la largeur de bande à -3 dB (fréquence où le gain tombe à $1/\sqrt{2}$ du maximum).
+
 
 #### Bruit de Circulation Gazeuse (1/f)
 
@@ -89,26 +96,27 @@ $$S_{diff}(t) = Mic_1(t) - Mic_2(t) = S_{PA}(t) \cdot (1 + \cos(\theta_{opp}(t))
 ```mermaid
 flowchart TD
     A[Initialisation] --> B[Boucle Temporelle]
-    B --> C[Variation Concentration]
-    C --> D[Effets Thermiques]
-    D --> E[Bruit Circulation 1/f]
-    E --> F[Modulation Laser]
-    F --> G[Resonance Helmholtz]
+    B --> C[Mise à jour du temps et de l'index]
+    C --> D[Variation Concentration]
+    D --> E[Effets Thermiques]
+    E --> F[Bruit Circulation 1/f]
+    F --> G[Modulation Laser]
     G --> H[Signal Photoacoustique]
-    H --> I[Perturbations Environnementales]
-    I --> J[Configuration Différentielle]
-    J --> K[Controle SNR]
-    K --> L[Quantification 16-bit]
-    L --> M{i - N_samples ?}
-    M -->|Oui| C
-    M -->|Non| N[Sortie Stéréo]
+    H --> I[Resonance Helmholtz]
+    I --> J[Perturbations Environnementales<br/>&lpar;Température et bruit acoustique externe&rpar;]
+    J --> K[Configuration Différentielle]
+    K --> L[Contrôle SNR]
+    L --> M[Quantification 16-bit<br/>&lpar;par canal&rpar;]
+    M --> N{Fin de la boucle ?}
+    N -- "Non" --> C
+    N -- "Oui" --> O[Sortie Stéréo]
 ```
 
 ### 3.2 Phénomènes Physiques Simulés
 
 #### 3.2.1 Variation de Concentration Moléculaire
 
-```rust
+```rust,ignore
 let concentration_change = (self.random_gaussian() * concentration_walk_rate).tanh();
 concentration_level += concentration_change;
 concentration_level = concentration_level.clamp(min_concentration, max_concentration);
@@ -122,7 +130,7 @@ concentration_level = concentration_level.clamp(min_concentration, max_concentra
 
 #### 3.2.2 Dérives Thermiques
 
-```rust
+```rust,ignore
 let temp_variation = self.random_gaussian() * temperature_drift_factor;
 temperature_phase_drift += temp_variation * 0.001;
 frequency_drift += temp_variation * 0.1;
@@ -147,7 +155,8 @@ graph LR
 
 **Implémentation** : Filtre IIR à 6 étages avec coefficients optimisés :
 
-```rust
+En utilisant l'approximation de [Voss-McCartney](https://www.firstpr.com.au/dsp/pink-noise/) pour le bruit rose, les coefficients du filtre sont définis comme suit :
+```rust,ignore
 pink_noise_state[0] = 0.99886 * pink_noise_state[0] + white_input * 0.0555179;
 pink_noise_state[1] = 0.99332 * pink_noise_state[1] + white_input * 0.0750759;
 pink_noise_state[2] = 0.96900 * pink_noise_state[2] + white_input * 0.1538520;
@@ -160,9 +169,10 @@ pink_noise_state[5] = -0.7616 * pink_noise_state[5] + white_input * 0.0168700;
 
 #### 3.2.4 Modulation Laser et Résonance
 
+##### 3.2.4.1 Laser (Modulation d'Amplitude)
 Le signal laser modulé subit une amplification résonante :
 
-```rust
+```rust,ignore
 let modulation_phase = 2.0 * pi * current_resonance_freq * t;
 let laser_signal = (modulation_phase.sin() * laser_modulation_depth).sin();
 
@@ -180,11 +190,77 @@ let resonance_response = {
 - **Résonance** : Filtre passe-bande du second ordre avec $Q = 50$
 - **Largeur de bande** : $\Delta f_{3dB} = f_0/Q = 40$ Hz @ 2 kHz
 
+##### 3.2.4.2 Laser (Pulsé)
+Les diodes laser supportent une modulation par train de pulsations :
+
+**Modèle mathématique** :
+Le signal laser pulsé est défini par une fonction créneaux périodique avec rapport cyclique variable :
+
+$$P(t) = \begin{cases} 
+A_{pulse} & \text{si } \mod(t, T_{pulse}) < T_{pulse} \cdot D_{cycle} \\
+0 & \text{sinon}
+\end{cases}$$
+
+où :
+- $A_{pulse}$ : amplitude des pulsations
+- $T_{pulse} = 1/f_{pulse}$ : période de pulsation
+- $D_{cycle}$ : rapport cyclique (duty cycle, 0-1)
+
+**Remarque sur le contenu harmonique** :  
+L'utilisation d'un signal créneaux (onde carrée) comme modulation laser introduit naturellement des harmoniques impaires dans le spectre du signal. Mathématiquement, une onde carrée de fréquence $f_0$ peut s'écrire comme une somme de sinusoïdes :
+
+$$
+P(t) = \frac{4A_{pulse}}{\pi} \sum_{n=1,3,5...}^{\infty} \frac{1}{n} \sin(2\pi n f_0 t)
+$$
+
+Ainsi, le signal généré contient la fréquence fondamentale $f_0$ ainsi que toutes les harmoniques impaires ($3f_0$, $5f_0$, etc.), ce qui enrichit le spectre acoustique détecté par la cellule. Ce phénomène peut être exploité pour analyser la réponse fréquentielle de la cellule ou pour augmenter la puissance crête injectée.
+
+**Implémentation** :
+```rust,ignore
+let pulse_period = 1.0 / current_resonance_freq;
+let pulse_position = (t % pulse_period) / pulse_period;
+let duty_cycle = laser_modulation_depth; // Utilise la profondeur comme rapport cyclique
+
+let laser_signal = if pulse_position < duty_cycle {
+    1.0 // Pulse actif
+} else {
+    0.0 // Pulse inactif
+};
+
+let resonance_response = {
+    let freq_deviation = (current_resonance_freq - resonance_frequency).abs();
+    let normalized_deviation = freq_deviation / (resonance_frequency / q_factor);
+    let resonance_gain = 1.0 / (1.0 + normalized_deviation.powi(2)).sqrt();
+    laser_signal * resonance_gain
+};
+```
+
+**Caractéristiques spécifiques** :
+
+- **Harmoniques riches** : Le signal créneaux génère des harmoniques impaires $(f_0, 3f_0, 5f_0, ...)$
+- **Origine physique** : Ces harmoniques résultent de la discontinuité des fronts montants et descendants du signal créneaux, qui correspondent à des variations rapides de l'énergie lumineuse injectée dans la cellule.
+- **Efficacité énergétique** : Contrôle précis de l'énergie déposée via le rapport cyclique
+- **Réponse transitoire** : Fronts montants/descendants créent des transitoires acoustiques
+- **Spectre étendu** : Distribution spectrale différente du cas sinusoïdal
+
+**Comparaison Sinusoïdal vs. Pulsé** :
+
+| Aspect | Sinusoïdal | Pulsé |
+|--------|------------|-------|
+| Contenu harmonique | Fondamentale pure | Harmoniques impaires |
+| Contrôle d'énergie | Amplitude continue | Rapport cyclique |
+| Réponse transitoire | Graduelle | Discontinue |
+| Complexité spectrale | Simple | Riche |
+
+Le choix entre modulation sinusoïdale et pulsée dépend de l'application :
+- **Sinusoïdale** : Sélectivité fréquentielle maximale, bruit minimal
+- **Pulsée** : Puissance crête élevée, analyse multi-harmoniques
+
 ### 3.3 Contrôle du Rapport Signal/Bruit
 
 Le contrôle SNR opère sur le signal différentiel :
 
-```rust
+```rust,ignore
 let signal_component = 2.0 * photoacoustic_signal; // Signal différentiel attendu
 let noise_component = total_background * 0.05; // Bruit résiduel après différentielle
 let desired_noise_amplitude = current_signal_power / target_snr_linear;
