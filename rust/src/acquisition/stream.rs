@@ -211,10 +211,7 @@ impl AudioStreamConsumer {
                     skipped
                 );
                 // Try to get the next frame
-                match self.receiver.recv().await {
-                    Ok(frame) => Some(frame),
-                    Err(_) => None,
-                }
+                (self.receiver.recv().await).ok()
             }
         }
     }
@@ -233,7 +230,6 @@ impl AudioStreamConsumer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::{sleep, Duration};
 
     #[tokio::test]
     async fn test_shared_audio_stream() {

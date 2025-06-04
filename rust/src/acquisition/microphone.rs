@@ -16,7 +16,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, Stream, StreamConfig,
 };
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc::{self, Receiver, Sender},
@@ -403,7 +403,7 @@ impl MicrophoneSource {
 
             // Send the chunk
             if let Ok(sender) = sender.lock() {
-                if let Err(_) = sender.send((channel_a, channel_b)) {
+                if sender.send((channel_a, channel_b)).is_err() {
                     // Receiver dropped, stream should stop
                     break;
                 }

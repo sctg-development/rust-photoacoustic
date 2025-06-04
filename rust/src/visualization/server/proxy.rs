@@ -65,7 +65,7 @@ pub async fn proxy_to_vite_special_path(
     path: PathBuf,
     raw_query: RawQueryString,
 ) -> Option<StaticFileResponse> {
-    if !env::var("VITE_DEVELOPMENT").is_ok() {
+    if env::var("VITE_DEVELOPMENT").is_err() {
         return None;
     }
 

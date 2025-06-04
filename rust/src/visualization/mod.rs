@@ -115,7 +115,6 @@ pub mod user_info_reponse;
 pub mod vite_dev_proxy;
 
 // Re-export commonly used auth items
-pub use auth::{JwtValidator, OAuthBearer};
 
 /// Token introspection functionality for validating OAuth tokens
 ///

@@ -306,10 +306,8 @@ async fn test_oauth2_pkce_flow() {
         .expect("Token response body");
     println!("Token response: {}", token_response_body);
 
-    let token_json: Value = serde_json::from_str(&token_response_body).expect(&format!(
-        "Valid JSON. Response was: {}",
-        token_response_body
-    ));
+    let token_json: Value = serde_json::from_str(&token_response_body)
+        .unwrap_or_else(|_| panic!("Valid JSON. Response was: {}", token_response_body));
 
     // Verify that we received an access_token
     assert!(

@@ -116,7 +116,7 @@ impl<'r> rocket::request::FromRequest<'r> for &'r SharedVisualizationState {
         request
             .rocket()
             .state::<SharedVisualizationState>()
-            .map(|state| rocket::request::Outcome::Success(state))
+            .map(rocket::request::Outcome::Success)
             .unwrap_or_else(|| {
                 rocket::request::Outcome::Error((rocket::http::Status::InternalServerError, ()))
             })

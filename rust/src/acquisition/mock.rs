@@ -13,7 +13,7 @@ use crate::config::PhotoacousticConfig;
 use crate::utility::noise_generator::NoiseGenerator;
 use anyhow::Result;
 use async_trait::async_trait;
-use log::{debug, error, info};
+use log::{error, info};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -355,10 +355,10 @@ mod tests {
 
         // Check that samples are in valid range [-1.0, 1.0]
         for sample in &channel_a {
-            assert!(sample >= &-1.0 && sample <= &1.0);
+            assert!((&-1.0..=&1.0).contains(&sample));
         }
         for sample in &channel_b {
-            assert!(sample >= &-1.0 && sample <= &1.0);
+            assert!((&-1.0..=&1.0).contains(&sample));
         }
     }
     #[test]

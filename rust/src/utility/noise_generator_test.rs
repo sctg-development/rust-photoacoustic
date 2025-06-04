@@ -20,7 +20,6 @@
 //! for the complete photoacoustic simulation pipeline.
 
 use super::noise_generator::NoiseGenerator;
-use std::collections::HashMap;
 
 #[cfg(test)]
 mod tests {

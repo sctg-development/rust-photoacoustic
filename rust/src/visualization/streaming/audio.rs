@@ -165,10 +165,7 @@ pub async fn get_latest_frame(
     stream_state: &State<AudioStreamState>,
 ) -> Option<Json<AudioFrameResponse>> {
     let frame = stream_state.stream.get_latest_frame().await;
-    match frame {
-        Some(frame) => Some(Json(frame.into())),
-        None => None,
-    }
+    frame.map(|frame| Json(frame.into()))
 }
 
 /// Stream audio frames via Server-Sent Events
@@ -430,8 +427,8 @@ mod tests {
 
         let test_values_b = vec![
             std::f32::consts::E, // Another irrational
-            0.123456789,         // Many decimal places
-            -0.987654321,        // Negative with decimals
+            0.123_456_79,        // Many decimal places
+            -0.987_654_3,        // Negative with decimals
             42.0,                // Regular positive
             -42.0,               // Regular negative
             0.000001,            // Very small
@@ -641,9 +638,12 @@ mod tests {
 
             // For large frames, we expect compression, but let's be more lenient
             // and just verify the format works correctly
-            assert!(fast_json.len() > 0, "Fast format should produce valid JSON");
             assert!(
-                regular_json.len() > 0,
+                !fast_json.is_empty(),
+                "Fast format should produce valid JSON"
+            );
+            assert!(
+                !regular_json.is_empty(),
                 "Regular format should produce valid JSON"
             );
 
@@ -693,8 +693,8 @@ mod tests {
             );
 
             // Just verify both formats work, don't enforce compression ratio
-            assert!(regular_json.len() > 0);
-            assert!(fast_json.len() > 0);
+            assert!(!regular_json.is_empty());
+            assert!(!fast_json.is_empty());
         }
     }
 

@@ -91,7 +91,7 @@ pub struct JwtClaims {
 ///
 /// ID tokens are specifically designed to provide authentication information
 /// about the user, while access tokens are designed for authorization.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct IdTokenClaims {
     /// Subject identifier, a unique identifier for the user
     pub sub: String,
@@ -158,26 +158,3 @@ pub struct IdTokenClaims {
 }
 
 // Implement Default for IdTokenClaims for convenience
-impl Default for IdTokenClaims {
-    fn default() -> Self {
-        Self {
-            sub: String::new(),
-            iss: String::new(),
-            aud: String::new(),
-            iat: 0,
-            exp: 0,
-            auth_time: None,
-            nonce: None,
-            sid: None,
-            acr: None,
-            amr: None,
-            azp: None,
-            name: None,
-            preferred_username: None,
-            picture: None,
-            email: None,
-            email_verified: None,
-            additional_claims: HashMap::new(),
-        }
-    }
-}

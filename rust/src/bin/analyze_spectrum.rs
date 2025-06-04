@@ -9,7 +9,7 @@
 //! and check for the presence of specific frequency components.
 
 use clap::Parser;
-use hound::{WavReader, WavSpec};
+use hound::WavReader;
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::fs::File;
 use std::io::BufReader;

@@ -111,9 +111,8 @@ pub async fn build_rocket(
                         &decoded_private,
                         &decoded_public,
                     ) {
-                        let duration: chrono::TimeDelta = chrono::TimeDelta::seconds(
-                            access_config.duration.or(Some(86400)).unwrap(),
-                        );
+                        let duration: chrono::TimeDelta =
+                            chrono::TimeDelta::seconds(access_config.duration.unwrap_or(86400));
                         jwt_issuer.valid_for(duration);
                         oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
                     }
