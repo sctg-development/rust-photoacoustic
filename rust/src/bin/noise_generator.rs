@@ -6,13 +6,17 @@
 //!
 //! A command-line utility for generating white noise audio files for testing and calibration.
 //! This tool creates WAV files containing Gaussian white noise, mock photoacoustic signals,
-//! or realistic Helmholtz resonance cell simulations with configurable parameters.
+//! or realistic Helmholtz resonance cell simulations with advanced modulation capabilities.
 //!
 //! ## Features
 //!
 //! * Generates mono or stereo white noise signals
 //! * Mock photoacoustic signal generation with pulses over white noise
-//! * Realistic Helmholtz resonance cell simulation with gas flow effects
+//! * Advanced Helmholtz resonance cell simulation with:
+//!   - Amplitude or pulsed laser modulation modes
+//!   - Thermal drift effects and gas flow noise simulation
+//!   - Differential microphone configuration with phase opposition
+//!   - Realistic concentration variations and environmental perturbations
 //! * Supports different sample rates (44.1kHz, 48kHz, 192kHz)
 //! * Configurable amplitude and duration
 //! * Option for correlated noise between stereo channels
@@ -34,10 +38,17 @@
 //! noise_generator --output correlated.wav --correlated --correlation 0.8
 //! ```
 //!
-//! Generate a realistic Helmholtz cell simulation:
+//! Generate a realistic Helmholtz cell simulation with amplitude modulation:
 //! ```shell
 //! noise_generator --output helmholtz.wav --noise-type helmholtz --resonance-frequency 2100 \
-//!                 --laser-modulation-depth 0.9 --signal-amplitude 0.7
+//!                 --laser-modulation-depth 0.9 --signal-amplitude 0.7 --modulation-mode amplitude
+//! ```
+//!
+//! Generate a pulsed laser Helmholtz simulation:
+//! ```shell
+//! noise_generator --output pulsed.wav --noise-type helmholtz --modulation-mode pulsed \
+//!                 --helmholtz-pulse-width 0.005 --helmholtz-pulse-frequency 100 \
+//!                 --resonance-frequency 2000 --signal-amplitude 0.8
 //! ```
 //!
 //! ## Applications in Photoacoustic Analysis
@@ -49,7 +60,8 @@
 //! * Measuring frequency response of photoacoustic cells
 //! * Testing filter implementations
 //! * Simulating background noise for robustness testing
-//! * Realistic Helmholtz cell system simulation for algorithm development
+//! * Advanced Helmholtz cell system simulation for algorithm development
+//! * Testing both amplitude and pulsed laser modulation scenarios
 
 use clap::Parser;
 use hound::{SampleFormat, WavSpec, WavWriter};
@@ -64,7 +76,7 @@ use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
 /// the generation of white noise audio files. It uses clap's derive feature
 /// for convenient command-line parsing.
 #[derive(Debug, Parser)]
-#[command(author, version, about = "Generates white noise and mock photoacoustic signals for testing and calibration", long_about = None)]
+#[command(author, version, about = "Generates white noise, mock photoacoustic signals, and advanced Helmholtz cell simulations with amplitude/pulsed modulation modes", long_about = None)]
 struct Args {
     /// Output file path (.wav)
     ///
@@ -209,6 +221,28 @@ struct Args {
     /// This controls the relative strength of the photoacoustic signal compared to noise.
     #[arg(long, default_value_t = 20.0)]
     snr: f32,
+
+    /// Modulation mode for Helmholtz simulation (only used with --noise-type=helmholtz)
+    ///
+    /// Laser modulation mode: "amplitude" for continuous modulation or "pulsed" for pulse mode.
+    /// - "amplitude": Continuous amplitude modulation at resonance frequency
+    /// - "pulsed": Rectangular pulses with configurable width and frequency
+    #[arg(long, default_value = "amplitude")]
+    modulation_mode: String,
+
+    /// Pulse width in seconds for pulsed mode (only used with --noise-type=helmholtz and --modulation-mode=pulsed)
+    ///
+    /// Duration of each laser pulse in pulsed modulation mode, specified in seconds.
+    /// Typical values range from 0.001 to 0.1 seconds (1ms to 100ms).
+    #[arg(long, default_value_t = 0.005)]
+    helmholtz_pulse_width: f32,
+
+    /// Pulse frequency in Hz for pulsed mode (only used with --noise-type=helmholtz and --modulation-mode=pulsed)
+    ///
+    /// Frequency of laser pulses in pulsed modulation mode.
+    /// This determines how often pulses are generated per second.
+    #[arg(long, default_value_t = 100.0)]
+    helmholtz_pulse_frequency: f32,
 }
 
 /// Main entry point for the noise generator utility.
@@ -323,6 +357,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         }
 
+        // Validate modulation mode
+        if args.modulation_mode != "amplitude" && args.modulation_mode != "pulsed" {
+            eprintln!("Error: Modulation mode must be 'amplitude' or 'pulsed'");
+            std::process::exit(1);
+        }
+
+        // Validate pulsed mode parameters
+        if args.modulation_mode == "pulsed" {
+            if args.helmholtz_pulse_width <= 0.0 {
+                eprintln!("Error: Pulse width must be greater than 0");
+                std::process::exit(1);
+            }
+
+            if args.helmholtz_pulse_frequency <= 0.0 {
+                eprintln!("Error: Pulse frequency must be greater than 0");
+                std::process::exit(1);
+            }
+
+            // Check that pulse width is reasonable relative to pulse frequency
+            let pulse_period = 1.0 / args.helmholtz_pulse_frequency;
+            if args.helmholtz_pulse_width > pulse_period {
+                eprintln!(
+                    "Error: Pulse width ({:.3}s) cannot be longer than pulse period ({:.3}s)",
+                    args.helmholtz_pulse_width, pulse_period
+                );
+                std::process::exit(1);
+            }
+        }
+
         // Helmholtz simulation is only supported for stereo output
         if args.channels != 2 {
             eprintln!("Error: Helmholtz simulation requires stereo output (2 channels)");
@@ -371,6 +434,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Gas flow noise factor: {:.1}%",
             args.gas_flow_noise_factor * 100.0
         );
+        println!("Modulation mode: {}", args.modulation_mode);
+        if args.modulation_mode == "pulsed" {
+            println!("Pulse width: {:.1} ms", args.helmholtz_pulse_width * 1000.0);
+            println!("Pulse frequency: {} Hz", args.helmholtz_pulse_frequency);
+        }
     }
 
     println!("Sample rate: {} Hz", args.sample_rate);
@@ -436,17 +504,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         // Helmholtz resonance cell simulation (always stereo)
-        generator.generate_modulated_photoacoustic_stereo(
+        generator.generate_universal_photoacoustic_stereo(
             num_samples,
             args.sample_rate,
-            args.amplitude,
+            args.amplitude, // background_noise_amplitude
             args.resonance_frequency,
             args.laser_modulation_depth,
             args.signal_amplitude,
             args.phase_opposition_degrees,
             args.temperature_drift_factor,
             args.gas_flow_noise_factor,
-            args.snr,
+            args.snr,                       // snr_factor
+            &args.modulation_mode,          // modulation_mode
+            args.helmholtz_pulse_width,     // pulse_width_seconds
+            args.helmholtz_pulse_frequency, // pulse_frequency_hz
         )
     };
 
