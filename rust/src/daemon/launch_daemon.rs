@@ -607,8 +607,8 @@ impl Daemon {
         {
             // Simulated photoacoustic source for testing and advanced simulation
             info!(
-                "Using simulated photoacoustic source with correlation: {}",
-                simulated_config.correlation
+                "Using simulated photoacoustic source with type: {}",
+                simulated_config.source_type
             );
             get_realtime_simulated_photoacoustic_source(config.photoacoustic.clone())?
         } else if let Some(ref file_path) = config.photoacoustic.input_file {

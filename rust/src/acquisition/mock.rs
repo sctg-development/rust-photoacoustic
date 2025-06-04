@@ -13,7 +13,7 @@ use crate::config::PhotoacousticConfig;
 use crate::utility::noise_generator::NoiseGenerator;
 use anyhow::Result;
 use async_trait::async_trait;
-use log::{debug, error};
+use log::{debug, error, info};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -177,17 +177,17 @@ impl MockSource {
         // Calculate frame duration for real-time simulation
         let frame_duration = Duration::from_secs_f64(frame_size as f64 / sample_rate as f64);
 
-        debug!("Creating MockSource with config:");
-        debug!("  Sample rate: {} Hz", sample_rate);
-        debug!("  Frequency: {} Hz", config.frequency);
-        debug!("  Precision: {} bits", config.precision);
-        debug!("  Frame size: {} samples per channel", frame_size);
-        debug!(
+        info!("Creating MockSource with config:");
+        info!("  Sample rate: {} Hz", sample_rate);
+        info!("  Frequency: {} Hz", config.frequency);
+        info!("  Precision: {} bits", config.precision);
+        info!("  Frame size: {} samples per channel", frame_size);
+        info!(
             "  Frame duration: {:.1}ms",
             frame_duration.as_secs_f64() * 1000.0
         );
-        debug!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
-        debug!("  Correlation: {}", correlation);
+        info!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
+        info!("  Correlation: {}", correlation);
 
         Ok(Self {
             generator,

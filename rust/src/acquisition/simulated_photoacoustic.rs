@@ -13,7 +13,7 @@ use crate::config::{PhotoacousticConfig, SimulatedSourceConfig};
 use crate::utility::noise_generator::NoiseGenerator;
 use anyhow::Result;
 use async_trait::async_trait;
-use log::{debug, error};
+use log::{debug, error, info};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -96,32 +96,32 @@ impl SimulatedPhotoacousticRealtimeAudioSource {
         // Calculate frame duration for real-time simulation
         let frame_duration = Duration::from_secs_f64(frame_size as f64 / sample_rate as f64);
 
-        debug!("Creating SimulatedPhotoacousticRealtimeAudioSource with config:");
-        debug!("  Sample rate: {} Hz", sample_rate);
-        debug!("  Frame size: {} samples per channel", frame_size);
-        debug!(
+        info!("Creating SimulatedPhotoacousticRealtimeAudioSource with config:");
+        info!("  Sample rate: {} Hz", sample_rate);
+        info!("  Frame size: {} samples per channel", frame_size);
+        info!(
             "  Frame duration: {:.1}ms",
             frame_duration.as_secs_f64() * 1000.0
         );
-        debug!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
-        debug!(
+        info!("  Expected FPS: {:.1}", 1.0 / frame_duration.as_secs_f64());
+        info!(
             "  Resonance frequency: {} Hz",
             simulation_config.resonance_frequency
         );
-        debug!(
+        info!(
             "  Laser modulation depth: {:.1}%",
             simulation_config.laser_modulation_depth * 100.0
         );
-        debug!(
+        info!(
             "  Signal amplitude: {:.1}%",
             simulation_config.signal_amplitude * 100.0
         );
-        debug!(
+        info!(
             "  Phase opposition: {}°",
             simulation_config.phase_opposition_degrees
         );
-        debug!("  SNR factor: {} dB", simulation_config.snr_factor);
-        debug!("  Modulation mode: {}", simulation_config.modulation_mode);
+        info!("  SNR factor: {} dB", simulation_config.snr_factor);
+        info!("  Modulation mode: {}", simulation_config.modulation_mode);
 
         Ok(Self {
             generator,
