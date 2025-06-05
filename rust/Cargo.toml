@@ -60,6 +60,7 @@ syn = {version="2.0.101", features=["full"]}
 auth-macros = { path = "auth-macros" }
 rocket_async_compression = "0.6.1"
 async-trait = "0.1.88"
+uuid = { version = "1.17.0", features = ["v4"] }
 
 [dev-dependencies]
 criterion = "0.6.0"                                   # Benchmarking

@@ -9,6 +9,7 @@
 #![doc = include_str!("../../../../docs/audio-stream-reconstruction-guide.md")]
 
 use crate::acquisition::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
+use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
 use crate::visualization::api_auth::AuthenticatedUser;
 use auth_macros::protect_get;
 use base64::engine::general_purpose::STANDARD;
@@ -22,10 +23,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
+use uuid::Uuid;
 
 /// Audio streaming state managed by Rocket
 pub struct AudioStreamState {
     pub stream: Arc<SharedAudioStream>,
+    pub registry: StreamingNodeRegistry,
 }
 
 /// Response structure for audio frame data
@@ -241,6 +244,68 @@ pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream!
         }
     }
 }
+
+/// Stream audio frames via Server-Sent Events using fast binary format with dynamic node ID routing
+///
+/// This endpoint supports routing to specific streaming nodes using their UUID.
+/// When a node_id is provided, it queries the StreamingNodeRegistry for the appropriate stream.
+/// If no matching node is found, returns a 404 error.
+///
+/// # Route Pattern
+/// `/stream/audio/fast/<node_id>` where `node_id` is a UUID string
+///
+/// # Examples
+/// - `/stream/audio/fast/123e4567-e89b-12d3-a456-426614174000` - Stream from specific node
+/// 
+/// # Authentication
+/// Requires a valid JWT token with `read:api` permission.
+#[protect_get("/stream/audio/fast/<node_id>", "read:api")]
+pub fn stream_audio_fast_with_node_id(
+    node_id: &str,
+    stream_state: &State<AudioStreamState>,
+) -> EventStream![Event] {
+    let node_id_owned = node_id.to_string(); // Convert to owned string to avoid lifetime issues
+    let registry = stream_state.registry.clone();
+    
+    EventStream! {
+        // Parse the node ID string into a UUID
+        let node_uuid = match Uuid::parse_str(&node_id_owned) {
+            Ok(uuid) => uuid,
+            Err(_) => {
+                yield Event::data(r#"{"type":"error","message":"Invalid node ID format"}"#);
+                return;
+            }
+        };
+
+        // Get the stream from the registry
+        let stream = match registry.get_stream(&node_uuid) {
+            Some(stream) => stream,
+            None => {
+                yield Event::data(r#"{"type":"error","message":"No streaming node found"}"#);
+                return;
+            }
+        };
+
+        let mut consumer = AudioStreamConsumer::new(&stream);
+
+        loop {
+            match timeout(Duration::from_secs(5), consumer.next_frame()).await {
+                Ok(Some(frame)) => {
+                    let response = AudioFastFrameResponse::from(frame);
+                    yield Event::json(&response);
+                },
+                Ok(None) => {
+                    log::info!("Audio stream closed for node: {}", node_id_owned);
+                    break;
+                },
+                Err(_) => {
+                    yield Event::data(r#"{"type":"heartbeat"}"#);
+                }
+            }
+        }
+    }
+}
+
 /// Stream spectral analysis data via Server-Sent Events
 ///
 /// Provides real-time spectral analysis data computed from the audio frames.
@@ -334,6 +399,96 @@ fn compute_spectral_analysis(frame: &AudioFrame) -> SpectralDataResponse {
     }
 }
 
+/// Response structure for listing available streaming nodes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamingNodeInfo {
+    /// Node UUID
+    pub id: String,
+    /// Human-readable node name (if available)
+    pub name: Option<String>,
+    /// Whether the node is currently streaming
+    pub is_active: bool,
+    /// Current subscriber count for this node's stream
+    pub subscriber_count: usize,
+}
+
+/// List all available streaming nodes
+///
+/// Returns information about all registered streaming nodes in the system.
+/// This endpoint is useful for discovering available streams and their status.
+///
+/// # Authentication
+/// Requires a valid JWT token with `read:api` permission.
+///
+/// # Response Format
+/// Returns a JSON array of streaming node information:
+/// ```json
+/// [
+///   {
+///     "id": "123e4567-e89b-12d3-a456-426614174000",
+///     "name": "Recording Node 1",
+///     "is_active": true,
+///     "subscriber_count": 2
+///   }
+/// ]
+/// ```
+#[protect_get("/stream/nodes", "read:api")]
+pub async fn list_streaming_nodes(
+    _user: AuthenticatedUser,
+    stream_state: &State<AudioStreamState>,
+) -> Json<Vec<StreamingNodeInfo>> {
+    let mut node_infos = Vec::new();
+      // Get all node IDs from the registry
+    for node_id in stream_state.registry.list_all_nodes() {
+        // Get the stream for this node
+        if let Some(stream) = stream_state.registry.get_stream(&node_id) {
+            let subscriber_count = {
+                // This is a synchronous call that should be fast
+                tokio::task::block_in_place(|| {
+                    let rt = tokio::runtime::Handle::current();
+                    rt.block_on(stream.get_stats()).active_subscribers
+                })
+            };
+            
+            node_infos.push(StreamingNodeInfo {
+                id: node_id.to_string(),
+                name: None, // Could be enhanced to store node names in registry
+                is_active: subscriber_count > 0,
+                subscriber_count,
+            });
+        }
+    }
+
+    Json(node_infos)
+}
+
+/// Get statistics for a specific streaming node
+///
+/// Returns detailed statistics for a specific streaming node identified by its UUID.
+///
+/// # Authentication
+/// Requires a valid JWT token with `read:api` permission.
+#[protect_get("/stream/nodes/<node_id>/stats", "read:api")]
+pub async fn get_node_stats(
+    node_id: &str,
+    _user: AuthenticatedUser,
+    stream_state: &State<AudioStreamState>,
+) -> Json<StreamStats> {
+    // Parse the node ID string into a UUID
+    let stats = match Uuid::parse_str(node_id) {
+        Ok(node_uuid) => {
+            // Get the stream from the registry
+            match stream_state.registry.get_stream(&node_uuid) {
+                Some(stream) => stream.get_stats().await,
+                None => StreamStats::default(), // Return default stats for non-existent node
+            }
+        }
+        Err(_) => StreamStats::default(), // Return default stats for invalid UUID
+    };
+
+    Json(stats)
+}
+
 /// Get all audio streaming routes
 ///
 /// Returns a vector of all route handlers for audio streaming functionality.
@@ -343,7 +498,10 @@ pub fn get_audio_streaming_routes() -> Vec<rocket::Route> {
         get_latest_frame,
         stream_audio,
         stream_audio_fast,
+        stream_audio_fast_with_node_id,
         stream_spectral_analysis,
+        list_streaming_nodes,
+        get_node_stats,
     ]
 }
 

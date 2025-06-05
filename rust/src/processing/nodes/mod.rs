@@ -17,6 +17,8 @@
 //! - [`differential`] - Differential calculation nodes (`DifferentialNode`)
 //! - [`output`] - Output nodes (`PhotoacousticOutputNode`)
 //! - [`record`] - Recording nodes (`RecordNode`)
+//! - [`streaming`] - Real-time streaming nodes (`StreamingNode`)
+//! - [`streaming_registry`] - Centralized registry for managing streaming nodes (`StreamingNodeRegistry`)
 //!
 //! # Examples
 //!
@@ -52,6 +54,8 @@ pub mod filter;
 pub mod input;
 pub mod output;
 pub mod record;
+pub mod streaming;
+pub mod streaming_registry;
 pub mod traits;
 
 // Re-export all public types for backward compatibility
@@ -62,4 +66,6 @@ pub use filter::{ChannelTarget, FilterNode};
 pub use input::InputNode;
 pub use output::PhotoacousticOutputNode;
 pub use record::RecordNode;
+pub use streaming::StreamingNode;
+pub use streaming_registry::StreamingNodeRegistry;
 pub use traits::ProcessingNode;
