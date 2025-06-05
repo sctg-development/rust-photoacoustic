@@ -1,31 +1,34 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 //! Streaming processing node implementation.
-//! 
+//!
 //! This module provides the `StreamingNode` which implements the `ProcessingNode` trait
 //! to create real-time audio streams that can be consumed via HTTP endpoints. Unlike
 //! the `RecordNode` which saves data to files, the `StreamingNode` produces a
 //! `SharedAudioStream` that can be accessed through dynamic API endpoints.
 
 use super::data::ProcessingData;
-use super::traits::ProcessingNode;
 use super::streaming_registry::StreamingNodeRegistry;
-use crate::acquisition::stream::{SharedAudioStream, AudioFrame};
+use super::traits::ProcessingNode;
+use crate::acquisition::stream::{AudioFrame, SharedAudioStream};
 use anyhow::Result;
 use uuid::Uuid;
 
 /// A processing node that creates real-time audio streams for HTTP consumption.
-/// 
+///
 /// The `StreamingNode` acts as a pass-through node in the processing graph while
 /// simultaneously providing a `SharedAudioStream` that can be consumed via HTTP
 /// endpoints. It registers itself with a `StreamingNodeRegistry` to enable
 /// dynamic routing based on node IDs.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```no_run
 /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
 /// use uuid::Uuid;
-/// 
+///
 /// // Create a registry and a streaming node
 /// let registry = StreamingNodeRegistry::new();
 /// let node_id = Uuid::new_v4();
@@ -34,7 +37,7 @@ use uuid::Uuid;
 ///     "Live Audio Stream",
 ///     registry.clone()
 /// );
-/// 
+///
 /// // The node automatically registers its stream with the registry
 /// assert!(registry.get_stream(&node_id).is_some());
 /// ```
@@ -54,22 +57,22 @@ pub struct StreamingNode {
 
 impl StreamingNode {
     /// Creates a new streaming node with the specified ID and name.
-    /// 
+    ///
     /// The node automatically registers its audio stream with the provided registry,
     /// making it available for consumption via HTTP endpoints.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `id` - Unique identifier for this node
     /// * `name` - Human-readable name for the node
     /// * `registry` - Registry to manage the stream lifecycle
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
     /// use uuid::Uuid;
-    /// 
+    ///
     /// let registry = StreamingNodeRegistry::new();
     /// let node_id = Uuid::new_v4();
     /// let node = StreamingNode::new(
@@ -80,7 +83,7 @@ impl StreamingNode {
     /// ```
     pub fn new(id: Uuid, name: &str, registry: StreamingNodeRegistry) -> Self {
         let stream = SharedAudioStream::new(1024); // Default buffer size
-        
+
         // Register the stream with the registry
         registry.register_stream(id, stream.clone());
 
@@ -94,23 +97,23 @@ impl StreamingNode {
     }
 
     /// Returns a reference to the shared audio stream.
-    /// 
+    ///
     /// This can be used to access the stream directly without going through
     /// the registry, useful for testing or advanced use cases.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
     /// use uuid::Uuid;
-    /// 
+    ///
     /// let registry = StreamingNodeRegistry::new();
     /// let node = StreamingNode::new(
     ///     Uuid::new_v4(),
     ///     "Test Stream",
     ///     registry
     /// );
-    /// 
+    ///
     /// let stream = node.get_stream();
     /// // Use stream for direct access...
     /// ```
@@ -119,17 +122,17 @@ impl StreamingNode {
     }
 
     /// Returns the node ID.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
     /// use uuid::Uuid;
-    /// 
+    ///
     /// let registry = StreamingNodeRegistry::new();
     /// let node_id = Uuid::new_v4();
     /// let node = StreamingNode::new(node_id, "Test", registry);
-    /// 
+    ///
     /// assert_eq!(node.get_id(), node_id);
     /// ```
     pub fn get_id(&self) -> Uuid {
@@ -137,7 +140,7 @@ impl StreamingNode {
     }
 
     /// Converts ProcessingData to AudioFrame for streaming.
-    /// 
+    ///
     /// This helper method converts different ProcessingData variants into
     /// AudioFrame format that can be published to the stream.
     fn convert_to_audio_frame(&self, input: &ProcessingData) -> Option<AudioFrame> {
@@ -237,12 +240,15 @@ impl ProcessingNode for StreamingNode {
 
 impl Drop for StreamingNode {
     /// Ensures proper cleanup when the node is dropped.
-    /// 
+    ///
     /// This removes the stream from the registry to prevent memory leaks
     /// and stale references.
     fn drop(&mut self) {
         if !self.registry.unregister_stream(&self.id_uuid) {
-            log::warn!("Stream for node {} was not registered in the registry", self.id_uuid);
+            log::warn!(
+                "Stream for node {} was not registered in the registry",
+                self.id_uuid
+            );
         }
     }
 }
@@ -259,7 +265,7 @@ mod tests {
 
         assert_eq!(node.get_id(), node_id);
         assert_eq!(node.node_type(), "streaming");
-        
+
         // Verify stream is registered
         assert!(registry.get_stream(&node_id).is_some());
     }
@@ -267,11 +273,7 @@ mod tests {
     #[tokio::test]
     async fn test_process_pass_through() {
         let registry = StreamingNodeRegistry::new();
-        let mut node = StreamingNode::new(
-            Uuid::new_v4(),
-            "Test Stream",
-            registry
-        );
+        let mut node = StreamingNode::new(Uuid::new_v4(), "Test Stream", registry);
 
         let test_data = ProcessingData::SingleChannel {
             samples: vec![1.0, 2.0, 3.0, 4.0],
@@ -281,11 +283,19 @@ mod tests {
         };
 
         let result = node.process(test_data.clone()).unwrap();
-        
+
         // Verify pass-through behavior
         match (&result, &test_data) {
-            (ProcessingData::SingleChannel { samples: result_samples, .. }, 
-             ProcessingData::SingleChannel { samples: test_samples, .. }) => {
+            (
+                ProcessingData::SingleChannel {
+                    samples: result_samples,
+                    ..
+                },
+                ProcessingData::SingleChannel {
+                    samples: test_samples,
+                    ..
+                },
+            ) => {
                 assert_eq!(result_samples, test_samples);
             }
             _ => panic!("Expected matching ProcessingData::SingleChannel"),
@@ -295,11 +305,7 @@ mod tests {
     #[test]
     fn test_accepts_input() {
         let registry = StreamingNodeRegistry::new();
-        let node = StreamingNode::new(
-            Uuid::new_v4(),
-            "Test Stream",
-            registry
-        );
+        let node = StreamingNode::new(Uuid::new_v4(), "Test Stream", registry);
 
         // Test accepting various input types
         let audio_frame = ProcessingData::AudioFrame(AudioFrame {
@@ -344,11 +350,7 @@ mod tests {
     #[test]
     fn test_output_type() {
         let registry = StreamingNodeRegistry::new();
-        let node = StreamingNode::new(
-            Uuid::new_v4(),
-            "Test Stream",
-            registry
-        );
+        let node = StreamingNode::new(Uuid::new_v4(), "Test Stream", registry);
 
         let audio_frame = ProcessingData::AudioFrame(AudioFrame {
             channel_a: vec![1.0, 2.0],
@@ -357,7 +359,10 @@ mod tests {
             timestamp: 1000,
             frame_number: 0,
         });
-        assert_eq!(node.output_type(&audio_frame), Some("AudioFrame".to_string()));
+        assert_eq!(
+            node.output_type(&audio_frame),
+            Some("AudioFrame".to_string())
+        );
 
         let single_channel = ProcessingData::SingleChannel {
             samples: vec![1.0, 2.0],
@@ -365,17 +370,16 @@ mod tests {
             timestamp: 1000,
             frame_number: 0,
         };
-        assert_eq!(node.output_type(&single_channel), Some("SingleChannel".to_string()));
+        assert_eq!(
+            node.output_type(&single_channel),
+            Some("SingleChannel".to_string())
+        );
     }
 
     #[test]
     fn test_reset() {
         let registry = StreamingNodeRegistry::new();
-        let mut node = StreamingNode::new(
-            Uuid::new_v4(),
-            "Test Stream",
-            registry
-        );
+        let mut node = StreamingNode::new(Uuid::new_v4(), "Test Stream", registry);
 
         // Reset should not fail
         node.reset();
@@ -385,7 +389,7 @@ mod tests {
     fn test_drop_cleanup() {
         let registry = StreamingNodeRegistry::new();
         let node_id = Uuid::new_v4();
-        
+
         {
             let _node = StreamingNode::new(node_id, "Test Stream", registry.clone());
             // Verify stream is registered
@@ -399,11 +403,7 @@ mod tests {
     #[test]
     fn test_convert_to_audio_frame() {
         let registry = StreamingNodeRegistry::new();
-        let node = StreamingNode::new(
-            Uuid::new_v4(),
-            "Test Stream",
-            registry
-        );
+        let node = StreamingNode::new(Uuid::new_v4(), "Test Stream", registry);
 
         // Test AudioFrame conversion (should clone)
         let audio_frame = ProcessingData::AudioFrame(AudioFrame {
