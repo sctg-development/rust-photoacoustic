@@ -12,6 +12,7 @@ use super::handlers::*;
 use crate::acquisition::SharedAudioStream;
 use crate::config::{AccessConfig, GenerixConfig, VisualizationConfig};
 use crate::include_png_as_base64;
+use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
     OxideState,
@@ -222,7 +223,8 @@ pub async fn build_rocket(
 
     // Add audio streaming routes and state if audio stream is available
     if let Some(stream) = audio_stream {
-        let audio_state = AudioStreamState { stream };
+        let registry = StreamingNodeRegistry::new();
+        let audio_state = AudioStreamState { stream, registry };
         rocket_builder
             .mount(
                 "/api",
