@@ -64,7 +64,7 @@ impl AudioFrame {
 }
 
 /// Shared audio stream for broadcasting frames to multiple consumers
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct SharedAudioStream {
     /// Broadcast sender for real-time streaming
     sender: broadcast::Sender<AudioFrame>,

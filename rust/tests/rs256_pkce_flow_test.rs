@@ -467,7 +467,7 @@ async fn test_rs256_pkce_flow_s256() {
         ))
         .merge(("access_config", test_access_config));
 
-    let rocket = server::build_rocket(figment, None, None).await;
+    let rocket = server::build_rocket(figment, None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -531,7 +531,7 @@ async fn test_rs256_pkce_flow_plain() {
         ))
         .merge(("access_config", test_access_config));
 
-    let rocket = server::build_rocket(figment, None, None).await;
+    let rocket = server::build_rocket(figment, None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -601,7 +601,7 @@ async fn test_rs256_pkce_flow() {
             ))
             .merge(("access_config", test_access_config));
 
-        let rocket = server::build_rocket(figment, None, None).await;
+        let rocket = server::build_rocket(figment, None, None, None).await;
 
         let client = rocket::local::asynchronous::Client::tracked(rocket)
             .await
@@ -637,7 +637,7 @@ async fn test_rs256_jwks_endpoint() {
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
-    let rocket = server::build_rocket(figment, None, None).await;
+    let rocket = server::build_rocket(figment, None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -713,7 +713,7 @@ async fn test_rs256_pkce_invalid_challenge_method() {
         ))
         .merge(("access_config", test_access_config));
 
-    let rocket = server::build_rocket(figment, None, None).await;
+    let rocket = server::build_rocket(figment, None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await

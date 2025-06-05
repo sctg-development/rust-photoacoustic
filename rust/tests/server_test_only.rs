@@ -113,7 +113,8 @@ async fn test_oauth2_pkce_flow() {
         .merge(("hmac_secret", test_hmac_secret))
         .merge(("access_config", test_access_config));
 
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None, None).await;
+    let rocket =
+        rust_photoacoustic::visualization::server::build_rocket(figment, None, None, None).await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");
@@ -372,7 +373,8 @@ async fn test_oauth2_invalid_credentials() {
         .merge(("hmac_secret", test_hmac_secret))
         .merge(("access_config", test_access_config));
 
-    let rocket = rust_photoacoustic::visualization::server::build_rocket(figment, None, None).await;
+    let rocket =
+        rust_photoacoustic::visualization::server::build_rocket(figment, None, None, None).await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

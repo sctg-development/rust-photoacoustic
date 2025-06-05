@@ -59,7 +59,7 @@ use std::sync::Arc;
 ///
 /// async fn example() {
 ///     let config = Figment::from(rocket::Config::default());
-///     let rocket = server::build_rocket(config, None, None).await;
+///     let rocket = server::build_rocket(config, None, None, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }
@@ -68,6 +68,7 @@ pub async fn build_rocket(
     figment: Figment,
     audio_stream: Option<Arc<SharedAudioStream>>,
     visualization_state: Option<Arc<SharedVisualizationState>>,
+    streaming_registry: Option<Arc<StreamingNodeRegistry>>,
 ) -> Rocket<Build> {
     let hmac_secret = figment
         .extract_inner::<String>("hmac_secret")
@@ -223,7 +224,7 @@ pub async fn build_rocket(
 
     // Add audio streaming routes and state if audio stream is available
     if let Some(stream) = audio_stream {
-        let registry = StreamingNodeRegistry::new();
+        let registry = streaming_registry.unwrap_or_else(|| Arc::new(StreamingNodeRegistry::new()));
         let audio_state = AudioStreamState { stream, registry };
         rocket_builder
             .mount(

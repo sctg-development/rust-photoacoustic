@@ -13,6 +13,7 @@ use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilte
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, InputNode,
     MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode, RecordNode,
+    StreamingNode, StreamingNodeRegistry,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::time::{Duration, Instant};
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Module for serializing/deserializing Duration
 mod duration_serde {
@@ -590,11 +592,19 @@ impl ProcessingGraph {
 
     /// Create a new processing graph from configuration
     pub fn from_config(config: &ProcessingGraphConfig) -> Result<Self> {
+        Self::from_config_with_registry(config, None)
+    }
+
+    /// Create a new processing graph from configuration with optional streaming registry
+    pub fn from_config_with_registry(
+        config: &ProcessingGraphConfig,
+        streaming_registry: Option<StreamingNodeRegistry>,
+    ) -> Result<Self> {
         let mut graph = Self::new();
 
         // First, create all nodes
         for node_config in &config.nodes {
-            let node = Self::create_node_from_config(node_config)?;
+            let node = Self::create_node_from_config(node_config, &streaming_registry)?;
             graph.add_node(node)?;
         }
 
@@ -612,7 +622,10 @@ impl ProcessingGraph {
     }
 
     /// Create a processing node from configuration
-    fn create_node_from_config(config: &NodeConfig) -> Result<Box<dyn ProcessingNode>> {
+    fn create_node_from_config(
+        config: &NodeConfig,
+        streaming_registry: &Option<StreamingNodeRegistry>,
+    ) -> Result<Box<dyn ProcessingNode>> {
         match config.node_type.as_str() {
             "input" => Ok(Box::new(InputNode::new(config.id.clone()))),
             "channel_selector" => {
@@ -824,6 +837,34 @@ impl ProcessingGraph {
                     auto_delete,
                     total_limit,
                 )))
+            }
+            "streaming" => {
+                // Streaming node requires a registry
+                let registry = streaming_registry
+                    .as_ref()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Streaming node '{}' requires a StreamingNodeRegistry, but none was provided",
+                            config.id
+                        )
+                    })?
+                    .clone();
+
+                // Extract streaming parameters
+                let name = if let Some(params) = config.parameters.as_mapping() {
+                    params
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&config.id)
+                        .to_string()
+                } else {
+                    config.id.clone()
+                };
+
+                // Generate a UUID for this streaming node
+                let node_uuid = Uuid::new_v4();
+
+                Ok(Box::new(StreamingNode::new(node_uuid, &name, registry)))
             }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),
         }

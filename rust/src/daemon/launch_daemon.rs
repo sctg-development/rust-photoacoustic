@@ -62,6 +62,7 @@ use crate::acquisition::{
     get_realtime_audio_source_from_file, get_realtime_mock_audio_source,
     get_realtime_simulated_photoacoustic_source, RealTimeAcquisitionDaemon, SharedAudioStream,
 };
+use crate::processing::nodes::StreamingNodeRegistry;
 use crate::processing::{ProcessingConsumer, ProcessingGraph};
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
@@ -111,6 +112,8 @@ pub struct Daemon {
     processing_consumer_daemon: Option<ProcessingConsumer>,
     /// Shared visualization state for statistics and runtime data
     visualization_state: Arc<SharedVisualizationState>,
+    /// Streaming node registry for managing real-time audio streams
+    streaming_registry: Arc<StreamingNodeRegistry>,
 }
 
 impl Default for Daemon {
@@ -148,6 +151,7 @@ impl Daemon {
             record_consumer_daemon: None,
             processing_consumer_daemon: None,
             visualization_state: Arc::new(SharedVisualizationState::new()),
+            streaming_registry: Arc::new(StreamingNodeRegistry::new()),
         }
     }
 
@@ -314,6 +318,7 @@ impl Daemon {
             figment,
             self.audio_stream.clone(),
             Some(Arc::clone(&self.visualization_state)),
+            Some(Arc::clone(&self.streaming_registry)),
         )
         .await;
 
@@ -809,9 +814,12 @@ impl Daemon {
             .validate()
             .map_err(|e| anyhow::anyhow!("Invalid processing configuration: {}", e))?;
 
-        // Create processing graph from configuration
-        let processing_graph = ProcessingGraph::from_config(&config.processing.default_graph)
-            .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
+        // Create processing graph from configuration with streaming registry
+        let processing_graph = ProcessingGraph::from_config_with_registry(
+            &config.processing.default_graph,
+            Some((*self.streaming_registry).clone()),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
 
         // Create processing consumer daemon with shared visualization state
         let processing_consumer = ProcessingConsumer::new_with_visualization_state(
@@ -842,10 +850,11 @@ impl Daemon {
 
         // Store a placeholder for the processing consumer daemon (already moved to task)
         // We create a new instance for tracking purposes
-        let processing_graph_placeholder =
-            ProcessingGraph::from_config(&config.processing.default_graph).map_err(|e| {
-                anyhow::anyhow!("Failed to create placeholder processing graph: {}", e)
-            })?;
+        let processing_graph_placeholder = ProcessingGraph::from_config_with_registry(
+            &config.processing.default_graph,
+            Some((*self.streaming_registry).clone()),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create placeholder processing graph: {}", e))?;
 
         self.processing_consumer_daemon = Some(ProcessingConsumer::new_with_visualization_state(
             audio_stream.clone(),

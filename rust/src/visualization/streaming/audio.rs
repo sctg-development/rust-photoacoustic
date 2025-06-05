@@ -28,7 +28,7 @@ use uuid::Uuid;
 /// Audio streaming state managed by Rocket
 pub struct AudioStreamState {
     pub stream: Arc<SharedAudioStream>,
-    pub registry: StreamingNodeRegistry,
+    pub registry: Arc<StreamingNodeRegistry>,
 }
 
 /// Response structure for audio frame data
@@ -256,7 +256,7 @@ pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream!
 ///
 /// # Examples
 /// - `/stream/audio/fast/123e4567-e89b-12d3-a456-426614174000` - Stream from specific node
-/// 
+///
 /// # Authentication
 /// Requires a valid JWT token with `read:api` permission.
 #[protect_get("/stream/audio/fast/<node_id>", "read:api")]
@@ -266,7 +266,7 @@ pub fn stream_audio_fast_with_node_id(
 ) -> EventStream![Event] {
     let node_id_owned = node_id.to_string(); // Convert to owned string to avoid lifetime issues
     let registry = stream_state.registry.clone();
-    
+
     EventStream! {
         // Parse the node ID string into a UUID
         let node_uuid = match Uuid::parse_str(&node_id_owned) {
@@ -438,7 +438,7 @@ pub async fn list_streaming_nodes(
     stream_state: &State<AudioStreamState>,
 ) -> Json<Vec<StreamingNodeInfo>> {
     let mut node_infos = Vec::new();
-      // Get all node IDs from the registry
+    // Get all node IDs from the registry
     for node_id in stream_state.registry.list_all_nodes() {
         // Get the stream for this node
         if let Some(stream) = stream_state.registry.get_stream(&node_id) {
@@ -449,7 +449,7 @@ pub async fn list_streaming_nodes(
                     rt.block_on(stream.get_stats()).active_subscribers
                 })
             };
-            
+
             node_infos.push(StreamingNodeInfo {
                 id: node_id.to_string(),
                 name: None, // Could be enhanced to store node names in registry
