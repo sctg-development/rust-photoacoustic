@@ -10,13 +10,13 @@
 
 CREATE_TOKEN_BASE_PATH=${CREATE_TOKEN_BASE_PATH:-"./target/release/"}
 CREATE_TOKEN=${CREATE_TOKEN_BASE_PATH}/create_token
-USERNAME=${USERNAME:-"admin"}
+USER=${USER:-"admin"}
 CLIENT=${CLIENT:-"LaserSmartClient"}
 if [ ! -f "$CREATE_TOKEN" ]; then
   echo "Error: $CREATE_TOKEN does not exist. Please build the project first."
   exit 1
 fi
-TOKEN=$($CREATE_TOKEN -q --user=$USERNAME --client=$CLIENT)
+TOKEN=$($CREATE_TOKEN -q --user=$USER --client=$CLIENT)
 # echo $TOKEN
 URL=$1
 if [ -z "$URL" ]; then

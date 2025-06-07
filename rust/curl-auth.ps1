@@ -14,7 +14,7 @@ param(
 
 # Set default values using environment variables or fallback defaults
 $CreateTokenBasePath = if ($env:CREATE_TOKEN_BASE_PATH) { $env:CREATE_TOKEN_BASE_PATH } else { "./target/release/" }
-$Username = if ($env:USERNAME) { $env:USERNAME } else { "admin" }
+$Username = if ($env:USER) { $env:USER } else { "admin" }
 $Client = if ($env:CLIENT) { $env:CLIENT } else { "LaserSmartClient" }
 
 # Determine the correct executable name based on platform
@@ -39,24 +39,72 @@ try {
         exit 1
     }
 
+    Write-Verbose "Token generated successfully" -Verbose
+
     # Create headers for the request
     $Headers = @{
         "Authorization" = "Bearer $Token"
     }
 
+    Write-Verbose "Making request to: $Url" -Verbose
+    Write-Verbose "PowerShell Version: $($PSVersionTable.PSVersion)" -Verbose
+
     # Make the HTTP request (equivalent to curl -k)
-    # -SkipCertificateCheck is equivalent to curl's -k flag for ignoring SSL certificate errors
-    $Response = Invoke-RestMethod -Uri $Url -Headers $Headers -SkipCertificateCheck -Method Get
+    # Use Invoke-WebRequest for better SSL compatibility
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        # PowerShell 6.0+ supports -SkipCertificateCheck
+        Write-Verbose "Using PowerShell 6.0+ method" -Verbose
+        $WebResponse = Invoke-WebRequest -Uri $Url -Headers $Headers -SkipCertificateCheck -Method Get
+        $Response = $WebResponse.Content
+    } else {
+        # PowerShell 5.1: More robust SSL/TLS handling
+        Write-Verbose "Using PowerShell 5.1 method" -Verbose
+        $OriginalCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
+        $OriginalSecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol
+        
+        Write-Verbose "Original Security Protocol: $OriginalSecurityProtocol" -Verbose
+        
+        # Enable TLS 1.2 and disable certificate validation
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        
+        Write-Verbose "New Security Protocol: $([System.Net.ServicePointManager]::SecurityProtocol)" -Verbose
+        
+        try {
+            $WebResponse = Invoke-WebRequest -Uri $Url -Headers $Headers -Method Get
+            $Response = $WebResponse.Content
+        } finally {
+            # Restore original settings
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $OriginalCallback
+            [System.Net.ServicePointManager]::SecurityProtocol = $OriginalSecurityProtocol
+        }
+    }
     
     # Output the response
     if ($Response -is [string]) {
-        Write-Output $Response
+        # Try to parse as JSON if it looks like JSON
+        if ($Response.TrimStart().StartsWith('[') -or $Response.TrimStart().StartsWith('{')) {
+            try {
+                $JsonResponse = $Response | ConvertFrom-Json
+                $JsonResponse | ConvertTo-Json -Depth 10
+            } catch {
+                # If JSON parsing fails, output as string
+                Write-Output $Response
+            }
+        } else {
+            Write-Output $Response
+        }
     } else {
-        # If it's JSON or other structured data, convert to JSON for display
+        # If it's already an object, convert to JSON for display
         $Response | ConvertTo-Json -Depth 10
     }
 }
 catch {
     Write-Error "Request failed: $($_.Exception.Message)"
+    Write-Verbose "Full exception details: $($_.Exception)" -Verbose
+    Write-Verbose "Error details: $($_.ErrorDetails)" -Verbose
+    if ($_.Exception.InnerException) {
+        Write-Verbose "Inner exception: $($_.Exception.InnerException.Message)" -Verbose
+    }
     exit 1
 }
