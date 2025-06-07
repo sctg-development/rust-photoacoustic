@@ -1,0 +1,31 @@
+{
+    // Utilisez IntelliSense pour en savoir plus sur les attributs possibles.
+    // Pointez pour afficher la description des attributs existants.
+    // Pour plus d'informations, visitez : https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Current File",
+            "program": "${fileDirname}/../target/debug/${fileBasenameNoExtension}",
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": [
+                "rust"
+            ]
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug rust_photoacoustic",
+            "program": "${workspaceRoot}/target/debug/rust_photoacoustic",
+            "args": ["-v"], // Remplacez par vos arguments
+            "cwd": "${workspaceRoot}",
+            "sourceLanguages": [
+                "rust"
+            ]
+        }
+
+    ]
+}
