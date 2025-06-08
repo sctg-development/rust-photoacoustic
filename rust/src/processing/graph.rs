@@ -16,6 +16,7 @@ use crate::processing::nodes::{
     StreamingNode, StreamingNodeRegistry,
 };
 use anyhow::Result;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
@@ -602,22 +603,51 @@ impl ProcessingGraph {
     ) -> Result<Self> {
         let mut graph = Self::new();
 
+        debug!("Creating processing graph from config: {}", config.id);
+        debug!("Number of nodes to create: {}", config.nodes.len());
+        debug!(
+            "Number of connections to create: {}",
+            config.connections.len()
+        );
+        debug!(
+            "Streaming registry provided: {}",
+            streaming_registry.is_some()
+        );
+
         // First, create all nodes
         for node_config in &config.nodes {
+            debug!(
+                "Creating node: {} of type: {}",
+                node_config.id, node_config.node_type
+            );
             let node = Self::create_node_from_config(node_config, &streaming_registry)?;
             graph.add_node(node)?;
+            debug!("Successfully created node: {}", node_config.id);
         }
+
+        debug!("Total nodes created: {}", graph.nodes.len());
+        debug!("Node IDs: {:?}", graph.nodes.keys().collect::<Vec<_>>());
 
         // Then, create all connections
         for connection_config in &config.connections {
+            debug!(
+                "Creating connection from '{}' to '{}'",
+                connection_config.from, connection_config.to
+            );
             graph.connect(&connection_config.from, &connection_config.to)?;
+            debug!(
+                "Successfully created connection from '{}' to '{}'",
+                connection_config.from, connection_config.to
+            );
         }
 
         // Set output node if specified
         if let Some(ref output_id) = config.output_node {
+            debug!("Setting output node: {}", output_id);
             let _ = graph.set_output_node(output_id);
         }
 
+        debug!("Processing graph created successfully");
         Ok(graph)
     }
 
@@ -839,6 +869,7 @@ impl ProcessingGraph {
                 )))
             }
             "streaming" => {
+                debug!("Creating streaming node: {}", config.id);
                 // Streaming node requires a registry
                 let registry = streaming_registry
                     .as_ref()
@@ -861,10 +892,10 @@ impl ProcessingGraph {
                     config.id.clone()
                 };
 
-                // Generate a UUID for this streaming node
-                let node_uuid = Uuid::new_v4();
-
-                Ok(Box::new(StreamingNode::new(node_uuid, &name, registry)))
+                // Use the configured string ID for the node
+                Ok(Box::new(StreamingNode::new_with_string_id(
+                    &config.id, &name, registry,
+                )))
             }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),
         }

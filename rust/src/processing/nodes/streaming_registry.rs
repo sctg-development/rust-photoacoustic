@@ -13,6 +13,15 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
+/// Information about a streaming node
+#[derive(Debug, Clone)]
+pub struct StreamingNodeMetadata {
+    /// Human-readable name for the node
+    pub name: String,
+    /// The shared audio stream for this node
+    pub stream: SharedAudioStream,
+}
+
 /// Thread-safe registry for managing streaming nodes and their associated audio streams.
 ///
 /// The registry maps node IDs to their corresponding `SharedAudioStream` instances,
@@ -31,7 +40,7 @@ use uuid::Uuid;
 /// let stream = SharedAudioStream::new(1024); // Buffer size parameter required
 ///
 /// // Register a stream for a node
-/// registry.register_stream(node_id, stream.clone());
+/// registry.register_stream_with_name(node_id, "My Stream", stream.clone());
 ///
 /// // Retrieve the stream later
 /// if let Some(retrieved_stream) = registry.get_stream(&node_id) {
@@ -43,8 +52,8 @@ use uuid::Uuid;
 /// ```
 #[derive(Debug, Clone)]
 pub struct StreamingNodeRegistry {
-    /// Internal storage mapping node IDs to their audio streams
-    streams: Arc<RwLock<HashMap<Uuid, SharedAudioStream>>>,
+    /// Internal storage mapping node IDs to their metadata and streams
+    nodes: Arc<RwLock<HashMap<Uuid, StreamingNodeMetadata>>>,
 }
 
 impl StreamingNodeRegistry {
@@ -59,14 +68,49 @@ impl StreamingNodeRegistry {
     /// ```
     pub fn new() -> Self {
         Self {
-            streams: Arc::new(RwLock::new(HashMap::new())),
+            nodes: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    /// Registers a new audio stream for the specified node ID.
+    /// Registers a new audio stream for the specified node ID with a name.
     ///
     /// If a stream was already registered for this node ID, it will be replaced
-    /// with the new stream.
+    /// with the new stream and name.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - Unique identifier for the streaming node
+    /// * `name` - Human-readable name for the node
+    /// * `stream` - The shared audio stream to register
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
+    /// use rust_photoacoustic::acquisition::stream::SharedAudioStream;
+    /// use uuid::Uuid;
+    ///
+    /// let registry = StreamingNodeRegistry::new();
+    /// let node_id = Uuid::new_v4();
+    /// let stream = SharedAudioStream::new(1024); // Buffer size required
+    ///
+    /// registry.register_stream_with_name(node_id, "My Audio Stream", stream);
+    /// ```
+    pub fn register_stream_with_name(&self, node_id: Uuid, name: &str, stream: SharedAudioStream) {
+        let mut nodes = self.nodes.write().unwrap();
+        nodes.insert(
+            node_id,
+            StreamingNodeMetadata {
+                name: name.to_string(),
+                stream,
+            },
+        );
+    }
+
+    /// Registers a new audio stream for the specified node ID (legacy method).
+    ///
+    /// This method is kept for backward compatibility. It registers the stream
+    /// with a default name based on the node ID.
     ///
     /// # Arguments
     ///
@@ -87,8 +131,8 @@ impl StreamingNodeRegistry {
     /// registry.register_stream(node_id, stream);
     /// ```
     pub fn register_stream(&self, node_id: Uuid, stream: SharedAudioStream) {
-        let mut streams = self.streams.write().unwrap();
-        streams.insert(node_id, stream);
+        let default_name = format!("Stream {}", &node_id.to_string()[..8]);
+        self.register_stream_with_name(node_id, &default_name, stream);
     }
 
     /// Retrieves the audio stream associated with the specified node ID.
@@ -122,8 +166,42 @@ impl StreamingNodeRegistry {
     /// }
     /// ```
     pub fn get_stream(&self, node_id: &Uuid) -> Option<SharedAudioStream> {
-        let streams = self.streams.read().unwrap();
-        streams.get(node_id).cloned()
+        let nodes = self.nodes.read().unwrap();
+        nodes.get(node_id).map(|metadata| metadata.stream.clone())
+    }
+
+    /// Retrieves the name associated with the specified node ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - Unique identifier for the streaming node
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(String)` if a node is registered for the ID,
+    /// or `None` if no node is found.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
+    /// use uuid::Uuid;
+    ///
+    /// let registry = StreamingNodeRegistry::new();
+    /// let node_id = Uuid::new_v4();
+    ///
+    /// match registry.get_node_name(&node_id) {
+    ///     Some(name) => {
+    ///         println!("Node {} is named '{}'", node_id, name);
+    ///     },
+    ///     None => {
+    ///         println!("No node registered for ID {}", node_id);
+    ///     }
+    /// }
+    /// ```
+    pub fn get_node_name(&self, node_id: &Uuid) -> Option<String> {
+        let nodes = self.nodes.read().unwrap();
+        nodes.get(node_id).map(|metadata| metadata.name.clone())
     }
 
     /// Removes the audio stream registration for the specified node ID.
@@ -155,8 +233,8 @@ impl StreamingNodeRegistry {
     /// assert!(was_removed);
     /// ```
     pub fn unregister_stream(&self, node_id: &Uuid) -> bool {
-        let mut streams = self.streams.write().unwrap();
-        streams.remove(node_id).is_some()
+        let mut nodes = self.nodes.write().unwrap();
+        nodes.remove(node_id).is_some()
     }
 
     /// Returns the number of currently registered streams.
@@ -170,8 +248,8 @@ impl StreamingNodeRegistry {
     /// assert_eq!(registry.len(), 0);
     /// ```
     pub fn len(&self) -> usize {
-        let streams = self.streams.read().unwrap();
-        streams.len()
+        let nodes = self.nodes.read().unwrap();
+        nodes.len()
     }
 
     /// Returns `true` if no streams are currently registered.
@@ -185,8 +263,8 @@ impl StreamingNodeRegistry {
     /// assert!(registry.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
-        let streams = self.streams.read().unwrap();
-        streams.is_empty()
+        let nodes = self.nodes.read().unwrap();
+        nodes.is_empty()
     }
 
     /// Returns a vector of all currently registered node IDs.
@@ -211,8 +289,8 @@ impl StreamingNodeRegistry {
     /// assert!(nodes.contains(&node_id));
     /// ```
     pub fn list_all_nodes(&self) -> Vec<Uuid> {
-        let streams = self.streams.read().unwrap();
-        streams.keys().cloned().collect()
+        let nodes = self.nodes.read().unwrap();
+        nodes.keys().cloned().collect()
     }
 
     /// Clears all registered streams from the registry.
@@ -229,8 +307,8 @@ impl StreamingNodeRegistry {
     /// assert!(registry.is_empty());
     /// ```
     pub fn clear(&self) {
-        let mut streams = self.streams.write().unwrap();
-        streams.clear();
+        let mut nodes = self.nodes.write().unwrap();
+        nodes.clear();
     }
 }
 

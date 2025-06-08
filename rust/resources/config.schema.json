@@ -26,11 +26,17 @@
           "type": "string"
         },
         "cert": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "PEM TLS certificate file (base64 encoded)"
         },
         "key": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "PEM TLS private key file (base64 encoded)"
         },
         "hmac_secret": {
@@ -38,15 +44,23 @@
           "description": "HMAC secret for JWT token signing"
         },
         "rs256_private_key": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "RS256 private key for JWT token signing (base64 encoded)"
         },
         "rs256_public_key": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "RS256 public key for JWT token verification (base64 encoded)"
         },
         "session_secret": {
-          "type": ["string"],
+          "type": [
+            "string"
+          ],
           "description": "Session secret for cookie signing (base64 encoded) can be generated with openssl rand -base64 32"
         },
         "compression": {
@@ -91,7 +105,10 @@
           "description": "Enable Modbus TCP server"
         }
       },
-      "required": ["port", "address"]
+      "required": [
+        "port",
+        "address"
+      ]
     },
     "acquisition": {
       "type": "object",
@@ -108,17 +125,25 @@
           "description": "Data acquisition interval in milliseconds"
         }
       },
-      "required": ["enabled"]
+      "required": [
+        "enabled"
+      ]
     },
     "photoacoustic": {
       "type": "object",
       "properties": {
         "input_device": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "The input device to use for data acquisition use first to use the first available device (mutually exclusive with input_file)"
         },
         "input_file": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "The input file to use for data acquisition (mutually exclusive with input_device)"
         },
         "frequency": {
@@ -153,16 +178,27 @@
         },
         "precision": {
           "type": "integer",
-          "enum": [8, 16, 24, 32],
+          "enum": [
+            8,
+            16,
+            24,
+            32
+          ],
           "description": "Precision of sampling (bits, allowed: 8, 16, 24, 32)"
         },
         "simulated_source": {
-          "type": ["object", "null"],
+          "type": [
+            "object",
+            "null"
+          ],
           "description": "Configuration for simulated photoacoustic sources (replaces mock_source and mock_correlation)",
           "properties": {
             "source_type": {
               "type": "string",
-              "enum": ["mock", "universal"],
+              "enum": [
+                "mock",
+                "universal"
+              ],
               "default": "mock",
               "description": "Source type: 'mock' for simple MockSource or 'universal' for full physics simulation"
             },
@@ -231,7 +267,10 @@
             },
             "modulation_mode": {
               "type": "string",
-              "enum": ["amplitude", "pulsed"],
+              "enum": [
+                "amplitude",
+                "pulsed"
+              ],
               "default": "amplitude",
               "description": "Laser modulation mode: 'amplitude' (continuous) or 'pulsed' (discrete)"
             },
@@ -257,17 +296,29 @@
           "description": "Use a record consumer for testing purposes"
         },
         "record_file": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "File to record the data to)"
         }
       },
-      "required": ["frequency", "bandwidth", "frame_size", "averages"],
+      "required": [
+        "frequency",
+        "bandwidth",
+        "frame_size",
+        "averages"
+      ],
       "oneOf": [
         {
-          "required": ["input_device"]
+          "required": [
+            "input_device"
+          ]
         },
         {
-          "required": ["input_file"]
+          "required": [
+            "input_file"
+          ]
         }
       ]
     },
@@ -323,7 +374,11 @@
                 "description": "Full name of the user"
               }
             },
-            "required": ["user", "pass", "permissions"]
+            "required": [
+              "user",
+              "pass",
+              "permissions"
+            ]
           },
           "description": "List of users with their credentials and permissions"
         },
@@ -351,12 +406,18 @@
                 "description": "Default scopes granted to this client"
               }
             },
-            "required": ["client_id", "allowed_callbacks"]
+            "required": [
+              "client_id",
+              "allowed_callbacks"
+            ]
           },
           "description": "List of OAuth2 clients with their identifiers and allowed callback URLs"
         }
       },
-      "required": ["users", "clients"]
+      "required": [
+        "users",
+        "clients"
+      ]
     },
     "generix": {
       "type": "object",
@@ -364,7 +425,9 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": ["generix"],
+          "enum": [
+            "generix"
+          ],
           "description": "OAuth provider type. Only 'generix' is supported"
         },
         "api_base_url": {
@@ -466,7 +529,8 @@
                       "channel_selector",
                       "channel_mixer",
                       "photoacoustic_output",
-                      "record"
+                      "record",
+                      "streaming"
                     ],
                     "description": "Type of processing node"
                   },
@@ -483,7 +547,11 @@
                         "properties": {
                           "type": {
                             "type": "string",
-                            "enum": ["bandpass", "lowpass", "highpass"],
+                            "enum": [
+                              "bandpass",
+                              "lowpass",
+                              "highpass"
+                            ],
                             "description": "Filter type"
                           },
                           "center_frequency": {
@@ -505,7 +573,9 @@
                             "description": "Cutoff frequency in Hz (required for lowpass and highpass filters)"
                           }
                         },
-                        "required": ["type"],
+                        "required": [
+                          "type"
+                        ],
                         "allOf": [
                           {
                             "if": {
@@ -516,19 +586,27 @@
                               }
                             },
                             "then": {
-                              "required": ["center_frequency", "bandwidth"]
+                              "required": [
+                                "center_frequency",
+                                "bandwidth"
+                              ]
                             }
                           },
                           {
                             "if": {
                               "properties": {
                                 "type": {
-                                  "enum": ["lowpass", "highpass"]
+                                  "enum": [
+                                    "lowpass",
+                                    "highpass"
+                                  ]
                                 }
                               }
                             },
                             "then": {
-                              "required": ["cutoff_frequency"]
+                              "required": [
+                                "cutoff_frequency"
+                              ]
                             }
                           }
                         ]
@@ -539,7 +617,10 @@
                         "properties": {
                           "target_channel": {
                             "type": "string",
-                            "enum": ["ChannelA", "ChannelB"],
+                            "enum": [
+                              "ChannelA",
+                              "ChannelB"
+                            ],
                             "description": "Target channel for selection"
                           }
                         }
@@ -575,7 +656,10 @@
                     ]
                   }
                 },
-                "required": ["id", "node_type"]
+                "required": [
+                  "id",
+                  "node_type"
+                ]
               }
             },
             "connections": {
@@ -593,11 +677,17 @@
                     "description": "Target node identifier"
                   }
                 },
-                "required": ["from", "to"]
+                "required": [
+                  "from",
+                  "to"
+                ]
               }
             },
             "output_node": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "Output node identifier"
             }
           }
@@ -625,5 +715,7 @@
       }
     }
   },
-  "required": ["visualization"]
+  "required": [
+    "visualization"
+  ]
 }

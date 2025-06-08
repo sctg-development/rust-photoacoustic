@@ -452,7 +452,7 @@ pub async fn list_streaming_nodes(
 
             node_infos.push(StreamingNodeInfo {
                 id: node_id.to_string(),
-                name: None, // Could be enhanced to store node names in registry
+                name: stream_state.registry.get_node_name(&node_id),
                 is_active: subscriber_count > 0,
                 subscriber_count,
             });

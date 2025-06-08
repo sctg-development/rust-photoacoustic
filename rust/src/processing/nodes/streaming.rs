@@ -84,12 +84,53 @@ impl StreamingNode {
     pub fn new(id: Uuid, name: &str, registry: StreamingNodeRegistry) -> Self {
         let stream = SharedAudioStream::new(1024); // Default buffer size
 
-        // Register the stream with the registry
-        registry.register_stream(id, stream.clone());
+        // Register the stream with the registry using the name
+        registry.register_stream_with_name(id, name, stream.clone());
 
         Self {
             id_str: id.to_string(),
             id_uuid: id,
+            name: name.to_string(),
+            stream,
+            registry,
+        }
+    }
+
+    /// Creates a new streaming node with the specified string ID and name.
+    ///
+    /// This variant is designed for use with processing graphs where node IDs
+    /// are defined as strings in configuration files. It generates a UUID
+    /// internally for registry operations while using the string ID for
+    /// graph connectivity.
+    ///
+    /// # Arguments
+    ///
+    /// * `id_str` - String identifier for this node (used in graph connections)
+    /// * `name` - Human-readable name for the node
+    /// * `registry` - Registry to manage the stream lifecycle
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
+    ///
+    /// let registry = StreamingNodeRegistry::new();
+    /// let node = StreamingNode::new_with_string_id(
+    ///     "streaming_input",
+    ///     "Real-time Audio Stream",
+    ///     registry
+    /// );
+    /// ```
+    pub fn new_with_string_id(id_str: &str, name: &str, registry: StreamingNodeRegistry) -> Self {
+        let stream = SharedAudioStream::new(1024); // Default buffer size
+        let id_uuid = Uuid::new_v4(); // Generate UUID for registry operations
+
+        // Register the stream with the registry using the UUID and name
+        registry.register_stream_with_name(id_uuid, name, stream.clone());
+
+        Self {
+            id_str: id_str.to_string(),
+            id_uuid,
             name: name.to_string(),
             stream,
             registry,
