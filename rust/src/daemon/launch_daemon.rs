@@ -849,18 +849,9 @@ impl Daemon {
         });
 
         // Store a placeholder for the processing consumer daemon (already moved to task)
-        // We create a new instance for tracking purposes
-        let processing_graph_placeholder = ProcessingGraph::from_config_with_registry(
-            &config.processing.default_graph,
-            Some((*self.streaming_registry).clone()),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create placeholder processing graph: {}", e))?;
-
-        self.processing_consumer_daemon = Some(ProcessingConsumer::new_with_visualization_state(
-            audio_stream.clone(),
-            processing_graph_placeholder,
-            Arc::clone(&self.visualization_state),
-        ));
+        // Note: We don't create a second processing graph to avoid duplicating streaming nodes
+        // in the registry. The actual processing graph is already created and running in the task.
+        self.processing_consumer_daemon = None;
 
         // Register the task for lifecycle management and graceful shutdown
         self.tasks.push(task);
