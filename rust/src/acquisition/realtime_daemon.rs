@@ -123,10 +123,15 @@ impl RealTimeAcquisitionDaemon {
             let frames_processed = stats.total_frames - last_frame_count;
             last_frame_count = stats.total_frames;
 
-            debug!(
-                "RealTimeAcquisitionDaemon Stats - Processed {} frames, {} subscribers, {:.1} FPS",
-                stats.total_frames, stats.active_subscribers, stats.fps
-            );
+            static mut STATISTICS_TASK_COUNT: u64 = 0;
+            unsafe {
+                STATISTICS_TASK_COUNT += 1;
+                if STATISTICS_TASK_COUNT % 10 == 0 {
+                    debug!(
+                        "RealTimeAcquisitionDaemon Stats - Processed {} frames, {} subscribers, {:.1} FPS",
+                        stats.total_frames, stats.active_subscribers, stats.fps);
+                }
+            }
 
             if frames_processed == 0 && running.load(Ordering::Relaxed) {
                 warn!("No frames processed in the last 5 seconds - audio source may have stopped");

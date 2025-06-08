@@ -252,12 +252,17 @@ impl ProcessingConsumer {
                                 let processing_time = start_time.elapsed().as_micros() as u64;
                                 self.update_stats(processing_time, &result).await;
 
-                                debug!(
-                                    "ProcessingConsumer '{}': Processed frame {} in {}μs",
-                                    self.consumer_id,
-                                    result.frame_info.frame_number,
-                                    processing_time
-                                );
+                                // Log processing time each 100 frames
+                                if self.frames_processed.load(Ordering::Relaxed) % 100 == 0 {
+                                    let stats = self.get_stats().await;
+                                    debug!(
+                                        "ProcessingConsumer '{}': Processed {} frames, last processing time: {}μs, FPS: {:.2}",
+                                        self.consumer_id,
+                                        stats.total_frames_processed,
+                                        stats.last_processing_time_us,
+                                        stats.fps
+                                    );
+                                }
                             }
                             Ok(None) => {
                                 // No result produced (e.g., graph produced no outputs)

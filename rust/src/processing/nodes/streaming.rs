@@ -14,6 +14,7 @@ use super::streaming_registry::StreamingNodeRegistry;
 use super::traits::ProcessingNode;
 use crate::acquisition::stream::{AudioFrame, SharedAudioStream};
 use anyhow::Result;
+use log::debug;
 use uuid::Uuid;
 
 /// A processing node that creates real-time audio streams for HTTP consumption.
@@ -126,6 +127,10 @@ impl StreamingNode {
         let id_uuid = Uuid::new_v4(); // Generate UUID for registry operations
 
         // Register the stream with the registry using the UUID and name
+        debug!(
+            "Registering streaming node '{}' with ID '{}'",
+            name, id_uuid
+        );
         registry.register_stream_with_name(id_uuid, name, stream.clone());
 
         Self {
