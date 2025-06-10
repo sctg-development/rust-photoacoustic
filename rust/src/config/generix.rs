@@ -34,11 +34,11 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request, State,
 };
-use serde::{Deserialize, Serialize};
 use rocket_okapi::{
     gen::OpenApiGenerator,
     request::{OpenApiFromRequest, RequestHeaderInput},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::visualization::auth::OxideState;
 
@@ -123,4 +123,3 @@ impl<'r> OpenApiFromRequest<'r> for GenerixConfig {
         Ok(RequestHeaderInput::None)
     }
 }
-

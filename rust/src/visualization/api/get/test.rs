@@ -1,7 +1,7 @@
-use std::path::PathBuf;
+use auth_macros::protect_get;
 use rocket_okapi::openapi;
 use rocket_okapi::JsonSchema;
-use auth_macros::protect_get;
+use std::path::PathBuf;
 
 use rocket::serde::json::Json;
 use rocket::serde::Serialize;
