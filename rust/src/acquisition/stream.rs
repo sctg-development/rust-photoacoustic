@@ -75,7 +75,7 @@ pub struct SharedAudioStream {
 }
 
 /// Statistics about the audio stream
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, rocket_okapi::JsonSchema)]
 pub struct StreamStats {
     /// Total number of frames processed
     pub total_frames: u64,

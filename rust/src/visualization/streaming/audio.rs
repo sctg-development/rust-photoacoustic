@@ -150,7 +150,7 @@ pub struct SpectralDataResponse {
 ///
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
-#[protect_get("/stream/stats", "read_api")]
+#[protect_get("/api/stream/stats", "read_api")]
 pub async fn get_stream_stats(
     _user: AuthenticatedUser,
     stream_state: &State<AudioStreamState>,
@@ -163,7 +163,7 @@ pub async fn get_stream_stats(
 ///
 /// Returns the most recent audio frame without subscribing to the stream.
 /// Useful for getting current state or testing connectivity.
-#[protect_get("/stream/latest", "read_api")]
+#[protect_get("/api/stream/latest", "read_api")]
 pub async fn get_latest_frame(
     stream_state: &State<AudioStreamState>,
 ) -> Option<Json<AudioFrameResponse>> {
@@ -190,7 +190,7 @@ pub async fn get_latest_frame(
 ///
 /// ```
 #[deprecated(note = "Use /stream/audio/fast for more efficient binary streaming")]
-#[protect_get("/stream/audio", "read:api")]
+#[protect_get("/api/stream/audio", "read:api")]
 pub fn stream_audio(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
     let stream = stream_state.stream.clone();
 
@@ -221,7 +221,7 @@ pub fn stream_audio(stream_state: &State<AudioStreamState>) -> EventStream![Even
 ///
 /// Similar to stream_audio but uses base64-encoded binary data for reduced bandwidth.
 /// This can reduce data size by approximately 1.9x compared to JSON arrays.
-#[protect_get("/stream/audio/fast", "read:api")]
+#[protect_get("/api/stream/audio/fast", "read:api")]
 pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
     let stream = stream_state.stream.clone();
 
@@ -298,9 +298,9 @@ pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream!
 /// - [`/stream/audio/fast/<node_id>`]: Fast binary streaming for a specific node
 /// - [`/stream/nodes`]: List all available streaming nodes and their UUIDs
 #[deprecated(
-    note = "Use /stream/audio/fast/<node_id> for more efficient binary streaming with node routing"
+    note = "Use /api/stream/audio/fast/<node_id> for more efficient binary streaming with node routing"
 )]
-#[protect_get("/stream/audio/<node_id>", "read:api")]
+#[protect_get("/api/stream/audio/<node_id>", "read:api")]
 pub fn stream_audio_with_node_id(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
@@ -361,7 +361,7 @@ pub fn stream_audio_with_node_id(
 ///
 /// # Authentication
 /// Requires a valid JWT token with `read:api` permission.
-#[protect_get("/stream/audio/fast/<node_id>", "read:api")]
+#[protect_get("/api/stream/audio/fast/<node_id>", "read:api")]
 pub fn stream_audio_fast_with_node_id(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
@@ -423,7 +423,7 @@ pub fn stream_audio_fast_with_node_id(
 /// data: {"frequencies": [...], "magnitude_a": [...], "magnitude_b": [...], ...}
 ///
 /// ```
-#[protect_get("/stream/spectral", "read:api")]
+#[protect_get("/api/stream/spectral", "read:api")]
 pub fn stream_spectral_analysis(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
     let stream = stream_state.stream.clone();
 
@@ -534,7 +534,7 @@ pub struct StreamingNodeInfo {
 ///   }
 /// ]
 /// ```
-#[protect_get("/stream/nodes", "read:api")]
+#[protect_get("/api/stream/nodes", "read:api")]
 pub async fn list_streaming_nodes(
     _user: AuthenticatedUser,
     stream_state: &State<AudioStreamState>,
@@ -570,7 +570,7 @@ pub async fn list_streaming_nodes(
 ///
 /// # Authentication
 /// Requires a valid JWT token with `read:api` permission.
-#[protect_get("/stream/nodes/<node_id>/stats", "read:api")]
+#[protect_get("/api/stream/nodes/<node_id>/stats", "read:api")]
 pub async fn get_node_stats(
     node_id: &str,
     _user: AuthenticatedUser,

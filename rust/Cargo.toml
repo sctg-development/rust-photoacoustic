@@ -23,10 +23,7 @@ clap = { version = "4.5.39", features = ["derive"] }
 # Web interface
 rocket = { version = "0.5.1", features = ["json", "tls", "secrets"] }
 rocket_cors = "0.6.0"
-rocket_okapi = { version = "0.9.0", features = [
-    "rapidoc",
-    "swagger",
-] } # Automatic OpenAPI generation at build time 
+
 jsonwebtoken = "9.3.1" # For JWT auth
 
 # Error handling and utilities
@@ -46,6 +43,10 @@ rand = "0.9.1"
 reqwest = "0.12.19"
 oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
+rocket_okapi = { git = "https://github.com/sctg-development/okapi", features = [
+    "rapidoc",
+    "swagger",
+] } # Automatic OpenAPI generation at build time 
 serde_urlencoded = "0.7.1"
 url = "2.5.4"                                                                           # URL parsing
 rcgen = "0.13.2"                                                                        # Certificate generation
@@ -61,6 +62,7 @@ auth-macros = { path = "auth-macros" }
 rocket_async_compression = "0.6.1"
 async-trait = "0.1.88"
 uuid = { version = "1.17.0", features = ["v4"] }
+schemars = "0.8"
 
 [dev-dependencies]
 criterion = "0.6.0"                                   # Benchmarking
@@ -88,3 +90,8 @@ rsa = "0.9.8"
 [patch."https://github.com/197g/oxide-auth"]
 oxide-auth-rocket = { path = "./oxide-auth-patched/oxide-auth-rocket" }
 oxide-auth = { path = "./oxide-auth-patched/oxide-auth" }
+
+[patch."https://github.com/sctg-development/okapi"]
+okapi = { path = "./okapi-patched/okapi"}
+rocket_okapi = { path = "./okapi-patched/rocket-okapi"}
+rocket_okapi_codegen = { path = "./okapi-patched/rocket-okapi-codegen"}

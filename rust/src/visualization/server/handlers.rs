@@ -177,7 +177,7 @@ pub async fn favicon() -> Option<StaticFileResponse> {
 /// Serve the helper.min.js file for rapidoc
 /// It is comming from SCTG Development SCTGDesk server
 /// see https://github.com/sctg-development/sctgdesk-api-server/tree/main/rapidoc
-#[get("/helper.min.js")]
+#[get("/api/doc/helper.min.js")]
 pub async fn helper_min_js() -> Option<StaticFileResponse> {
     let file_content = include_str!("../../../resources/rapidoc_helper/dist/helper.min.js");
     let content_type = ContentType::JavaScript;

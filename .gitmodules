@@ -1,3 +1,6 @@
 [submodule "oxide-auth-patched"]
 	path = rust/oxide-auth-patched
 	url = https://github.com/HeroicKatora/oxide-auth.git
+[submodule "rust/okapi-patched"]
+	path = rust/okapi-patched
+	url = git@github.com:sctg-development/okapi.git

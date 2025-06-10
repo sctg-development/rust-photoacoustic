@@ -1,16 +1,18 @@
 use std::path::PathBuf;
-
+use rocket_okapi::openapi;
+use rocket_okapi::JsonSchema;
 use auth_macros::protect_get;
 
 use rocket::serde::json::Json;
 use rocket::serde::Serialize;
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 struct TestResponse {
     description: String,
     token: String,
     user: String,
 }
-#[protect_get("/test/<path..>", "read:api")]
+#[openapi(tag = "Test API")]
+#[protect_get("/api/test/<path..>", "read:api")]
 pub async fn test_api(path: PathBuf) -> Json<TestResponse> {
     let token = bearer.token;
     Json(TestResponse {

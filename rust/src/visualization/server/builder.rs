@@ -196,17 +196,13 @@ pub async fn build_rocket(
                 openid_configuration,
                 jwks,
                 get_generix_config,
-            ],
-        )
-        .mount("/", vite_dev_proxy::get_vite_dev_routes())
-        .mount(
-            "/api",
-            routes![
+                helper_min_js,
                 crate::visualization::api_auth::get_profile,
                 crate::visualization::api_auth::get_data,
                 crate::visualization::api::test_api,
             ],
         )
+        .mount("/", vite_dev_proxy::get_vite_dev_routes())
         .manage(oxide_state)
         .manage(jwt_validator);
 
@@ -228,7 +224,7 @@ pub async fn build_rocket(
         let audio_state = AudioStreamState { stream, registry };
         rocket_builder
             .mount(
-                "/api",
+                "/",
                 crate::visualization::streaming::get_audio_streaming_routes(),
             )
             .manage(audio_state)

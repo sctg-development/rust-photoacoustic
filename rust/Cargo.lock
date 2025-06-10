@@ -2648,8 +2648,6 @@ dependencies = [
 [[package]]
 name = "okapi"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64853d7ab065474e87696f7601cee817d200e86c42e04004e005cb3e20c3c5"
 dependencies = [
  "log",
  "schemars",
@@ -3543,8 +3541,6 @@ dependencies = [
 [[package]]
 name = "rocket_okapi"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "074297bec35db2fc7ebb6ade6a955b5566de66f83d9af5b5602a350a71bdef43"
 dependencies = [
  "log",
  "okapi",
@@ -3558,8 +3554,6 @@ dependencies = [
 [[package]]
 name = "rocket_okapi_codegen"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de9519ac276544ae734c067b57745cc1a0dc9506f3a7625918e89babffd9b101"
 dependencies = [
  "darling 0.13.4",
  "proc-macro2",
@@ -3640,6 +3634,7 @@ dependencies = [
  "rocket_okapi",
  "rsa",
  "rustfft",
+ "schemars",
  "serde",
  "serde_json",
  "serde_urlencoded",

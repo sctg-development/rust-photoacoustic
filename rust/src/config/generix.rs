@@ -35,6 +35,10 @@ use rocket::{
     Request, State,
 };
 use serde::{Deserialize, Serialize};
+use rocket_okapi::{
+    gen::OpenApiGenerator,
+    request::{OpenApiFromRequest, RequestHeaderInput},
+};
 
 use crate::visualization::auth::OxideState;
 
@@ -42,7 +46,7 @@ use crate::visualization::auth::OxideState;
 ///
 /// This struct contains all parameters required to interact with the provider for authentication and token validation.
 /// It is typically loaded from a YAML file and injected into Rocket state for use throughout the application.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, rocket_okapi::JsonSchema)]
 pub struct GenerixConfig {
     /// Name of the OAuth2 provider (e.g., "generix").
     pub provider: String,
@@ -105,3 +109,18 @@ impl<'r> FromRequest<'r> for GenerixConfig {
         }
     }
 }
+
+/// OpenAPI implementation for [`GenerixConfig`] request guard.
+///
+/// Since [`GenerixConfig`] is extracted from Rocket's managed state and doesn't require
+/// any special headers or parameters, this implementation returns `RequestHeaderInput::None`.
+impl<'r> OpenApiFromRequest<'r> for GenerixConfig {
+    fn from_request_input(
+        _gen: &mut OpenApiGenerator,
+        _name: String,
+        _required: bool,
+    ) -> rocket_okapi::Result<RequestHeaderInput> {
+        Ok(RequestHeaderInput::None)
+    }
+}
+

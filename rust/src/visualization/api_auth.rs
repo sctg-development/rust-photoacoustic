@@ -295,7 +295,7 @@ pub struct UserProfile {
 /// # Returns
 ///
 /// Returns a JSON object containing the user's profile information.
-#[get("/profile", rank = 1)]
+#[get("/api/profile", rank = 1)]
 pub fn get_profile(user: AuthenticatedUser) -> Json<UserProfile> {
     Json(UserProfile {
         user_id: user.user_id,
