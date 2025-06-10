@@ -245,40 +245,59 @@ processing:
     - id: input
       node_type: input
       parameters: null
-    # Example: Channel selector to isolate channel A
-    - id: channel_selector
-      node_type: channel_selector
+    # Record original audio
+    - id: "original_recorder"
+      node_type: "record"
       parameters:
-        target_channel: ChannelA
-    # Example: Highpass filter to remove low-frequency noise
-    - id: highpass_filter
-      node_type: filter
-      parameters:
-        type: highpass
-        cutoff_frequency: 100.0  # Remove frequencies below 100 Hz
-    # Example: Bandpass filter for signal of interest
+        record_file: "./recordings/original.wav"
+        max_size: 1024
+        auto_delete: false
+        total_limit: 5120  # Maximum 5MB total for all recordings
+    
+    # Apply differential processing
+    - id: "differential_detection"
+      node_type: "differential"
+      parameters: null
+
+    - id: "streaming_post_differential"
+      node_type: "streaming"
+      parameters: null
+    
     - id: bandpass_filter
       node_type: filter
       parameters:
         type: bandpass
         center_frequency: 2000.0  # Center at 2 kHz
         bandwidth: 200.0          # 200 Hz bandwidth (1900-2100 Hz passband)
-    # Example: Lowpass filter to remove high-frequency noise
-    - id: lowpass_filter
-      node_type: filter
+
+    - id: "streaming_bandpass_filter"
+      node_type: "streaming"
+      parameters: null
+
+    # Record processed audio
+    - id: "processed_recorder"
+      node_type: "record"
       parameters:
-        type: lowpass
-        cutoff_frequency: 5000.0  # Remove frequencies above 5 kHz
+        record_file: "./recordings/processed.wav"
+        max_size: 1024
+        auto_delete: false
+        total_limit: 10240  # Maximum 10MB total for all recordings
+
+    # Graph connections
     connections:
     - from: input
-      to: channel_selector
-    - from: channel_selector
-      to: highpass_filter
-    - from: highpass_filter
+      to: original_recorder
+    - from: original_recorder
+      to: differential_detection
+    - from: differential_detection
+      to: streaming_post_differential
+    - from: streaming_post_differential
       to: bandpass_filter
     - from: bandpass_filter
-      to: lowpass_filter
-    output_node: lowpass_filter
+      to: streaming_bandpass_filter
+    - from: streaming_bandpass_filter
+      to: processed_recorder
+      
   performance:
     max_processing_time_us: 10000
     enable_stats: true

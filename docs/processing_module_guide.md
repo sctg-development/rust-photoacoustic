@@ -282,6 +282,40 @@ pub enum MixStrategy {
 
 ### Output Nodes
 
+#### StreamingNode (Real-Time Streaming Output)
+**Purpose**: Provides real-time audio streams for HTTP consumption and web visualization. Each StreamingNode registers its own `SharedAudioStream` in a central `StreamingNodeRegistry`, enabling dynamic routing and multi-client access.
+
+```rust,ignore
+use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
+use uuid::Uuid;
+
+let registry = StreamingNodeRegistry::new();
+let node_id = Uuid::new_v4();
+let streaming_node = StreamingNode::new(
+    node_id,
+    "Live Audio Stream",
+    registry.clone(),
+);
+
+// The node automatically registers its stream with the registry
+assert!(registry.get_stream(&node_id).is_some());
+```
+
+**Behavior**:
+- Acts as a pass-through node in the processing graph, forwarding data unchanged.
+- Converts input data (AudioFrame, DualChannel, SingleChannel) to `AudioFrame` for streaming.
+- Registers its stream in the `StreamingNodeRegistry` for discovery and HTTP access.
+- Stream is automatically unregistered when the node is dropped.
+
+**Input/Output**:
+- **Input**: `AudioFrame`, `DualChannel`, or `SingleChannel` (but not `PhotoacousticResult`)
+- **Output**: Pass-through (same as input)
+- **Stream**: Publishes real-time audio frames to a shared stream for HTTP endpoints
+
+**Integration**:
+- Use the registry to discover available streaming nodes and their UUIDs.
+- Streams can be consumed via the `/stream/audio/fast/<node_id>` endpoint for efficient binary streaming.
+
 #### PhotoacousticOutputNode
 **Purpose**: Final analysis node that produces photoacoustic analysis results.
 
@@ -298,6 +332,37 @@ let output_node = PhotoacousticOutputNode::new("output".to_string())
 **Input/Output**:
 - **Input**: `SingleChannel` or `DualChannel`
 - **Output**: `PhotoacousticResult` with comprehensive analysis
+
+---
+
+## Real-Time Streaming API Endpoints
+
+### Dynamic Node Streaming: `/stream/audio/fast/<node_id>`
+
+This endpoint allows clients to subscribe to the real-time audio stream of a specific `StreamingNode` by its UUID. It uses a fast, base64-encoded binary format for efficient transfer.
+
+**Route Pattern:**
+```
+/stream/audio/fast/<node_id>
+```
+Where `<node_id>` is the UUID of a registered `StreamingNode`.
+
+**Example:**
+```
+GET /api/stream/audio/fast/123e4567-e89b-12d3-a456-426614174000
+```
+
+**Behavior:**
+- Returns a Server-Sent Events (SSE) stream of audio frames from the specified node.
+- If the node does not exist, returns an error event.
+- Uses the same fast binary format as `/stream/audio/fast` (see [audio-stream-reconstruction-guide.md](audio-stream-reconstruction-guide.md)).
+
+**Use Case:**
+- Enables clients to select and subscribe to any active stream in the processing graph, supporting multi-stream and multi-client scenarios.
+
+**Node Discovery:**
+- Use the `/stream/nodes` endpoint to list all available streaming nodes and their UUIDs/names.
+- Use `/stream/nodes/<node_id>/stats` for per-node statistics.
 
 ---
 

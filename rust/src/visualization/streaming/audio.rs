@@ -189,6 +189,7 @@ pub async fn get_latest_frame(
 /// data: {"channel_a": [...], "channel_b": [...], ...}
 ///
 /// ```
+#[deprecated(note = "Use /stream/audio/fast for more efficient binary streaming")]
 #[protect_get("/stream/audio", "read:api")]
 pub fn stream_audio(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
     let stream = stream_state.stream.clone();
@@ -235,6 +236,107 @@ pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream!
                 },
                 Ok(None) => {
                     log::info!("Audio stream closed");
+                    break;
+                },
+                Err(_) => {
+                    yield Event::data(r#"{"type":"heartbeat"}"#);
+                }
+            }
+        }
+    }
+}
+
+/// Stream audio frames via Server-Sent Events for a specific streaming node (JSON format)
+///
+/// **DEPRECATED:** Use [`/stream/audio/fast/<node_id>`] for more efficient binary streaming with node routing.
+///
+/// This endpoint streams real-time audio frames from a specific `StreamingNode` identified by its UUID.
+/// Each event contains a JSON-encoded audio frame with both channels of data. The endpoint is primarily
+/// intended for backward compatibility and debugging, as the fast binary endpoint is recommended for production use.
+///
+/// # Route Pattern
+/// `/stream/audio/<node_id>` where `node_id` is a UUID string
+///
+/// # Parameters
+/// - `node_id`: The UUID of the streaming node to subscribe to (as a path parameter)
+/// - `stream_state`: Rocket-managed state containing the streaming registry
+///
+/// # Authentication
+/// Requires a valid JWT token with `read:api` permission.
+///
+/// # Response Format
+/// Streams Server-Sent Events (SSE) with JSON-encoded audio frames:
+///
+/// ```json
+/// data:{"channel_a": [...], "channel_b": [...], "sample_rate": 44100, ...}
+/// ```
+///
+/// If the node ID is invalid or not found, an error event is sent:
+///
+/// ```json
+/// data:{"type": "error", "message": "Invalid node ID format"}
+/// data:{"type": "error", "message": "No streaming node found"}
+/// ```
+///
+/// Heartbeat events are sent every 5 seconds if no frame is available:
+///
+/// ```json
+/// data:{"type": "heartbeat"}
+/// ```
+///
+/// # Deprecation
+/// This endpoint is deprecated in favor of [`/stream/audio/fast/<node_id>`], which uses a more efficient
+/// binary format for audio data. New clients should use the fast endpoint for lower bandwidth and better performance.
+///
+/// # Example
+///
+/// ```text
+/// GET /api/stream/audio/123e4567-e89b-12d3-a456-426614174000
+/// ```
+///
+/// # See Also
+/// - [`/stream/audio/fast/<node_id>`]: Fast binary streaming for a specific node
+/// - [`/stream/nodes`]: List all available streaming nodes and their UUIDs
+#[deprecated(
+    note = "Use /stream/audio/fast/<node_id> for more efficient binary streaming with node routing"
+)]
+#[protect_get("/stream/audio/<node_id>", "read:api")]
+pub fn stream_audio_with_node_id(
+    node_id: &str,
+    stream_state: &State<AudioStreamState>,
+) -> EventStream![Event] {
+    let node_id_owned = node_id.to_string(); // Convert to owned string to avoid lifetime issues
+    let registry = stream_state.registry.clone();
+
+    EventStream! {
+        // Parse the node ID string into a UUID
+        let node_uuid = match Uuid::parse_str(&node_id_owned) {
+            Ok(uuid) => uuid,
+            Err(_) => {
+                yield Event::data(r#"{"type":"error","message":"Invalid node ID format"}"#);
+                return;
+            }
+        };
+
+        // Get the stream from the registry
+        let stream = match registry.get_stream(&node_uuid) {
+            Some(stream) => stream,
+            None => {
+                yield Event::data(r#"{"type":"error","message":"No streaming node found"}"#);
+                return;
+            }
+        };
+
+        let mut consumer = AudioStreamConsumer::new(&stream);
+
+        loop {
+            match timeout(Duration::from_secs(5), consumer.next_frame()).await {
+                Ok(Some(frame)) => {
+                    let response = AudioFrameResponse::from(frame);
+                    yield Event::json(&response);
+                },
+                Ok(None) => {
+                    log::info!("Audio stream closed for node: {}", node_id_owned);
                     break;
                 },
                 Err(_) => {
@@ -498,6 +600,7 @@ pub fn get_audio_streaming_routes() -> Vec<rocket::Route> {
         get_latest_frame,
         stream_audio,
         stream_audio_fast,
+        stream_audio_with_node_id,
         stream_audio_fast_with_node_id,
         stream_spectral_analysis,
         list_streaming_nodes,
