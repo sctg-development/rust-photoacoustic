@@ -10,10 +10,10 @@
 
 use crate::acquisition::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
-use crate::visualization::api_auth::AuthenticatedUser;
 use auth_macros::protect_get;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use rocket::futures::stream::Stream;
 use rocket::serde::json::Json;
 use rocket::{
     response::stream::{Event, EventStream},
@@ -190,8 +190,11 @@ pub async fn get_latest_frame(
 ///
 /// ```
 #[deprecated(note = "Use /stream/audio/fast for more efficient binary streaming")]
+#[openapi]
 #[protect_get("/api/stream/audio", "read:api")]
-pub fn stream_audio(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
+pub fn stream_audio(
+    stream_state: &State<AudioStreamState>,
+) -> EventStream<impl Stream<Item = Event>> {
     let stream = stream_state.stream.clone();
 
     EventStream! {
@@ -221,8 +224,11 @@ pub fn stream_audio(stream_state: &State<AudioStreamState>) -> EventStream![Even
 ///
 /// Similar to stream_audio but uses base64-encoded binary data for reduced bandwidth.
 /// This can reduce data size by approximately 1.9x compared to JSON arrays.
+#[openapi]
 #[protect_get("/api/stream/audio/fast", "read:api")]
-pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
+pub fn stream_audio_fast(
+    stream_state: &State<AudioStreamState>,
+) -> EventStream<impl Stream<Item = Event>> {
     let stream = stream_state.stream.clone();
 
     EventStream! {
@@ -300,11 +306,12 @@ pub fn stream_audio_fast(stream_state: &State<AudioStreamState>) -> EventStream!
 #[deprecated(
     note = "Use /api/stream/audio/fast/<node_id> for more efficient binary streaming with node routing"
 )]
+#[openapi]
 #[protect_get("/api/stream/audio/<node_id>", "read:api")]
 pub fn stream_audio_with_node_id(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
-) -> EventStream![Event] {
+) -> EventStream<impl Stream<Item = Event>> {
     let node_id_owned = node_id.to_string(); // Convert to owned string to avoid lifetime issues
     let registry = stream_state.registry.clone();
 
@@ -361,11 +368,12 @@ pub fn stream_audio_with_node_id(
 ///
 /// # Authentication
 /// Requires a valid JWT token with `read:api` permission.
+#[openapi]
 #[protect_get("/api/stream/audio/fast/<node_id>", "read:api")]
 pub fn stream_audio_fast_with_node_id(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
-) -> EventStream![Event] {
+) -> EventStream<impl Stream<Item = Event>> {
     let node_id_owned = node_id.to_string(); // Convert to owned string to avoid lifetime issues
     let registry = stream_state.registry.clone();
 
@@ -423,8 +431,11 @@ pub fn stream_audio_fast_with_node_id(
 /// data: {"frequencies": [...], "magnitude_a": [...], "magnitude_b": [...], ...}
 ///
 /// ```
+#[openapi]
 #[protect_get("/api/stream/spectral", "read:api")]
-pub fn stream_spectral_analysis(stream_state: &State<AudioStreamState>) -> EventStream![Event] {
+pub fn stream_spectral_analysis(
+    stream_state: &State<AudioStreamState>,
+) -> EventStream<impl Stream<Item = Event>> {
     let stream = stream_state.stream.clone();
 
     EventStream! {
