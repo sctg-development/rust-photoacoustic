@@ -32,6 +32,12 @@ use base64::Engine;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::State;
+use rocket_okapi::okapi;
+use rocket_okapi::okapi::openapi3::{SecurityRequirement, SecurityScheme, SecuritySchemeData};
+use rocket_okapi::{
+    gen::OpenApiGenerator,
+    request::{OpenApiFromRequest, RequestHeaderInput},
+};
 
 use crate::visualization::server::get_config_from_request;
 
@@ -198,5 +204,92 @@ impl OAuthBearer {
             .as_ref()
             .map(|permissions| permissions.contains(&permission.to_string()))
             .unwrap_or(false)
+    }
+}
+
+impl<'r> OpenApiFromRequest<'r> for OAuthBearer {
+    fn from_request_input(
+        _gen: &mut OpenApiGenerator,
+        _name: String,
+        _required: bool,
+    ) -> rocket_okapi::Result<RequestHeaderInput> {
+        // Setup global requirement for Security scheme
+        let security_scheme = SecurityScheme {
+            description: Some(
+                "Requires a valid JWT Bearer token for authentication. \
+                The token must be provided in the Authorization header as 'Bearer <token>'. \
+                Supports both HMAC (HS256) and RSA (RS256) signed tokens."
+                    .to_owned(),
+            ),
+            // Setup data requirements for Bearer JWT
+            data: SecuritySchemeData::Http {
+                scheme: "bearer".to_owned(),
+                bearer_format: Some("JWT".to_owned()),
+            },
+            // Add example data for RapiDoc/Swagger UI
+            extensions: okapi::map! {
+                "x-bearer-format".to_owned() => rocket::serde::json::json!("JWT"),
+                "x-description".to_owned() => rocket::serde::json::json!(
+                    "JWT tokens are issued by the /token endpoint after successful authentication"
+                ),
+            },
+        };
+
+        // Add the requirement for this route/endpoint
+        // This specifies what scopes/permissions are needed
+        let mut security_req = SecurityRequirement::new();
+        // The security requirement name must match the scheme name
+        security_req.insert("BearerAuth".to_owned(), vec![]);
+
+        Ok(RequestHeaderInput::Security(
+            "BearerAuth".to_owned(),
+            security_scheme,
+            security_req,
+        ))
+    }
+
+    fn get_responses(
+        _gen: &mut OpenApiGenerator,
+    ) -> rocket_okapi::Result<okapi::openapi3::Responses> {
+        use okapi::openapi3::*;
+
+        let mut responses = Responses::default();
+
+        // Add 401 Unauthorized response
+        responses.responses.insert(
+            "401".to_owned(),
+            RefOr::Object(Response {
+                description: "Unauthorized - Invalid or missing Bearer token".to_owned(),
+                content: okapi::map! {
+                    "application/json".to_owned() => MediaType {
+                        example: Some(rocket::serde::json::json!({
+                            "error": "Invalid or missing Bearer token"
+                        })),
+                        ..Default::default()
+                    }
+                },
+                ..Default::default()
+            }),
+        );
+
+        // Add 500 Internal Server Error response
+        responses.responses.insert(
+            "500".to_owned(),
+            RefOr::Object(Response {
+                description: "Internal Server Error - Authentication service unavailable"
+                    .to_owned(),
+                content: okapi::map! {
+                    "application/json".to_owned() => MediaType {
+                        example: Some(rocket::serde::json::json!({
+                            "error": "Authentication service unavailable"
+                        })),
+                        ..Default::default()
+                    }
+                },
+                ..Default::default()
+            }),
+        );
+
+        Ok(responses)
     }
 }

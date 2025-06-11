@@ -19,6 +19,7 @@ use base64::Engine;
 use log::debug;
 use rocket::serde::json::{json, Json, Value};
 use rocket::{get, State};
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::auth::OxideState;
@@ -30,7 +31,7 @@ use crate::visualization::auth::jwt::JwkKeySet;
 /// This structure represents the OpenID Connect discovery document
 /// returned by the `.well-known/openid-configuration` endpoint.
 /// It follows the OpenID Connect Discovery 1.0 specification.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct OpenIdConfiguration {
     /// URL using the https scheme with no query or fragment component that the OP asserts as its Issuer Identifier
     pub issuer: String,

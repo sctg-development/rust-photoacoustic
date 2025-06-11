@@ -31,6 +31,7 @@ use rocket::figment::Figment;
 use rocket::routes;
 use rocket::{Build, Rocket};
 use rocket_async_compression::Compression;
+use rocket_okapi::openapi_get_routes_spec;
 use rocket_okapi::{openapi_get_routes, rapidoc::*, settings::UrlObject};
 use std::sync::Arc;
 
@@ -178,11 +179,10 @@ pub async fn build_rocket(
         rocket_builder
     };
 
+    let (openapi_routes_base, openapi_spec_base) =
+        openapi_get_routes_spec![webclient_index, webclient_index_html, options, test_api,];
     let rocket_builder = rocket_builder
-        .mount(
-            "/",
-            openapi_get_routes![webclient_index, webclient_index_html, options, test_api,],
-        )
+        .mount("/", openapi_routes_base)
         .mount(
             "/",
             routes![

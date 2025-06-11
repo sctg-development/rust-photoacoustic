@@ -19,6 +19,7 @@ use rocket::{
     response::stream::{Event, EventStream},
     State,
 };
+use rocket_okapi::{openapi, JsonSchema};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
@@ -32,7 +33,7 @@ pub struct AudioStreamState {
 }
 
 /// Response structure for audio frame data
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AudioFrameResponse {
     /// Channel A audio data
     pub channel_a: Vec<f32>,
@@ -65,7 +66,7 @@ impl From<AudioFrame> for AudioFrameResponse {
 /// Response structure for AudioFastFrameResponse
 /// This is a alternative response format for audio frames
 /// each channel contains a single string value of base64 encoded audio data
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AudioFastFrameResponse {
     /// Base64 encoded audio data for channel A
     pub channel_a: String,
@@ -126,7 +127,7 @@ impl From<AudioFrame> for AudioFastFrameResponse {
 }
 
 /// Spectral analysis data for real-time visualization
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SpectralDataResponse {
     /// Frequency bins (Hz)
     pub frequencies: Vec<f32>,
@@ -150,11 +151,9 @@ pub struct SpectralDataResponse {
 ///
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
+#[openapi]
 #[protect_get("/api/stream/stats", "read_api")]
-pub async fn get_stream_stats(
-    _user: AuthenticatedUser,
-    stream_state: &State<AudioStreamState>,
-) -> Json<StreamStats> {
+pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<StreamStats> {
     let stats = stream_state.stream.get_stats().await;
     Json(stats)
 }
@@ -163,6 +162,7 @@ pub async fn get_stream_stats(
 ///
 /// Returns the most recent audio frame without subscribing to the stream.
 /// Useful for getting current state or testing connectivity.
+#[openapi]
 #[protect_get("/api/stream/latest", "read_api")]
 pub async fn get_latest_frame(
     stream_state: &State<AudioStreamState>,
@@ -502,7 +502,7 @@ fn compute_spectral_analysis(frame: &AudioFrame) -> SpectralDataResponse {
 }
 
 /// Response structure for listing available streaming nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StreamingNodeInfo {
     /// Node UUID
     pub id: String,
@@ -534,9 +534,9 @@ pub struct StreamingNodeInfo {
 ///   }
 /// ]
 /// ```
+#[openapi]
 #[protect_get("/api/stream/nodes", "read:api")]
 pub async fn list_streaming_nodes(
-    _user: AuthenticatedUser,
     stream_state: &State<AudioStreamState>,
 ) -> Json<Vec<StreamingNodeInfo>> {
     let mut node_infos = Vec::new();
@@ -570,10 +570,10 @@ pub async fn list_streaming_nodes(
 ///
 /// # Authentication
 /// Requires a valid JWT token with `read:api` permission.
+#[openapi]
 #[protect_get("/api/stream/nodes/<node_id>/stats", "read:api")]
 pub async fn get_node_stats(
     node_id: &str,
-    _user: AuthenticatedUser,
     stream_state: &State<AudioStreamState>,
 ) -> Json<StreamStats> {
     // Parse the node ID string into a UUID
