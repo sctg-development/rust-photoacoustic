@@ -583,16 +583,16 @@ impl UserSysInfo {
     /// ### Examples
     ///
     /// ```no_run
-    /// ### use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
-    /// ### use serde_json::json;
-    /// ### let claims = serde_json::from_value(json!({
-    /// ###     "sub": "user123",
-    /// ###     "name": "Test User",
-    /// ###     "email": "test@example.com",
-    /// ###     "scope": "read:data write:data",
-    /// ###     "exp": 1719619200
-    /// ### })).unwrap();
-    /// ### let user_info = UserSysInfo::from_claims(&claims);
+    /// use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
+    /// use serde_json::json;
+    /// let claims = serde_json::from_value(json!({
+    ///      "sub": "user123",
+    ///      "name": "Test User",
+    ///      "email": "test@example.com",
+    ///      "scope": "read:data write:data",
+    ///      "exp": 1719619200
+    ///  })).unwrap();
+    ///  let user_info = UserSysInfo::from_claims(&claims);
     ///
     /// if user_info.has_scope("read:data") {
     ///     // Allow reading data
@@ -618,15 +618,15 @@ impl UserSysInfo {
     /// ### Examples
     ///
     /// ```no_run
-    /// ### use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
-    /// ### use serde_json::json;
-    /// ### let claims = serde_json::from_value(json!({
-    /// ###     "sub": "user123",
-    /// ###     "name": "Test User",
-    /// ###     "email": "test@example.com",
-    /// ###     "exp": 1719619200
-    /// ### })).unwrap();
-    /// ### let user_info = UserSysInfo::from_claims(&claims);
+    /// use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
+    /// use serde_json::json;
+    /// let claims = serde_json::from_value(json!({
+    ///      "sub": "user123",
+    ///      "name": "Test User",
+    ///      "email": "test@example.com",
+    ///      "exp": 1719619200
+    ///  })).unwrap();
+    /// let user_info = UserSysInfo::from_claims(&claims);
     ///
     /// let remaining = user_info.validity_remaining_secs();
     ///
@@ -636,10 +636,10 @@ impl UserSysInfo {
     ///     println!("Token valid for {} more seconds", remaining);
     /// }
     ///
-    /// ### fn get_user_info() -> UserSysInfo {
-    /// ###     // This is a mock function for the example
-    /// ###     unimplemented!()
-    /// ### }
+    /// fn get_user_info() -> UserSysInfo {
+    ///     // This is a mock function for the example
+    ///     unimplemented!()
+    /// }
     /// ```
     pub fn validity_remaining_secs(&self) -> i64 {
         let now = Utc::now();

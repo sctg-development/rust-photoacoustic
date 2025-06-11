@@ -230,7 +230,7 @@ impl OxideState {
     /// use rust_photoacoustic::visualization::auth::OxideState;
     /// let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret"));
     /// let state = OxideState::preconfigured(figment);
-    /// ### // We don't need an oauth_request for this example
+    /// // We don't need an oauth_request for this example
     ///
     /// // Configure and execute an authorization flow
     /// let endpoint = state.endpoint();

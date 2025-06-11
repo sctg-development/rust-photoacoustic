@@ -56,7 +56,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected SingleChannel output"),
 /// }
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Selecting channel B:
@@ -214,7 +214,7 @@ impl ProcessingNode for ChannelSelectorNode {
 ///     }
 ///     _ => panic!("Expected SingleChannel output"),
 /// }
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Weighted mixing:

@@ -182,6 +182,7 @@ pub async fn get_latest_frame(
 ///
 /// ### Authentication
 /// Requires a valid JWT token with appropriate read permissions.
+/// The token is transmitted via "Authorization: Bearer <token>" .
 ///
 /// ### Response Format
 /// The stream sends JSON-encoded audio frames as SSE events:

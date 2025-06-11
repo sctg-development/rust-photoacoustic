@@ -142,7 +142,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// // Both calls return the input unchanged while recording
 /// let mono_result = record_node.process(mono_data)?;
 /// let stereo_result = record_node.process(stereo_data)?;
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 
 pub struct RecordNode {

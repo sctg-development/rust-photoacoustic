@@ -83,7 +83,7 @@ impl SimulatedPhotoacousticRealtimeAudioSource {
     /// let pa_config = PhotoacousticConfig::default();
     /// let sim_config = SimulatedSourceConfig::default();
     /// let source = SimulatedPhotoacousticRealtimeAudioSource::new(pa_config, sim_config)?;
-    /// ### Ok::<(), anyhow::Error>(())
+    /// Ok::<(), anyhow::Error>(())
     /// ```
     pub fn new(
         config: PhotoacousticConfig,

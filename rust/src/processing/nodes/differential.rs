@@ -87,7 +87,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected SingleChannel output"),
 /// }
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// In a processing chain:

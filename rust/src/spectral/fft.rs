@@ -200,8 +200,8 @@ pub struct SpectrumData {
 /// let mut analyzer = FFTAnalyzer::new(2048, 4);
 ///
 /// // Process a signal (assuming signal and sample_rate are defined)
-/// ### let signal = vec![0.0f32; 2048];
-/// ### let sample_rate = 44100;
+/// let signal = vec![0.0f32; 2048];
+/// let sample_rate = 44100;
 /// let spectrum = analyzer.analyze(&signal, sample_rate).unwrap();
 ///
 /// // Check the amplitude at a specific frequency
@@ -304,9 +304,9 @@ impl FFTAnalyzer {
     /// ### Example
     ///
     /// ```
-    /// ### use rust_photoacoustic::spectral::fft::FFTAnalyzer;
-    /// ### let analyzer = FFTAnalyzer::new(1024, 1);
-    /// ### let signal = vec![1.0f32; 1024];
+    /// use rust_photoacoustic::spectral::fft::FFTAnalyzer;
+    /// let analyzer = FFTAnalyzer::new(1024, 1);
+    /// let signal = vec![1.0f32; 1024];
     /// let windowed_signal = analyzer.apply_window(&signal);
     /// // The windowed signal will have tapered edges
     /// assert!(windowed_signal[0] < signal[0]);
@@ -470,10 +470,10 @@ impl SpectralAnalyzer for FFTAnalyzer {
     /// ### Examples
     ///
     /// ```
-    /// ### use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
-    /// ### let mut analyzer = FFTAnalyzer::new(1024, 1);
-    /// ### let sample_rate = 44100;
-    /// ### let signal = vec![0.0f32; 1024];
+    /// use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
+    /// let mut analyzer = FFTAnalyzer::new(1024, 1);
+    /// let sample_rate = 44100;
+    /// let signal = vec![0.0f32; 1024];
     /// let spectrum = analyzer.analyze(&signal, sample_rate).unwrap();
     /// println!("Number of frequency bins: {}", spectrum.frequencies.len());
     /// ```
@@ -545,11 +545,11 @@ impl SpectralAnalyzer for FFTAnalyzer {
     /// ### Example
     ///
     /// ```
-    /// ### use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
-    /// ### let mut analyzer = FFTAnalyzer::new(1024, 1);
-    /// ### let sample_rate = 44100;
-    /// ### let signal = vec![0.0f32; 1024];
-    /// ### let _ = analyzer.analyze(&signal, sample_rate);
+    /// use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
+    /// let mut analyzer = FFTAnalyzer::new(1024, 1);
+    /// let sample_rate = 44100;
+    /// let signal = vec![0.0f32; 1024];
+    /// let _ = analyzer.analyze(&signal, sample_rate);
     /// // Get amplitude at 1000 Hz
     /// match analyzer.get_amplitude_at(1000.0) {
     ///     Ok(amplitude) => println!("Amplitude at 1000 Hz: {}", amplitude),

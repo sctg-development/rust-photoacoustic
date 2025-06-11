@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.procMacro.ignored": {
+        "auth_macros": [
+            "openapi_protect_get"
+        ]
+    }
+}

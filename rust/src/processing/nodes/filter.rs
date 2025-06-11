@@ -58,7 +58,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected DualChannel output"),
 /// }
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Channel-specific filtering:

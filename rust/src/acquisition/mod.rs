@@ -164,7 +164,7 @@ pub fn get_realtime_mock_audio_source(
 /// sim_config.source_type = "universal".to_string();
 /// config.simulated_source = Some(sim_config);
 /// let universal_source = get_realtime_simulated_photoacoustic_source(config)?;
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 pub fn get_realtime_simulated_photoacoustic_source(
     config: PhotoacousticConfig,

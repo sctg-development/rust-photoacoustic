@@ -899,15 +899,15 @@ impl Daemon {
     /// ```no_run
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
-    /// ### async fn example() -> anyhow::Result<()> {
-    /// ### let daemon = Daemon::new();
+    /// async fn example() -> anyhow::Result<()> {
+    /// let daemon = Daemon::new();
     /// // Signal all tasks to stop
     /// daemon.shutdown();
     ///
     /// // Wait for all tasks to complete
     /// daemon.join().await?;
-    /// ### Ok(())
-    /// ### }
+    /// Ok(())
+    /// }
     /// ```
     pub fn shutdown(&self) {
         info!("Shutting down daemon tasks");
@@ -937,16 +937,16 @@ impl Daemon {
     /// ```no_run
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
-    /// ### async fn example() -> anyhow::Result<()> {
-    /// ### let daemon = Daemon::new();
+    /// async fn example() -> anyhow::Result<()> {
+    /// let daemon = Daemon::new();
     /// // First signal shutdown
     /// daemon.shutdown();
     ///
     /// // Then wait for all tasks to finish
     /// daemon.join().await?;
     /// println!("All daemon tasks have completed");
-    /// ### Ok(())
-    /// ### }
+    /// Ok(())
+    /// }
     /// ```
     pub async fn join(self) -> Result<()> {
         for task in self.tasks {

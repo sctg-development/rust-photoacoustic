@@ -91,7 +91,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected PhotoacousticResult output"),
 /// }
-/// ### Ok::<(), anyhow::Error>(())
+/// Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Configured output node:
