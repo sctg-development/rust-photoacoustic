@@ -7,7 +7,7 @@ description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 
 [dependencies]
 # Audio processing
-cpal = "0.15.3"           # Audio input
+cpal = "0.16.0"           # Audio input
 hound = "3.5.1"             # WAV file handling
 include_dir = "0.7.4"       # Include files in the binary
 rustfft = "6.3.0"           # Fast Fourier Transform
@@ -18,7 +18,7 @@ dasp_window = "0.11.1"      # Windowing functions
 dasp_ring_buffer = "0.11.0" # Ring buffer for audio
 
 # Command line interface
-clap = { version = "4.5.39", features = ["derive"] }
+clap = { version = "4.5.40", features = ["derive"] }
 
 # Web interface
 rocket = { version = "0.5.1", features = ["json", "tls", "secrets"] }
@@ -40,7 +40,7 @@ base64 = "0.22.1"                                                               
 tempfile = "3.20.0"                                                                   # Temporary files for tests
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
-reqwest = "0.12.19"
+reqwest = "0.12.20"
 oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 rocket_okapi = { git = "https://github.com/sctg-development/okapi", features = [
@@ -57,7 +57,7 @@ tokio-modbus = { version = "0.16.1", features = ["tcp", "tcp-server", "server"] 
 pwhash = "1.0.0"  # Add this dependency for password hashing
 handlebars = "6.3.2"
 quote = "1.0.40"
-syn = {version="2.0.101", features=["full"]}
+syn = {version="2.0.102", features=["full"]}
 auth-macros = { path = "auth-macros" }
 rocket_async_compression = "0.6.1"
 async-trait = "0.1.88"
