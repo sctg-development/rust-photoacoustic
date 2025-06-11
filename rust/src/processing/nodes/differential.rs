@@ -45,12 +45,12 @@ use anyhow::Result;
 /// photoacoustic signal processing to enhance signal-to-noise ratio and
 /// reject common-mode interference.
 ///
-/// # Input/Output
+/// ### Input/Output
 ///
 /// - **Input**: [`ProcessingData::DualChannel`] with two audio channels
 /// - **Output**: [`ProcessingData::SingleChannel`] with the differential signal
 ///
-/// # Signal Processing
+/// ### Signal Processing
 ///
 /// The node uses a [`DifferentialCalculator`] implementation to compute the
 /// difference signal, which may include:
@@ -59,7 +59,7 @@ use anyhow::Result;
 /// - Phase-corrected differential
 /// - Adaptive differential algorithms
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Basic differential calculation:
 ///
@@ -87,7 +87,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected SingleChannel output"),
 /// }
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// In a processing chain:
@@ -111,12 +111,12 @@ pub struct DifferentialNode {
 impl DifferentialNode {
     /// Create a new differential node
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     /// * `calculator` - The differential calculator implementation to use
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{DifferentialNode, ProcessingNode};

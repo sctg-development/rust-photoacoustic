@@ -82,12 +82,12 @@ use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
 /// to start, stop, and monitor them. It handles the coordination between different
 /// services like web servers, data acquisition systems, and health monitors.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `tasks` - Collection of handles to running tasks for management and cleanup
 /// * `running` - Atomic flag shared between tasks to coordinate shutdown
 ///
-/// # Thread Safety
+/// ### Thread Safety
 ///
 /// The `running` flag is wrapped in an `Arc` (Atomic Reference Counter) to allow
 /// safe sharing between multiple tasks. Each task checks this flag periodically
@@ -128,11 +128,11 @@ impl Daemon {
     /// Initializes a new daemon manager with an empty task list and the
     /// running flag set to `true`.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `Daemon` instance ready to have tasks added to it
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
@@ -166,22 +166,22 @@ impl Daemon {
     /// * Data acquisition - If `config.acquisition.enabled` is `true`
     /// * Heartbeat monitoring - Always started for system health monitoring
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing service settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if all tasks started successfully, or error details
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if any of the services fail to start, such as:
     /// * The web server fails to bind to the specified port
     /// * Certificate decoding fails for TLS
     /// * Data acquisition initialization fails
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
@@ -243,15 +243,15 @@ impl Daemon {
     /// This method spawns an asynchronous task that runs the web server in the background.
     /// The server will continue running until the daemon's `running` flag is set to `false`.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing web server settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if the server started successfully, or error details
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if:
     /// * TLS certificate decoding fails
@@ -342,15 +342,15 @@ impl Daemon {
     /// In a complete implementation, this would integrate with hardware sensors
     /// via the acquisition module to collect real-time photoacoustic data.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing acquisition settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if the task started successfully, or error details
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if:
     /// * The acquisition hardware is not available
@@ -417,15 +417,15 @@ impl Daemon {
     /// The heartbeat task runs every 60 seconds and continues until the daemon's
     /// `running` flag is set to `false`.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if the heartbeat task started successfully, or error details
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if task spawning fails
     ///
-    /// # Monitoring
+    /// ### Monitoring
     ///
     /// In a production environment, these heartbeat messages could be monitored by
     /// an external system to detect if the daemon has stopped functioning properly.
@@ -454,15 +454,15 @@ impl Daemon {
     /// This method spawns an asynchronous task that runs the Modbus server in the background.
     /// The server will continue running until the daemon's `running` flag is set to `false`.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing Modbus server settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if the server started successfully, or error details
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if:
     /// * The server fails to bind to the specified address/port
@@ -567,7 +567,7 @@ impl Daemon {
     /// streaming capabilities, eliminating the batching issues present in the previous
     /// AudioSource-based implementation.
     ///
-    /// # Audio Source Priority
+    /// ### Audio Source Priority
     ///
     /// The function selects the audio source based on configuration priority:
     /// 1. **Mock source** - If `config.photoacoustic.mock_source` is enabled
@@ -575,7 +575,7 @@ impl Daemon {
     /// 3. **Device source** - If `config.photoacoustic.input_device` is specified  
     /// 4. **Default source** - Uses the system's default audio input device
     ///
-    /// # Real-Time Architecture
+    /// ### Real-Time Architecture
     ///
     /// This function creates and orchestrates the new real-time components:
     /// - **RealTimeAudioSource**: Handles low-level audio input with native streaming
@@ -583,15 +583,15 @@ impl Daemon {
     /// - **RealTimeAcquisitionDaemon**: Core acquisition manager with direct streaming
     /// - **Background Task**: Async task for non-blocking operation
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing acquisition settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if the acquisition started successfully, or error details
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if:
     /// * **Audio source initialization fails**
@@ -694,21 +694,21 @@ impl Daemon {
     /// shared audio stream and saves them to a WAV file. This daemon is used for
     /// validating the producer/consumer system and studying consumer behavior.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing record consumer settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if record consumer started successfully, or error details
     ///
-    /// # Requirements
+    /// ### Requirements
     ///
     /// This method requires that `start_audio_acquisition` has been called first to
     /// establish the audio stream. If no audio stream is available, this method will
     /// return an error.
     ///
-    /// # Configuration
+    /// ### Configuration
     ///
     /// The record consumer is controlled by the `config.acquisition.record_consumer` flag.
     /// When enabled, it will:
@@ -717,13 +717,13 @@ impl Daemon {
     /// - Generate debug log messages for studying consumer behavior
     /// - Track throughput statistics (FPS, frame delays)
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run,ignore
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     /// use rust_photoacoustic::config::Config;
     ///
-    /// # async fn example() -> anyhow::Result<()> {
+    /// ### async fn example() -> anyhow::Result<()> {
     /// let mut daemon = Daemon::new();
     /// let config = Config::load("config.yaml")?;
     ///
@@ -732,8 +732,8 @@ impl Daemon {
     ///
     /// // Start record consumer for validation
     /// daemon.start_record_consumer(&config).await?;
-    /// # Ok(())
-    /// # }
+    /// ### Ok(())
+    /// ### }
     /// ```
     async fn start_record_consumer(&mut self, config: &Config) -> Result<()> {
         info!("Starting record consumer daemon for validation");
@@ -786,15 +786,15 @@ impl Daemon {
     /// using a configurable processing graph. The daemon consumes audio data from the
     /// shared audio stream and processes it through the configured processing nodes.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `config` - Application configuration containing processing settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if the processing consumer started successfully
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function can fail if:
     /// * Audio stream is not available (acquisition must be started first)
@@ -861,7 +861,7 @@ impl Daemon {
 
     /// Get the shared data source
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A reference to the shared data source that can be used by other components
     pub fn get_data_source(&self) -> Arc<PhotoacousticDataSource> {
@@ -894,20 +894,20 @@ impl Daemon {
     /// This method only signals the tasks to stop; it does not wait for them to complete.
     /// To wait for all tasks to finish, call `join()` after this method.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let daemon = Daemon::new();
+    /// ### async fn example() -> anyhow::Result<()> {
+    /// ### let daemon = Daemon::new();
     /// // Signal all tasks to stop
     /// daemon.shutdown();
     ///
     /// // Wait for all tasks to complete
     /// daemon.join().await?;
-    /// # Ok(())
-    /// # }
+    /// ### Ok(())
+    /// ### }
     /// ```
     pub fn shutdown(&self) {
         info!("Shutting down daemon tasks");
@@ -923,30 +923,30 @@ impl Daemon {
     /// If any task panics, the error is logged but this method will still wait for
     /// all other tasks to complete.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success if all tasks completed without errors
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This method logs task panics but does not fail because of them.
     /// It may fail due to other async runtime issues.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let daemon = Daemon::new();
+    /// ### async fn example() -> anyhow::Result<()> {
+    /// ### let daemon = Daemon::new();
     /// // First signal shutdown
     /// daemon.shutdown();
     ///
     /// // Then wait for all tasks to finish
     /// daemon.join().await?;
     /// println!("All daemon tasks have completed");
-    /// # Ok(())
-    /// # }
+    /// ### Ok(())
+    /// ### }
     /// ```
     pub async fn join(self) -> Result<()> {
         for task in self.tasks {

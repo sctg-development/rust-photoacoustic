@@ -18,14 +18,14 @@ use anyhow::Result;
 /// channels or both channels of audio data. It supports both single and dual-channel
 /// input data.
 ///
-/// # Supported Operations
+/// ### Supported Operations
 ///
 /// - Apply filter to Channel A only
 /// - Apply filter to Channel B only  
 /// - Apply filter to both channels
 /// - Process single-channel data
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Using with a bandpass filter:
 ///
@@ -58,7 +58,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected DualChannel output"),
 /// }
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Channel-specific filtering:
@@ -88,13 +88,13 @@ pub struct FilterNode {
 /// Specifies which channel(s) should be affected by processing operations
 /// that can target individual channels.
 ///
-/// # Variants
+/// ### Variants
 ///
 /// - [`ChannelA`](ChannelTarget::ChannelA) - Target only the first audio channel
 /// - [`ChannelB`](ChannelTarget::ChannelB) - Target only the second audio channel
 /// - [`Both`](ChannelTarget::Both) - Target both audio channels
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::processing::ChannelTarget;
@@ -121,13 +121,13 @@ pub enum ChannelTarget {
 impl FilterNode {
     /// Create a new filter node
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     /// * `filter` - The digital filter to apply (must implement [`Filter`] trait)
     /// * `target_channel` - Which channel(s) to apply the filter to
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{FilterNode, ChannelTarget};

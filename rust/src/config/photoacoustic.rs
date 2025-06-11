@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// This structure contains settings that control the photoacoustic measurement process,
 /// including input sources, signal processing parameters, and analysis settings.
 ///
-/// # Input Sources
+/// ### Input Sources
 ///
 /// The configuration supports two mutually exclusive input sources:
 /// * `input_device` - A hardware audio device (e.g., "hw:0,0" for ALSA) "first" for the first available device
@@ -23,14 +23,14 @@ use serde::{Deserialize, Serialize};
 ///
 /// One of these must be specified, but not both simultaneously.
 ///
-/// # Signal Processing Parameters
+/// ### Signal Processing Parameters
 ///
 /// * `frequency` - The primary excitation frequency in Hz
 /// * `bandwidth` - Filter bandwidth in Hz around the excitation frequency
 /// * `frame_size` - FFT window size (power of 2 recommended)
 /// * `averages` - Number of spectra to average for noise reduction
 ///
-/// # Example
+/// ### Example
 ///
 /// ```no_run
 /// use rust_photoacoustic::config::{PhotoacousticConfig, SimulatedSourceConfig};

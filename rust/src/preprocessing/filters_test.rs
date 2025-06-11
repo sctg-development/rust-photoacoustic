@@ -35,17 +35,17 @@ mod tests {
     /// This function reads a WAV audio file from disk and converts the samples
     /// to normalized floating-point values in the range [-1.0, 1.0].
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `path` - Path to the WAV file
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A tuple containing:
     /// - Vector of normalized audio samples as f32 values
     /// - Sample rate of the audio file in Hz
     ///
-    /// # Panics
+    /// ### Panics
     ///
     /// Panics if:
     /// - The file cannot be opened
@@ -66,17 +66,17 @@ mod tests {
     /// This function writes normalized floating-point audio samples to a WAV file.
     /// It handles sample conversion to i16 format with proper value clamping.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `samples` - Vector of normalized audio samples (expected range: [-1.0, 1.0])
     /// * `sample_rate` - Sample rate of the audio in Hz
     /// * `path` - Output path for the WAV file
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<(), String>` - Success or an error message
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The output directory cannot be created

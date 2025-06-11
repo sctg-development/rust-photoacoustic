@@ -73,7 +73,7 @@ pub mod shared_state;
 /// - Route guards for securing endpoints
 /// - Scope-based authorization
 ///
-/// # Example
+/// ### Example
 ///
 /// ```no_run
 /// use rocket::{get, build, routes};
@@ -122,7 +122,7 @@ pub use auth::{JwtValidator, OAuthBearer};
 /// This module provides OAuth 2.0 token introspection endpoint implementation
 /// according to RFC 7662, allowing clients to verify token validity and scope.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```no_run
 /// use rocket::{build, post, routes};
@@ -160,23 +160,23 @@ use rocket::{
 /// analysis results. It configures the server based on the provided configuration
 /// and sets up all necessary components for the web interface.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `data` - The analysis results to be visualized
 /// * `config` - Application configuration containing server settings
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<()>` - Success or error status from the server initialization
 ///
-/// # Errors
+/// ### Errors
 ///
 /// This function can fail if:
 /// * TLS certificate decoding fails
 /// * Writing temporary certificate files fails
 /// * Server initialization fails
 ///
-/// # Example
+/// ### Example
 ///
 /// ```no_run
 /// use rust_photoacoustic::{config::Config, AnalysisResult};

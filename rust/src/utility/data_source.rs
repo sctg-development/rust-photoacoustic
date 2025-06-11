@@ -63,7 +63,7 @@ impl PhotoacousticDataSource {
 
     /// Update the data source with new measurement data
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `frequency` - The resonance frequency in Hz
     /// * `amplitude` - The signal amplitude (dimensionless)
@@ -87,7 +87,7 @@ impl PhotoacousticDataSource {
 
     /// Get the latest measurement data, if available
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Some(PhotoacousticMeasurement)` if data is available
     /// * `None` if no data has been collected yet

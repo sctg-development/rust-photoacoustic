@@ -42,7 +42,7 @@ impl SharedVisualizationState {
     /// This should be called by the ProcessingConsumer when it has
     /// updated statistics to share.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `stats` - The latest processing graph statistics
     pub async fn update_processing_statistics(&self, stats: ProcessingGraphStatistics) {
@@ -55,7 +55,7 @@ impl SharedVisualizationState {
     /// Returns None if no processing is currently active or if
     /// no statistics have been recorded yet.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The current processing statistics, or None if unavailable
     pub async fn get_processing_statistics(&self) -> Option<ProcessingGraphStatistics> {
@@ -73,7 +73,7 @@ impl SharedVisualizationState {
 
     /// Check if processing statistics are available
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// True if statistics are available, false otherwise
     pub async fn has_processing_statistics(&self) -> bool {
@@ -87,7 +87,7 @@ impl SharedVisualizationState {
 /// This allows endpoints to easily access the shared state by including
 /// `SharedVisualizationState` as a parameter.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```rust,no_run
 /// use rust_photoacoustic::visualization::shared_state::SharedVisualizationState;

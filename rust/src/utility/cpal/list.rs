@@ -9,7 +9,7 @@ use cpal::traits::{DeviceTrait, HostTrait};
 /// This function retrieves the names of all available audio input devices
 /// and returns them as a vector of strings.
 ///
-/// # Returns
+/// ### Returns
 /// A Result containing a vector of device names or an error if the operation fails.
 pub fn list_audio_devices() -> Result<Vec<String>, anyhow::Error> {
     // Get the default host

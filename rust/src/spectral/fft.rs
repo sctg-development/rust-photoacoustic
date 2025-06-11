@@ -73,17 +73,17 @@ pub trait SpectralAnalyzer: Send + Sync {
     /// This method transforms the time-domain signal into the frequency domain
     /// and extracts the amplitude and phase information for each frequency component.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `signal` - The time-domain signal as a slice of f32 samples
     /// * `sample_rate` - The sample rate of the signal in Hz
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A `Result` containing the `SpectrumData` with frequency, amplitude, and phase
     /// information, or an error if the analysis failed.
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Implementations may return errors if:
     /// - The signal is too short for the analysis window
@@ -97,16 +97,16 @@ pub trait SpectralAnalyzer: Send + Sync {
     /// from the most recently analyzed spectrum. It's useful for tracking
     /// specific frequencies of interest over time.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `frequency` - The frequency in Hz to get the amplitude for
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A `Result` containing the amplitude at the specified frequency,
     /// or an error if the frequency is out of range or no spectrum has been analyzed.
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This method will return an error if:
     /// - No prior analysis has been performed (`analyze()` must be called first)
@@ -123,7 +123,7 @@ pub trait SpectralAnalyzer: Send + Sync {
 /// The vectors `frequencies`, `amplitudes`, and `phases` all have the same length,
 /// with each index representing data for the same frequency component.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer, SpectrumData};
@@ -178,20 +178,20 @@ pub struct SpectrumData {
 /// can perform averaging across multiple FFT frames to improve the
 /// signal-to-noise ratio.
 ///
-/// # Features
+/// ### Features
 ///
 /// - Configurable FFT window size for different frequency resolutions
 /// - Support for multiple window functions (Rectangular, Hann, Blackman)
 /// - Spectral averaging to reduce noise
 /// - Caching of analysis results for frequency-specific queries
 ///
-/// # Performance Considerations
+/// ### Performance Considerations
 ///
 /// - Larger window sizes provide better frequency resolution but worse time resolution
 /// - The window size should be a power of 2 for optimal FFT performance
 /// - More averages improve SNR but increase the required computation and latency
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer, WindowFunction};
@@ -200,8 +200,8 @@ pub struct SpectrumData {
 /// let mut analyzer = FFTAnalyzer::new(2048, 4);
 ///
 /// // Process a signal (assuming signal and sample_rate are defined)
-/// # let signal = vec![0.0f32; 2048];
-/// # let sample_rate = 44100;
+/// ### let signal = vec![0.0f32; 2048];
+/// ### let sample_rate = 44100;
 /// let spectrum = analyzer.analyze(&signal, sample_rate).unwrap();
 ///
 /// // Check the amplitude at a specific frequency
@@ -248,19 +248,19 @@ impl FFTAnalyzer {
     /// and defaults to using a Hann window function, which provides a good
     /// balance between spectral resolution and leakage reduction.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `frame_size` - The size of the FFT window in samples. For best performance,
     ///   this should be a power of 2 (e.g., 1024, 2048, 4096).
     /// * `averages` - The number of FFT frames to average. Higher values reduce noise
     ///   but increase processing latency. Set to 1 for no averaging.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `FFTAnalyzer` instance configured with the specified parameters
     /// and ready to analyze signals.
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```
     /// use rust_photoacoustic::spectral::fft::FFTAnalyzer;
@@ -285,15 +285,15 @@ impl FFTAnalyzer {
     /// analysis frame, which helps to reduce artificial frequencies that
     /// would otherwise be introduced by the abrupt truncation of the signal.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `signal` - The input signal to apply the window function to
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new vector containing the windowed signal
     ///
-    /// # Window Functions
+    /// ### Window Functions
     ///
     /// - **Rectangular**: No windowing (flat window), maximum frequency resolution
     ///   but highest spectral leakage
@@ -301,12 +301,12 @@ impl FFTAnalyzer {
     /// - **Blackman**: More aggressive tapering, better leakage suppression but
     ///   worse frequency resolution
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```
-    /// # use rust_photoacoustic::spectral::fft::FFTAnalyzer;
-    /// # let analyzer = FFTAnalyzer::new(1024, 1);
-    /// # let signal = vec![1.0f32; 1024];
+    /// ### use rust_photoacoustic::spectral::fft::FFTAnalyzer;
+    /// ### let analyzer = FFTAnalyzer::new(1024, 1);
+    /// ### let signal = vec![1.0f32; 1024];
     /// let windowed_signal = analyzer.apply_window(&signal);
     /// // The windowed signal will have tapered edges
     /// assert!(windowed_signal[0] < signal[0]);
@@ -344,15 +344,15 @@ impl FFTAnalyzer {
     /// a time-domain signal into the frequency domain. It uses the rustfft
     /// library for efficient FFT computation.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `signal` - The time-domain signal to transform
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of complex numbers representing the frequency-domain signal
     ///
-    /// # Implementation Details
+    /// ### Implementation Details
     ///
     /// The method:
     /// 1. Converts the real input signal to complex numbers with zero imaginary part
@@ -385,19 +385,19 @@ impl FFTAnalyzer {
     /// normalization, extracts only the meaningful part of the spectrum (up to
     /// the Nyquist frequency), and organizes the data into a structured format.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `fft_output` - The complex FFT output from `compute_fft()`
     /// * `sample_rate` - The sample rate of the original signal in Hz
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A `SpectrumData` structure containing:
     /// - Frequencies in Hz
     /// - Normalized amplitudes
     /// - Phases in radians
     ///
-    /// # Implementation Details
+    /// ### Implementation Details
     ///
     /// - Only the first half of the FFT result is used (up to the Nyquist frequency)
     /// - Amplitudes are normalized by dividing by the FFT size and multiplying by 2
@@ -453,27 +453,27 @@ impl SpectralAnalyzer for FFTAnalyzer {
     /// which helps reduce noise and improve the reliability of the spectral
     /// estimates, particularly useful for signals with low SNR.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `signal` - The time-domain signal as a slice of f32 samples
     /// * `sample_rate` - The sample rate of the signal in Hz
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A `Result` containing the `SpectrumData` with frequency, amplitude, and phase
     /// information, or an error if the analysis failed.
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if the signal is shorter than the configured window size.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
-    /// # use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
-    /// # let mut analyzer = FFTAnalyzer::new(1024, 1);
-    /// # let sample_rate = 44100;
-    /// # let signal = vec![0.0f32; 1024];
+    /// ### use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
+    /// ### let mut analyzer = FFTAnalyzer::new(1024, 1);
+    /// ### let sample_rate = 44100;
+    /// ### let signal = vec![0.0f32; 1024];
     /// let spectrum = analyzer.analyze(&signal, sample_rate).unwrap();
     /// println!("Number of frequency bins: {}", spectrum.frequencies.len());
     /// ```
@@ -527,29 +527,29 @@ impl SpectralAnalyzer for FFTAnalyzer {
     /// most recent spectrum analysis. It identifies the closest frequency bin
     /// to the requested frequency and returns the corresponding amplitude value.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `frequency` - The frequency in Hz to get the amplitude for
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A `Result` containing the amplitude at the specified frequency,
     /// or an error if the frequency is out of range or no spectrum has been analyzed.
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - No spectrum analysis has been performed yet (call `analyze()` first)
     /// - The requested frequency is outside the analyzed range (beyond Nyquist frequency)
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```
-    /// # use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
-    /// # let mut analyzer = FFTAnalyzer::new(1024, 1);
-    /// # let sample_rate = 44100;
-    /// # let signal = vec![0.0f32; 1024];
-    /// # let _ = analyzer.analyze(&signal, sample_rate);
+    /// ### use rust_photoacoustic::spectral::fft::{FFTAnalyzer, SpectralAnalyzer};
+    /// ### let mut analyzer = FFTAnalyzer::new(1024, 1);
+    /// ### let sample_rate = 44100;
+    /// ### let signal = vec![0.0f32; 1024];
+    /// ### let _ = analyzer.analyze(&signal, sample_rate);
     /// // Get amplitude at 1000 Hz
     /// match analyzer.get_amplitude_at(1000.0) {
     ///     Ok(amplitude) => println!("Amplitude at 1000 Hz: {}", amplitude),
@@ -583,7 +583,7 @@ impl SpectralAnalyzer for FFTAnalyzer {
 /// to reduce spectral leakage. Each window function has different characteristics
 /// in terms of frequency resolution, amplitude accuracy, and leakage suppression.
 ///
-/// # Window Function Characteristics
+/// ### Window Function Characteristics
 ///
 /// - **Rectangular**: No windowing, provides best frequency resolution but worst
 ///   spectral leakage. Useful when the signal contains exactly an integer number
@@ -597,7 +597,7 @@ impl SpectralAnalyzer for FFTAnalyzer {
 ///   resolution compared to other windows. Useful when analyzing signals with
 ///   components that have very different amplitudes.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::spectral::fft::{FFTAnalyzer, WindowFunction};

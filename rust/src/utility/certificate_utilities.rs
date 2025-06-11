@@ -54,7 +54,7 @@ use std::path::Path;
 /// The certificate is configured with digital signature and key encipherment purposes,
 /// making it suitable for server authentication in TLS connections.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `days` - Validity period in days for the certificate
 /// * `cert_path` - File path where the PEM-encoded certificate will be saved
@@ -63,11 +63,11 @@ use std::path::Path;
 /// * `key_length` - Optional key length in bits (e.g., 2048, 4096). If None, uses the default length
 /// * `alt_names` - Optional list of subject alternative names (DNS names or IP addresses)
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<()>` - Ok(()) on success, or an error if certificate generation or file operations fail
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Returns an error if:
 /// - Certificate parameter creation fails
@@ -75,7 +75,7 @@ use std::path::Path;
 /// - Output directories cannot be created
 /// - Certificate or key files cannot be created or written to
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Basic usage with default settings:
 ///

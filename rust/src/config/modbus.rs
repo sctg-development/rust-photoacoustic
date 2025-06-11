@@ -14,13 +14,13 @@ use serde::{Deserialize, Serialize};
 /// This structure contains settings that control the Modbus TCP server functionality,
 /// including network binding parameters and whether the server is enabled.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `enabled` - Flag to enable or disable the Modbus server
 /// * `port` - TCP port number for the Modbus server (default: 502)
 /// * `address` - Network address for the Modbus server to bind to (default: 127.0.0.1)
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::config::ModbusConfig;

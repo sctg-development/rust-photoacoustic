@@ -35,18 +35,18 @@ mod tests {
     /// and separates the interleaved audio data into distinct left and right channel vectors.
     /// The audio samples are normalized to the range [-1.0, 1.0].
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `path` - Path to the stereo WAV file
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<(Vec<f32>, Vec<f32>, u32)>` - Tuple containing:
     ///   - Left channel samples as normalized f32 values
     ///   - Right channel samples as normalized f32 values
     ///   - Sample rate of the recording in Hz
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The file cannot be opened
@@ -91,17 +91,17 @@ mod tests {
     /// It ensures the output directory exists, converts the floating-point samples to
     /// 16-bit integers, and writes them to the specified path.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `samples` - Vector of audio samples as normalized f32 values in range [-1.0, 1.0]
     /// * `sample_rate` - Sample rate of the audio in Hz
     /// * `path` - Output path where the WAV file should be saved
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success or an error
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The output directory cannot be created
@@ -143,7 +143,7 @@ mod tests {
     /// - Saving the results as WAV files for manual verification
     /// - Testing error handling for invalid inputs
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success or an error
     #[test]
@@ -299,7 +299,7 @@ mod tests {
     /// - The output length matches the input length
     /// - Each output value equals the difference between corresponding input values
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<()>` - Success or an error
     #[test]

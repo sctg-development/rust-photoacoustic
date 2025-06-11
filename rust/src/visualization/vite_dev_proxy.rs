@@ -60,13 +60,13 @@ pub fn is_vite_development_enabled() -> bool {
 
 /// Build URL for proxying to Vite development server
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The request path
 /// * `raw_query` - Raw query string from the request
 /// * `prefix` - URL prefix to prepend to the path
 ///
-/// # Returns
+/// ### Returns
 ///
 /// Complete URL for the Vite development server request
 fn build_vite_url(path: &PathBuf, raw_query: &RawQueryString, prefix: &str) -> String {
@@ -85,12 +85,12 @@ fn build_vite_url(path: &PathBuf, raw_query: &RawQueryString, prefix: &str) -> S
 ///
 /// This function handles the common proxy logic for all Vite request types.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `url` - Complete URL to proxy to
 /// * `request_type` - Description of the request type for logging
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - Proxied content from Vite server
 /// * `None` - If the request fails or Vite development is not enabled
@@ -135,12 +135,12 @@ async fn proxy_to_vite(url: &str, request_type: &str) -> Option<StaticFileRespon
 /// This function proxies general web client requests to the Vite development server.
 /// It's used by the main webclient route handler when development mode is enabled.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The requested file path
 /// * `raw_query` - Raw query string from the request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The proxied content from Vite server
 /// * `None` - If the request fails or Vite development is not enabled
@@ -162,7 +162,7 @@ pub async fn proxy_to_vite_dev_server(
 /// Since Rocket doesn't have built-in WebSocket proxying, this attempts to proxy
 /// the initial request to the Vite development server.
 ///
-/// # Note
+/// ### Note
 ///
 /// This is a specialized route for Vite's HMR WebSocket client script.
 /// The actual WebSocket upgrade is handled by the browser and Vite server directly.
@@ -211,12 +211,12 @@ pub async fn websocket_proxy() -> Option<StaticFileResponse> {
 /// characters like dots that would be rejected by PathBuf. It has rank 1 to
 /// be tried before the regular webclient route.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The requested path under `.vite/`
 /// * `raw_query` - Raw query string from the request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The proxied content from Vite server
 /// * `None` - If the request fails or Vite development is not enabled
@@ -234,12 +234,12 @@ pub async fn webclient_vite_special(
 /// This route handles @vite paths that contain special characters
 /// that would be rejected by standard path handling.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The requested path under `@vite/`
 /// * `raw_query` - Raw query string from the request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The proxied content from Vite server
 /// * `None` - If the request fails or Vite development is not enabled
@@ -257,12 +257,12 @@ pub async fn webclient_at_vite(
 /// This route handles node_modules/.vite paths that contain special characters
 /// that would be rejected by standard path handling.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The requested path under `node_modules/.vite/`
 /// * `raw_query` - Raw query string from the request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The proxied content from Vite server
 /// * `None` - If the request fails or Vite development is not enabled
@@ -281,12 +281,12 @@ pub async fn webclient_node_modules_vite(
 /// These paths allow Vite to serve files from anywhere in the file system
 /// during development.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The requested path under `@fs/`
 /// * `raw_query` - Raw query string from the request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The proxied content from Vite server
 /// * `None` - If the request fails or Vite development is not enabled
@@ -304,7 +304,7 @@ pub async fn webclient_at_fs(
 /// Returns a vector of all route handlers for Vite development proxy functionality.
 /// This function is used by the main server module to mount all Vite-related routes.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// Vector of Rocket routes for Vite development proxy
 pub fn get_vite_dev_routes() -> Vec<rocket::Route> {

@@ -62,7 +62,7 @@ pub use fft::SpectralAnalyzer;
 /// implementation details, allowing the calling code to work with any
 /// compatible analyzer.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `frame_size` - The size of the analysis window in samples. For FFT
 ///   analysis, this should ideally be a power of 2 (e.g., 1024, 2048, 4096)
@@ -72,11 +72,11 @@ pub use fft::SpectralAnalyzer;
 ///   Higher values improve the signal-to-noise ratio but increase latency
 ///   and computational cost. Set to 1 for no averaging.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A boxed trait object implementing the `SpectralAnalyzer` trait
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::spectral;

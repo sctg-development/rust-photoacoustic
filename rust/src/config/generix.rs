@@ -95,7 +95,7 @@ impl Default for GenerixConfig {
 /// This guard retrieves the [`GenerixConfig`] from the [`OxideState`] managed by Rocket.
 /// It allows routes to access the configuration as a request guard parameter.
 ///
-/// # Errors
+/// ### Errors
 /// Returns a 500 error if the [`OxideState`] is missing from Rocket state.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for GenerixConfig {

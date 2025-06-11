@@ -20,14 +20,14 @@ use crate::visualization::pwhash;
 /// verify credentials and returns the authenticated user's information
 /// if the credentials are valid.
 ///
-/// # Password Verification Process
+/// ### Password Verification Process
 ///
 /// 1. **User Lookup**: Searches for the username in the access configuration
 /// 2. **Hash Decoding**: Decodes the stored base64-encoded password hash
 /// 3. **Format Cleanup**: Removes trailing newlines/carriage returns from the hash
 /// 4. **Hash Verification**: Uses `pwhash::unix::verify` to check the password
 ///
-/// # Supported Hash Formats
+/// ### Supported Hash Formats
 ///
 /// The function supports Unix-style password hashes in the format:
 /// `$algorithm$salt$hash`
@@ -37,20 +37,20 @@ use crate::visualization::pwhash;
 /// - `$5$` - SHA-256 based crypt
 /// - `$1$` - MD5 based crypt (not recommended)
 ///
-/// # Security Features
+/// ### Security Features
 ///
 /// - **Constant-time comparison**: Uses secure hash verification functions
 /// - **Salt protection**: Leverages salted hashes to prevent rainbow table attacks  
 /// - **Early termination**: Stops checking once the correct user is found
 /// - **No timing attacks**: Hash verification timing is consistent
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `username` - The username to authenticate
 /// * `password` - The plaintext password to verify
 /// * `access_config` - The access configuration containing user credentials
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(User)` - If authentication succeeds, returns the user with permissions
 /// * `None` - If authentication fails due to:
@@ -59,7 +59,7 @@ use crate::visualization::pwhash;
 ///   - Invalid hash format
 ///   - Hash decoding errors
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::config::AccessConfig;
@@ -80,7 +80,7 @@ use crate::visualization::pwhash;
 /// }
 /// ```
 ///
-/// # Related Functions
+/// ### Related Functions
 ///
 /// - [`User::new`] - Creates new user objects
 /// - [`pwhash::unix::verify`] - The underlying password verification function

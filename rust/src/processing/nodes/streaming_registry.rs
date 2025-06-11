@@ -28,7 +28,7 @@ pub struct StreamingNodeMetadata {
 /// allowing multiple consumers to access the same stream and enabling dynamic
 /// routing based on node identifiers.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -59,7 +59,7 @@ pub struct StreamingNodeRegistry {
 impl StreamingNodeRegistry {
     /// Creates a new empty streaming node registry.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -77,13 +77,13 @@ impl StreamingNodeRegistry {
     /// If a stream was already registered for this node ID, it will be replaced
     /// with the new stream and name.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `node_id` - Unique identifier for the streaming node
     /// * `name` - Human-readable name for the node
     /// * `stream` - The shared audio stream to register
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -112,12 +112,12 @@ impl StreamingNodeRegistry {
     /// This method is kept for backward compatibility. It registers the stream
     /// with a default name based on the node ID.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `node_id` - Unique identifier for the streaming node
     /// * `stream` - The shared audio stream to register
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -137,16 +137,16 @@ impl StreamingNodeRegistry {
 
     /// Retrieves the audio stream associated with the specified node ID.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `node_id` - Unique identifier for the streaming node
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Returns `Some(SharedAudioStream)` if a stream is registered for the node,
     /// or `None` if no stream is found.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -172,16 +172,16 @@ impl StreamingNodeRegistry {
 
     /// Retrieves the name associated with the specified node ID.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `node_id` - Unique identifier for the streaming node
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Returns `Some(String)` if a node is registered for the ID,
     /// or `None` if no node is found.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -206,16 +206,16 @@ impl StreamingNodeRegistry {
 
     /// Removes the audio stream registration for the specified node ID.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `node_id` - Unique identifier for the streaming node
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Returns `true` if a stream was removed, `false` if no stream was registered
     /// for the specified node ID.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -239,7 +239,7 @@ impl StreamingNodeRegistry {
 
     /// Returns the number of currently registered streams.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -254,7 +254,7 @@ impl StreamingNodeRegistry {
 
     /// Returns `true` if no streams are currently registered.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -272,7 +272,7 @@ impl StreamingNodeRegistry {
     /// This method provides a snapshot of all active streaming nodes that can be
     /// used for administrative purposes or debugging.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;
@@ -295,7 +295,7 @@ impl StreamingNodeRegistry {
 
     /// Clears all registered streams from the registry.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::StreamingNodeRegistry;

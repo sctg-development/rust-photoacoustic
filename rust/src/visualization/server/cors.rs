@@ -18,7 +18,7 @@ use rocket::{Request, Response};
 /// important for APIs that are accessed from web applications hosted
 /// on different domains.
 ///
-/// # Security Note
+/// ### Security Note
 ///
 /// The current implementation uses very permissive settings (`*` for origins
 /// and headers). For production environments, consider restricting these to
@@ -33,7 +33,7 @@ pub struct CORS;
 impl Fairing for CORS {
     /// Provides information about this fairing to Rocket
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Information about the fairing, including its name and when it should run
     fn info(&self) -> Info {
@@ -48,7 +48,7 @@ impl Fairing for CORS {
     /// This method is called for every response and adds the appropriate
     /// CORS headers to enable cross-origin requests.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `_request` - The request that generated this response (unused)
     /// * `response` - The response to modify with CORS headers

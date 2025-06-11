@@ -26,12 +26,12 @@ use rocket_okapi::openapi;
 /// - Execution timing information
 /// - Graph structure details
 ///
-/// # Authentication
+/// ### Authentication
 ///
 /// This endpoint requires a valid JWT bearer token in the Authorization header.
 /// The token must have the appropriate scope for API access.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// Returns a JSON response containing `ProcessingGraphStatistics` with:
 /// - `node_statistics`: HashMap of node ID to performance statistics
@@ -43,7 +43,7 @@ use rocket_okapi::openapi;
 /// - `active_nodes`: Number of active nodes in the graph
 /// - `connections_count`: Number of connections between nodes
 ///
-/// # Example Response
+/// ### Example Response
 ///
 /// ```json
 /// {
@@ -68,7 +68,7 @@ use rocket_okapi::openapi;
 /// }
 /// ```
 ///
-/// # Error Responses
+/// ### Error Responses
 ///
 /// - `401 Unauthorized`: Missing or invalid JWT token
 /// - `403 Forbidden`: Token lacks required scope

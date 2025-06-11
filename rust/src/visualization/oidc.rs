@@ -77,12 +77,12 @@ pub struct OpenIdConfiguration {
 /// server configuration and state. It specifies the endpoints, supported algorithms,
 /// and other capabilities of this OpenID Provider.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `base_url` - The base URL of the server (e.g., "https://myserver.com")
 /// * `state` - The application OAuth state
 ///
-/// # Returns
+/// ### Returns
 ///
 /// OpenID Configuration object ready to be serialized to JSON
 fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdConfiguration {
@@ -153,11 +153,11 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
 /// - Supported authentication flows and algorithms
 /// - Supported claims and scopes
 ///
-/// # URL
+/// ### URL
 ///
 /// `GET /.well-known/openid-configuration`
 ///
-/// # Returns
+/// ### Returns
 ///
 /// JSON object containing OpenID Connect discovery configuration
 #[get("/.well-known/openid-configuration")]
@@ -180,14 +180,14 @@ pub async fn openid_configuration(
 /// Clients can use these keys to verify the signatures of tokens
 /// issued by this server.
 ///
-/// # URL
+/// ### URL
 ///
 ///
 ///
 ///
 /// `GET /.well-known/jwks.json`
 ///
-/// # Returns
+/// ### Returns
 ///
 /// JSON object containing the JWKS with public keys
 #[get("/.well-known/jwks.json")]

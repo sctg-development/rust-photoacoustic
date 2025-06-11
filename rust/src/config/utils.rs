@@ -19,7 +19,7 @@ use super::{Config, USER_SESSION_SEPARATOR};
 /// on the command line. It outputs the full JSON schema for the configuration
 /// to stdout, formatted for readability.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```bash
 /// ./rust_photoacoustic --show-config-schema > config_schema.json
@@ -47,11 +47,11 @@ pub fn output_config_schema() -> Result<()> {
 /// Validates that a string represents a valid IPv4 or IPv6 address,
 /// or is one of the special values like "localhost" or "0.0.0.0".
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `addr` - The address string to validate
 ///
-/// # Returns
+/// ### Returns
 ///
 /// `true` if the address is valid, `false` otherwise
 pub fn is_valid_ip_address(addr: &str) -> bool {
@@ -69,16 +69,16 @@ pub fn is_valid_ip_address(addr: &str) -> bool {
 /// such as verifying that certificate and key pairs are both present, validating base64 encoding
 /// of cryptographic material, and checking user password hashes.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `config` - The configuration object to validate
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Ok(())` if all validations pass
 /// * `Err(anyhow::Error)` with descriptive message if any validation fails
 ///
-/// # Validation Rules
+/// ### Validation Rules
 ///
 /// This function validates:
 ///

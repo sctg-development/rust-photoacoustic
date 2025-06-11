@@ -110,7 +110,7 @@ impl Default for StreamStats {
 impl SharedAudioStream {
     /// Create a new shared audio stream
     ///
-    /// # Parameters
+    /// ### Parameters
     /// * `buffer_size` - Size of the broadcast channel buffer
     pub fn new(buffer_size: usize) -> Self {
         let (sender, _) = broadcast::channel(buffer_size);

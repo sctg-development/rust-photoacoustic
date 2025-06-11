@@ -91,13 +91,13 @@ pub const USER_SESSION_SEPARATOR: char = '⛷';
 /// of the application. Currently, it only contains visualization settings, but
 /// it can be expanded to include other sections as the application grows.
 ///
-/// # Structure
+/// ### Structure
 ///
 /// The configuration is designed to be deserialized from and serialized to YAML
 /// using the serde framework. The structure is validated against a JSON schema
 /// to ensure all required fields are present and have valid values.
 ///
-/// # Default Values
+/// ### Default Values
 ///
 /// Each section uses default values when not explicitly specified in the configuration
 /// file, allowing for minimal configuration when custom settings are not required.
@@ -321,7 +321,7 @@ impl Config {
     /// Only values that differ from defaults or are explicitly provided will override
     /// the existing configuration.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `web_port` - TCP port for the visualization server
     /// * `web_address` - Network address for the visualization server to bind to
@@ -337,7 +337,7 @@ impl Config {
     /// * `modbus_port` - Optional TCP port for Modbus server
     /// * `modbus_address` - Optional network address for Modbus server
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```rust
     /// use rust_photoacoustic::config::Config;

@@ -47,14 +47,14 @@ use crate::visualization::server::get_config_from_request;
 /// from JWT claims. It supports both HMAC (HS256) and RSA (RS256) token validation
 /// depending on the server configuration.
 ///
-/// # Authentication Process
+/// ### Authentication Process
 ///
 /// 1. **Header Extraction**: Extracts the `Authorization: Bearer <token>` header
 /// 2. **Token Validation**: Validates the JWT signature and standard claims (exp, nbf, iss)
 /// 3. **User Resolution**: Extracts user information from token claims
 /// 4. **Permission Loading**: Loads user permissions from the token or configuration
 ///
-/// # Success Conditions
+/// ### Success Conditions
 ///
 /// The guard succeeds if:
 /// - The Authorization header is present and well-formed
@@ -63,7 +63,7 @@ use crate::visualization::server::get_config_from_request;
 /// - The token is not used before its validity period (`nbf` claim)
 /// - The issuer matches the expected value (`iss` claim)
 ///
-/// # Error Responses
+/// ### Error Responses
 ///
 /// | Condition | HTTP Status | Description |
 /// |-----------|-------------|-------------|
@@ -73,7 +73,7 @@ use crate::visualization::server::get_config_from_request;
 /// | Expired token | 401 Unauthorized | Token past expiration time |
 /// | Server configuration error | 500 Internal Server Error | Missing state or keys |
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```rust,no_run
 /// use rocket::get;
@@ -174,16 +174,16 @@ impl<'r> FromRequest<'r> for OAuthBearer {
 impl OAuthBearer {
     /// Check if the authenticated user has the specified permission
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `permission` - The permission string to check for (e.g., "read:api", "admin:users")
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Returns `true` if the user has the specified permission, `false` otherwise.
     /// If the user has no permissions (None), this method returns `false`.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```rust,no_run
     /// use rocket::get;

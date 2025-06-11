@@ -33,11 +33,11 @@ use crate::visualization::user_info_reponse::UserInfoResponse;
 /// a consent form to the user, allowing them to authorize or deny the
 /// client's request for access.
 ///
-/// # URL
+/// ### URL
 ///
 /// `GET /authorize`
 ///
-/// # Query Parameters
+/// ### Query Parameters
 ///
 /// Standard OAuth 2.0 parameters:
 /// - `response_type`: Must be "code"
@@ -46,7 +46,7 @@ use crate::visualization::user_info_reponse::UserInfoResponse;
 /// - `scope`: Requested permission scopes
 /// - `state`: Optional state for CSRF protection
 ///
-/// # Returns
+/// ### Returns
 ///
 /// - On initial access: A consent form HTML page
 /// - After consent: A redirect to the client with an authorization code
@@ -263,16 +263,16 @@ pub fn login(
 /// authorization form. It completes the authorization flow by either
 /// granting or denying the client's request based on user input.
 ///
-/// # URL
+/// ### URL
 ///
 /// `POST /authorize?allow=[true|false]`
 ///
-/// # Query Parameters
+/// ### Query Parameters
 ///
 /// - `allow`: Boolean flag indicating user consent (true) or denial (false)
 /// - Standard OAuth parameters carried over from the authorize request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// - On consent: A redirect to the client with an authorization code
 /// - On denial: A redirect to the client with an error
@@ -312,11 +312,11 @@ pub fn authorize_consent(
 /// refresh token. It validates the authorization code and client
 /// credentials before issuing tokens.
 ///
-/// # URL
+/// ### URL
 ///
 /// `POST /token`
 ///
-/// # Request Body
+/// ### Request Body
 ///
 /// Form-encoded with standard OAuth 2.0 parameters:
 /// - `grant_type`: Must be "authorization_code"
@@ -324,7 +324,7 @@ pub fn authorize_consent(
 /// - `redirect_uri`: Must match the original authorization request
 /// - `client_id`: The client identifier
 ///
-/// # Returns
+/// ### Returns
 ///
 /// - On success: A JSON response with access_token, token_type, expires_in, and refresh_token
 /// - On error: An OAuth error response
@@ -388,18 +388,18 @@ pub async fn token<'r>(
 /// which issues a new access token using a previously issued refresh token.
 /// It validates the refresh token before issuing a new access token.
 ///
-/// # URL
+/// ### URL
 ///
 /// `POST /refresh`
 ///
-/// # Request Body
+/// ### Request Body
 ///
 /// Form-encoded with standard OAuth 2.0 parameters:
 /// - `grant_type`: Must be "refresh_token"
 /// - `refresh_token`: The refresh token from a previous token response
 /// - `client_id`: The client identifier
 ///
-/// # Returns
+/// ### Returns
 ///
 /// - On success: A JSON response with a new access_token, token_type, expires_in, and refresh_token
 /// - On error: An OAuth error response

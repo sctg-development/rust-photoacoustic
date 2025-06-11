@@ -20,12 +20,12 @@ use serde::{Deserialize, Serialize};
 /// This structure represents an OAuth2 client that is allowed to use
 /// the authorization code flow with this server.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `client_id` - The unique identifier for the OAuth2 client
 /// * `allowed_callbacks` - List of URLs that this client is allowed to redirect to
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::config::access::Client;
@@ -66,13 +66,13 @@ fn default_duration() -> Option<i64> {
 /// This structure represents a user with authentication credentials and
 /// associated permissions for controlling access to API endpoints.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `user` - The username used for authentication
 /// * `pass` - Base64-encoded password hash (created with openssl passwd -5 | base64 -w0)
 /// * `permissions` - List of permission strings that define what actions the user can perform
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::config::User;
@@ -114,7 +114,7 @@ pub struct User {
 /// password hashes, and permissions, while clients have identifiers and allowed
 /// callback URLs.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```rust
 /// use rust_photoacoustic::config::access::{AccessConfig, User, Client};
@@ -218,7 +218,7 @@ impl Default for AccessConfig {
 /// This guard retrieves the [`AccessConfig`] from the [`OxideState`] managed by Rocket.
 /// It allows routes to access the configuration as a request guard parameter.
 ///
-/// # Errors
+/// ### Errors
 /// Returns a 500 error if the [`OxideState`] is missing from Rocket state.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AccessConfig {

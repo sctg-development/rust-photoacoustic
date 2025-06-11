@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// simulation. It supports both the existing `MockSource` and the new
 /// `SimulatedPhotoacousticRealtimeAudioSource`.
 ///
-/// # Physics Parameters
+/// ### Physics Parameters
 ///
 /// **For Physics PhD Specialists:**
 /// The configuration models a Helmholtz resonance cell photoacoustic analyzer with:
@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 /// This structure provides all parameters needed to configure the `generate_universal_photoacoustic_stereo`
 /// function, with sensible defaults for typical photoacoustic measurement scenarios.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::config::SimulatedSourceConfig;

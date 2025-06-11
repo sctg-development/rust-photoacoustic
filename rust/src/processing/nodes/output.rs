@@ -45,12 +45,12 @@ use anyhow::Result;
 /// It performs photoacoustic-specific signal analysis and converts processed audio
 /// signals into [`ProcessingData::PhotoacousticResult`] format with metadata.
 ///
-/// # Input/Output
+/// ### Input/Output
 ///
 /// - **Input**: [`ProcessingData::SingleChannel`] with processed audio signal
 /// - **Output**: [`ProcessingData::PhotoacousticResult`] with analysis results and metadata
 ///
-/// # Signal Analysis
+/// ### Signal Analysis
 ///
 /// The node performs several analysis operations:
 /// - Signal amplitude analysis (peak and RMS)
@@ -58,14 +58,14 @@ use anyhow::Result;
 /// - Basic signal characterization
 /// - Processing metadata generation
 ///
-/// # Configuration
+/// ### Configuration
 ///
 /// The node can be configured with:
 /// - Detection threshold for signal presence
 /// - Analysis window size for signal processing
 /// - Custom analysis parameters
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Basic photoacoustic output:
 ///
@@ -91,7 +91,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected PhotoacousticResult output"),
 /// }
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Configured output node:
@@ -129,16 +129,16 @@ pub struct PhotoacousticOutputNode {
 impl PhotoacousticOutputNode {
     /// Create a new photoacoustic output node with default settings
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     ///
-    /// # Default Settings
+    /// ### Default Settings
     ///
     /// - Detection threshold: 0.01 (1%)
     /// - Analysis window size: 1024 samples
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{PhotoacousticOutputNode, ProcessingNode};
@@ -159,11 +159,11 @@ impl PhotoacousticOutputNode {
     /// The detection threshold is used to determine whether a significant
     /// photoacoustic signal is present in the processed audio data.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `threshold` - Signal amplitude threshold (0.0 to 1.0)
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::PhotoacousticOutputNode;
@@ -181,11 +181,11 @@ impl PhotoacousticOutputNode {
     /// The analysis window size determines how many samples are used
     /// for signal analysis operations.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `window_size` - Number of samples in the analysis window
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::PhotoacousticOutputNode;

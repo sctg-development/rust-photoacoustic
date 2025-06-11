@@ -30,11 +30,11 @@ const STATIC_DIR: Dir = include_dir!("../web/dist");
 /// which is necessary for CORS preflight requests. The CORS fairing
 /// will add the appropriate headers to the response.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `_path` - The path requested (ignored in this implementation)
 ///
-/// # Returns
+/// ### Returns
 ///
 /// An empty success result to indicate that the preflight request is accepted
 #[openapi(tag = "Cors")]
@@ -56,16 +56,16 @@ pub async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 /// If the requested file is not found, it falls back to serving index.html,
 /// enabling client-side routing.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `path` - The path to the requested file relative to the web/dist directory
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The requested file content with appropriate headers
 /// * `None` - If the file cannot be found or served
 ///
-/// # Development Mode
+/// ### Development Mode
 ///
 /// When the `VITE_DEVELOPMENT` environment variable is set, requests are proxied
 /// to the URL specified in that variable (defaulting to `http://localhost:5173`).
@@ -112,7 +112,7 @@ pub async fn webclient(path: PathBuf, raw_query: RawQueryString) -> Option<Stati
 /// index.html file at `/client/index.html`. This provides a convenient shorthand
 /// URL for accessing the web interface.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A redirect response pointing to `/client/index.html`
 #[openapi(tag = "webclient")]
@@ -126,7 +126,7 @@ pub async fn webclient_index_html() -> Redirect {
 /// This function is shared between the root and `/index.html` routes
 /// to avoid duplicating the redirect logic.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A redirect response pointing to `/client/index.html`
 async fn webclient_index_multi() -> Redirect {
@@ -139,7 +139,7 @@ async fn webclient_index_multi() -> Redirect {
 /// the web client's index.html file. This allows users to access the
 /// web interface by navigating to the server's root URL.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A redirect response pointing to `/client/index.html`
 #[openapi(tag = "webclient")]
@@ -154,7 +154,7 @@ pub async fn webclient_index() -> Redirect {
 /// The favicon is used by browsers to display a small icon in the browser tab
 /// and bookmarks.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(StaticFileResponse)` - The favicon file content with appropriate headers
 /// * `None` - If the favicon file cannot be found

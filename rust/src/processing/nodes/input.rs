@@ -17,13 +17,13 @@ use anyhow::Result;
 /// It converts raw [`AudioFrame`] data from the acquisition system into
 /// the graph's [`ProcessingData::DualChannel`] format.
 ///
-/// # Behavior
+/// ### Behavior
 ///
 /// - Accepts any input data type (acts as a passthrough for non-AudioFrame data)
 /// - Converts [`AudioFrame`] to [`ProcessingData::DualChannel`]
 /// - Preserves all timing and metadata information
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Basic usage:
 ///
@@ -50,7 +50,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected DualChannel output"),
 /// }
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// In a processing graph:
@@ -70,11 +70,11 @@ pub struct InputNode {
 impl InputNode {
     /// Create a new input node with the given ID
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{InputNode, ProcessingNode};

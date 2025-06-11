@@ -65,16 +65,16 @@ pub struct SimulatedPhotoacousticRealtimeAudioSource {
 impl SimulatedPhotoacousticRealtimeAudioSource {
     /// Create a new simulated photoacoustic real-time audio source
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `config` - PhotoacousticConfig containing frequency, sample_rate, and precision settings
     /// * `simulation_config` - SimulatedSourceConfig with comprehensive simulation parameters
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new SimulatedPhotoacousticRealtimeAudioSource instance
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::acquisition::SimulatedPhotoacousticRealtimeAudioSource;
@@ -83,7 +83,7 @@ impl SimulatedPhotoacousticRealtimeAudioSource {
     /// let pa_config = PhotoacousticConfig::default();
     /// let sim_config = SimulatedSourceConfig::default();
     /// let source = SimulatedPhotoacousticRealtimeAudioSource::new(pa_config, sim_config)?;
-    /// # Ok::<(), anyhow::Error>(())
+    /// ### Ok::<(), anyhow::Error>(())
     /// ```
     pub fn new(
         config: PhotoacousticConfig,

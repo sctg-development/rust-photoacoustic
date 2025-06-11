@@ -24,7 +24,7 @@ use uuid::Uuid;
 /// endpoints. It registers itself with a `StreamingNodeRegistry` to enable
 /// dynamic routing based on node IDs.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
@@ -62,13 +62,13 @@ impl StreamingNode {
     /// The node automatically registers its audio stream with the provided registry,
     /// making it available for consumption via HTTP endpoints.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     /// * `name` - Human-readable name for the node
     /// * `registry` - Registry to manage the stream lifecycle
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
@@ -104,13 +104,13 @@ impl StreamingNode {
     /// internally for registry operations while using the string ID for
     /// graph connectivity.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id_str` - String identifier for this node (used in graph connections)
     /// * `name` - Human-readable name for the node
     /// * `registry` - Registry to manage the stream lifecycle
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
@@ -147,7 +147,7 @@ impl StreamingNode {
     /// This can be used to access the stream directly without going through
     /// the registry, useful for testing or advanced use cases.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};
@@ -169,7 +169,7 @@ impl StreamingNode {
 
     /// Returns the node ID.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::nodes::{StreamingNode, StreamingNodeRegistry};

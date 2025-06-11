@@ -56,7 +56,7 @@ use std::collections::HashMap;
 /// This struct mirrors the structure of the JWT claims issued by the authorization
 /// server, enabling validation and extraction of token information.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// All standard JWT claims are supported, along with a scope claim for OAuth 2.0
 /// scope values and optional metadata for additional custom claims.
@@ -88,12 +88,12 @@ struct JwtClaimsLocal {
 /// This struct represents the request parameters for the token introspection endpoint
 /// as defined in RFC 7662 OAuth 2.0 Token Introspection.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `token` - The string value of the token to be introspected
 /// * `token_type_hint` - Optional hint about the type of token (e.g., "access_token")
 ///
-/// # References
+/// ### References
 ///
 /// * [RFC 7662 Section 2.1](https://datatracker.ietf.org/doc/html/rfc7662#section-2.1)
 #[derive(FromForm, Deserialize)]
@@ -109,15 +109,15 @@ pub struct IntrospectionRequest {
 /// This struct represents the response returned by the token introspection endpoint.
 /// It includes standard fields defined in RFC 7662 and supports additional custom claims.
 ///
-/// # Required Field
+/// ### Required Field
 ///
 /// * `active` - Boolean indicating whether the token is active
 ///
-/// # Optional Fields
+/// ### Optional Fields
 ///
 /// All other fields are only included when the token is active.
 ///
-/// # References
+/// ### References
 ///
 /// * [RFC 7662 Section 2.2](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2)
 #[derive(Serialize)]
@@ -166,27 +166,27 @@ pub struct IntrospectionResponse {
 /// It first tries to validate the token using the configured OAuth issuer, then falls back
 /// to JWT validation if needed.
 ///
-/// # Endpoint
+/// ### Endpoint
 ///
 /// `POST /introspect`
 ///
-/// # Request Parameters
+/// ### Request Parameters
 ///
 /// Accepts form data with the following fields:
 /// * `token` - The token to introspect (required)
 /// * `token_type_hint` - Optional hint about the token type
 ///
-/// # Response
+/// ### Response
 ///
 /// Returns a JSON object with the standard introspection response fields.
 /// The `active` field is always present; other fields are only included for active tokens.
 ///
-/// # Authentication
+/// ### Authentication
 ///
 /// In a production environment, this endpoint should be protected with appropriate
 /// authentication to prevent unauthorized token introspection.
 ///
-/// # Example Request
+/// ### Example Request
 ///
 /// ```text
 /// POST /introspect HTTP/1.1
@@ -197,7 +197,7 @@ pub struct IntrospectionResponse {
 /// token=2YotnFZFEjr1zCsicMWpAA
 /// ```
 ///
-/// # Example Response for an Active Token
+/// ### Example Response for an Active Token
 ///
 /// ```json
 /// {
@@ -211,7 +211,7 @@ pub struct IntrospectionResponse {
 /// }
 /// ```
 ///
-/// # Example Response for an Invalid Token
+/// ### Example Response for an Invalid Token
 ///
 /// ```json
 /// {
@@ -219,7 +219,7 @@ pub struct IntrospectionResponse {
 /// }
 /// ```
 ///
-/// # References
+/// ### References
 ///
 /// * [RFC 7662: OAuth 2.0 Token Introspection](https://datatracker.ietf.org/doc/html/rfc7662)
 #[post("/introspect", data = "<params>")]

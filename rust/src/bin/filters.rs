@@ -170,11 +170,11 @@ struct Args {
 /// This function parses the command line arguments, reads the input WAV file,
 /// applies the selected filter, and writes the result to the output file.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<(), Box<dyn std::error::Error>>` - Success or an error with description
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Will return an error if:
 /// - The input file cannot be read or is not a valid WAV file

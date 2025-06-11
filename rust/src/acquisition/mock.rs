@@ -145,15 +145,15 @@ impl RealTimeAudioSource for MockSource {
 impl MockSource {
     /// Create a new MockSource using the provided PhotoacousticConfig
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `config` - PhotoacousticConfig containing frequency, sample_rate, and precision settings
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new MockSource instance configured for synthetic photoacoustic signal generation
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::acquisition::MockSource;
@@ -210,7 +210,7 @@ impl MockSource {
 
     /// Create a new MockSource with custom signal parameters
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `config` - PhotoacousticConfig containing frequency, sample_rate, and precision settings
     /// * `correlation` - Correlation coefficient between channels [-1.0, 1.0]

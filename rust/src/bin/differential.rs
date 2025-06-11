@@ -144,15 +144,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// It reads a stereo file, separates the channels, and creates a mono
 /// output file with the difference between the channels.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `args` - Command line arguments containing input/output paths and processing parameters
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<(), Box<dyn std::error::Error>>` - Success or an error with description
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Will return an error if:
 /// - The input file cannot be read
@@ -228,15 +228,15 @@ fn process_stereo_file(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 /// This function handles the File1MinusFile2 mode. It reads two mono files,
 /// verifies their compatibility, and creates an output file with their difference.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `args` - Command line arguments containing input/output paths and processing parameters
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<(), Box<dyn std::error::Error>>` - Success or an error with description
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Will return an error if:
 /// - Either input file cannot be read

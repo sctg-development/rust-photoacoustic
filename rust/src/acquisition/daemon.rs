@@ -36,7 +36,7 @@ pub struct AcquisitionDaemon {
 impl AcquisitionDaemon {
     /// Create a new acquisition daemon
     ///
-    /// # Parameters
+    /// ### Parameters
     /// * `audio_source` - The audio source to read from
     /// * `target_fps` - Target frames per second for streaming
     /// * `buffer_size` - Size of the broadcast buffer

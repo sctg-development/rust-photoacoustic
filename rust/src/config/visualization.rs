@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// including network binding parameters, TLS certificate settings, and authentication
 /// configuration with both HMAC and RSA key-based JWT options.
 ///
-/// # Security Options
+/// ### Security Options
 ///
 /// The structure supports two JWT authentication mechanisms:
 ///
@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// The RS256 keys can be generated using the included `rs256keygen` binary.
 ///
-/// # TLS Configuration
+/// ### TLS Configuration
 ///
 /// For secure HTTPS connections, both `cert` and `key` fields must be provided as
 /// Base64-encoded PEM files. If either is missing, the server will operate in non-TLS mode.

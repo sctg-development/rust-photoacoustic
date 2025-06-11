@@ -115,7 +115,7 @@ fn protect_universal_impl(args: TokenStream, input: TokenStream, http_method: &s
 /// it returns HTTP 403 Forbidden. The macro uses `rocket::Either` to handle
 /// both success and error responses properly.
 ///
-/// # Syntax
+/// ### Syntax
 ///
 /// ```rust,ignore
 /// #[protect_get("/path", "permission:scope")]
@@ -131,7 +131,7 @@ pub fn protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Attribute macro for creating protected POST routes with permission checking
 ///
-/// # Syntax
+/// ### Syntax
 ///
 /// ```rust,ignore
 /// #[protect_post("/path", "permission:scope")]
@@ -147,7 +147,7 @@ pub fn protect_post(args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Attribute macro for creating protected PUT routes with permission checking
 ///
-/// # Syntax
+/// ### Syntax
 ///
 /// ```rust,ignore
 /// #[protect_put("/path", "permission:scope")]
@@ -163,7 +163,7 @@ pub fn protect_put(args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Attribute macro for creating protected DELETE routes with permission checking
 ///
-/// # Syntax
+/// ### Syntax
 ///
 /// ```rust,ignore
 /// #[protect_delete("/path", "permission:scope")]
@@ -179,7 +179,7 @@ pub fn protect_delete(args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Attribute macro for creating protected PATCH routes with permission checking
 ///
-/// # Syntax
+/// ### Syntax
 ///
 /// ```rust,ignore
 /// #[protect_patch("/path", "permission:scope")]

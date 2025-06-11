@@ -16,12 +16,12 @@ use anyhow::Result;
 /// Nodes are the fundamental building blocks of the audio processing pipeline,
 /// each performing a specific operation on audio data.
 ///
-/// # Thread Safety
+/// ### Thread Safety
 ///
 /// All processing nodes must be `Send + Sync` to allow for multi-threaded
 /// processing graphs and parallel execution.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Implementing a custom processing node:
 ///
@@ -77,16 +77,16 @@ pub trait ProcessingNode: Send + Sync {
     /// This is the main processing method that transforms input data into output data.
     /// Each node implementation defines how it processes the specific data types it supports.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `input` - The input data to process
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Ok(ProcessingData)` - Successfully processed output data
     /// * `Err(anyhow::Error)` - Processing error with details
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{InputNode, ProcessingNode, ProcessingData};
@@ -123,11 +123,11 @@ pub trait ProcessingNode: Send + Sync {
     /// Returns true if this node can process the given input data type.
     /// This is used for graph validation and type checking.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `input` - The input data to check
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{InputNode, ProcessingNode, ProcessingData};
@@ -149,11 +149,11 @@ pub trait ProcessingNode: Send + Sync {
     /// Returns the expected output data type name for the given input,
     /// or None if the input is not supported.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `input` - The input data to analyze
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Some(String)` - Name of the expected output type
     /// * `None` - Input type not supported
@@ -170,7 +170,7 @@ pub trait ProcessingNode: Send + Sync {
     /// Creates a deep copy of the node for use in graph reconfiguration
     /// or parallel processing scenarios.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A boxed clone of this node with the same configuration
     fn clone_node(&self) -> Box<dyn ProcessingNode>;

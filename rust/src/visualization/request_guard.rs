@@ -22,7 +22,7 @@ use std::ops::Deref;
 /// with its content type. It implements Rocket's `Responder` trait to
 /// allow direct return from route handlers.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `0` - The binary content of the file
 /// * `1` - The content type of the file
@@ -76,7 +76,7 @@ impl<'r> Responder<'r, 'r> for StaticFileResponse {
 /// type-safe way to access the HTTP headers of an incoming request. It can be
 /// used directly as a parameter in route handlers to access all request headers.
 ///
-/// # Usage in Routes
+/// ### Usage in Routes
 ///
 /// ```
 /// use rocket::get;
@@ -93,7 +93,7 @@ impl<'r> Responder<'r, 'r> for StaticFileResponse {
 /// }
 /// ```
 ///
-/// # Implementation Details
+/// ### Implementation Details
 ///
 /// This struct implements Rocket's `FromRequest` trait, allowing it to be used
 /// as a request guard in route handlers. When a route with this parameter is invoked,
@@ -118,11 +118,11 @@ impl<'r> FromRequest<'r> for Headers<'r> {
     /// This implementation always succeeds and provides access to the request's
     /// headers through the `Headers` struct.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `req` - The incoming HTTP request
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A successful outcome containing the headers from the request
     async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
@@ -147,7 +147,7 @@ impl Debug for Headers<'_> {
 /// It can be used in route handlers to obtain details about how a client is connecting
 /// to the server, which is useful for logging, analytics, and generating absolute URLs.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// * `host_port` - The host and port as a string (e.g., "example.com:8080")
 /// * `origin` - The normalized URI origin from the request
@@ -158,7 +158,7 @@ impl Debug for Headers<'_> {
 /// * `base_url_with_port` - The base URL including the port (e.g., "https://example.com:8080")
 /// * `base_url` - The base URL without the port if standard (e.g., "https://example.com")
 ///
-/// # Usage in Routes
+/// ### Usage in Routes
 ///
 /// ```
 /// use rocket::get;
@@ -173,7 +173,7 @@ impl Debug for Headers<'_> {
 /// }
 /// ```
 ///
-/// # Security Considerations
+/// ### Security Considerations
 ///
 /// This struct provides information that could be useful for logging and debugging,
 /// but care should be taken when exposing client IP addresses or other connection
@@ -201,11 +201,11 @@ impl<'r> FromRequest<'r> for ConnectionInfo<'r> {
     /// and path of the incoming request.
     /// NOTE: if the host is not set in the request, it will use localhost:8080 hardcoded
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `req` - The incoming HTTP request
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A successful outcome containing the connection information
     async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
@@ -261,7 +261,7 @@ impl Into<String> for RawQueryString {
     /// This allows easy conversion to a string representation of the query string,
     /// which can be useful for logging or passing to other functions.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The raw query string as a String
     fn into(self) -> String {
@@ -296,11 +296,11 @@ impl<'r> FromRequest<'r> for RawQueryString {
     ///
     /// This implementation provides access to the raw query string of the incoming request.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `req` - The incoming HTTP request
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A successful outcome containing the raw query string
     async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {

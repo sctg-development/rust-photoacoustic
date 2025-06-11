@@ -36,7 +36,7 @@ use super::token_entry::TokenEntry;
 /// typically wrapped in the `JwtIssuer` struct that provides thread safety
 /// through a mutex.
 ///
-/// # Token Storage
+/// ### Token Storage
 ///
 /// Tokens are stored in two hash maps:
 /// - `access_tokens`: Maps access token strings to token entries
@@ -145,12 +145,12 @@ impl JwtTokenMap {
 
     /// Create a new JWT token issuer with RS256 algorithm using PEM encoded keys
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `private_key_pem` - PEM encoded private key
     /// * `public_key_pem` - PEM encoded public key
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new JwtTokenMap configured to use RS256 algorithm with the provided keys
     pub fn with_rs256_pem(

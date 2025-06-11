@@ -108,7 +108,7 @@ pub enum KeyType {
 /// including the algorithm and cryptographic keys to use. It provides a unified interface
 /// for working with different types of keys (symmetric and asymmetric).
 ///
-/// # Key Types
+/// ### Key Types
 ///
 /// * **Symmetric Keys**: The same key is used for both signing and verification (HMAC)
 /// * **RSA Keys**: A private key is used for signing, and a public key for verification
@@ -161,20 +161,20 @@ impl JwtKeyConfig {
     /// This method creates a key configuration using a symmetric HMAC key.
     /// The same secret is used for both signing and verifying JWTs.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `secret` - The secret bytes to use for HMAC signing/verification
     /// * `algorithm` - The HMAC algorithm to use (must be one of: HS256, HS384, HS512)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<JwtKeyConfig>` - The key configuration if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if the algorithm is not compatible with symmetric keys.
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```
     /// use rust_photoacoustic::visualization::auth::jwt::JwtKeyConfig;
@@ -207,24 +207,24 @@ impl JwtKeyConfig {
     /// This method loads RSA keys from PEM files and creates a configuration
     /// for signing and verifying JWTs using RSA algorithms.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `private_key_path` - Path to the PEM file containing the RSA private key
     /// * `public_key_path` - Path to the PEM file containing the RSA public key
     /// * `algorithm` - The RSA algorithm to use (must be one of: RS256, RS384, RS512, PS256, PS384, PS512)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<JwtKeyConfig>` - The key configuration if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The algorithm is not compatible with RSA keys
     /// - Either key file cannot be read
     /// - The keys are not valid RSA PEM keys
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```no_run
     /// use rust_photoacoustic::visualization::auth::jwt::JwtKeyConfig;
@@ -275,23 +275,23 @@ impl JwtKeyConfig {
     /// This method creates a configuration for signing and verifying JWTs using RSA
     /// keys provided directly as PEM-formatted byte arrays in memory.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `private_key` - Byte array containing the RSA private key in PEM format
     /// * `public_key` - Byte array containing the RSA public key in PEM format
     /// * `algorithm` - The RSA algorithm to use (must be one of: RS256, RS384, RS512, PS256, PS384, PS512)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<JwtKeyConfig>` - The key configuration if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The algorithm is not compatible with RSA keys
     /// - Either key is not a valid RSA PEM key
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```no_run
     /// use rust_photoacoustic::visualization::auth::jwt::JwtKeyConfig;
@@ -339,24 +339,24 @@ impl JwtKeyConfig {
     /// This method loads Elliptic Curve keys from PEM files and creates a configuration
     /// for signing and verifying JWTs using EC algorithms.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `private_key_path` - Path to the PEM file containing the EC private key
     /// * `public_key_path` - Path to the PEM file containing the EC public key
     /// * `algorithm` - The EC algorithm to use (must be one of: ES256, ES384)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<JwtKeyConfig>` - The key configuration if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The algorithm is not compatible with EC keys
     /// - Either key file cannot be read
     /// - The keys are not valid EC PEM keys
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```no_run
     /// use rust_photoacoustic::visualization::auth::jwt::JwtKeyConfig;
@@ -402,23 +402,23 @@ impl JwtKeyConfig {
     /// This method creates a configuration for signing and verifying JWTs using EC
     /// keys provided directly as PEM-formatted byte arrays in memory.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `private_key` - Byte array containing the EC private key in PEM format
     /// * `public_key` - Byte array containing the EC public key in PEM format
     /// * `algorithm` - The EC algorithm to use (must be one of: ES256, ES384)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<JwtKeyConfig>` - The key configuration if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The algorithm is not compatible with EC keys
     /// - Either key is not a valid EC PEM key
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```no_run
     /// use rust_photoacoustic::visualization::auth::jwt::JwtKeyConfig;
@@ -461,15 +461,15 @@ impl JwtKeyConfig {
     /// This is a convenience method for quickly creating a symmetric key configuration
     /// using the HS256 algorithm, which is suitable for most basic JWT use cases.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `secret` - The secret bytes to use for HMAC signing/verification
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A JwtKeyConfig configured with HS256 algorithm and the provided secret
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```rust
     /// use rust_photoacoustic::visualization::auth::jwt::JwtKeyConfig;
@@ -491,11 +491,11 @@ impl JwtKeyConfig {
     /// This method creates a symmetric key configuration suitable for testing.
     /// It should not be used in production environments.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<JwtKeyConfig>` - A key configuration for testing
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```
     /// #[cfg(test)]
@@ -534,11 +534,11 @@ impl JwkKeySet {
     /// This function converts a PEM encoded RSA public key to a JWK (JSON Web Key)
     /// representation suitable for use with OpenID Connect discovery endpoints.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `pem_data` - The PEM encoded RSA public key as bytes
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A JWK representing the RSA public key, or an error if parsing fails
     pub fn create_jwk_from_pem(pem_data: &[u8]) -> Result<Jwk> {
@@ -555,11 +555,11 @@ impl JwkKeySet {
     /// Converts an RSA public key to a JWK representation with the necessary
     /// parameters for use with OpenID Connect.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `public_key` - The RSA public key
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A JWK representing the RSA public key n and e are encoded with the Base64URL variant
     pub fn create_jwk_from_public_key(public_key: &RsaPublicKey) -> Result<Jwk> {
@@ -597,12 +597,12 @@ impl JwkKeySet {
     /// a key ID (kid) parameter. The thumbprint is a SHA-256 hash of the
     /// canonical JSON representation of the JWK.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `n` - Base64URL encoded modulus
     /// * `e` - Base64URL encoded exponent
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Base64URL encoded SHA-256 thumbprint
     fn calculate_jwk_thumbprint(n: &str, e: &str) -> Result<String> {

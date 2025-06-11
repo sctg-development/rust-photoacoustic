@@ -54,7 +54,7 @@ use super::server::get_config_from_request;
 /// of incoming HTTP requests. It validates that the header is present and
 /// properly formatted as a Bearer token.
 ///
-/// # Usage
+/// ### Usage
 ///
 /// ```rust,no_run
 /// use rocket::get;
@@ -67,7 +67,7 @@ use super::server::get_config_from_request;
 /// }
 /// ```
 ///
-/// # Authentication Process
+/// ### Authentication Process
 ///
 /// 1. Checks for the presence of an Authorization header
 /// 2. Validates that the header starts with "Bearer "
@@ -81,7 +81,7 @@ pub struct JwtToken(pub String);
 /// This struct represents an authenticated user after a successful JWT token validation.
 /// It contains user identity information and authorization details extracted from the token.
 ///
-/// # Usage
+/// ### Usage
 ///
 /// ```rust,no_run
 /// use rocket::get;
@@ -133,7 +133,7 @@ impl<'r> FromRequest<'r> for JwtToken {
 
     /// Extracts a JWT token from the request's Authorization header
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Outcome::Success(JwtToken)` - If a valid bearer token was found
     /// * `Outcome::Error((Status::Unauthorized, AuthError))` - If authentication failed
@@ -170,7 +170,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 
     /// Extracts and validates a JWT token, then extracts user information
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Outcome::Success(AuthenticatedUser)` - If authentication succeeded
     /// * `Outcome::Error((Status::Unauthorized, AuthError))` - If authentication failed
@@ -215,7 +215,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 /// It should be used in combination with the `AuthenticatedUser` guard to first
 /// authenticate the user and then verify they have the necessary authorization.
 ///
-/// # Usage
+/// ### Usage
 ///
 /// ```rust,no_run
 /// use rocket::get;
@@ -239,7 +239,7 @@ impl<'r> FromRequest<'r> for RequireScope {
 
     /// Checks if the authenticated user has the required scope
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Outcome::Success(RequireScope)` - If the user has the required scope
     /// * `Outcome::Error((Status::Forbidden, AuthError))` - If the user lacks the required scope
@@ -288,11 +288,11 @@ pub struct UserProfile {
 /// This endpoint returns the authenticated user's profile information.
 /// It demonstrates how to use the `AuthenticatedUser` request guard.
 ///
-/// # Authentication
+/// ### Authentication
 ///
 /// Requires a valid JWT token in the Authorization header.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// Returns a JSON object containing the user's profile information.
 #[get("/api/profile", rank = 1)]
@@ -310,11 +310,11 @@ pub fn get_profile(user: AuthenticatedUser) -> Json<UserProfile> {
 /// and a specific scope authorization. It demonstrates how to use both the
 /// `AuthenticatedUser` and `RequireScope` request guards together.
 ///
-/// # Authentication
+/// ### Authentication
 ///
 /// Requires a valid JWT token in the Authorization header with the "read:api" scope.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// Returns a JSON object containing the protected data.
 #[get("/api/data", rank = 1)]
@@ -331,20 +331,20 @@ pub fn get_data(_user: AuthenticatedUser, _scope: RequireScope) -> Json<serde_js
 /// HMAC secret or RS256 public key. The validator is configured with a fixed issuer
 /// and audience.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `hmac_secret` - The HMAC secret key used to verify JWT signatures
 /// * `rs256_public_key` - Optional RS256 public key in PEM format for verifying signatures
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<JwtValidator>` - A configured JWT validator if successful
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Returns an error if the JWT validator cannot be initialized.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```no_run
 /// use std::sync::Arc;

@@ -29,14 +29,14 @@ use crate::visualization::jwt::JwtIssuer;
 /// This structure uses thread-safe wrappers (`Arc<Mutex<>>`) around the core
 /// components to ensure safe concurrent access from multiple Rocket workers.
 ///
-/// # Components
+/// ### Components
 ///
 /// * `registrar` - Stores registered OAuth clients
 /// * `authorizer` - Manages authorization grants and codes
 /// * `issuer` - JWT token issuer for generating access tokens
 /// * `hmac_secret` - Shared secret for JWT token validation
 ///
-/// # Thread Safety
+/// ### Thread Safety
 ///
 /// All mutable components are protected by mutexes and shared via Arc to ensure
 /// thread safety when used across multiple Rocket worker threads.
@@ -117,15 +117,15 @@ impl OxideState {
     /// - Standard scopes for API access
     /// - Multiple allowed redirect URIs for development and production
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `hmac_secret` - The secret key used for signing and validating JWT tokens
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A preconfigured `OxideState` instance ready to use with Rocket
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```no_run
     /// use rust_photoacoustic::visualization::auth::OxideState;
@@ -215,22 +215,22 @@ impl OxideState {
     /// customized with solicitors and scope validators before executing
     /// an OAuth flow.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A Generic OAuth endpoint ready to be configured for a specific flow
     ///
-    /// # Panics
+    /// ### Panics
     ///
     /// This method will panic if any of the internal mutexes are poisoned
     /// (which would indicate a thread panic while holding the lock).
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```no_run
     /// use rust_photoacoustic::visualization::auth::OxideState;
     /// let figment = rocket::Config::figment().merge(("hmac_secret", "your-secret"));
     /// let state = OxideState::preconfigured(figment);
-    /// # // We don't need an oauth_request for this example
+    /// ### // We don't need an oauth_request for this example
     ///
     /// // Configure and execute an authorization flow
     /// let endpoint = state.endpoint();

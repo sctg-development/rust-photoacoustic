@@ -135,12 +135,12 @@ impl ThroughputStats {
 impl RecordConsumer {
     /// Create a new RecordConsumerDaemon
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `audio_stream` - Shared audio stream to consume
     /// * `output_path` - Output WAV file path
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new RecordConsumerDaemon instance
     pub fn new(audio_stream: Arc<SharedAudioStream>, output_path: String) -> Self {

@@ -93,7 +93,7 @@ use serde::{Deserialize, Serialize};
 /// The generator maintains an internal state that evolves with each random
 /// number generated, producing a sequence of pseudo-random values.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -121,15 +121,15 @@ impl NoiseGenerator {
     /// and thus the entire sequence of random numbers that will be generated.
     /// Using the same seed will produce the same sequence of random numbers.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `seed` - A 32-bit unsigned integer used to initialize the generator state
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `NoiseGenerator` instance initialized with the specified seed
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -147,15 +147,15 @@ impl NoiseGenerator {
     /// as the seed value. This provides a different seed each time the generator is created,
     /// which is useful for applications that need different noise patterns on each run.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `NoiseGenerator` instance initialized with a time-based seed
     ///
-    /// # Panics
+    /// ### Panics
     ///
     /// Panics if the system time is before the Unix epoch (extremely unlikely)
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -177,11 +177,11 @@ impl NoiseGenerator {
     /// and produce a pseudo-random number. The resulting 32-bit value is
     /// normalized to the range [-1.0, 1.0].
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A random f32 value in the range [-1.0, 1.0]
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -206,11 +206,11 @@ impl NoiseGenerator {
     /// random numbers into normally distributed random numbers. The resulting
     /// distribution has a mean of 0 and a standard deviation of 1.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A random f32 value from a standard Gaussian distribution
     ///
-    /// # Mathematical Background
+    /// ### Mathematical Background
     ///
     /// The Box-Muller transform converts uniform random variables to normally
     /// distributed random variables using the formula:
@@ -219,7 +219,7 @@ impl NoiseGenerator {
     /// ```
     /// where u1 and u2 are uniform random variables in the range (0,1).
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -244,22 +244,22 @@ impl NoiseGenerator {
     /// Gaussian white noise with the specified amplitude. The samples are
     /// suitable for use in audio applications or signal processing.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate
     /// * `amplitude` - The amplitude scaling factor in the range [0.0, 1.0]
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing the generated noise
     ///
-    /// # Sample Values
+    /// ### Sample Values
     ///
     /// The output samples are scaled to utilize the full i16 range [-32768, 32767],
     /// with the amplitude parameter controlling the overall level. An amplitude of 1.0
     /// will generate noise that uses the full available range.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -288,22 +288,22 @@ impl NoiseGenerator {
     /// two channels of independent Gaussian white noise. The samples are
     /// interleaved in the output vector (L,R,L,R,...).
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate per channel
     /// * `amplitude` - The amplitude scaling factor in the range [0.0, 1.0]
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing interleaved stereo noise samples.
     /// The length of the vector will be 2 * num_samples.
     ///
-    /// # Interleaving
+    /// ### Interleaving
     ///
     /// The samples are interleaved in the standard audio format:
     /// [left_0, right_0, left_1, right_1, ...].
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -338,25 +338,25 @@ impl NoiseGenerator {
     /// This is useful for simulating partially correlated noise sources or
     /// testing stereo processing algorithms with different degrees of channel correlation.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate per channel
     /// * `amplitude` - The amplitude scaling factor in the range [0.0, 1.0]
     /// * `correlation` - The correlation coefficient between channels in the range [-1.0, 1.0]
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing interleaved stereo noise samples.
     /// The length of the vector will be 2 * num_samples.
     ///
-    /// # Correlation Coefficient
+    /// ### Correlation Coefficient
     ///
     /// The correlation coefficient controls the statistical similarity between channels:
     /// - 1.0: Perfectly correlated (identical channels)
     /// - 0.0: Uncorrelated (independent channels)
     /// - -1.0: Perfectly anti-correlated (inverted channels)
     ///
-    /// # Mathematical Implementation
+    /// ### Mathematical Implementation
     ///
     /// For two uncorrelated random variables X and Y, we create a new variable Z
     /// that has correlation ρ with X using the formula:
@@ -364,7 +364,7 @@ impl NoiseGenerator {
     /// Z = ρX + √(1-ρ²)Y
     /// ```
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -408,7 +408,7 @@ impl NoiseGenerator {
     /// a synthetic photoacoustic signal consisting of white noise with
     /// periodic pulsed sinusoidal signals overlaid at the specified frequency.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate
     /// * `sample_rate` - The sample rate in Hz
@@ -418,11 +418,11 @@ impl NoiseGenerator {
     /// * `min_pulse_amplitude` - The minimum amplitude of pulses in the range [0.0, 1.0]
     /// * `max_pulse_amplitude` - The maximum amplitude of pulses in the range [0.0, 1.0]
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing the generated mock signal
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -504,7 +504,7 @@ impl NoiseGenerator {
     /// a stereo synthetic photoacoustic signal with independent noise and
     /// pulse signals in each channel.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate per channel
     /// * `sample_rate` - The sample rate in Hz
@@ -514,12 +514,12 @@ impl NoiseGenerator {
     /// * `min_pulse_amplitude` - The minimum amplitude of pulses in the range [0.0, 1.0]
     /// * `max_pulse_amplitude` - The maximum amplitude of pulses in the range [0.0, 1.0]
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing interleaved stereo mock signal samples.
     /// The length of the vector will be 2 * num_samples.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -609,7 +609,7 @@ impl NoiseGenerator {
     /// This method creates a vector of 16-bit integer samples representing a stereo
     /// synthetic photoacoustic signal with correlated noise and pulse signals between channels.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate per channel
     /// * `sample_rate` - The sample rate in Hz
@@ -620,12 +620,12 @@ impl NoiseGenerator {
     /// * `max_pulse_amplitude` - The maximum amplitude of pulses in the range [0.0, 1.0]
     /// * `correlation` - The correlation coefficient between channels in the range [-1.0, 1.0]
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing interleaved stereo mock signal samples with the specified correlation.
     /// The length of the vector will be 2 * num_samples.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;
@@ -739,7 +739,7 @@ impl NoiseGenerator {
     /// - Frequency response characteristics of the resonance cell
     /// - Molecular concentration variations (random walk simulation)
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `num_samples` - The number of samples to generate per channel
     /// * `sample_rate` - The sample rate in Hz
@@ -752,12 +752,12 @@ impl NoiseGenerator {
     /// * `gas_flow_noise_factor` - Factor controlling 1/f gas flow noise characteristics [0.0, 1.0]
     /// * `snr_factor` - Signal-to-noise ratio factor for the output signal in dB
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A vector of i16 samples containing interleaved stereo samples simulating the
     /// Helmholtz cell system. The length will be 2 * num_samples.
     ///
-    /// # Physical System Simulation
+    /// ### Physical System Simulation
     ///
     /// The function simulates the following physical phenomena:
     /// - **Helmholtz Resonance**: Enhanced signal at the resonance frequency
@@ -768,7 +768,7 @@ impl NoiseGenerator {
     /// - **Laser Modulation**: Periodic modulation creating the photoacoustic effect
     /// - **Molecular Concentration**: Random walk variations simulating changing analyte concentration (10%-200% of nominal)
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::utility::noise_generator::NoiseGenerator;

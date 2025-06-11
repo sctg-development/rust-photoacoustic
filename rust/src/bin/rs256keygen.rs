@@ -99,7 +99,7 @@ struct Args {
 /// 4. Writes the keys to the specified output files
 /// 5. Prints instructions for using the keys with the photoacoustic application
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Returns an error if:
 /// - RSA key generation fails

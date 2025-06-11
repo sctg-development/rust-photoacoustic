@@ -250,11 +250,11 @@ struct Args {
 /// Parses command-line arguments, validates parameters, generates the
 /// requested type of white noise, and saves it to a WAV file.
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<(), Box<dyn std::error::Error>>` - Success or an error with description
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Will return an error if:
 /// - Invalid parameters are provided (checked before generation)

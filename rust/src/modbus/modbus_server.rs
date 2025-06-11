@@ -61,7 +61,7 @@ use crate::utility::PhotoacousticDataSource;
 ///
 /// The server is thread-safe and can handle multiple concurrent client connections.
 ///
-/// # Register Map
+/// ### Register Map
 ///
 /// ## Input Registers (Read-Only)
 ///
@@ -83,7 +83,7 @@ use crate::utility::PhotoacousticDataSource;
 /// - Register 2: Gain setting, default: 30
 /// - Register 3: Filter strength, default: 40
 ///
-/// # Thread Safety
+/// ### Thread Safety
 ///
 /// All registers are protected with `Mutex` within an `Arc` to allow safe
 /// concurrent access from multiple client connections.
@@ -188,7 +188,7 @@ impl PhotoacousticModbusServer {
     /// - 2: 30 (Gain setting)
     /// - 3: 40 (Filter strength)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `PhotoacousticModbusServer` instance ready to be used with a TCP server.
     pub fn new() -> Self {
@@ -228,11 +228,11 @@ impl PhotoacousticModbusServer {
     /// Similar to `new()`, but initializes the server with data from the provided
     /// data source instead of static test values.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `data_source` - A shared data source containing photoacoustic measurements
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `PhotoacousticModbusServer` instance ready to be used with a TCP server.
     pub fn with_data_source(data_source: &Arc<PhotoacousticDataSource>) -> Self {
@@ -256,18 +256,18 @@ impl PhotoacousticModbusServer {
     /// exposed through the input registers. The floating-point values are
     /// scaled to fit into 16-bit registers with appropriate precision.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `frequency` - The resonance frequency (Hz)
     /// * `amplitude` - The signal amplitude
     /// * `concentration` - The water vapor concentration (ppm)
     ///
-    /// # Thread Safety
+    /// ### Thread Safety
     ///
     /// This method acquires a lock on the input registers, ensuring thread-safe updates
     /// even when the server is handling client connections.
     ///
-    /// # Value Scaling
+    /// ### Value Scaling
     ///
     /// The values are scaled as follows:
     /// * Frequency: multiplied by 10 (0.1 Hz resolution)
@@ -309,7 +309,7 @@ impl PhotoacousticModbusServer {
 
     /// Get the current configuration from holding registers
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A tuple with configuration values:
     /// * Measurement interval (seconds)
@@ -334,18 +334,18 @@ impl PhotoacousticModbusServer {
 /// from a HashMap-based register collection. It checks if each requested
 /// register address exists and returns an error if any address is invalid.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `registers` - The HashMap containing the register values
 /// * `addr` - The starting register address
 /// * `cnt` - The number of registers to read
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<Vec<u16>, ExceptionCode>` - The register values if successful,
 ///   or an error code if any address is invalid
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Returns `ExceptionCode::IllegalDataAddress` if any requested register
 /// address does not exist in the HashMap.
@@ -381,18 +381,18 @@ fn register_read(
 /// to a HashMap-based register collection. It checks if each target
 /// register address exists and returns an error if any address is invalid.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `registers` - The mutable HashMap containing the register values
 /// * `addr` - The starting register address
 /// * `values` - The slice of values to write
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Result<(), ExceptionCode>` - Success if all values were written,
 ///   or an error code if any address is invalid
 ///
-/// # Errors
+/// ### Errors
 ///
 /// Returns `ExceptionCode::IllegalDataAddress` if any target register
 /// address does not exist in the HashMap.

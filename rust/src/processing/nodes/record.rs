@@ -81,14 +81,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// It saves incoming audio data to WAV files without modifying the stream, allowing
 /// the data to continue to downstream nodes.
 ///
-/// # Recording Features
+/// ### Recording Features
 ///
 /// - **Format**: Records in PCM WAV format (16-bit integer)
 /// - **Channels**: Automatically detects mono/stereo from input data
 /// - **File Rotation**: Creates new files when size limit is reached
 /// - **Pass-through**: Input data is returned unchanged
 ///
-/// # File Management
+/// ### File Management
 ///
 /// When `max_size` is exceeded, the node will:
 /// 1. Close the current file
@@ -101,13 +101,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// - When total disk usage exceeds `total_limit`, oldest files are deleted
 /// - This creates a rolling window of the most recent recordings
 ///
-/// # Thread Safety
+/// ### Thread Safety
 ///
 /// The node maintains internal state for the WAV writer and implements proper
 /// cleanup when dropped. However, it's designed for single-threaded use within
 /// the processing graph.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Creating a record node with file rotation:
 ///
@@ -142,7 +142,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// // Both calls return the input unchanged while recording
 /// let mono_result = record_node.process(mono_data)?;
 /// let stereo_result = record_node.process(stereo_data)?;
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 
 pub struct RecordNode {
@@ -171,7 +171,7 @@ pub struct RecordNode {
 impl RecordNode {
     /// Create a new record node
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     /// * `record_file` - Path where recordings will be saved
@@ -179,7 +179,7 @@ impl RecordNode {
     /// * `auto_delete` - Whether to automatically delete old files
     /// * `total_limit` - Optional maximum total disk space in kilobytes for rolling files
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::RecordNode;

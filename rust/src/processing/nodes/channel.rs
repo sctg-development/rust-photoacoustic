@@ -19,19 +19,19 @@ use anyhow::Result;
 /// to process one channel of a stereo signal or when splitting channels for
 /// parallel processing paths.
 ///
-/// # Input/Output
+/// ### Input/Output
 ///
 /// - **Input**: [`ProcessingData::DualChannel`] with two audio channels
 /// - **Output**: [`ProcessingData::SingleChannel`] with the selected channel
 ///
-/// # Channel Selection
+/// ### Channel Selection
 ///
 /// The node can select:
 /// - Channel A (left channel)
 /// - Channel B (right channel)
 /// - Note: [`ChannelTarget::Both`] is not valid for this node as it produces single-channel output
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Selecting channel A:
 ///
@@ -56,7 +56,7 @@ use anyhow::Result;
 ///     }
 ///     _ => panic!("Expected SingleChannel output"),
 /// }
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Selecting channel B:
@@ -87,17 +87,17 @@ pub struct ChannelSelectorNode {
 impl ChannelSelectorNode {
     /// Create a new channel selector node
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     /// * `target_channel` - Which channel to select (ChannelA or ChannelB only)
     ///
-    /// # Panics
+    /// ### Panics
     ///
     /// This constructor does not validate the target_channel, but the process method
     /// will return an error if [`ChannelTarget::Both`] is used.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{ChannelSelectorNode, ChannelTarget};
@@ -176,12 +176,12 @@ impl ProcessingNode for ChannelSelectorNode {
 /// using different mixing strategies. This is useful for creating mono signals from
 /// stereo sources or implementing custom channel combination algorithms.
 ///
-/// # Input/Output
+/// ### Input/Output
 ///
 /// - **Input**: [`ProcessingData::DualChannel`] with two audio channels
 /// - **Output**: [`ProcessingData::SingleChannel`] with the mixed signal
 ///
-/// # Mixing Strategies
+/// ### Mixing Strategies
 ///
 /// The node supports several mixing strategies via [`MixStrategy`]:
 /// - **Add**: Simple addition (A + B)
@@ -189,7 +189,7 @@ impl ProcessingNode for ChannelSelectorNode {
 /// - **Average**: Mean of both channels ((A + B) / 2)
 /// - **Weighted**: Custom weighted combination (A × weight_a + B × weight_b)
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Simple addition mixing:
 ///
@@ -214,7 +214,7 @@ impl ProcessingNode for ChannelSelectorNode {
 ///     }
 ///     _ => panic!("Expected SingleChannel output"),
 /// }
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 ///
 /// Weighted mixing:
@@ -246,14 +246,14 @@ pub struct ChannelMixerNode {
 /// Defines different mathematical operations for combining two audio channels
 /// into a single channel output.
 ///
-/// # Variants
+/// ### Variants
 ///
 /// - [`Add`](MixStrategy::Add) - Simple addition: `output[i] = a[i] + b[i]`
 /// - [`Subtract`](MixStrategy::Subtract) - Subtraction: `output[i] = a[i] - b[i]`
 /// - [`Average`](MixStrategy::Average) - Average: `output[i] = (a[i] + b[i]) / 2`
 /// - [`Weighted`](MixStrategy::Weighted) - Weighted sum: `output[i] = a[i] * weight_a + b[i] * weight_b`
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Creating different mixing strategies:
 ///
@@ -299,12 +299,12 @@ pub enum MixStrategy {
 impl ChannelMixerNode {
     /// Create a new channel mixer node
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `id` - Unique identifier for this node
     /// * `mix_strategy` - The mixing strategy to use for combining channels
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::{ChannelMixerNode, MixStrategy};

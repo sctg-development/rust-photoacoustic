@@ -19,7 +19,8 @@ use rocket::{
     response::stream::{Event, EventStream},
     State,
 };
-use rocket_okapi::{openapi, JsonSchema};
+use rocket_okapi::okapi::openapi3::OpenApi;
+use rocket_okapi::{openapi, openapi_get_routes_spec, JsonSchema};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
@@ -180,10 +181,10 @@ pub async fn get_latest_frame(
 /// Server-Sent Events. Each event contains a complete audio frame with
 /// both channels of data.
 ///
-/// # Authentication
+/// ### Authentication
 /// Requires a valid JWT token with appropriate read permissions.
 ///
-/// # Response Format
+/// ### Response Format
 /// The stream sends JSON-encoded audio frames as SSE events:
 /// ```json
 /// data: {"channel_a": [...], "channel_b": [...], ...}
@@ -254,23 +255,23 @@ pub fn stream_audio_fast(
 
 /// Stream audio frames via Server-Sent Events for a specific streaming node (JSON format)
 ///
-/// **DEPRECATED:** Use [`/stream/audio/fast/<node_id>`] for more efficient binary streaming with node routing.
+/// **DEPRECATED:** Use [`/api/stream/audio/fast/<node_id>`] for more efficient binary streaming with node routing.
 ///
 /// This endpoint streams real-time audio frames from a specific `StreamingNode` identified by its UUID.
 /// Each event contains a JSON-encoded audio frame with both channels of data. The endpoint is primarily
 /// intended for backward compatibility and debugging, as the fast binary endpoint is recommended for production use.
 ///
-/// # Route Pattern
+/// ### Route Pattern
 /// `/stream/audio/<node_id>` where `node_id` is a UUID string
 ///
-/// # Parameters
+/// ### Parameters
 /// - `node_id`: The UUID of the streaming node to subscribe to (as a path parameter)
 /// - `stream_state`: Rocket-managed state containing the streaming registry
 ///
-/// # Authentication
+/// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
 ///
-/// # Response Format
+/// ### Response Format
 /// Streams Server-Sent Events (SSE) with JSON-encoded audio frames:
 ///
 /// ```json
@@ -290,17 +291,17 @@ pub fn stream_audio_fast(
 /// data:{"type": "heartbeat"}
 /// ```
 ///
-/// # Deprecation
+/// ### Deprecation
 /// This endpoint is deprecated in favor of [`/stream/audio/fast/<node_id>`], which uses a more efficient
 /// binary format for audio data. New clients should use the fast endpoint for lower bandwidth and better performance.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```text
 /// GET /api/stream/audio/123e4567-e89b-12d3-a456-426614174000
 /// ```
 ///
-/// # See Also
+/// ### See Also
 /// - [`/stream/audio/fast/<node_id>`]: Fast binary streaming for a specific node
 /// - [`/stream/nodes`]: List all available streaming nodes and their UUIDs
 #[deprecated(
@@ -360,13 +361,13 @@ pub fn stream_audio_with_node_id(
 /// When a node_id is provided, it queries the StreamingNodeRegistry for the appropriate stream.
 /// If no matching node is found, returns a 404 error.
 ///
-/// # Route Pattern
+/// ### Route Pattern
 /// `/stream/audio/fast/<node_id>` where `node_id` is a UUID string
 ///
-/// # Examples
+/// ### Examples
 /// - `/stream/audio/fast/123e4567-e89b-12d3-a456-426614174000` - Stream from specific node
 ///
-/// # Authentication
+/// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
 #[openapi]
 #[protect_get("/api/stream/audio/fast/<node_id>", "read:api")]
@@ -422,10 +423,10 @@ pub fn stream_audio_fast_with_node_id(
 /// The analysis includes FFT magnitude and optionally phase information for
 /// both audio channels.
 ///
-/// # Authentication
+/// ### Authentication
 /// Requires a valid JWT token with appropriate read permissions.
 ///
-/// # Response Format
+/// ### Response Format
 /// The stream sends JSON-encoded spectral data as SSE events:
 /// ```json
 /// data: {"frequencies": [...], "magnitude_a": [...], "magnitude_b": [...], ...}
@@ -530,10 +531,10 @@ pub struct StreamingNodeInfo {
 /// Returns information about all registered streaming nodes in the system.
 /// This endpoint is useful for discovering available streams and their status.
 ///
-/// # Authentication
+/// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
 ///
-/// # Response Format
+/// ### Response Format
 /// Returns a JSON array of streaming node information:
 /// ```json
 /// [
@@ -579,7 +580,7 @@ pub async fn list_streaming_nodes(
 ///
 /// Returns detailed statistics for a specific streaming node identified by its UUID.
 ///
-/// # Authentication
+/// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
 #[openapi]
 #[protect_get("/api/stream/nodes/<node_id>/stats", "read:api")]
@@ -605,8 +606,8 @@ pub async fn get_node_stats(
 /// Get all audio streaming routes
 ///
 /// Returns a vector of all route handlers for audio streaming functionality.
-pub fn get_audio_streaming_routes() -> Vec<rocket::Route> {
-    rocket::routes![
+pub fn get_audio_streaming_routes() -> (Vec<rocket::Route>, OpenApi) {
+    openapi_get_routes_spec![
         get_stream_stats,
         get_latest_frame,
         stream_audio,

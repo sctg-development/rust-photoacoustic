@@ -79,35 +79,35 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 /// suitable for storage in an HTTP cookie. It creates a secure representation
 /// of the user's authentication session that can be safely transmitted and stored.
 ///
-/// # Encoding Process
+/// ### Encoding Process
 ///
 /// 1. **JSON Serialization**: Converts the user data to a structured JSON object
 /// 2. **Base64 Encoding**: Encodes the JSON string using standard base64 encoding
 /// 3. **Cookie-Safe Format**: Ensures the result is safe for HTTP cookie storage
 ///
-/// # Data Included
+/// ### Data Included
 ///
 /// The encoded session contains:
 /// - **Username**: The user's login identifier
 /// - **Permissions**: Array of permission strings granted to the user
 ///
-/// # Security Considerations
+/// ### Security Considerations
 ///
 /// - The password field is intentionally excluded from the session data
 /// - Session data should be encrypted using Rocket's private cookies
 /// - Consider adding expiration timestamps for additional security
 /// - In production, consider using signed tokens (JWT) instead
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `user` - The [`User`] object containing authentication information
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A base64-encoded string containing the serialized user session data,
 /// ready to be stored in an HTTP cookie.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::config::User;
@@ -125,7 +125,7 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
 /// // Use session_data as cookie value
 /// ```
 ///
-/// # Related Functions
+/// ### Related Functions
 ///
 /// - [`decode_user_session`] - Decodes the session cookie back to user data
 /// - [`AuthenticatedUser::from_request`] - Request guard that uses session cookies
@@ -144,14 +144,14 @@ pub fn encode_user_session(user: User) -> String {
 /// recovering the authentication session data stored in an HTTP cookie. It performs
 /// comprehensive validation of the cookie format and structure.
 ///
-/// # Decoding Process
+/// ### Decoding Process
 ///
 /// 1. **Base64 Decoding**: Decodes the base64 string to get the JSON bytes
 /// 2. **JSON Parsing**: Parses the JSON structure and validates the schema
 /// 3. **Data Extraction**: Extracts username and permissions arrays
 /// 4. **User Construction**: Creates a new [`User`] object with decoded data
 ///
-/// # Validation Steps
+/// ### Validation Steps
 ///
 /// The function validates:
 /// - Base64 encoding is valid
@@ -160,12 +160,12 @@ pub fn encode_user_session(user: User) -> String {
 /// - Username is a valid string
 /// - Permissions is an array of strings
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `cookie_value` - A base64-encoded string containing the JSON session data,
 ///   typically retrieved from an HTTP cookie
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Some(User)` - Successfully decoded user session data
 /// * `None` - If decoding fails due to:
@@ -174,7 +174,7 @@ pub fn encode_user_session(user: User) -> String {
 ///   - Missing required fields
 ///   - Invalid data types
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::visualization::auth::oauth2::decode_user_session;
@@ -192,7 +192,7 @@ pub fn encode_user_session(user: User) -> String {
 /// }
 /// ```
 ///
-/// # Error Conditions
+/// ### Error Conditions
 ///
 /// The function returns `None` when:
 /// - Base64 decoding fails (invalid characters or padding)
@@ -202,7 +202,7 @@ pub fn encode_user_session(user: User) -> String {
 /// - "permissions" field is not an array
 /// - Any permission in the array is not a string
 ///
-/// # Related Functions
+/// ### Related Functions
 ///
 /// - [`encode_user_session`] - Encodes user data into a session cookie
 /// - [`AuthenticatedUser::from_request`] - Request guard that uses this function

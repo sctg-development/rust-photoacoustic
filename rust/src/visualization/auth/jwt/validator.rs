@@ -129,14 +129,14 @@ pub struct JwtClaims {
 /// criteria such as the signing algorithm, issuer, and audience. It can be configured
 /// with different validation parameters to match your security requirements.
 ///
-/// # Features
+/// ### Features
 ///
 /// - Support for different JWT algorithms (HS256, RS256, etc.)
 /// - Validation of token expiration and activation time
 /// - Optional verification of issuer and audience claims
 /// - Extraction of user information from validated tokens
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Basic setup with HS256 algorithm:
 ///
@@ -219,15 +219,15 @@ impl JwtValidator {
     /// matches the specified issuer. This is useful for ensuring that tokens
     /// come from the expected authentication server.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `issuer` - The expected issuer value to match against the token's "iss" claim
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Self with the updated configuration, allowing for method chaining
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
@@ -246,15 +246,15 @@ impl JwtValidator {
     /// matches the specified audience. This ensures that the token was
     /// intended for your application.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `audience` - The expected audience value to match against the token's "aud" claim
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// Self with the updated configuration, allowing for method chaining
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
@@ -275,16 +275,16 @@ impl JwtValidator {
     /// - Verifying that the token is active (nbf claim)
     /// - Comparing issuer and audience if configured
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `token` - The JWT token string to validate
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Ok(JwtClaims)` - The validated and decoded claims from the token
     /// * `Err(Error)` - If the token is invalid, expired, or fails any validation check
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function will return an error if:
     /// - The token's signature is invalid
@@ -294,7 +294,7 @@ impl JwtValidator {
     /// - The token's audience doesn't match the expected audience (if configured)
     /// - The token contains invalid claim values (like malformed timestamps)
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
@@ -363,22 +363,22 @@ impl JwtValidator {
     /// user-friendly `UserSysInfo` structure. It extracts standard claims like user ID
     /// and expiration, as well as additional information from the metadata field.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `token` - The JWT token string to extract information from
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Ok(UserSysInfo)` - User information extracted from the token
     /// * `Err(Error)` - If the token validation fails for any reason
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// This function will return an error if:
     /// - The token fails validation (see `validate` method for details)
     /// - Required timestamps (iat, exp) can't be converted to DateTime objects
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::visualization::auth::jwt::JwtValidator;
@@ -445,7 +445,7 @@ impl JwtValidator {
 /// - Provide utility methods for common token operations
 /// - Include only the relevant information for authentication and authorization
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::visualization::auth::jwt::{JwtValidator, UserSysInfo};
@@ -523,11 +523,11 @@ impl UserSysInfo {
     /// This method is used primarily in documentation examples to create a UserSysInfo instance
     /// from JSON data representing JWT claims.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `claims` - A JSON value representing the JWT claims
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new UserSysInfo instance with data from the claims
     #[doc(hidden)]
@@ -572,27 +572,27 @@ impl UserSysInfo {
     /// original token, and this method checks if the given scope exists in the
     /// parsed collection.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `scope` - The scope string to check for (case-sensitive)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// `true` if the user has the specified scope, `false` otherwise
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
-    /// # use serde_json::json;
-    /// # let claims = serde_json::from_value(json!({
-    /// #     "sub": "user123",
-    /// #     "name": "Test User",
-    /// #     "email": "test@example.com",
-    /// #     "scope": "read:data write:data",
-    /// #     "exp": 1719619200
-    /// # })).unwrap();
-    /// # let user_info = UserSysInfo::from_claims(&claims);
+    /// ### use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
+    /// ### use serde_json::json;
+    /// ### let claims = serde_json::from_value(json!({
+    /// ###     "sub": "user123",
+    /// ###     "name": "Test User",
+    /// ###     "email": "test@example.com",
+    /// ###     "scope": "read:data write:data",
+    /// ###     "exp": 1719619200
+    /// ### })).unwrap();
+    /// ### let user_info = UserSysInfo::from_claims(&claims);
     ///
     /// if user_info.has_scope("read:data") {
     ///     // Allow reading data
@@ -611,22 +611,22 @@ impl UserSysInfo {
     /// Calculates how many seconds remain until the token expires.
     /// Returns 0 if the token has already expired.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The number of seconds until the token expires, or 0 if already expired
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
-    /// # use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
-    /// # use serde_json::json;
-    /// # let claims = serde_json::from_value(json!({
-    /// #     "sub": "user123",
-    /// #     "name": "Test User",
-    /// #     "email": "test@example.com",
-    /// #     "exp": 1719619200
-    /// # })).unwrap();
-    /// # let user_info = UserSysInfo::from_claims(&claims);
+    /// ### use rust_photoacoustic::visualization::auth::jwt::UserSysInfo;
+    /// ### use serde_json::json;
+    /// ### let claims = serde_json::from_value(json!({
+    /// ###     "sub": "user123",
+    /// ###     "name": "Test User",
+    /// ###     "email": "test@example.com",
+    /// ###     "exp": 1719619200
+    /// ### })).unwrap();
+    /// ### let user_info = UserSysInfo::from_claims(&claims);
     ///
     /// let remaining = user_info.validity_remaining_secs();
     ///
@@ -636,10 +636,10 @@ impl UserSysInfo {
     ///     println!("Token valid for {} more seconds", remaining);
     /// }
     ///
-    /// # fn get_user_info() -> UserSysInfo {
-    /// #     // This is a mock function for the example
-    /// #     unimplemented!()
-    /// # }
+    /// ### fn get_user_info() -> UserSysInfo {
+    /// ###     // This is a mock function for the example
+    /// ###     unimplemented!()
+    /// ### }
     /// ```
     pub fn validity_remaining_secs(&self) -> i64 {
         let now = Utc::now();

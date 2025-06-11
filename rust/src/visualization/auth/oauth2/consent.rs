@@ -21,13 +21,13 @@ use super::forms::format_scopes;
 /// It generates an HTML form asking the user to either grant or deny
 /// permission for the client to access resources on their behalf.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `_` - The OAuth request (unused in this implementation)
 /// * `solicitation` - Contains information about the authorization request,
 ///   including client ID, requested scope, and redirect URI
 ///
-/// # Returns
+/// ### Returns
 ///
 /// An `OwnerConsent` indicating that the authorization flow is still in progress,
 /// with an HTML response containing the consent form
@@ -45,18 +45,18 @@ pub fn consent_form(
 /// This function takes the user's decision (allow or deny) and returns
 /// the appropriate `OwnerConsent` value to continue the OAuth flow.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `allowed` - Whether the user granted permission (true) or denied it (false)
 /// * `_` - The solicitation details (unused in this implementation)
 /// * `username` - The authenticated user's username
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `OwnerConsent::Authorized` - If the user granted permission
 /// * `OwnerConsent::Denied` - If the user denied permission
 ///
-/// # Note
+/// ### Note
 ///
 /// In a production system, this would typically identify the actual user
 /// instead of using "dummy user" as the owner ID.
@@ -79,12 +79,12 @@ pub fn consent_decision<'r>(
 /// Accept and Deny buttons, showing the client ID, redirect URI, and
 /// requested permissions.
 ///
-/// # Parameters
+/// ### Parameters
 ///
 /// * `route` - The route that will handle the consent form submission
 /// * `solicitation` - Contains information about the authorization request
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A string containing the HTML for the consent page
 ///

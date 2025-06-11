@@ -82,7 +82,7 @@
 /// This trait provides a common interface for all digital filter implementations.
 /// All filters are thread-safe and can be used in multi-threaded environments.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::preprocessing::filters::{Filter, LowpassFilter};
@@ -95,15 +95,15 @@
 pub trait Filter: Send + Sync {
     /// Apply the filter to a signal and return the filtered signal
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `signal` - Input signal samples as a slice of f32 values
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new vector containing the filtered signal samples
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::{Filter, LowpassFilter};
@@ -125,7 +125,7 @@ pub trait Filter: Send + Sync {
 /// The filter is implemented using the Direct Form II Transposed structure,
 /// which provides good numerical properties and low coefficient sensitivity.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::preprocessing::filters::{Filter, BandpassFilter};
@@ -165,16 +165,16 @@ impl BandpassFilter {
     /// The filter coefficients are automatically computed based on the center frequency
     /// and bandwidth parameters.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `center_freq` - Center frequency in Hz (must be positive and less than Nyquist frequency)
     /// * `bandwidth` - Filter bandwidth in Hz (must be positive and reasonable relative to center frequency)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `BandpassFilter` instance with computed coefficients
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::BandpassFilter;
@@ -207,15 +207,15 @@ impl BandpassFilter {
     /// Updates the sample rate and recomputes the filter coefficients accordingly.
     /// This method can be chained with other builder methods.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `sample_rate` - Sample rate in Hz (common values: 44100, 48000, 96000)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The modified filter instance for method chaining
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::BandpassFilter;
@@ -235,19 +235,19 @@ impl BandpassFilter {
     /// steeper roll-off at the cost of increased computational complexity and
     /// potential numerical issues.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `order` - Filter order (must be even, typical values: 2, 4, 6, 8)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The modified filter instance for method chaining
     ///
-    /// # Panics
+    /// ### Panics
     ///
     /// Panics if the order is odd, since each biquad section implements 2nd-order filtering
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::BandpassFilter;
@@ -273,7 +273,7 @@ impl BandpassFilter {
     /// The method is automatically called when creating a new filter or when
     /// parameters are changed via builder methods.
     ///
-    /// # Implementation Details
+    /// ### Implementation Details
     ///
     /// - Uses biquad sections for numerical stability
     /// - Each biquad implements a 2nd-order bandpass filter
@@ -332,15 +332,15 @@ impl Filter for BandpassFilter {
     /// Direct Form II Transposed structure. This implementation provides good
     /// numerical stability and low coefficient sensitivity.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `signal` - Input signal samples as a slice of f32 values
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new vector containing the filtered signal samples with the same length as input
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::{Filter, BandpassFilter};
@@ -414,7 +414,7 @@ impl Filter for BandpassFilter {
 ///
 /// where α is calculated based on the cutoff frequency and sample rate.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::preprocessing::filters::{Filter, LowpassFilter};
@@ -447,15 +447,15 @@ impl LowpassFilter {
     /// Creates a first-order IIR lowpass filter with default sample rate of 48kHz.
     /// The filter provides -6dB/octave roll-off above the cutoff frequency.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `cutoff_freq` - Cutoff frequency in Hz (must be positive and less than Nyquist frequency)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `LowpassFilter` instance
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::LowpassFilter;
@@ -480,15 +480,15 @@ impl LowpassFilter {
     /// Updates the sample rate for the filter. This affects the filter's frequency response
     /// and should be set to match the sample rate of the input signal.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `sample_rate` - Sample rate in Hz (common values: 44100, 48000, 96000)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The modified filter instance for method chaining
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::LowpassFilter;
@@ -509,15 +509,15 @@ impl Filter for LowpassFilter {
     /// gain control to prevent numerical overflow. The implementation includes
     /// input clamping and output validation for robust operation.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `signal` - Input signal samples as a slice of f32 values
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new vector containing the filtered signal samples with high frequencies attenuated
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::{Filter, LowpassFilter};
@@ -581,7 +581,7 @@ impl Filter for LowpassFilter {
 /// the transfer function: H(z) = (1 - z⁻¹) / (1 - αz⁻¹)
 /// where α = e^(-2πfc/fs)
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::preprocessing::filters::{Filter, HighpassFilter};
@@ -616,15 +616,15 @@ impl HighpassFilter {
     /// The filter provides -6dB/octave roll-off below the cutoff frequency and
     /// completely removes DC offset.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `cutoff_freq` - Cutoff frequency in Hz (must be positive, typically 1-1000 Hz)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `HighpassFilter` instance
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::HighpassFilter;
@@ -649,15 +649,15 @@ impl HighpassFilter {
     /// Updates the sample rate for the filter. This affects the filter's frequency response
     /// and should be set to match the sample rate of the input signal.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `sample_rate` - Sample rate in Hz (common values: 44100, 48000, 96000)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// The modified filter instance for method chaining
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::HighpassFilter;
@@ -679,15 +679,15 @@ impl Filter for HighpassFilter {
     /// uses the difference equation y[n] = α*y[n-1] + (x[n] - x[n-1]) with
     /// input clamping for numerical stability.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `signal` - Input signal samples as a slice of f32 values
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new vector containing the filtered signal samples with low frequencies and DC removed
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::{Filter, HighpassFilter};

@@ -331,11 +331,11 @@ fn create_rs256_key_pair_if_needed() -> Result<()> {
 /// - Runs the build command
 /// - Validates that the build completed successfully
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `project_path` - The path to the Node.js project directory (should contain package.json)
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `Ok(())` if the build completed successfully
 /// * `Err(anyhow::Error)` if any step of the build process failed

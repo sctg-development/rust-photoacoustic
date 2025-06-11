@@ -38,17 +38,17 @@ impl std::error::Error for Error {}
 /// - SHA-256 crypt ($5$)
 /// - SHA-512 crypt ($6$)
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `password` - The plaintext password to verify
 /// * `hash` - The stored hash in OpenSSL passwd format
 ///
-/// # Returns
+/// ### Returns
 ///
 /// * `true` if the password matches the hash
 /// * `false` otherwise
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// use rust_photoacoustic::visualization::pwhash;

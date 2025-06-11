@@ -59,23 +59,23 @@ use anyhow::Result;
 ///
 /// Used primarily by the differential binary utility for WAV file processing.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `signal_a` - First signal (minuend)
 /// * `signal_b` - Second signal (subtrahend, to be subtracted from signal_a)
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A new vector containing the sample-wise difference. If the input vectors have different
 /// lengths, the result will have length equal to the shorter of the two vectors.
 ///
-/// # Overflow Behavior
+/// ### Overflow Behavior
 ///
 /// When subtraction would cause an integer overflow/underflow:
 /// - If signal_a\[i\] < signal_b\[i\] and the result would be below i16::MIN, the result is clamped to i16::MIN
 /// - If signal_a\[i\] > signal_b\[i\] and the result would be above i16::MAX, the result is clamped to i16::MAX
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::preprocessing::differential::calculate_differential;
@@ -118,7 +118,7 @@ pub fn calculate_differential(signal_a: &[i16], signal_b: &[i16]) -> Vec<i16> {
 /// All implementations must handle the case where input channels have different lengths
 /// and provide appropriate error reporting.
 ///
-/// # Type Parameters
+/// ### Type Parameters
 ///
 /// The trait is automatically implemented for types that are `Send` and `Sync`,
 /// making implementations safe to use across thread boundaries.
@@ -127,16 +127,16 @@ pub trait DifferentialCalculator: Send + Sync {
     ///
     /// Computes the sample-wise difference between two channels of floating-point audio samples.
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `channel_a` - First channel (minuend)
     /// * `channel_b` - Second channel (subtrahend, to be subtracted from channel_a)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<Vec<f32>>` - A vector containing the sample-wise difference if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The input channels have different lengths
@@ -149,13 +149,13 @@ pub trait DifferentialCalculator: Send + Sync {
 /// This is a basic implementation of the `DifferentialCalculator` trait that performs
 /// straightforward sample-wise subtraction of floating-point audio samples.
 ///
-/// # Features
+/// ### Features
 ///
 /// - Validates that input channels have the same length
 /// - Performs element-wise subtraction (A-B)
 /// - Returns error for mismatched channel lengths
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::preprocessing::differential::{DifferentialCalculator, SimpleDifferential};
@@ -191,11 +191,11 @@ impl SimpleDifferential {
     /// Instantiates a new `SimpleDifferential` that can be used to calculate
     /// the difference between two audio channels.
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// A new `SimpleDifferential` instance
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::differential::SimpleDifferential;
@@ -214,20 +214,20 @@ impl DifferentialCalculator for SimpleDifferential {
     /// 1. Validates that both channels have equal length
     /// 2. Computes the sample-wise difference (A-B)
     ///
-    /// # Arguments
+    /// ### Arguments
     ///
     /// * `channel_a` - First channel (minuend)
     /// * `channel_b` - Second channel (subtrahend, to be subtracted from channel_a)
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<Vec<f32>>` - Vector containing sample-wise differences if successful
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if the input channels have different lengths
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::differential::{DifferentialCalculator, SimpleDifferential};

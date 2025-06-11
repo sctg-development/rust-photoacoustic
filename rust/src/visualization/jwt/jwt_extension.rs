@@ -22,11 +22,11 @@ impl JwtIssuerExtension for crate::visualization::jwt::JwtIssuer {
     /// This method looks up the access token in the token map and returns
     /// the associated ID token if one exists.
     ///
-    /// # Parameters
+    /// ### Parameters
     ///
     /// * `access_token` - The access token to look up
     ///
-    /// # Returns
+    /// ### Returns
     ///
     /// * `Result<Option<String>>` - The ID token if found, None if not found
     fn get_id_token_for_access_token(&self, access_token: &str) -> Result<Option<String>> {

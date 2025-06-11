@@ -70,17 +70,17 @@ pub fn get_audio_source_from_file(config: PhotoacousticConfig) -> Result<Box<dyn
 
 /// Get a mock audio source that generates synthetic photoacoustic signals
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `config` - PhotoacousticConfig containing frequency, sample_rate, and precision settings
 /// * `frame_size` - Number of samples per frame per channel
 /// * `correlation` - Correlation coefficient between channels [-1.0, 1.0]
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A boxed MockSource that implements AudioSource trait
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```
 /// use rust_photoacoustic::acquisition::get_mock_audio_source;
@@ -132,20 +132,20 @@ pub fn get_realtime_mock_audio_source(
 /// This function creates either a simple MockSource or an advanced SimulatedPhotoacousticRealtimeAudioSource
 /// based on the `source_type` parameter in the SimulatedSourceConfig.
 ///
-/// # Source Types
+/// ### Source Types
 ///
 /// * "mock" - Uses the existing MockSource with simple correlation-based signal generation
 /// * "universal" - Uses the new SimulatedPhotoacousticRealtimeAudioSource with comprehensive physics simulation
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `config` - PhotoacousticConfig containing simulated_source configuration
 ///
-/// # Returns
+/// ### Returns
 ///
 /// A boxed audio source implementing RealTimeAudioSource trait
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::acquisition::get_realtime_simulated_photoacoustic_source;
@@ -164,7 +164,7 @@ pub fn get_realtime_mock_audio_source(
 /// sim_config.source_type = "universal".to_string();
 /// config.simulated_source = Some(sim_config);
 /// let universal_source = get_realtime_simulated_photoacoustic_source(config)?;
-/// # Ok::<(), anyhow::Error>(())
+/// ### Ok::<(), anyhow::Error>(())
 /// ```
 pub fn get_realtime_simulated_photoacoustic_source(
     config: PhotoacousticConfig,

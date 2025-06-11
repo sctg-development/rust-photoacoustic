@@ -100,7 +100,7 @@ use serde::{Deserialize, Serialize};
 /// photoacoustic analysis session, including frequency, amplitude,
 /// calculated concentration, and the timestamp of when the analysis was performed.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::AnalysisResult;

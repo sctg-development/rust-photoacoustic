@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// Each node in the processing graph must have a unique ID that can be used
 /// for graph construction, debugging, and node management.
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::processing::NodeId;
@@ -30,14 +30,14 @@ pub type NodeId = String;
 /// This enum represents all possible data types that can flow between processing nodes.
 /// Each variant carries the necessary information for audio processing operations.
 ///
-/// # Variants
+/// ### Variants
 ///
 /// - [`AudioFrame`](ProcessingData::AudioFrame) - Raw dual-channel audio from acquisition
 /// - [`SingleChannel`](ProcessingData::SingleChannel) - Single channel processed audio
 /// - [`DualChannel`](ProcessingData::DualChannel) - Dual channel processed audio  
 /// - [`PhotoacousticResult`](ProcessingData::PhotoacousticResult) - Final processed result
 ///
-/// # Examples
+/// ### Examples
 ///
 /// Creating different data types:
 ///
@@ -106,7 +106,7 @@ pub enum ProcessingData {
 /// Contains information about how the data was processed, including timing,
 /// processing steps, and original source information.
 ///
-/// # Fields
+/// ### Fields
 ///
 /// - `original_frame_number` - Frame number from the original audio acquisition
 /// - `original_timestamp` - Timestamp from the original audio acquisition  
@@ -114,7 +114,7 @@ pub enum ProcessingData {
 /// - `processing_steps` - List of processing operations applied
 /// - `processing_latency_us` - Total processing time in microseconds
 ///
-/// # Examples
+/// ### Examples
 ///
 /// ```no_run
 /// use rust_photoacoustic::processing::nodes::ProcessingMetadata;
@@ -149,7 +149,7 @@ impl ProcessingData {
     /// Returns the sample rate if the data type contains this information.
     /// PhotoacousticResult doesn't contain sample rate information directly.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::ProcessingData;
@@ -177,7 +177,7 @@ impl ProcessingData {
     /// Returns the timestamp if the data type contains this information.
     /// PhotoacousticResult doesn't contain timestamp information directly.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::ProcessingData;
@@ -206,7 +206,7 @@ impl ProcessingData {
     /// Returns the frame number if the data type contains this information.
     /// PhotoacousticResult doesn't contain frame number information directly.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::ProcessingData;
@@ -234,7 +234,7 @@ impl ProcessingData {
     /// This is a convenience method for converting raw audio frames from
     /// the acquisition system into the processing graph's dual-channel format.
     ///
-    /// # Examples
+    /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::processing::ProcessingData;
