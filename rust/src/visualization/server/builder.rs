@@ -13,6 +13,7 @@ use crate::acquisition::SharedAudioStream;
 use crate::config::{AccessConfig, GenerixConfig, VisualizationConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
+use crate::visualization::api::*;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
     OxideState,
@@ -179,7 +180,7 @@ pub async fn build_rocket(
     let rocket_builder = rocket_builder
         .mount(
             "/",
-            openapi_get_routes![webclient_index, webclient_index_html, options],
+            openapi_get_routes![webclient_index, webclient_index_html, options, test_api,],
         )
         .mount(
             "/",
@@ -199,7 +200,6 @@ pub async fn build_rocket(
                 helper_min_js,
                 crate::visualization::api_auth::get_profile,
                 crate::visualization::api_auth::get_data,
-                crate::visualization::api::test_api,
             ],
         )
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
