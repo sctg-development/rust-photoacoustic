@@ -153,7 +153,7 @@ pub struct SpectralDataResponse {
 ///
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
-#[openapi_protect_get("/api/stream/stats", "read_api")]
+#[openapi_protect_get("/api/stream/stats", "read:api")]
 pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<StreamStats> {
     let stats = stream_state.stream.get_stats().await;
     Json(stats)
@@ -163,7 +163,7 @@ pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<St
 ///
 /// Returns the most recent audio frame without subscribing to the stream.
 /// Useful for getting current state or testing connectivity.
-#[openapi_protect_get("/api/stream/latest", "read_api")]
+#[openapi_protect_get("/api/stream/latest", "read:api")]
 pub async fn get_latest_frame(
     stream_state: &State<AudioStreamState>,
 ) -> Option<Json<AudioFrameResponse>> {
