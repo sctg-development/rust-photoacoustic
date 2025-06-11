@@ -30,7 +30,7 @@ use log::{debug, info, warn};
 use rocket::figment::Figment;
 use rocket::{routes, Route};
 use rocket::{Build, Rocket};
-use rocket_async_compression::Compression;
+use rocket_async_compression::{CachedCompression, Compression};
 use rocket_okapi::okapi::merge::{self, marge_spec_list};
 use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::settings::OpenApiSettings;
@@ -217,7 +217,20 @@ pub async fn build_rocket(
         if cfg!(debug_assertions) {
             warn!("Compression is enabled in debug mode, this may affect performance");
         }
-        rocket_builder.attach(Compression::fairing())
+        rocket_builder.attach(CachedCompression {
+            cached_path_prefixes: vec!["/api/doc/".to_owned(), "/client/".to_owned()],
+            cached_path_suffixes: vec![
+                ".otf".to_owned(),
+                ".js".to_owned(),
+                ".css".to_owned(),
+                ".html".to_owned(),
+                ".json".to_owned(),
+                ".wasm".to_owned(),
+                ".svg".to_owned(),
+                ".map".to_owned(),
+            ],
+            ..Default::default()
+        })
     } else {
         debug!("Compression is disabled in configuration");
         rocket_builder
