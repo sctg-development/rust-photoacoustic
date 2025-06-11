@@ -36,6 +36,7 @@ jobs:
     
     # Debug submodules
     - name: Debug submodules
+      shell: bash
       run: |
         echo "=== Git submodule status ==="
         git submodule status
