@@ -227,7 +227,7 @@ pub async fn build_rocket(
     if let Some(stream) = audio_stream {
         let registry = streaming_registry.unwrap_or_else(|| Arc::new(StreamingNodeRegistry::new()));
         let audio_state = AudioStreamState { stream, registry };
-        let openapi_routes_audio: Vec<Route>; 
+        let openapi_routes_audio: Vec<Route>;
         (openapi_routes_audio, openapi_spec_audio) = get_audio_streaming_routes();
 
         // Merge the audio OpenAPI spec with the base spec
