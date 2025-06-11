@@ -9,12 +9,11 @@
 //! statistics from the running ProcessingConsumer via SharedVisualizationState.
 
 use rocket::serde::json::Json;
-use rocket::{response::status, State};
+use rocket::{get, response::status, State};
 
 use crate::processing::graph::ProcessingGraphStatistics;
 use crate::visualization::shared_state::SharedVisualizationState;
-use auth_macros::protect_get;
-use rocket_okapi::openapi;
+use auth_macros::openapi_protect_get;
 
 /// Get processing graph statistics
 ///
@@ -74,8 +73,7 @@ use rocket_okapi::openapi;
 /// - `403 Forbidden`: Token lacks required scope
 /// - `404 Not Found`: No processing is currently active
 /// - `500 Internal Server Error`: Server error accessing statistics
-#[openapi]
-#[protect_get("/api/graph-statistics", "read:api")]
+#[openapi_protect_get("/api/graph-statistics", "read:api")]
 pub async fn get_graph_statistics(
     state: &State<SharedVisualizationState>,
 ) -> Result<Json<ProcessingGraphStatistics>, status::NotFound<String>> {

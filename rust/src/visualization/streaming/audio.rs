@@ -10,12 +10,13 @@
 
 use crate::acquisition::{AudioFrame, AudioStreamConsumer, SharedAudioStream, StreamStats};
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
-use auth_macros::protect_get;
+use auth_macros::{openapi_protect_get, protect_get};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use rocket::futures::stream::Stream;
 use rocket::serde::json::Json;
 use rocket::{
+    get,
     response::stream::{Event, EventStream},
     State,
 };
@@ -152,8 +153,7 @@ pub struct SpectralDataResponse {
 ///
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
-#[openapi]
-#[protect_get("/api/stream/stats", "read_api")]
+#[openapi_protect_get("/api/stream/stats", "read_api")]
 pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<StreamStats> {
     let stats = stream_state.stream.get_stats().await;
     Json(stats)
@@ -163,8 +163,7 @@ pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<St
 ///
 /// Returns the most recent audio frame without subscribing to the stream.
 /// Useful for getting current state or testing connectivity.
-#[openapi]
-#[protect_get("/api/stream/latest", "read_api")]
+#[openapi_protect_get("/api/stream/latest", "read_api")]
 pub async fn get_latest_frame(
     stream_state: &State<AudioStreamState>,
 ) -> Option<Json<AudioFrameResponse>> {
@@ -546,8 +545,7 @@ pub struct StreamingNodeInfo {
 ///   }
 /// ]
 /// ```
-#[openapi]
-#[protect_get("/api/stream/nodes", "read:api")]
+#[openapi_protect_get("/api/stream/nodes", "read:api")]
 pub async fn list_streaming_nodes(
     stream_state: &State<AudioStreamState>,
 ) -> Json<Vec<StreamingNodeInfo>> {
@@ -582,8 +580,7 @@ pub async fn list_streaming_nodes(
 ///
 /// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
-#[openapi]
-#[protect_get("/api/stream/nodes/<node_id>/stats", "read:api")]
+#[openapi_protect_get("/api/stream/nodes/<node_id>/stats", "read:api")]
 pub async fn get_node_stats(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
