@@ -13,6 +13,7 @@ use crate::acquisition::SharedAudioStream;
 use crate::config::{AccessConfig, GenerixConfig, VisualizationConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
+use crate::visualization::api::get::graph_statistics::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
@@ -168,10 +169,9 @@ pub async fn build_rocket(
         debug!("Adding SharedVisualizationState to Rocket state management");
         // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
         let shared_state = (*vis_state).clone();
-        rocket_builder.manage(shared_state).mount(
-            "/api",
-            routes![crate::visualization::api::get::graph_statistics::get_graph_statistics,],
-        )
+        rocket_builder
+            .manage(shared_state)
+            .mount("/", routes![get_graph_statistics,])
     } else {
         debug!("No visualization state provided, API will return 404 for statistics");
         rocket_builder

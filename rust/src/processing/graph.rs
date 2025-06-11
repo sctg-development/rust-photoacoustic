@@ -17,12 +17,13 @@ use crate::processing::nodes::{
 };
 use anyhow::Result;
 use log::debug;
+use rocket_okapi::JsonSchema;
+use schemars::{gen::SchemaGenerator, schema::Schema};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::time::{Duration, Instant};
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Module for serializing/deserializing Duration
 mod duration_serde {
@@ -91,6 +92,66 @@ pub struct NodeStatistics {
     /// Last update timestamp (not serialized)
     #[serde(skip)]
     pub last_update: Option<Instant>,
+}
+
+impl JsonSchema for NodeStatistics {
+    fn schema_name() -> String {
+        "NodeStatistics".to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
+        use schemars::Map;
+
+        let mut properties = Map::new();
+
+        // Add properties for the struct fields
+        properties.insert("node_id".to_string(), gen.subschema_for::<String>());
+        properties.insert("node_type".to_string(), gen.subschema_for::<String>());
+        properties.insert("frames_processed".to_string(), gen.subschema_for::<u64>());
+
+        // For Duration fields that are serialized as nanoseconds (u64)
+        let duration_schema = Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Integer.into()),
+            format: Some("int64".to_string()),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Duration in nanoseconds".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        });
+
+        properties.insert("total_processing_time".to_string(), duration_schema.clone());
+        properties.insert(
+            "average_processing_time".to_string(),
+            duration_schema.clone(),
+        );
+        properties.insert(
+            "fastest_processing_time".to_string(),
+            duration_schema.clone(),
+        );
+        properties.insert("worst_processing_time".to_string(), duration_schema);
+
+        Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Object.into()),
+            object: Some(Box::new(ObjectValidation {
+                properties,
+                required: vec![
+                    "node_id".to_string(),
+                    "node_type".to_string(),
+                    "frames_processed".to_string(),
+                    "total_processing_time".to_string(),
+                    "average_processing_time".to_string(),
+                    "fastest_processing_time".to_string(),
+                    "worst_processing_time".to_string(),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
 }
 
 impl NodeStatistics {
@@ -177,6 +238,97 @@ pub struct ProcessingGraphStatistics {
     /// Last execution timestamp (not serialized)
     #[serde(skip)]
     pub last_execution: Option<Instant>,
+}
+
+impl JsonSchema for ProcessingGraphStatistics {
+    fn schema_name() -> String {
+        "ProcessingGraphStatistics".to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
+        use schemars::Map;
+
+        let mut properties = Map::new();
+
+        // Add properties for the struct fields
+        properties.insert("node_statistics".to_string(), {
+            let mut map_schema = SchemaObject {
+                instance_type: Some(InstanceType::Object.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Node Statistics Map".to_string()),
+                    description: Some("Map of node ID to statistics".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            map_schema.object = Some(Box::new(ObjectValidation {
+                additional_properties: Some(Box::new(gen.subschema_for::<NodeStatistics>())),
+                ..Default::default()
+            }));
+            Schema::Object(map_schema)
+        });
+
+        properties.insert("total_executions".to_string(), gen.subschema_for::<u64>());
+
+        // For Duration fields that are serialized as nanoseconds (u64)
+        let duration_schema = Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Integer.into()),
+            format: Some("int64".to_string()),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Duration in nanoseconds".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        });
+
+        properties.insert(
+            "total_graph_processing_time".to_string(),
+            duration_schema.clone(),
+        );
+        properties.insert(
+            "average_graph_processing_time".to_string(),
+            duration_schema.clone(),
+        );
+        properties.insert(
+            "fastest_graph_execution".to_string(),
+            duration_schema.clone(),
+        );
+        properties.insert("worst_graph_execution".to_string(), duration_schema);
+        properties.insert("active_nodes".to_string(), gen.subschema_for::<usize>());
+        properties.insert(
+            "connections_count".to_string(),
+            gen.subschema_for::<usize>(),
+        );
+
+        Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Object.into()),
+            object: Some(Box::new(ObjectValidation {
+                properties,
+                required: vec![
+                    "node_statistics".to_string(),
+                    "total_executions".to_string(),
+                    "total_graph_processing_time".to_string(),
+                    "average_graph_processing_time".to_string(),
+                    "fastest_graph_execution".to_string(),
+                    "worst_graph_execution".to_string(),
+                    "active_nodes".to_string(),
+                    "connections_count".to_string(),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            })),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Processing Graph Statistics".to_string()),
+                description: Some(
+                    "Overall performance statistics for the entire processing graph".to_string(),
+                ),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
 }
 
 impl ProcessingGraphStatistics {
