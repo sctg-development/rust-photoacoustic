@@ -22,6 +22,7 @@ use crate::visualization::auth::{
 use crate::visualization::oidc::{jwks, openid_configuration};
 use crate::visualization::shared_state::SharedVisualizationState;
 use crate::visualization::streaming::AudioStreamState;
+use crate::visualization::streaming::*;
 use crate::visualization::vite_dev_proxy;
 use anyhow::Context;
 use base64::Engine;
@@ -225,7 +226,7 @@ pub async fn build_rocket(
         rocket_builder
             .mount(
                 "/",
-                crate::visualization::streaming::get_audio_streaming_routes(),
+                get_audio_streaming_routes(),
             )
             .manage(audio_state)
     } else {
