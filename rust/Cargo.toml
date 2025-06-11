@@ -95,3 +95,6 @@ oxide-auth = { path = "./oxide-auth-patched/oxide-auth" }
 okapi = { path = "./okapi-patched/okapi"}
 rocket_okapi = { path = "./okapi-patched/rocket-okapi"}
 rocket_okapi_codegen = { path = "./okapi-patched/rocket-okapi-codegen"}
+
+[profile.release]
+strip = true
