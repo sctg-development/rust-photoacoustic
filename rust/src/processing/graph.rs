@@ -1064,6 +1064,19 @@ impl ProcessingGraph {
         Ok(order)
     }
 
+    /// Get the execution order (topologically sorted) without caching
+    ///
+    /// This method computes the execution order without modifying the graph state,
+    /// making it suitable for use in immutable contexts like serialization.
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(Vec<NodeId>)` - Topologically sorted execution order
+    /// * `Err(ProcessingGraphError)` - If the graph contains cycles
+    pub fn get_execution_order_immutable(&self) -> Result<Vec<NodeId>> {
+        self.topological_sort()
+    }
+
     /// Perform topological sort to determine execution order
     fn topological_sort(&self) -> Result<Vec<NodeId>> {
         let mut in_degree: HashMap<NodeId, usize> = HashMap::new();
@@ -1286,6 +1299,66 @@ pub struct PerformanceSummary {
     pub fastest_node: Option<String>,
 }
 
+impl JsonSchema for PerformanceSummary {
+    fn schema_name() -> String {
+        "PerformanceSummary".to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
+        use schemars::Map;
+
+        let mut properties = Map::new();
+        properties.insert("total_nodes".to_string(), gen.subschema_for::<usize>());
+        properties.insert(
+            "total_connections".to_string(),
+            gen.subschema_for::<usize>(),
+        );
+        properties.insert("total_executions".to_string(), gen.subschema_for::<u64>());
+        properties.insert(
+            "average_execution_time_ms".to_string(),
+            gen.subschema_for::<f64>(),
+        );
+        properties.insert("throughput_fps".to_string(), gen.subschema_for::<f64>());
+        properties.insert(
+            "efficiency_percentage".to_string(),
+            gen.subschema_for::<f64>(),
+        );
+        properties.insert(
+            "slowest_node".to_string(),
+            gen.subschema_for::<Option<String>>(),
+        );
+        properties.insert(
+            "fastest_node".to_string(),
+            gen.subschema_for::<Option<String>>(),
+        );
+
+        Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Object.into()),
+            object: Some(Box::new(ObjectValidation {
+                properties,
+                required: vec![
+                    "total_nodes".to_string(),
+                    "total_connections".to_string(),
+                    "total_executions".to_string(),
+                    "average_execution_time_ms".to_string(),
+                    "throughput_fps".to_string(),
+                    "efficiency_percentage".to_string(),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            })),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Performance Summary".to_string()),
+                description: Some("Quick access to key performance metrics".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
+}
+
 impl fmt::Display for PerformanceSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -1297,5 +1370,657 @@ impl fmt::Display for PerformanceSummary {
             self.throughput_fps,
             self.efficiency_percentage
         )
+    }
+}
+
+/// Serializable representation of a processing node in the graph
+///
+/// This structure provides a serializable snapshot of a processing node,
+/// including its configuration and runtime information. It's designed to be
+/// used by API endpoints and graph visualization tools.
+///
+/// ### Examples
+///
+/// Creating a representation from a node:
+///
+/// ```no_run
+/// use rust_photoacoustic::processing::{SerializableNode, ProcessingData};
+/// use rust_photoacoustic::processing::nodes::{InputNode, ProcessingNode};
+/// use serde_yml::Value;
+/// use std::collections::HashMap;
+///
+/// let node = InputNode::new("main_input".to_string());
+/// let test_data = ProcessingData::SingleChannel {
+///     samples: vec![0.1, 0.2],
+///     sample_rate: 44100,
+///     timestamp: 1000,
+///     frame_number: 1,
+/// };
+///
+/// let serializable_node = SerializableNode {
+///     id: node.node_id().to_string(),
+///     node_type: node.node_type().to_string(),
+///     accepts_input_types: vec!["AudioFrame".to_string(), "DualChannel".to_string()],
+///     output_type: node.output_type(&test_data),
+///     parameters: HashMap::new(),
+/// };
+///
+/// assert_eq!(serializable_node.id, "main_input");
+/// assert_eq!(serializable_node.node_type, "input");
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializableNode {
+    /// Unique identifier for this node
+    pub id: String,
+    /// Type of the processing node
+    pub node_type: String,
+    /// Input data types this node accepts
+    pub accepts_input_types: Vec<String>,
+    /// Output type this node produces (if deterministic)
+    pub output_type: Option<String>,
+    /// Node-specific configuration parameters
+    pub parameters: HashMap<String, serde_yml::Value>,
+}
+
+impl JsonSchema for SerializableNode {
+    fn schema_name() -> String {
+        "SerializableNode".to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
+        use schemars::Map;
+
+        let mut properties = Map::new();
+
+        properties.insert("id".to_string(), gen.subschema_for::<String>());
+        properties.insert("node_type".to_string(), gen.subschema_for::<String>());
+
+        // Array of strings for input types
+        properties.insert("accepts_input_types".to_string(), {
+            let mut array_schema = SchemaObject {
+                instance_type: Some(InstanceType::Array.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Accepted Input Types".to_string()),
+                    description: Some("List of data types this node can process".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            array_schema.array = Some(Box::new(schemars::schema::ArrayValidation {
+                items: Some(gen.subschema_for::<String>().into()),
+                ..Default::default()
+            }));
+            Schema::Object(array_schema)
+        });
+
+        properties.insert("output_type".to_string(), {
+            let mut string_schema = gen.subschema_for::<String>();
+            if let Schema::Object(ref mut obj) = string_schema {
+                obj.metadata = Some(Box::new(Metadata {
+                    title: Some("Output Type".to_string()),
+                    description: Some("Expected output data type (if deterministic)".to_string()),
+                    ..Default::default()
+                }));
+            }
+            string_schema
+        });
+
+        // Parameters as object with arbitrary properties
+        properties.insert("parameters".to_string(), {
+            let mut map_schema = SchemaObject {
+                instance_type: Some(InstanceType::Object.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Node Parameters".to_string()),
+                    description: Some(
+                        "Configuration parameters specific to this node type".to_string(),
+                    ),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            map_schema.object = Some(Box::new(ObjectValidation {
+                additional_properties: Some(Box::new(Schema::Bool(true))), // Allow any properties
+                ..Default::default()
+            }));
+            Schema::Object(map_schema)
+        });
+
+        Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Object.into()),
+            object: Some(Box::new(ObjectValidation {
+                properties,
+                required: vec![
+                    "id".to_string(),
+                    "node_type".to_string(),
+                    "accepts_input_types".to_string(),
+                    "parameters".to_string(),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            })),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Serializable Processing Node".to_string()),
+                description: Some(
+                    "Represents a processing node with its configuration and capabilities"
+                        .to_string(),
+                ),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
+}
+
+/// Serializable representation of a connection between nodes
+///
+/// Represents a directed edge in the processing graph, showing how data flows
+/// from one node to another.
+///
+/// ### Examples
+///
+/// ```no_run
+/// use rust_photoacoustic::processing::SerializableConnection;
+///
+/// let connection = SerializableConnection {
+///     from: "input".to_string(),
+///     to: "filter".to_string(),
+/// };
+///
+/// assert_eq!(connection.from, "input");
+/// assert_eq!(connection.to, "filter");
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializableConnection {
+    /// Source node identifier
+    pub from: String,
+    /// Target node identifier  
+    pub to: String,
+}
+
+impl JsonSchema for SerializableConnection {
+    fn schema_name() -> String {
+        "SerializableConnection".to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
+        use schemars::Map;
+
+        let mut properties = Map::new();
+        properties.insert("from".to_string(), gen.subschema_for::<String>());
+        properties.insert("to".to_string(), gen.subschema_for::<String>());
+
+        Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Object.into()),
+            object: Some(Box::new(ObjectValidation {
+                properties,
+                required: vec!["from".to_string(), "to".to_string()]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            })),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Graph Connection".to_string()),
+                description: Some(
+                    "Represents a data flow connection between two nodes".to_string(),
+                ),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
+}
+
+/// Complete serializable representation of a processing graph
+///
+/// This structure provides a complete snapshot of a processing graph including
+/// all nodes, connections, execution order, and performance statistics. It's
+/// designed for API consumption, graph visualization, and debugging.
+///
+/// ### Features
+///
+/// - **Complete Graph Structure**: All nodes and their connections
+/// - **Execution Information**: Topological order and designated I/O nodes
+/// - **Performance Metrics**: Comprehensive statistics and performance data
+/// - **API Ready**: Fully serializable with JSON Schema support
+///
+/// ### Examples
+///
+/// Converting a processing graph to serializable form:
+///
+/// ```no_run
+/// use rust_photoacoustic::processing::{ProcessingGraph, SerializableProcessingGraph};
+/// use rust_photoacoustic::processing::nodes::{InputNode, ProcessingNode};
+///
+/// let mut graph = ProcessingGraph::new();
+/// let input_node = Box::new(InputNode::new("input".to_string()));
+/// graph.add_node(input_node).unwrap();
+///
+/// let serializable_graph: SerializableProcessingGraph = graph.into();
+///
+/// assert_eq!(serializable_graph.nodes.len(), 1);
+/// assert_eq!(serializable_graph.nodes[0].id, "input");
+/// assert_eq!(serializable_graph.input_node, Some("input".to_string()));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializableProcessingGraph {
+    /// All nodes in the graph with their configurations
+    pub nodes: Vec<SerializableNode>,
+    /// All connections between nodes
+    pub connections: Vec<SerializableConnection>,
+    /// Execution order (topologically sorted node IDs)
+    pub execution_order: Vec<String>,
+    /// Input node identifier
+    pub input_node: Option<String>,
+    /// Output node identifiers
+    pub output_nodes: Vec<String>,
+    /// Performance statistics for the graph
+    pub statistics: ProcessingGraphStatistics,
+    /// Performance summary for quick access
+    pub performance_summary: PerformanceSummary,
+    /// Graph validation status
+    pub is_valid: bool,
+    /// Validation errors (if any)
+    pub validation_errors: Vec<String>,
+}
+
+impl JsonSchema for SerializableProcessingGraph {
+    fn schema_name() -> String {
+        "SerializableProcessingGraph".to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
+        use schemars::Map;
+
+        let mut properties = Map::new();
+
+        // Array of nodes
+        properties.insert("nodes".to_string(), {
+            let mut array_schema = SchemaObject {
+                instance_type: Some(InstanceType::Array.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Processing Nodes".to_string()),
+                    description: Some("All processing nodes in the graph".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            array_schema.array = Some(Box::new(schemars::schema::ArrayValidation {
+                items: Some(gen.subschema_for::<SerializableNode>().into()),
+                ..Default::default()
+            }));
+            Schema::Object(array_schema)
+        });
+
+        // Array of connections
+        properties.insert("connections".to_string(), {
+            let mut array_schema = SchemaObject {
+                instance_type: Some(InstanceType::Array.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Node Connections".to_string()),
+                    description: Some("All connections between nodes".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            array_schema.array = Some(Box::new(schemars::schema::ArrayValidation {
+                items: Some(gen.subschema_for::<SerializableConnection>().into()),
+                ..Default::default()
+            }));
+            Schema::Object(array_schema)
+        });
+
+        // Array of strings for execution order
+        properties.insert("execution_order".to_string(), {
+            let mut array_schema = SchemaObject {
+                instance_type: Some(InstanceType::Array.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Execution Order".to_string()),
+                    description: Some("Topologically sorted execution order of nodes".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            array_schema.array = Some(Box::new(schemars::schema::ArrayValidation {
+                items: Some(gen.subschema_for::<String>().into()),
+                ..Default::default()
+            }));
+            Schema::Object(array_schema)
+        });
+
+        properties.insert(
+            "input_node".to_string(),
+            gen.subschema_for::<Option<String>>(),
+        );
+
+        // Array of strings for output nodes
+        properties.insert("output_nodes".to_string(), {
+            let mut array_schema = SchemaObject {
+                instance_type: Some(InstanceType::Array.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Output Nodes".to_string()),
+                    description: Some("Designated output nodes in the graph".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            array_schema.array = Some(Box::new(schemars::schema::ArrayValidation {
+                items: Some(gen.subschema_for::<String>().into()),
+                ..Default::default()
+            }));
+            Schema::Object(array_schema)
+        });
+
+        properties.insert(
+            "statistics".to_string(),
+            gen.subschema_for::<ProcessingGraphStatistics>(),
+        );
+        properties.insert(
+            "performance_summary".to_string(),
+            gen.subschema_for::<PerformanceSummary>(),
+        );
+        properties.insert("is_valid".to_string(), gen.subschema_for::<bool>());
+
+        // Array of strings for validation errors
+        properties.insert("validation_errors".to_string(), {
+            let mut array_schema = SchemaObject {
+                instance_type: Some(InstanceType::Array.into()),
+                metadata: Some(Box::new(Metadata {
+                    title: Some("Validation Errors".to_string()),
+                    description: Some("Any validation errors found in the graph".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            };
+            array_schema.array = Some(Box::new(schemars::schema::ArrayValidation {
+                items: Some(gen.subschema_for::<String>().into()),
+                ..Default::default()
+            }));
+            Schema::Object(array_schema)
+        });
+
+        Schema::Object(SchemaObject {
+            instance_type: Some(InstanceType::Object.into()),
+            object: Some(Box::new(ObjectValidation {
+                properties,
+                required: vec![
+                    "nodes".to_string(),
+                    "connections".to_string(),
+                    "execution_order".to_string(),
+                    "output_nodes".to_string(),
+                    "statistics".to_string(),
+                    "performance_summary".to_string(),
+                    "is_valid".to_string(),
+                    "validation_errors".to_string(),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            })),
+            metadata: Some(Box::new(Metadata {
+                title: Some("Serializable Processing Graph".to_string()),
+                description: Some("Complete representation of a processing graph with all nodes, connections, and statistics".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
+}
+
+impl From<ProcessingGraph> for SerializableProcessingGraph {
+    /// Convert a ProcessingGraph into its serializable representation
+    ///
+    /// This conversion creates a complete snapshot of the graph including all nodes,
+    /// connections, execution order, and performance statistics. The conversion
+    /// process also validates the graph and captures any validation errors.
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::{ProcessingGraph, SerializableProcessingGraph};
+    /// use rust_photoacoustic::processing::nodes::{InputNode, ProcessingNode};
+    ///
+    /// let mut graph = ProcessingGraph::new();
+    /// let input_node = Box::new(InputNode::new("main_input".to_string()));
+    /// graph.add_node(input_node).unwrap();
+    ///
+    /// let serializable: SerializableProcessingGraph = graph.into();
+    /// assert_eq!(serializable.nodes.len(), 1);
+    /// assert_eq!(serializable.nodes[0].node_type, "input");
+    /// ```
+    fn from(graph: ProcessingGraph) -> Self {
+        let mut serializable_nodes = Vec::new();
+        let mut validation_errors = Vec::new();
+
+        // Convert nodes to serializable format
+        for (node_id, node) in &graph.nodes {
+            let serializable_node = Self::create_serializable_node(node.as_ref());
+            serializable_nodes.push(serializable_node);
+        }
+
+        // Convert connections to serializable format
+        let serializable_connections: Vec<SerializableConnection> = graph
+            .connections
+            .iter()
+            .map(|conn| SerializableConnection {
+                from: conn.from.clone(),
+                to: conn.to.clone(),
+            })
+            .collect();
+
+        // Get execution order (this might fail if graph has cycles)
+        let execution_order = match graph.get_execution_order_immutable() {
+            Ok(order) => order,
+            Err(e) => {
+                validation_errors.push(format!("Failed to determine execution order: {}", e));
+                Vec::new()
+            }
+        };
+
+        // Validate the graph and collect errors
+        let is_valid = match graph.validate() {
+            Ok(()) => validation_errors.is_empty(),
+            Err(e) => {
+                validation_errors.push(format!("Graph validation failed: {}", e));
+                false
+            }
+        };
+
+        // Get performance summary
+        let performance_summary = graph.get_performance_summary();
+
+        SerializableProcessingGraph {
+            nodes: serializable_nodes,
+            connections: serializable_connections,
+            execution_order,
+            input_node: graph.input_node.clone(),
+            output_nodes: graph.output_nodes.clone(),
+            statistics: graph.statistics.clone(),
+            performance_summary,
+            is_valid,
+            validation_errors,
+        }
+    }
+}
+
+impl SerializableProcessingGraph {
+    /// Create a SerializableNode from a ProcessingNode
+    ///
+    /// This helper method extracts all relevant information from a processing node
+    /// and creates a serializable representation including its capabilities and
+    /// configuration parameters.
+    ///
+    /// ### Arguments
+    ///
+    /// * `node` - The processing node to convert
+    ///
+    /// ### Returns
+    ///
+    /// A SerializableNode containing the node's information and capabilities
+    fn create_serializable_node(node: &dyn ProcessingNode) -> SerializableNode {
+        let node_id = node.node_id().to_string();
+        let node_type = node.node_type().to_string();
+
+        // Determine accepted input types by testing with sample data
+        let mut accepts_input_types = Vec::new();
+        let test_inputs = vec![
+            ("AudioFrame", Self::create_test_audio_frame()),
+            ("DualChannel", Self::create_test_dual_channel()),
+            ("SingleChannel", Self::create_test_single_channel()),
+            (
+                "PhotoacousticResult",
+                Self::create_test_photoacoustic_result(),
+            ),
+        ];
+
+        for (type_name, test_data) in test_inputs {
+            if node.accepts_input(&test_data) {
+                accepts_input_types.push(type_name.to_string());
+            }
+        }
+
+        // Get output type for the first accepted input type
+        let output_type = if let Some(first_input) = accepts_input_types.first() {
+            let test_data = match first_input.as_str() {
+                "AudioFrame" => Self::create_test_audio_frame(),
+                "DualChannel" => Self::create_test_dual_channel(),
+                "SingleChannel" => Self::create_test_single_channel(),
+                "PhotoacousticResult" => Self::create_test_photoacoustic_result(),
+                _ => Self::create_test_dual_channel(), // fallback
+            };
+            node.output_type(&test_data)
+        } else {
+            None
+        };
+
+        // Extract parameters based on node type
+        let parameters = Self::extract_node_parameters(&node_type, &node_id);
+
+        SerializableNode {
+            id: node_id,
+            node_type,
+            accepts_input_types,
+            output_type,
+            parameters,
+        }
+    }
+
+    /// Extract node-specific parameters
+    ///
+    /// This method attempts to extract configuration parameters from different
+    /// node types. Since we can't directly access internal configuration through
+    /// the trait, we provide basic type-specific defaults.
+    ///
+    /// ### Arguments
+    ///
+    /// * `node_type` - The type of the node
+    /// * `node_id` - The ID of the node
+    ///
+    /// ### Returns
+    ///
+    /// A HashMap containing the node's parameters
+    fn extract_node_parameters(
+        node_type: &str,
+        _node_id: &str,
+    ) -> HashMap<String, serde_yml::Value> {
+        let mut parameters = HashMap::new();
+
+        match node_type {
+            "filter" => {
+                // Filter nodes have type-specific parameters but we can't extract them
+                // from the trait interface. In a real implementation, you might want
+                // to extend the ProcessingNode trait to include parameter extraction.
+                parameters.insert(
+                    "note".into(),
+                    "Filter parameters not extractable from current interface".into(),
+                );
+            }
+            "channel_selector" => {
+                parameters.insert(
+                    "note".into(),
+                    "Channel target not extractable from current interface".into(),
+                );
+            }
+            "channel_mixer" => {
+                parameters.insert(
+                    "note".into(),
+                    "Mix strategy not extractable from current interface".into(),
+                );
+            }
+            "photoacoustic_output" => {
+                parameters.insert(
+                    "note".into(),
+                    "Threshold and window size not extractable from current interface".into(),
+                );
+            }
+            "record" => {
+                parameters.insert(
+                    "note".into(),
+                    "Record configuration not extractable from current interface".into(),
+                );
+            }
+            "streaming" => {
+                parameters.insert(
+                    "note".into(),
+                    "Streaming configuration not extractable from current interface".into(),
+                );
+            }
+            _ => {
+                // Default case for unknown or simple node types
+            }
+        }
+
+        parameters
+    }
+
+    /// Create test data for AudioFrame input type checking
+    fn create_test_audio_frame() -> ProcessingData {
+        use crate::acquisition::AudioFrame;
+        ProcessingData::AudioFrame(AudioFrame {
+            channel_a: vec![0.1, 0.2],
+            channel_b: vec![0.3, 0.4],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        })
+    }
+
+    /// Create test data for DualChannel input type checking
+    fn create_test_dual_channel() -> ProcessingData {
+        ProcessingData::DualChannel {
+            channel_a: vec![0.1, 0.2],
+            channel_b: vec![0.3, 0.4],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        }
+    }
+
+    /// Create test data for SingleChannel input type checking
+    fn create_test_single_channel() -> ProcessingData {
+        ProcessingData::SingleChannel {
+            samples: vec![0.1, 0.2],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        }
+    }
+
+    /// Create test data for PhotoacousticResult input type checking
+    fn create_test_photoacoustic_result() -> ProcessingData {
+        use crate::processing::nodes::ProcessingMetadata;
+        ProcessingData::PhotoacousticResult {
+            signal: vec![0.1, 0.2],
+            metadata: ProcessingMetadata {
+                original_frame_number: 1,
+                original_timestamp: 1000,
+                sample_rate: 44100,
+                processing_steps: vec!["test".to_string()],
+                processing_latency_us: 1000,
+            },
+        }
     }
 }

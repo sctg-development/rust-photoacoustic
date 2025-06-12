@@ -160,7 +160,10 @@ pub mod nodes;
 pub mod result;
 
 pub use consumer::ProcessingConsumer;
-pub use graph::{ProcessingGraph, ProcessingGraphError};
+pub use graph::{
+    ProcessingGraph, ProcessingGraphError, SerializableConnection, SerializableNode,
+    SerializableProcessingGraph,
+};
 pub use nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, InputNode,
     MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode, RecordNode,
