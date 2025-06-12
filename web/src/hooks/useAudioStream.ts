@@ -296,7 +296,7 @@ export const useAudioStream = (
    */
   const audioBufferQueueRef = useRef<AudioFrame[]>([]);
   const nextPlayTimeRef = useRef<number>(0);
-  const sampleRateRef = useRef<number>(44100);
+  const sampleRateRef = useRef<number>(48000);
   const maxBufferQueueSizeRef = useRef<number>(20); // Increased to prevent frame loss
 
   /**
@@ -351,6 +351,28 @@ export const useAudioStream = (
   // --- AUDIO CONTEXT MANAGEMENT ---
 
   /**
+   * Get the current sample rate from the statsUrl
+   * If statsUrl is not provided, defaults to 48000 Hz.
+   * This is used to ensure the audio context is created with the correct sample rate.
+   * @returns {Promise<number>} The sample rate in Hz
+   */
+  const getSampleRate = useCallback(async (): Promise<number> => {
+    console.log("Fetching sample rate from statsUrl:", statsUrl, "isAuthenticated:", isAuthenticated);
+    if (statsUrl && isAuthenticated) {
+      try {
+        const stats = await getJson(statsUrl) as AudioStreamStatistics;
+        console.log("Fetched stats:", stats);
+        return stats.sample_rate || 48000; // Default to 48000 if not provided
+      } catch (error) {
+        console.warn("Failed to fetch sample rate from stats URL:", error);
+        return 48000; // Fallback to standard rate
+      }
+    }
+    console.log("No statsUrl or not authenticated, using default sample rate");
+    return 48000; // Default sample rate if statsUrl is not provided
+  }, [statsUrl, isAuthenticated, getJson]);
+
+  /**
    * Initializes the AudioContext and creates the audio processing graph.
    * Closes any existing audio context before creating a new one.
    *
@@ -361,6 +383,8 @@ export const useAudioStream = (
       console.log(
         "initializeAudio called, current audioContext:",
         audioContext,
+        "statsUrl:", statsUrl,
+        "isAuthenticated:", isAuthenticated
       );
 
       if (audioContext && audioContext.state !== "closed") {
@@ -368,14 +392,10 @@ export const useAudioStream = (
         await audioContext.close();
       }
 
-      // Get sample rate first if not already set or if it's 0
-      let currentSampleRate = samplerate;
-      if (currentSampleRate === 0) {
-        console.log("Sample rate is 0, fetching from stats URL");
-        currentSampleRate = await getSampleRate();
-        setSamplerate(currentSampleRate);
-      }
-
+      // Get sample rate first - always fetch fresh from server
+      console.log("Fetching current sample rate from server");
+      const currentSampleRate = await getSampleRate();
+      setSamplerate(currentSampleRate);
       sampleRateRef.current = currentSampleRate;
 
       console.log(
@@ -430,29 +450,7 @@ export const useAudioStream = (
       });
       setIsAudioReady(false);
     }
-  }, [audioContext, samplerate]); // Add samplerate to dependencies
-
-  /**
-   * Get the current sample rate from the statsUrl
-   * If statsUrl is not provided, defaults to 44100 Hz.
-   * This is used to ensure the audio context is created with the correct sample rate.
-   * @returns {Promise<number>} The sample rate in Hz
-   */
-  const getSampleRate = async (): Promise<number> => {
-    console.log("Fetching sample rate from statsUrl:", statsUrl);
-    if (statsUrl && isAuthenticated) {
-      try {
-        const stats = await getJson(statsUrl) as AudioStreamStatistics;
-        console.log("Fetched stats:", stats);
-        return stats.sample_rate || 44100; // Default to 44100 if not provided
-      } catch (error) {
-        console.warn("Failed to fetch sample rate from stats URL:", error);
-        return 44100; // Fallback to standard rate
-      }
-    }
-    console.log("No statsUrl or not authenticated, using default sample rate");
-    return 44100; // Default sample rate if statsUrl is not provided
-  }
+  }, [audioContext, getSampleRate]); // Remove samplerate dependency, add getSampleRate
 
   /**
    * Resumes the audio context if it's in a suspended state.
