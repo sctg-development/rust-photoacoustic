@@ -216,7 +216,6 @@ export const useAudioStream = (
   streamUrl?: string,
   statsUrl?: string,
   autoConnect: boolean = false,
-  // @ts-expect-error
   autoAudio: boolean = true,
   timestampValidationConfig?: TimestampValidationConfig,
 ): UseAudioStreamReturn => {
@@ -1170,6 +1169,10 @@ export const useAudioStream = (
       return;
     }
 
+    if (autoAudio && !audioContext) {
+      console.log("Initializing audio context before connecting to stream");
+      await initializeAudio();
+    }
     try {
       if (samplerate === 0) {
         // Get sample rate from statsUrl if not already set
