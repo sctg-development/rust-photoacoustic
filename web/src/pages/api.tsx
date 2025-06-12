@@ -1,3 +1,11 @@
+/**
+ * @copyright Copyright (c) 2024-2025 Ronan LE MEILLAT
+ * @license AGPL-3.0-or-later
+ *
+ * React hook for managing a real-time authenticated audio stream with WebAudio API integration.
+ * Provides functionality for connecting to a server-sent events stream, processing audio frames,
+ * and managing audio context lifecycle including reconnection strategies.
+ */
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@heroui/button";
