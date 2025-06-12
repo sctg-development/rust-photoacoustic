@@ -155,7 +155,7 @@ pub struct SpectralDataResponse {
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
 #[deprecated(note = "Use /api/stream/audio/fast/stats for more efficient binary streaming")]
-#[openapi_protect_get("/api/stream/stats", "read:api")]
+#[openapi_protect_get("/api/stream/stats", "read:api", tag = "Audio Streaming")]
 pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<StreamStats> {
     let stats = stream_state.stream.get_stats().await;
     Json(stats)
@@ -165,7 +165,7 @@ pub async fn get_stream_stats(stream_state: &State<AudioStreamState>) -> Json<St
 ///
 /// Returns information about the audio stream including frame rates,
 /// subscriber count, and other metrics.
-#[openapi_protect_get("/api/stream/audio/fast/stats", "read:api")]
+#[openapi_protect_get("/api/stream/audio/fast/stats", "read:api", tag = "Audio Streaming")]
 pub async fn get_stream_fast_stats(stream_state: &State<AudioStreamState>) -> Json<StreamStats> {
     let stats = stream_state.stream.get_stats().await;
     Json(stats)
@@ -175,7 +175,7 @@ pub async fn get_stream_fast_stats(stream_state: &State<AudioStreamState>) -> Js
 ///
 /// Returns the most recent audio frame without subscribing to the stream.
 /// Useful for getting current state or testing connectivity.
-#[openapi_protect_get("/api/stream/latest", "read:api")]
+#[openapi_protect_get("/api/stream/latest", "read:api", tag = "Audio Streaming")]
 pub async fn get_latest_frame(
     stream_state: &State<AudioStreamState>,
 ) -> Option<Json<AudioFrameResponse>> {
@@ -446,7 +446,7 @@ pub struct StreamingNodeInfo {
 ///   }
 /// ]
 /// ```
-#[openapi_protect_get("/api/stream/nodes", "read:api")]
+#[openapi_protect_get("/api/stream/nodes", "read:api", tag = "Audio Streaming")]
 pub async fn list_streaming_nodes(
     stream_state: &State<AudioStreamState>,
 ) -> Json<Vec<StreamingNodeInfo>> {
@@ -484,7 +484,11 @@ pub async fn list_streaming_nodes(
 #[deprecated(
     note = "Use /api/stream/audio/fast/<node_id>/stats for more efficient binary streaming with node routing"
 )]
-#[openapi_protect_get("/api/stream/nodes/<node_id>/stats", "read:api")]
+#[openapi_protect_get(
+    "/api/stream/nodes/<node_id>/stats",
+    "read:api",
+    tag = "Audio Streaming"
+)]
 pub async fn get_node_stats(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
@@ -499,7 +503,11 @@ pub async fn get_node_stats(
 ///
 /// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
-#[openapi_protect_get("/api/stream/audio/fast/<node_id>/stats", "read:api")]
+#[openapi_protect_get(
+    "/api/stream/audio/fast/<node_id>/stats",
+    "read:api",
+    tag = "Audio Streaming"
+)]
 pub async fn get_node_fast_stats(
     node_id: &str,
     stream_state: &State<AudioStreamState>,
