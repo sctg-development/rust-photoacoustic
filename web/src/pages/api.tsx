@@ -57,9 +57,10 @@ export default function ApiPage() {
     isAudioReady,
     averageFrameSizeBytes,
   } = useAudioStream(
-    `${generixConfig?.api_base_url}`,
-    "/stream/audio/fast", // Use single endpoint, format will be auto-detected
-    false,
+    generixConfig ? `${generixConfig.api_base_url}/stream/audio/fast` : undefined, //Stream endpoint URL
+    generixConfig ? `${generixConfig.api_base_url}/stream/audio/fast/stats` : undefined, //Stats endpoint URL
+    false, // Disable auto-connect
+    true, // Enable auto audio context initialization
     {
       enabled: false,
     } as TimestampValidationConfig
@@ -169,14 +170,27 @@ export default function ApiPage() {
       setTimeout(() => initializeAnalyzer(), 100); // Small delay to ensure everything is ready
     }
 
+    // Remove the cleanup logic that was interfering with the audio hook
+    // The audio hook manages its own lifecycle
+  }, [isAudioReady, audioContext, audioStreamNode, showAnalyzer, isAnalyzerInitialized]);
+
+  // Separate effect to handle analyzer cleanup when showAnalyzer becomes false
+  useEffect(() => {
+    if (!showAnalyzer && isAnalyzerInitialized) {
+      console.log("Show analyzer disabled, cleaning up analyzer only");
+      cleanupAnalyzer();
+    }
+  }, [showAnalyzer, isAnalyzerInitialized]);
+
+  // Handle component unmount cleanup
+  useEffect(() => {
     return () => {
-      // Only cleanup if audio is not ready anymore
-      if (!isAudioReady && isAnalyzerInitialized) {
-        console.log("Audio not ready, cleaning up analyzer");
+      if (isAnalyzerInitialized) {
+        console.log("Component unmounting, cleaning up analyzer");
         cleanupAnalyzer();
       }
     };
-  }, [isAudioReady, audioContext, audioStreamNode, showAnalyzer]);
+  }, [isAnalyzerInitialized]);
 
   // Handle analyzer visibility toggle
   const handleAnalyzerToggle = (visible: boolean) => {
@@ -566,9 +580,13 @@ export default function ApiPage() {
                         <Button
                           color="primary"
                           size="sm"
-                          onPress={() => {
+                          onPress={async () => {
                             console.log("Initialize audio button clicked");
-                            initializeAudio();
+                            try {
+                              await initializeAudio();
+                            } catch (error) {
+                              console.error("Failed to initialize audio:", error);
+                            }
                           }}
                         >
                           {t("initialize-audio-context")}

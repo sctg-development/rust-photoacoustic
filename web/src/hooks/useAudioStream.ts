@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-import { useAuth } from "@/authentication";
+import { useAuth, useSecuredApi } from "@/authentication";
 
 /**
  * @typedef {Object} AudioFrame
@@ -191,24 +191,36 @@ interface AudioFastFrame {
   duration_ms: number;
 }
 
+export interface AudioStreamStatistics {
+  total_frames: number
+  dropped_frames: number
+  active_subscribers: number
+  fps: number
+  last_update: number
+  frames_since_last_update: number
+  sample_rate: number
+}
+
 /**
  * Custom React hook for managing audio streaming from a server-sent events endpoint.
  * Handles connection management, authentication, audio processing, and playback.
  *
- * @param {string} [baseUrl] - Base URL for the server API
- * @param {string} [endpoint="/stream/audio"] - API endpoint for the audio stream
+ * @param {string} [streamUrl] - Base URL for the server API
+ * @param {string} [statsUrl="/api/stream/audio/stats"] - API endpoint for the audio stream
  * @param {boolean} [autoConnect=false] - Whether to automatically connect when conditions are met
+ * @param {boolean} [autoAudio=true] - Whether to automatically initialize audio context
  * @param {TimestampValidationConfig} [timestampValidationConfig] - Optional timestamp validation configuration
  * @returns {UseAudioStreamReturn} A collection of state and functions for managing the audio stream
  */
 export const useAudioStream = (
-  baseUrl?: string,
-  endpoint: string = "/stream/audio",
+  streamUrl?: string,
+  statsUrl?: string,
   autoConnect: boolean = false,
+  autoAudio: boolean = true,
   timestampValidationConfig?: TimestampValidationConfig,
 ): UseAudioStreamReturn => {
   const { getAccessToken, isAuthenticated } = useAuth();
-
+  const { getJson } = useSecuredApi();
   // --- STATE MANAGEMENT ---
 
   /**
@@ -221,6 +233,7 @@ export const useAudioStream = (
   const [frameCount, setFrameCount] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
   const [fps, setFps] = useState(0);
+  const [samplerate, setSamplerate] = useState(0);
   const [averageFrameSizeBytes, setAverageFrameSizeBytes] = useState(0);
 
   /**
@@ -355,6 +368,16 @@ export const useAudioStream = (
         await audioContext.close();
       }
 
+      // Get sample rate first if not already set or if it's 0
+      let currentSampleRate = samplerate;
+      if (currentSampleRate === 0) {
+        console.log("Sample rate is 0, fetching from stats URL");
+        currentSampleRate = await getSampleRate();
+        setSamplerate(currentSampleRate);
+      }
+
+      sampleRateRef.current = currentSampleRate;
+
       console.log(
         "Creating new AudioContext with sample rate:",
         sampleRateRef.current,
@@ -407,7 +430,29 @@ export const useAudioStream = (
       });
       setIsAudioReady(false);
     }
-  }, []); // Empty dependency array to prevent circular references
+  }, [audioContext, samplerate]); // Add samplerate to dependencies
+
+  /**
+   * Get the current sample rate from the statsUrl
+   * If statsUrl is not provided, defaults to 44100 Hz.
+   * This is used to ensure the audio context is created with the correct sample rate.
+   * @returns {Promise<number>} The sample rate in Hz
+   */
+  const getSampleRate = async (): Promise<number> => {
+    console.log("Fetching sample rate from statsUrl:", statsUrl);
+    if (statsUrl && isAuthenticated) {
+      try {
+        const stats = await getJson(statsUrl) as AudioStreamStatistics;
+        console.log("Fetched stats:", stats);
+        return stats.sample_rate || 44100; // Default to 44100 if not provided
+      } catch (error) {
+        console.warn("Failed to fetch sample rate from stats URL:", error);
+        return 44100; // Fallback to standard rate
+      }
+    }
+    console.log("No statsUrl or not authenticated, using default sample rate");
+    return 44100; // Default sample rate if statsUrl is not provided
+  }
 
   /**
    * Resumes the audio context if it's in a suspended state.
@@ -1055,10 +1100,11 @@ export const useAudioStream = (
    * Sets up the stream reader and event handler for incoming audio frames.
    */
   const connect = useCallback(async () => {
-    if (!isAuthenticated || !baseUrl || isConnecting || isConnected) {
+    if (!isAuthenticated || !streamUrl || !statsUrl || isConnecting || isConnected) {
       console.log("Connect conditions not met:", {
         isAuthenticated,
-        baseUrl,
+        streamUrl,
+        statsUrl,
         isConnecting,
         isConnected,
       });
@@ -1067,6 +1113,10 @@ export const useAudioStream = (
     }
 
     try {
+      if (samplerate === 0) {
+        // Get sample rate from statsUrl if not already set
+        setSamplerate(await getSampleRate());
+      }
       setIsConnecting(true);
       setError(null);
 
@@ -1094,10 +1144,7 @@ export const useAudioStream = (
         throw new Error("No access token available");
       }
 
-      // Create stream URL using the provided endpoint
-      const streamUrl = `${baseUrl}${endpoint}`;
-      const statsUrl = `${baseUrl}${endpoint}/stats`;
-
+      // Log stream URL
       console.log(`Connecting to audio stream at ${streamUrl} and stats at ${statsUrl}`);
 
       // Close existing connection if it exists
@@ -1202,8 +1249,8 @@ export const useAudioStream = (
     }
   }, [
     isAuthenticated,
-    baseUrl,
-    endpoint,
+    streamUrl,
+    statsUrl,
     getAccessToken,
     isConnecting,
     isConnected,
@@ -1505,7 +1552,8 @@ export const useAudioStream = (
     if (
       autoConnect &&
       isAuthenticated &&
-      baseUrl &&
+      streamUrl &&
+      statsUrl &&
       !isConnected &&
       !isConnecting
     ) {
@@ -1515,7 +1563,8 @@ export const useAudioStream = (
   }, [
     autoConnect,
     isAuthenticated,
-    baseUrl,
+    streamUrl,
+    statsUrl,
     isConnected,
     isConnecting,
     connect,
