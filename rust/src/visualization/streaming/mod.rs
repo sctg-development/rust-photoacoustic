@@ -1,4 +1,5 @@
 mod audio;
 pub use audio::{
-    get_audio_streaming_routes, AudioFrameResponse, AudioStreamState, SpectralDataResponse,
+    create_audio_stream, create_node_audio_stream, get_audio_streaming_routes,
+    AudioFastFrameResponse, AudioFrameResponse, AudioStreamState, SpectralDataResponse,
 };
