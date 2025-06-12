@@ -192,13 +192,13 @@ interface AudioFastFrame {
 }
 
 export interface AudioStreamStatistics {
-  total_frames: number
-  dropped_frames: number
-  active_subscribers: number
-  fps: number
-  last_update: number
-  frames_since_last_update: number
-  sample_rate: number
+  total_frames: number;
+  dropped_frames: number;
+  active_subscribers: number;
+  fps: number;
+  last_update: number;
+  frames_since_last_update: number;
+  sample_rate: number;
 }
 
 /**
@@ -216,11 +216,13 @@ export const useAudioStream = (
   streamUrl?: string,
   statsUrl?: string,
   autoConnect: boolean = false,
+  // @ts-expect-error
   autoAudio: boolean = true,
   timestampValidationConfig?: TimestampValidationConfig,
 ): UseAudioStreamReturn => {
   const { getAccessToken, isAuthenticated } = useAuth();
   const { getJson } = useSecuredApi();
+
   // --- STATE MANAGEMENT ---
 
   /**
@@ -274,16 +276,19 @@ export const useAudioStream = (
     null,
   );
   const lastFrameTimeRef = useRef<number>(0);
-  const fpsCalculationRef = useRef<{ timestamps: number[], lastDisplayUpdate: number }>({
+  const fpsCalculationRef = useRef<{
+    timestamps: number[];
+    lastDisplayUpdate: number;
+  }>({
     timestamps: [],
-    lastDisplayUpdate: 0
+    lastDisplayUpdate: 0,
   });
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
    * Frame format detection
    */
-  const detectedFormatRef = useRef<'fast' | 'standard' | null>(null);
+  const detectedFormatRef = useRef<"fast" | "standard" | null>(null);
 
   /**
    * Frame size tracking references - fixed
@@ -357,18 +362,27 @@ export const useAudioStream = (
    * @returns {Promise<number>} The sample rate in Hz
    */
   const getSampleRate = useCallback(async (): Promise<number> => {
-    console.log("Fetching sample rate from statsUrl:", statsUrl, "isAuthenticated:", isAuthenticated);
+    console.log(
+      "Fetching sample rate from statsUrl:",
+      statsUrl,
+      "isAuthenticated:",
+      isAuthenticated,
+    );
     if (statsUrl && isAuthenticated) {
       try {
-        const stats = await getJson(statsUrl) as AudioStreamStatistics;
+        const stats = (await getJson(statsUrl)) as AudioStreamStatistics;
+
         console.log("Fetched stats:", stats);
+
         return stats.sample_rate || 48000; // Default to 48000 if not provided
       } catch (error) {
         console.warn("Failed to fetch sample rate from stats URL:", error);
+
         return 48000; // Fallback to standard rate
       }
     }
     console.log("No statsUrl or not authenticated, using default sample rate");
+
     return 48000; // Default sample rate if statsUrl is not provided
   }, [statsUrl, isAuthenticated, getJson]);
 
@@ -383,8 +397,10 @@ export const useAudioStream = (
       console.log(
         "initializeAudio called, current audioContext:",
         audioContext,
-        "statsUrl:", statsUrl,
-        "isAuthenticated:", isAuthenticated
+        "statsUrl:",
+        statsUrl,
+        "isAuthenticated:",
+        isAuthenticated,
       );
 
       if (audioContext && audioContext.state !== "closed") {
@@ -395,6 +411,7 @@ export const useAudioStream = (
       // Get sample rate first - always fetch fresh from server
       console.log("Fetching current sample rate from server");
       const currentSampleRate = await getSampleRate();
+
       setSamplerate(currentSampleRate);
       sampleRateRef.current = currentSampleRate;
 
@@ -779,6 +796,7 @@ export const useAudioStream = (
 
     // Keep only last 1 second of data based on server timestamps
     const oneSecondAgo = frameTimestamp - 1000;
+
     fpsData.timestamps = fpsData.timestamps.filter(
       (timestamp) => timestamp > oneSecondAgo,
     );
@@ -790,9 +808,14 @@ export const useAudioStream = (
       // Calculate FPS based on server timestamps from the last 1 second
       if (fpsData.timestamps.length > 1) {
         // More accurate FPS calculation using actual time span
-        const timeSpanMs = fpsData.timestamps[fpsData.timestamps.length - 1] - fpsData.timestamps[0];
+        const timeSpanMs =
+          fpsData.timestamps[fpsData.timestamps.length - 1] -
+          fpsData.timestamps[0];
+
         if (timeSpanMs > 0) {
-          const actualFps = ((fpsData.timestamps.length - 1) * 1000) / timeSpanMs;
+          const actualFps =
+            ((fpsData.timestamps.length - 1) * 1000) / timeSpanMs;
+
           setFps(Math.round(actualFps * 10) / 10); // Round to 1 decimal place
         } else {
           setFps(fpsData.timestamps.length);
@@ -926,22 +949,25 @@ export const useAudioStream = (
   /**
    * Auto-detect frame format based on first received frame
    */
-  const detectFrameFormat = useCallback((data: string): 'fast' | 'standard' | null => {
-    try {
-      const parsed = JSON.parse(data);
+  const detectFrameFormat = useCallback(
+    (data: string): "fast" | "standard" | null => {
+      try {
+        const parsed = JSON.parse(data);
 
-      // Check for channels_raw_type which is mandatory in AudioFastFrame
-      if (parsed.channels_raw_type !== undefined) {
-        return 'fast';
-      } else if (parsed.channel_a && parsed.channel_b && parsed.sample_rate) {
-        return 'standard';
+        // Check for channels_raw_type which is mandatory in AudioFastFrame
+        if (parsed.channels_raw_type !== undefined) {
+          return "fast";
+        } else if (parsed.channel_a && parsed.channel_b && parsed.sample_rate) {
+          return "standard";
+        }
+
+        return null;
+      } catch (error) {
+        return null;
       }
-
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }, []);
+    },
+    [],
+  );
 
   /**
    * Fixed server-sent event processing with automatic format detection
@@ -960,11 +986,13 @@ export const useAudioStream = (
         // Auto-detect format on first frame
         if (detectedFormatRef.current === null) {
           const detectedFormat = detectFrameFormat(data);
+
           if (detectedFormat) {
             detectedFormatRef.current = detectedFormat;
             console.log(`Auto-detected frame format: ${detectedFormat}`);
           } else {
             console.warn("Could not detect frame format, skipping frame");
+
             return;
           }
         }
@@ -972,7 +1000,7 @@ export const useAudioStream = (
         let frame: AudioFrame;
         let frameSize: number;
 
-        if (detectedFormatRef.current === 'fast') {
+        if (detectedFormatRef.current === "fast") {
           const fastFrame: AudioFastFrame = JSON.parse(data);
 
           if (
@@ -1091,6 +1119,32 @@ export const useAudioStream = (
     }
   }, []);
 
+  // --- TIMESTAMP VALIDATION ---
+
+  /**
+   * Reset timestamp validation statistics
+   */
+  const resetTimestampValidation = useCallback(() => {
+    timestampValidationStatsRef.current = {
+      lastFrameTimestamp: 0,
+      frameIntervals: new Float32Array(100),
+      intervalIndex: 0,
+      gapSizes: [],
+      jitterValues: new Float32Array(50),
+      jitterIndex: 0,
+    };
+
+    setTimestampValidation((prev) => ({
+      ...prev,
+      totalGaps: 0,
+      totalMissedFrames: 0,
+      averageGapSize: 0,
+      maxGapSize: 0,
+      lastGapTimestamp: 0,
+      expectedFrameInterval: 0,
+    }));
+  }, []);
+
   // --- CONNECTION MANAGEMENT ---
 
   /**
@@ -1098,7 +1152,13 @@ export const useAudioStream = (
    * Sets up the stream reader and event handler for incoming audio frames.
    */
   const connect = useCallback(async () => {
-    if (!isAuthenticated || !streamUrl || !statsUrl || isConnecting || isConnected) {
+    if (
+      !isAuthenticated ||
+      !streamUrl ||
+      !statsUrl ||
+      isConnecting ||
+      isConnected
+    ) {
       console.log("Connect conditions not met:", {
         isAuthenticated,
         streamUrl,
@@ -1143,7 +1203,9 @@ export const useAudioStream = (
       }
 
       // Log stream URL
-      console.log(`Connecting to audio stream at ${streamUrl} and stats at ${statsUrl}`);
+      console.log(
+        `Connecting to audio stream at ${streamUrl} and stats at ${statsUrl}`,
+      );
 
       // Close existing connection if it exists
       if (readerRef.current) {
@@ -1275,11 +1337,31 @@ export const useAudioStream = (
       reconnectTimeoutRef.current = null;
     }
 
+    // Reset all frame-related states to ensure clean UI state
     setIsConnected(false);
     setIsConnecting(false);
     setError(null);
+    setCurrentFrame(null); // This ensures the UI shows proper disconnected state
+    setFrameCount(0);
+    setDroppedFrames(0);
+    setFps(0);
+    setAverageFrameSizeBytes(0);
+
+    // Reset internal counters and tracking
+    lastFrameTimeRef.current = 0;
+    fpsCalculationRef.current = { timestamps: [], lastDisplayUpdate: 0 };
+    fpsDisplayThrottleRef.current = 0;
+    frameSizesRef.current = [];
+
+    // Reset format detection to ensure proper re-detection on reconnect
+    detectedFormatRef.current = null;
+
+    // Clear audio buffer queue
+    audioBufferQueueRef.current = [];
+    nextPlayTimeRef.current = 0;
+
     reconnectAttemptsRef.current = 0;
-    console.log("Audio stream disconnected");
+    console.log("Audio stream disconnected and state reset");
   }, []);
 
   /**
@@ -1334,32 +1416,6 @@ export const useAudioStream = (
   const FPS_UPDATE_INTERVAL = 200; // Display FPS every 200ms (separate from calculation)
   const BUFFER_POOL_SIZE = 5; // Buffer pool per configuration
   const MAX_PROCESSING_TIME_MS = 12; // Generous time per cycle
-
-  // --- TIMESTAMP VALIDATION ---
-
-  /**
-   * Reset timestamp validation statistics
-   */
-  const resetTimestampValidation = useCallback(() => {
-    timestampValidationStatsRef.current = {
-      lastFrameTimestamp: 0,
-      frameIntervals: new Float32Array(100),
-      intervalIndex: 0,
-      gapSizes: [],
-      jitterValues: new Float32Array(50),
-      jitterIndex: 0,
-    };
-
-    setTimestampValidation((prev) => ({
-      ...prev,
-      totalGaps: 0,
-      totalMissedFrames: 0,
-      averageGapSize: 0,
-      maxGapSize: 0,
-      lastGapTimestamp: 0,
-      expectedFrameInterval: 0,
-    }));
-  }, []);
 
   /**
    * Calculate expected frame interval based on recent frames

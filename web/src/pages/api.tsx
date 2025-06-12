@@ -1,12 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useRef } from "react";
-import { Snippet } from "@heroui/snippet";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Progress } from "@heroui/progress";
 import { Chip } from "@heroui/chip";
 import { Switch } from "@heroui/switch";
-
 // @ts-ignore - audiomotion-analyzer doesn't have TypeScript definitions
 import AudioMotionAnalyzer from "audiomotion-analyzer";
 
@@ -17,7 +15,7 @@ import {
 
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
-import { useAuth, useSecuredApi } from "@/authentication";
+import { useAuth } from "@/authentication";
 import {
   TimestampValidationConfig,
   useAudioStream,
@@ -25,9 +23,7 @@ import {
 
 export default function ApiPage() {
   const { t } = useTranslation();
-  const { getJson } = useSecuredApi();
   const { user, isAuthenticated, getAccessToken } = useAuth();
-  const [apiResponse, setApiResponse] = useState("");
   const [generixConfig, setGenerixConfig] = useState(
     null as GenerixConfig | null,
   );
@@ -57,13 +53,17 @@ export default function ApiPage() {
     isAudioReady,
     averageFrameSizeBytes,
   } = useAudioStream(
-    generixConfig ? `${generixConfig.api_base_url}/stream/audio/fast` : undefined, //Stream endpoint URL
-    generixConfig ? `${generixConfig.api_base_url}/stream/audio/fast/stats` : undefined, //Stats endpoint URL
+    generixConfig
+      ? `${generixConfig.api_base_url}/stream/audio/fast`
+      : undefined, //Stream endpoint URL
+    generixConfig
+      ? `${generixConfig.api_base_url}/stream/audio/fast/stats`
+      : undefined, //Stats endpoint URL
     false, // Disable auto-connect
     true, // Enable auto audio context initialization
     {
       enabled: false,
-    } as TimestampValidationConfig
+    } as TimestampValidationConfig,
   );
 
   // Initialize audio analyzer
@@ -172,7 +172,13 @@ export default function ApiPage() {
 
     // Remove the cleanup logic that was interfering with the audio hook
     // The audio hook manages its own lifecycle
-  }, [isAudioReady, audioContext, audioStreamNode, showAnalyzer, isAnalyzerInitialized]);
+  }, [
+    isAudioReady,
+    audioContext,
+    audioStreamNode,
+    showAnalyzer,
+    isAnalyzerInitialized,
+  ]);
 
   // Separate effect to handle analyzer cleanup when showAnalyzer becomes false
   useEffect(() => {
@@ -220,25 +226,6 @@ export default function ApiPage() {
     loadAccessToken();
     loadGenerixConfig();
   }, []);
-
-  // Call the API endpoint to get the response
-  useEffect(() => {
-    const fetchData = async () => {
-      if (isAuthenticated && generixConfig && user) {
-        try {
-          const response = await getJson(
-            `${generixConfig.api_base_url}/test/${user.sub}`,
-          );
-
-          setApiResponse(response);
-        } catch (error) {
-          setApiResponse((error as Error).message);
-        }
-      }
-    };
-
-    fetchData();
-  }, [isAuthenticated, generixConfig, user]);
 
   useEffect(() => {
     // Connected user is authenticated and the route is protected with the access token and the right permissions
@@ -336,25 +323,26 @@ export default function ApiPage() {
                     </Button>
                   )}
                   {isConnected && (
-                    <Button
-                      aria-label={t("disconnect-from-audio-stream")}
-                      color="danger"
-                      size="sm"
-                      onPress={disconnect}
-                    >
-                      {t("disconnect")}
-                    </Button>
+                    <>
+                      <Button
+                        aria-label={t("disconnect-from-audio-stream")}
+                        color="danger"
+                        size="sm"
+                        onPress={disconnect}
+                      >
+                        {t("disconnect")}
+                      </Button>
+                      <Button
+                        aria-label={t("reconnect-to-audio-stream")}
+                        color="secondary"
+                        size="sm"
+                        onPress={reconnect}
+                      >
+                        {t("reconnect")}
+                      </Button>
+                    </>
                   )}
-                  <Button
-                    aria-label={t("reconnect-to-audio-stream")}
-                    color="secondary"
-                    size="sm"
-                    onPress={reconnect}
-                  >
-                    {t("reconnect")}
-                  </Button>
                 </div>
-
                 <div className="flex items-center justify-between">
                   <span>{t("show-analyzer")}</span>
                   <Switch
@@ -585,7 +573,10 @@ export default function ApiPage() {
                             try {
                               await initializeAudio();
                             } catch (error) {
-                              console.error("Failed to initialize audio:", error);
+                              console.error(
+                                "Failed to initialize audio:",
+                                error,
+                              );
                             }
                           }}
                         >
@@ -605,18 +596,6 @@ export default function ApiPage() {
           </Card>
         )}
       </section>
-      {import.meta.env.MODE == "development" && (
-        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-          <div className="inline-block max-w-lg text-center justify-center">
-            <h1 className={title()}>{t("api-answer")}</h1>
-          </div>
-          <Snippet className="max-w-11/12" symbol="" title="api-response">
-            <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-5xl  whitespace-break-spaces  text-wrap break-words">
-              {JSON.stringify(apiResponse, null, 2)}
-            </div>
-          </Snippet>
-        </section>
-      )}
     </DefaultLayout>
   );
 }
