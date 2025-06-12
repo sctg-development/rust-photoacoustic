@@ -13,7 +13,7 @@ pub struct TestResponse {
     user: String,
 }
 
-#[openapi_protect_get("/api/test/<path..>", "read:api")]
+#[openapi_protect_get("/api/test/<path..>", "read:api", tag = "Test")]
 pub async fn test_api(path: PathBuf) -> Json<TestResponse> {
     let token = bearer.token.clone();
     Json(TestResponse {
