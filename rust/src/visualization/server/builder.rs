@@ -211,8 +211,9 @@ pub async fn build_rocket(
         .manage(oxide_state)
         .manage(jwt_validator);
 
-    // Attach compression fairing if enabled in config
-    let rocket_builder = if compression_config {
+    // Attach compression fairing if enabled in config and not using VITE_DEVELOPMENT
+    // VITE_DEVELOPMENT is an environment variable for proxying Vite dev server
+    let rocket_builder = if compression_config && !std::env::var("VITE_DEVELOPMENT").is_ok() {
         info!("Compression is enabled in configuration");
         if cfg!(debug_assertions) {
             warn!("Compression is enabled in debug mode, this may affect performance");
