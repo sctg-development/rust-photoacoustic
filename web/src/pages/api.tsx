@@ -57,9 +57,15 @@ export default function ApiPage() {
     audioStreamNode,
     isAudioReady,
     averageFrameSizeBytes,
-  } = useAudioStream(`${generixConfig?.api_base_url}`, false, useFastStream, {
-    enabled: false,
-  } as TimestampValidationConfig);
+  } = useAudioStream(
+    `${generixConfig?.api_base_url}`,
+    useFastStream ? "/stream/audio/fast" : "/stream/audio",
+    false,
+    useFastStream,
+    {
+      enabled: false,
+    } as TimestampValidationConfig
+  );
 
   // Initialize audio analyzer
   const initializeAnalyzer = async () => {

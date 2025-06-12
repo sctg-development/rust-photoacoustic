@@ -196,6 +196,7 @@ interface AudioFastFrame {
  * Handles connection management, authentication, audio processing, and playback.
  *
  * @param {string} [baseUrl] - Base URL for the server API
+ * @param {string} [endpoint="/stream/audio"] - API endpoint for the audio stream
  * @param {boolean} [autoConnect=false] - Whether to automatically connect when conditions are met
  * @param {boolean} [useFastFormat=false] - Whether to use the fast binary format
  * @param {TimestampValidationConfig} [timestampValidationConfig] - Optional timestamp validation configuration
@@ -203,6 +204,7 @@ interface AudioFastFrame {
  */
 export const useAudioStream = (
   baseUrl?: string,
+  endpoint: string = "/stream/audio",
   autoConnect: boolean = false,
   useFastFormat: boolean = false,
   timestampValidationConfig?: TimestampValidationConfig,
@@ -1053,9 +1055,9 @@ export const useAudioStream = (
         throw new Error("No access token available");
       }
 
-      // Create stream URL - choose endpoint based on format
-      const endpoint = useFastFormat ? "/stream/audio/fast" : "/stream/audio";
+      // Create stream URL using the provided endpoint
       const streamUrl = `${baseUrl}${endpoint}`;
+      const statsUrl = `${baseUrl}${endpoint}/stats`;
 
       console.log(
         `Connecting to audio stream at ${streamUrl} (fast: ${useFastFormat})`,
@@ -1164,6 +1166,7 @@ export const useAudioStream = (
   }, [
     isAuthenticated,
     baseUrl,
+    endpoint,
     getAccessToken,
     isConnecting,
     isConnected,
