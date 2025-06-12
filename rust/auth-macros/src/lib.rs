@@ -225,6 +225,70 @@ fn parse_protect_args(args: &Punctuated<Expr, Token![,]>) -> Result<(String, Str
     Ok((path, permission))
 }
 
+/// Parse the arguments for OpenAPI protection macros with optional tag
+fn parse_openapi_protect_args(
+    args: &Punctuated<Expr, Token![,]>,
+) -> Result<(String, String, Option<String>), String> {
+    if args.len() < 2 || args.len() > 3 {
+        return Err(
+            "OpenAPI protection macros require 2 or 3 arguments: path, permission, and optionally tag=\"value\"".to_string(),
+        );
+    }
+
+    let path = match &args[0] {
+        Expr::Lit(expr_lit) => {
+            if let Lit::Str(lit_str) = &expr_lit.lit {
+                lit_str.value()
+            } else {
+                return Err("First argument (path) must be a string literal".to_string());
+            }
+        }
+        _ => return Err("First argument (path) must be a string literal".to_string()),
+    };
+
+    let permission = match &args[1] {
+        Expr::Lit(expr_lit) => {
+            if let Lit::Str(lit_str) = &expr_lit.lit {
+                lit_str.value()
+            } else {
+                return Err("Second argument (permission) must be a string literal".to_string());
+            }
+        }
+        _ => return Err("Second argument (permission) must be a string literal".to_string()),
+    };
+
+    let tag = if args.len() == 3 {
+        match &args[2] {
+            Expr::Assign(assign) => {
+                // Check if left side is "tag"
+                if let Expr::Path(path) = &*assign.left {
+                    if path.path.segments.len() == 1 && path.path.segments[0].ident == "tag" {
+                        // Check if right side is a string literal
+                        if let Expr::Lit(expr_lit) = &*assign.right {
+                            if let Lit::Str(lit_str) = &expr_lit.lit {
+                                Some(lit_str.value())
+                            } else {
+                                return Err("tag value must be a string literal".to_string());
+                            }
+                        } else {
+                            return Err("tag value must be a string literal".to_string());
+                        }
+                    } else {
+                        return Err("Third argument must be tag=\"value\"".to_string());
+                    }
+                } else {
+                    return Err("Third argument must be tag=\"value\"".to_string());
+                }
+            }
+            _ => return Err("Third argument must be tag=\"value\"".to_string()),
+        }
+    } else {
+        None
+    };
+
+    Ok((path, permission, tag))
+}
+
 /// Internal function that implements the combined OpenAPI + protection logic for all HTTP methods
 fn openapi_protect_universal_impl(
     args: TokenStream,
@@ -234,9 +298,9 @@ fn openapi_protect_universal_impl(
     let args = parse_macro_input!(args with Punctuated::<Expr, Token![,]>::parse_terminated);
     let input_fn = parse_macro_input!(input as ItemFn);
 
-    // Parse arguments: path and permission
-    let (path, permission) = match parse_protect_args(&args) {
-        Ok((p, perm)) => (p, perm),
+    // Parse arguments: path, permission, and optional tag
+    let (path, permission, tag) = match parse_openapi_protect_args(&args) {
+        Ok((p, perm, t)) => (p, perm, t),
         Err(err) => {
             return syn::Error::new_spanned(&input_fn, err)
                 .to_compile_error()
@@ -290,13 +354,20 @@ fn openapi_protect_universal_impl(
         }
     };
 
+    // Generate the OpenAPI attribute with optional tag
+    let openapi_attr = if let Some(tag_value) = tag {
+        quote! { #[rocket_okapi::openapi(tag = #tag_value)] }
+    } else {
+        quote! { #[rocket_okapi::openapi] }
+    };
+
     // Generate the combined function with OpenAPI + Either return type
     let expanded = if has_bearer_param {
         // If OAuthBearer is already in signature, just add permission check
         quote! {
             // Actual function implementation with OpenAPI attribute BEFORE route attribute
             #(#fn_attrs)*
-            #[rocket_okapi::openapi]
+            #openapi_attr
             #rocket_attr
             #fn_vis #fn_asyncness fn #fn_name(#fn_inputs) -> rocket::Either<rocket::response::status::Forbidden<&'static str>, #return_type> {
                 // Check permission first
@@ -313,7 +384,7 @@ fn openapi_protect_universal_impl(
         quote! {
             // Actual function implementation with OpenAPI attribute BEFORE route attribute
             #(#fn_attrs)*
-            #[rocket_okapi::openapi]
+            #openapi_attr
             #rocket_attr
             #fn_vis #fn_asyncness fn #fn_name(
                 bearer: crate::visualization::auth::guards::OAuthBearer,
@@ -347,17 +418,31 @@ fn openapi_protect_universal_impl(
 ///     // Your handler code here
 ///     // The 'bearer' variable is automatically available
 /// }
+///
+/// // With optional tag for OpenAPI documentation
+/// #[openapi_protect_get("/path", "permission:scope", tag="Custom Tag")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available  
+/// }
 /// ```
+///
+/// ### Parameters
+///
+/// - `path`: The route path (required)
+/// - `permission`: The required permission string (required)
+/// - `tag`: Optional OpenAPI tag for grouping endpoints in documentation
 ///
 /// ### Features
 ///
 /// - Automatically adds `OAuthBearer` request guard to function signature
 /// - Generates proper OpenAPI documentation including authentication requirements
+/// - Supports optional tag parameter for OpenAPI documentation organization
 /// - Adds permission checking logic
 /// - Returns HTTP 403 Forbidden if permission is denied
 /// - Uses `rocket::Either` for proper response type handling
 ///
-/// ### Example
+/// ### Examples
 ///
 /// ```rust,ignore
 /// use auth_macros::openapi_protect_get;
@@ -367,6 +452,11 @@ fn openapi_protect_universal_impl(
 /// fn get_data() -> Json<&'static str> {
 ///     Json("Protected data")
 /// }
+///
+/// #[openapi_protect_get("/api/users", "read:users", tag="User Management")]
+/// fn get_users() -> Json<Vec<User>> {
+///     Json(vec![])
+/// }
 /// ```
 #[proc_macro_attribute]
 pub fn openapi_protect_get(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -374,6 +464,10 @@ pub fn openapi_protect_get(args: TokenStream, input: TokenStream) -> TokenStream
 }
 
 /// Combined OpenAPI and protection macro for POST routes
+///
+/// This macro combines the functionality of `#[openapi]` and `#[protect_post]` into a single
+/// attribute that automatically generates OpenAPI documentation and adds Bearer token validation
+/// with permission checking.
 ///
 /// ### Syntax
 ///
@@ -383,13 +477,39 @@ pub fn openapi_protect_get(args: TokenStream, input: TokenStream) -> TokenStream
 ///     // Your handler code here
 ///     // The 'bearer' variable is automatically available
 /// }
+///
+/// // With optional tag for OpenAPI documentation
+/// #[openapi_protect_post("/path", "permission:scope", tag="Custom Tag")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available  
+/// }
 /// ```
+///
+/// ### Parameters
+///
+/// - `path`: The route path (required)
+/// - `permission`: The required permission string (required)
+/// - `tag`: Optional OpenAPI tag for grouping endpoints in documentation
+///
+/// ### Features
+///
+/// - Automatically adds `OAuthBearer` request guard to function signature
+/// - Generates proper OpenAPI documentation including authentication requirements
+/// - Supports optional tag parameter for OpenAPI documentation organization
+/// - Adds permission checking logic
+/// - Returns HTTP 403 Forbidden if permission is denied
+/// - Uses `rocket::Either` for proper response type handling
 #[proc_macro_attribute]
 pub fn openapi_protect_post(args: TokenStream, input: TokenStream) -> TokenStream {
     openapi_protect_universal_impl(args, input, "post")
 }
 
 /// Combined OpenAPI and protection macro for PUT routes
+///
+/// This macro combines the functionality of `#[openapi]` and `#[protect_put]` into a single
+/// attribute that automatically generates OpenAPI documentation and adds Bearer token validation
+/// with permission checking.
 ///
 /// ### Syntax
 ///
@@ -399,13 +519,39 @@ pub fn openapi_protect_post(args: TokenStream, input: TokenStream) -> TokenStrea
 ///     // Your handler code here
 ///     // The 'bearer' variable is automatically available
 /// }
+///
+/// // With optional tag for OpenAPI documentation
+/// #[openapi_protect_put("/path", "permission:scope", tag="Custom Tag")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available  
+/// }
 /// ```
+///
+/// ### Parameters
+///
+/// - `path`: The route path (required)
+/// - `permission`: The required permission string (required)
+/// - `tag`: Optional OpenAPI tag for grouping endpoints in documentation
+///
+/// ### Features
+///
+/// - Automatically adds `OAuthBearer` request guard to function signature
+/// - Generates proper OpenAPI documentation including authentication requirements
+/// - Supports optional tag parameter for OpenAPI documentation organization
+/// - Adds permission checking logic
+/// - Returns HTTP 403 Forbidden if permission is denied
+/// - Uses `rocket::Either` for proper response type handling
 #[proc_macro_attribute]
 pub fn openapi_protect_put(args: TokenStream, input: TokenStream) -> TokenStream {
     openapi_protect_universal_impl(args, input, "put")
 }
 
 /// Combined OpenAPI and protection macro for DELETE routes
+///
+/// This macro combines the functionality of `#[openapi]` and `#[protect_delete]` into a single
+/// attribute that automatically generates OpenAPI documentation and adds Bearer token validation
+/// with permission checking.
 ///
 /// ### Syntax
 ///
@@ -415,13 +561,39 @@ pub fn openapi_protect_put(args: TokenStream, input: TokenStream) -> TokenStream
 ///     // Your handler code here
 ///     // The 'bearer' variable is automatically available
 /// }
+///
+/// // With optional tag for OpenAPI documentation
+/// #[openapi_protect_delete("/path", "permission:scope", tag="Custom Tag")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available  
+/// }
 /// ```
+///
+/// ### Parameters
+///
+/// - `path`: The route path (required)
+/// - `permission`: The required permission string (required)
+/// - `tag`: Optional OpenAPI tag for grouping endpoints in documentation
+///
+/// ### Features
+///
+/// - Automatically adds `OAuthBearer` request guard to function signature
+/// - Generates proper OpenAPI documentation including authentication requirements
+/// - Supports optional tag parameter for OpenAPI documentation organization
+/// - Adds permission checking logic
+/// - Returns HTTP 403 Forbidden if permission is denied
+/// - Uses `rocket::Either` for proper response type handling
 #[proc_macro_attribute]
 pub fn openapi_protect_delete(args: TokenStream, input: TokenStream) -> TokenStream {
     openapi_protect_universal_impl(args, input, "delete")
 }
 
 /// Combined OpenAPI and protection macro for PATCH routes
+///
+/// This macro combines the functionality of `#[openapi]` and `#[protect_patch]` into a single
+/// attribute that automatically generates OpenAPI documentation and adds Bearer token validation
+/// with permission checking.
 ///
 /// ### Syntax
 ///
@@ -431,7 +603,29 @@ pub fn openapi_protect_delete(args: TokenStream, input: TokenStream) -> TokenStr
 ///     // Your handler code here
 ///     // The 'bearer' variable is automatically available
 /// }
+///
+/// // With optional tag for OpenAPI documentation
+/// #[openapi_protect_patch("/path", "permission:scope", tag="Custom Tag")]
+/// fn handler_name() -> SomeResponse {
+///     // Your handler code here
+///     // The 'bearer' variable is automatically available  
+/// }
 /// ```
+///
+/// ### Parameters
+///
+/// - `path`: The route path (required)
+/// - `permission`: The required permission string (required)
+/// - `tag`: Optional OpenAPI tag for grouping endpoints in documentation
+///
+/// ### Features
+///
+/// - Automatically adds `OAuthBearer` request guard to function signature
+/// - Generates proper OpenAPI documentation including authentication requirements
+/// - Supports optional tag parameter for OpenAPI documentation organization
+/// - Adds permission checking logic
+/// - Returns HTTP 403 Forbidden if permission is denied
+/// - Uses `rocket::Either` for proper response type handling
 #[proc_macro_attribute]
 pub fn openapi_protect_patch(args: TokenStream, input: TokenStream) -> TokenStream {
     openapi_protect_universal_impl(args, input, "patch")
