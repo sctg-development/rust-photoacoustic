@@ -46,7 +46,6 @@ export default function ApiPage() {
     fps,
     connect,
     disconnect,
-    reconnect,
     initializeAudio,
     audioContext,
     audioStreamNode,
