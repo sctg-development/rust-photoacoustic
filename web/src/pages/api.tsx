@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Progress } from "@heroui/progress";
@@ -59,7 +59,6 @@ export default function ApiPage() {
       ? `${generixConfig.api_base_url}/stream/audio/fast/stats`
       : undefined, //Stats endpoint URL
     false, // Disable auto-connect
-    true, // Enable auto audio context initialization
     {
       enabled: false,
     } as TimestampValidationConfig
@@ -148,7 +147,35 @@ export default function ApiPage() {
     }
   };
 
-  // Initialize analyzer when audio context and stream node are ready
+  // Separate the analyzer initialization logic
+  const initializeAnalyzerIfReady = useCallback(async () => {
+    if (
+      isAudioReady &&
+      audioContext &&
+      audioStreamNode &&
+      showAnalyzer &&
+      !isAnalyzerInitialized
+    ) {
+      console.log("Conditions met, initializing analyzer");
+      await initializeAnalyzer();
+    }
+  }, [
+    isAudioReady,
+    audioContext,
+    audioStreamNode,
+    showAnalyzer,
+    isAnalyzerInitialized,
+  ]);
+
+  // Separate the auto-connection logic
+  const autoConnectIfNeeded = useCallback(() => {
+    if (isAudioReady && !isConnected && !isConnecting) {
+      console.log("Audio ready, auto-connecting to stream");
+      connect();
+    }
+  }, [isAudioReady, isConnected, isConnecting, connect]);
+
+  // Effect 1: Handle analyzer initialization
   useEffect(() => {
     console.log("Analyzer effect triggered:", {
       isAudioReady,
@@ -158,36 +185,23 @@ export default function ApiPage() {
       isAnalyzerInitialized,
     });
 
-    if (
-      isAudioReady &&
-      audioContext &&
-      audioStreamNode &&
-      showAnalyzer &&
-      !isAnalyzerInitialized
-    ) {
-      console.log("Conditions met, initializing analyzer");
-      setTimeout(() => initializeAnalyzer(), 100); // Small delay to ensure everything is ready
-    }
+    initializeAnalyzerIfReady();
+  }, [initializeAnalyzerIfReady]);
 
-    // Remove the cleanup logic that was interfering with the audio hook
-    // The audio hook manages its own lifecycle
-  }, [
-    isAudioReady,
-    audioContext,
-    audioStreamNode,
-    showAnalyzer,
-    isAnalyzerInitialized,
-  ]);
+  // Effect 2: Handle auto-connection after audio is ready
+  useEffect(() => {
+    autoConnectIfNeeded();
+  }, [autoConnectIfNeeded]);
 
-  // Separate effect to handle analyzer cleanup when showAnalyzer becomes false
+  // Effect 3: Handle analyzer cleanup when visibility is toggled
   useEffect(() => {
     if (!showAnalyzer && isAnalyzerInitialized) {
-      console.log("Show analyzer disabled, cleaning up analyzer only");
+      console.log("Show analyzer disabled, cleaning up analyzer");
       cleanupAnalyzer();
     }
   }, [showAnalyzer, isAnalyzerInitialized]);
 
-  // Handle component unmount cleanup
+  // Effect 4: Handle component unmount cleanup
   useEffect(() => {
     return () => {
       if (isAnalyzerInitialized) {
@@ -239,6 +253,17 @@ export default function ApiPage() {
       );
     }
   }, [accessToken, generixConfig, isAuthenticated, user]);
+
+  // Simplified button logic - remove the auto-connection logic from the button
+  const handleInitializeAudio = useCallback(async () => {
+    console.log("Initialize audio button clicked");
+    try {
+      await initializeAudio();
+      console.log("Audio initialization completed");
+    } catch (error) {
+      console.error("Failed to initialize audio:", error);
+    }
+  }, [initializeAudio]);
 
   return (
     <DefaultLayout>
@@ -311,7 +336,19 @@ export default function ApiPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  {!isConnected && !isConnecting && (
+                  {/* Simplified button logic */}
+                  {!isAudioReady && (
+                    <Button
+                      color="primary"
+                      size="sm"
+                      onPress={handleInitializeAudio}
+                    >
+                      {t("initialize-audio-context")}
+                    </Button>
+                  )}
+
+                  {/* Standard connection button - only shown when audio is ready */}
+                  {isAudioReady && !isConnected && !isConnecting && (
                     <Button
                       aria-label={t("connect-to-audio-stream")}
                       color="primary"
@@ -321,17 +358,17 @@ export default function ApiPage() {
                       {t("connect")}
                     </Button>
                   )}
+
+                  {/* Disconnect button */}
                   {isConnected && (
-                    <>
-                      <Button
-                        aria-label={t("disconnect-from-audio-stream")}
-                        color="danger"
-                        size="sm"
-                        onPress={disconnect}
-                      >
-                        {t("disconnect")}
-                      </Button>
-                    </>
+                    <Button
+                      aria-label={t("disconnect-from-audio-stream")}
+                      color="danger"
+                      size="sm"
+                      onPress={disconnect}
+                    >
+                      {t("disconnect")}
+                    </Button>
                   )}
                 </div>
                 <div className="flex items-center justify-between">
@@ -528,14 +565,6 @@ export default function ApiPage() {
                         ,{t("streamnode")}=
                         {audioStreamNode ? t("ready") : t("none")}
                       </div>
-                      <Button
-                        color="primary"
-                        disabled={!audioContext || !audioStreamNode}
-                        size="sm"
-                        onPress={initializeAnalyzer}
-                      >
-                        {t("initialize-analyzer")}
-                      </Button>
                     </div>
                   </div>
                 )}
@@ -555,30 +584,6 @@ export default function ApiPage() {
                       <p className="text-sm text-gray-500 mb-2">
                         {t("initialize-audio-first-then-connect-to-stream")}
                       </p>
-                      <div className="flex gap-2 justify-center">
-                        <Button
-                          color="primary"
-                          size="sm"
-                          onPress={async () => {
-                            console.log("Initialize audio button clicked");
-                            try {
-                              await initializeAudio();
-                            } catch (error) {
-                              console.error(
-                                "Failed to initialize audio:",
-                                error
-                              );
-                            }
-                          }}
-                        >
-                          {t("initialize-audio-context")}
-                        </Button>
-                        {!isConnected && generixConfig && (
-                          <Button color="secondary" size="sm" onPress={connect}>
-                            {t("connect-stream")}
-                          </Button>
-                        )}
-                      </div>
                     </div>
                   </div>
                 )}

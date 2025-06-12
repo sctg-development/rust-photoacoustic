@@ -208,7 +208,6 @@ export interface AudioStreamStatistics {
  * @param {string} [streamUrl] - Base URL for the server API
  * @param {string} [statsUrl="/api/stream/audio/stats"] - API endpoint for the audio stream
  * @param {boolean} [autoConnect=false] - Whether to automatically connect when conditions are met
- * @param {boolean} [autoAudio=true] - Whether to automatically initialize audio context
  * @param {TimestampValidationConfig} [timestampValidationConfig] - Optional timestamp validation configuration
  * @returns {UseAudioStreamReturn} A collection of state and functions for managing the audio stream
  */
@@ -216,7 +215,6 @@ export const useAudioStream = (
   streamUrl?: string,
   statsUrl?: string,
   autoConnect: boolean = false,
-  autoAudio: boolean = true,
   timestampValidationConfig?: TimestampValidationConfig,
 ): UseAudioStreamReturn => {
   const { getAccessToken, isAuthenticated } = useAuth();
@@ -1169,10 +1167,6 @@ export const useAudioStream = (
       return;
     }
 
-    if (autoAudio && !audioContext) {
-      console.log("Initializing audio context before connecting to stream");
-      await initializeAudio();
-    }
     try {
       if (samplerate === 0) {
         // Get sample rate from statsUrl if not already set
