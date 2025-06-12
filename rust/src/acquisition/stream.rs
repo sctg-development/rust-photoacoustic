@@ -89,6 +89,8 @@ pub struct StreamStats {
     pub last_update: u64,
     /// Frames processed since last FPS calculation
     pub frames_since_last_update: u64,
+    /// Sample rate of the audio stream in Hz
+    pub sample_rate: u32,
 }
 
 impl Default for StreamStats {
@@ -103,6 +105,7 @@ impl Default for StreamStats {
                 .unwrap_or_default()
                 .as_millis() as u64,
             frames_since_last_update: 0,
+            sample_rate: 0,
         }
     }
 }
@@ -141,6 +144,8 @@ impl SharedAudioStream {
             stats.total_frames += 1;
             stats.frames_since_last_update += 1;
             stats.active_subscribers = self.sender.receiver_count();
+
+            stats.sample_rate = frame.sample_rate;
 
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
