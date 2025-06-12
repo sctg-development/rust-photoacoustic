@@ -10,8 +10,11 @@
 
 use rocket::serde::json::Json;
 use rocket::{get, response::status, State};
+use rocket_okapi::okapi::openapi3::OpenApi;
+use rocket_okapi::openapi_get_routes_spec;
 
 use crate::processing::graph::ProcessingGraphStatistics;
+use crate::processing::SerializableProcessingGraph;
 use crate::visualization::shared_state::SharedVisualizationState;
 use auth_macros::openapi_protect_get;
 
@@ -73,7 +76,7 @@ use auth_macros::openapi_protect_get;
 /// - `403 Forbidden`: Token lacks required scope
 /// - `404 Not Found`: No processing is currently active
 /// - `500 Internal Server Error`: Server error accessing statistics
-#[openapi_protect_get("/api/graph-statistics", "read:api")]
+#[openapi_protect_get("/api/graph-statistics", "read:api", tag = "Processing")]
 pub async fn get_graph_statistics(
     state: &State<SharedVisualizationState>,
 ) -> Result<Json<ProcessingGraphStatistics>, status::NotFound<String>> {
@@ -84,4 +87,22 @@ pub async fn get_graph_statistics(
             "No processing is currently active or no statistics available".to_string(),
         )),
     }
+}
+
+/// Get processing graph information
+///
+/// Returns a JSON object representing SerializableProcessingGraph
+#[openapi_protect_get("/api/graph", "read:api", tag = "Processing")]
+pub async fn get_graph(
+    state: &State<SharedVisualizationState>,
+) -> Result<Json<SerializableProcessingGraph>, status::NotFound<String>> {
+    // Get the current processing graph from shared state
+    Err(status::NotFound(
+        "No processing graph is currently available".to_string(),
+    ))
+}
+
+/// Centralized function to get all graph routes with OpenAPI documentation
+pub fn get_graph_routes() -> (Vec<rocket::Route>, OpenApi) {
+    openapi_get_routes_spec![get_graph_statistics, get_graph]
 }

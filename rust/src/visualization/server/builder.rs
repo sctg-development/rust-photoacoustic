@@ -170,16 +170,20 @@ pub async fn build_rocket(
     let rocket_builder = rocket::custom(figment).attach(CORS);
 
     // Add visualization state if available (before mounting routes that need it)
-    let rocket_builder = if let Some(vis_state) = visualization_state {
+    let (rocket_builder, openapi_spec_graph) = if let Some(vis_state) = visualization_state {
         debug!("Adding SharedVisualizationState to Rocket state management");
         // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
         let shared_state = (*vis_state).clone();
-        rocket_builder
-            .manage(shared_state)
-            .mount("/", routes![get_graph_statistics,])
+        let (openapi_routes_graph, openapi_spec_graph) = get_graph_routes(); // Get graph routes and OpenAPI spec
+        (
+            rocket_builder
+                .manage(shared_state)
+                .mount("/", openapi_routes_graph),
+            openapi_spec_graph,
+        )
     } else {
         debug!("No visualization state provided, API will return 404 for statistics");
-        rocket_builder
+        (rocket_builder, OpenApi::default())
     };
 
     let openapi_spec_audio: OpenApi;
@@ -245,7 +249,7 @@ pub async fn build_rocket(
         (openapi_routes_audio, openapi_spec_audio) = get_audio_streaming_routes();
 
         // Merge the audio OpenAPI spec with the base spec
-        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), ("/".to_string(),openapi_spec_audio)]).unwrap();
+        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), ("/".to_string(),openapi_spec_audio), ("/".to_string(),openapi_spec_graph)]).unwrap();
         let openapi_settings = OpenApiSettings::default();
         rocket_builder
             .mount(
