@@ -32,7 +32,6 @@ export default function ApiPage() {
     null as GenerixConfig | null,
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
-  const [useFastStream, setUseFastStream] = useState(true);
 
   // Audio analyzer states
   const [audioAnalyzer, setAudioAnalyzer] = useState<any>(null);
@@ -40,7 +39,7 @@ export default function ApiPage() {
   const [showAnalyzer, setShowAnalyzer] = useState(true);
   const analyzerContainerRef = useRef<HTMLDivElement>(null);
 
-  // Hook for audio streaming
+  // Hook for audio streaming - now auto-detects format
   const {
     isConnected,
     isConnecting,
@@ -59,9 +58,8 @@ export default function ApiPage() {
     averageFrameSizeBytes,
   } = useAudioStream(
     `${generixConfig?.api_base_url}`,
-    useFastStream ? "/stream/audio/fast" : "/stream/audio",
+    "/stream/audio/fast", // Use single endpoint, format will be auto-detected
     false,
-    useFastStream,
     {
       enabled: false,
     } as TimestampValidationConfig
@@ -349,26 +347,6 @@ export default function ApiPage() {
                     aria-label={t("toggle-audio-analyzer-visibility")}
                     isSelected={showAnalyzer}
                     onValueChange={handleAnalyzerToggle}
-                  />
-                </div>
-                {/* Toggle for fast stream mode */}
-                <div className="flex items-center justify-between">
-                  <span>{t("use-fast-stream")}</span>
-                  <Switch
-                    aria-label={t("toggle-fast-stream-mode")}
-                    isSelected={useFastStream}
-                    onValueChange={(value) => {
-                      console.log("Fast stream mode toggled:", value);
-                      setUseFastStream(value);
-                      // Reconnect with new setting
-                      if (isConnected) {
-                        console.log(
-                          "Reconnecting with fast stream mode:",
-                          value,
-                        );
-                        reconnect();
-                      }
-                    }}
                   />
                 </div>
 

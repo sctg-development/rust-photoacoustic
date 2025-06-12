@@ -198,7 +198,6 @@ interface AudioFastFrame {
  * @param {string} [baseUrl] - Base URL for the server API
  * @param {string} [endpoint="/stream/audio"] - API endpoint for the audio stream
  * @param {boolean} [autoConnect=false] - Whether to automatically connect when conditions are met
- * @param {boolean} [useFastFormat=false] - Whether to use the fast binary format
  * @param {TimestampValidationConfig} [timestampValidationConfig] - Optional timestamp validation configuration
  * @returns {UseAudioStreamReturn} A collection of state and functions for managing the audio stream
  */
@@ -206,7 +205,6 @@ export const useAudioStream = (
   baseUrl?: string,
   endpoint: string = "/stream/audio",
   autoConnect: boolean = false,
-  useFastFormat: boolean = false,
   timestampValidationConfig?: TimestampValidationConfig,
 ): UseAudioStreamReturn => {
   const { getAccessToken, isAuthenticated } = useAuth();
@@ -268,6 +266,11 @@ export const useAudioStream = (
     lastDisplayUpdate: 0
   });
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  /**
+   * Frame format detection
+   */
+  const detectedFormatRef = useRef<'fast' | 'standard' | null>(null);
 
   /**
    * Frame size tracking references - fixed
@@ -878,7 +881,27 @@ export const useAudioStream = (
   // --- SERVER-SENT EVENTS HANDLING ---
 
   /**
-   * Fixed server-sent event processing with timestamp validation
+   * Auto-detect frame format based on first received frame
+   */
+  const detectFrameFormat = useCallback((data: string): 'fast' | 'standard' | null => {
+    try {
+      const parsed = JSON.parse(data);
+
+      // Check for channels_raw_type which is mandatory in AudioFastFrame
+      if (parsed.channels_raw_type !== undefined) {
+        return 'fast';
+      } else if (parsed.channel_a && parsed.channel_b && parsed.sample_rate) {
+        return 'standard';
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }, []);
+
+  /**
+   * Fixed server-sent event processing with automatic format detection
    */
   const processServerSentEvent = useCallback(
     async (line: string) => {
@@ -891,10 +914,22 @@ export const useAudioStream = (
 
         performanceStatsRef.current.totalReceivedFrames++;
 
+        // Auto-detect format on first frame
+        if (detectedFormatRef.current === null) {
+          const detectedFormat = detectFrameFormat(data);
+          if (detectedFormat) {
+            detectedFormatRef.current = detectedFormat;
+            console.log(`Auto-detected frame format: ${detectedFormat}`);
+          } else {
+            console.warn("Could not detect frame format, skipping frame");
+            return;
+          }
+        }
+
         let frame: AudioFrame;
         let frameSize: number;
 
-        if (useFastFormat) {
+        if (detectedFormatRef.current === 'fast') {
           const fastFrame: AudioFastFrame = JSON.parse(data);
 
           if (
@@ -902,6 +937,7 @@ export const useAudioStream = (
             fastFrame.channel_a &&
             fastFrame.channel_b &&
             fastFrame.channels_length &&
+            fastFrame.channels_raw_type &&
             fastFrame.sample_rate
           ) {
             frame = convertFastFrameOptimized(fastFrame);
@@ -955,10 +991,10 @@ export const useAudioStream = (
     [
       updateFps,
       queueAudioFrameOptimized,
-      useFastFormat,
       convertFastFrameOptimized,
       updateFrameSizeStats,
       frameCount,
+      detectFrameFormat,
     ],
   );
 
@@ -1045,6 +1081,9 @@ export const useAudioStream = (
       fpsDisplayThrottleRef.current = 0;
       frameSizesRef.current = [];
 
+      // Reset format detection
+      detectedFormatRef.current = null;
+
       // Reset timestamp validation
       resetTimestampValidation();
 
@@ -1059,9 +1098,7 @@ export const useAudioStream = (
       const streamUrl = `${baseUrl}${endpoint}`;
       const statsUrl = `${baseUrl}${endpoint}/stats`;
 
-      console.log(
-        `Connecting to audio stream at ${streamUrl} (fast: ${useFastFormat})`,
-      );
+      console.log(`Connecting to audio stream at ${streamUrl} and stats at ${statsUrl}`);
 
       // Close existing connection if it exists
       if (readerRef.current) {
@@ -1172,7 +1209,6 @@ export const useAudioStream = (
     isConnected,
     processServerSentEvent,
     handleStreamError,
-    useFastFormat,
   ]);
 
   /**
