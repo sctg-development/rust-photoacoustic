@@ -880,8 +880,8 @@ export const useAudioStream = (
       processingEfficiency:
         stats.totalReceivedFrames > 0
           ? Math.round(
-            (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
-          )
+              (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
+            )
           : 100,
     };
   }, []);

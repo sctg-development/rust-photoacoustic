@@ -50,6 +50,8 @@
   "status": "Status",
   "connect": "Connect",
   "disconnect": "Disconnect",
+  "connecting": "Connecting...",
+  "audio-control": "Audio Control",
   "reconnect": "Reconnect",
   "statistics": "Statistics",
   "frames-received": "Frames (received)",
