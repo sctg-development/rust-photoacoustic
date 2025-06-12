@@ -25,7 +25,7 @@ export default function ApiPage() {
   const { t } = useTranslation();
   const { user, isAuthenticated, getAccessToken } = useAuth();
   const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null,
+    null as GenerixConfig | null
   );
   const [accessToken, setAccessToken] = useState("" as string | null);
 
@@ -63,7 +63,7 @@ export default function ApiPage() {
     true, // Enable auto audio context initialization
     {
       enabled: false,
-    } as TimestampValidationConfig,
+    } as TimestampValidationConfig
   );
 
   // Initialize audio analyzer
@@ -81,7 +81,7 @@ export default function ApiPage() {
           hasAudioContext: !!audioContext,
           hasAudioStreamNode: !!audioStreamNode,
           isAudioReady,
-        },
+        }
       );
 
       return;
@@ -231,12 +231,12 @@ export default function ApiPage() {
     // Connected user is authenticated and the route is protected with the access token and the right permissions
     if (isAuthenticated && generixConfig && user) {
       console.log(
-        "User is authenticated, Generix config and user are available.",
+        "User is authenticated, Generix config and user are available."
       );
       console.log("Access Token:", accessToken);
     } else {
       console.log(
-        "User is not authenticated or Generix config/user is not available.",
+        "User is not authenticated or Generix config/user is not available."
       );
     }
   }, [accessToken, generixConfig, isAuthenticated, user]);
@@ -331,14 +331,6 @@ export default function ApiPage() {
                         onPress={disconnect}
                       >
                         {t("disconnect")}
-                      </Button>
-                      <Button
-                        aria-label={t("reconnect-to-audio-stream")}
-                        color="secondary"
-                        size="sm"
-                        onPress={reconnect}
-                      >
-                        {t("reconnect")}
                       </Button>
                     </>
                   )}
@@ -575,7 +567,7 @@ export default function ApiPage() {
                             } catch (error) {
                               console.error(
                                 "Failed to initialize audio:",
-                                error,
+                                error
                               );
                             }
                           }}
