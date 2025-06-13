@@ -226,15 +226,17 @@ pub fn stream_audio_fast(
 ///
 /// **DEPRECATED:** Use [`/api/stream/audio/fast/<node_id>`] for more efficient binary streaming with node routing.
 ///
-/// This endpoint streams real-time audio frames from a specific `StreamingNode` identified by its UUID.
+/// This endpoint streams real-time audio frames from a specific `StreamingNode` identified by its UUID or string ID.
 /// Each event contains a JSON-encoded audio frame with both channels of data. The endpoint is primarily
 /// intended for backward compatibility and debugging, as the fast binary endpoint is recommended for production use.
 ///
 /// ### Route Pattern
-/// `/api/stream/audio/<node_id>` where `node_id` is a UUID string
+/// `/api/stream/audio/<node_id>` where `node_id` can be:
+/// - A UUID string: `123e4567-e89b-12d3-a456-426614174000`
+/// - A string ID from node configuration: `my_streaming_node`
 ///
 /// ### Parameters
-/// - `node_id`: The UUID of the streaming node to subscribe to (as a path parameter)
+/// - `node_id`: The UUID or string ID of the streaming node to subscribe to (as a path parameter)
 /// - `stream_state`: Rocket-managed state containing the streaming registry
 ///
 /// ### Authentication
@@ -250,7 +252,6 @@ pub fn stream_audio_fast(
 /// If the node ID is invalid or not found, an error event is sent:
 ///
 /// ```json
-/// data:{"type": "error", "message": "Invalid node ID format"}
 /// data:{"type": "error", "message": "No streaming node found"}
 /// ```
 ///
@@ -264,10 +265,11 @@ pub fn stream_audio_fast(
 /// This endpoint is deprecated in favor of [`/stream/audio/fast/<node_id>`], which uses a more efficient
 /// binary format for audio data. New clients should use the fast endpoint for lower bandwidth and better performance.
 ///
-/// ### Example
+/// ### Examples
 ///
 /// ```text
 /// GET /api/stream/audio/123e4567-e89b-12d3-a456-426614174000
+/// GET /api/stream/audio/my_streaming_node
 /// ```
 ///
 /// ### See Also
@@ -415,8 +417,10 @@ fn compute_spectral_analysis(frame: &AudioFrame) -> SpectralDataResponse {
 /// Response structure for listing available streaming nodes
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StreamingNodeInfo {
-    /// Node UUID
+    /// Node string ID from configuration (preferred for permanent links)
     pub id: String,
+    /// Node UUID (for backward compatibility and internal operations)
+    pub uuid: String,
     /// Human-readable node name (if available)
     pub name: Option<String>,
     /// Whether the node is currently streaming
@@ -438,7 +442,8 @@ pub struct StreamingNodeInfo {
 /// ```json
 /// [
 ///   {
-///     "id": "123e4567-e89b-12d3-a456-426614174000",
+///     "id": "my_streaming_node",
+///     "uuid": "123e4567-e89b-12d3-a456-426614174000",
 ///     "name": "Recording Node 1",
 ///     "is_active": true,
 ///     "subscriber_count": 2
@@ -450,10 +455,17 @@ pub async fn list_streaming_nodes(
     stream_state: &State<AudioStreamState>,
 ) -> Json<Vec<StreamingNodeInfo>> {
     let mut node_infos = Vec::new();
-    // Get all node IDs from the registry
-    for node_id in stream_state.registry.list_all_nodes() {
+    // Get all node info from the registry
+    for (node_uuid, string_id, name) in stream_state.registry.list_all_node_info() {
+        log::debug!(
+            "Found streaming node - UUID: {}, string_id: '{}', name: '{}'",
+            node_uuid,
+            string_id,
+            name
+        );
+
         // Get the stream for this node
-        if let Some(stream) = stream_state.registry.get_stream(&node_id) {
+        if let Some(stream) = stream_state.registry.get_stream(&node_uuid) {
             let subscriber_count = {
                 // This is a synchronous call that should be fast
                 tokio::task::block_in_place(|| {
@@ -462,12 +474,22 @@ pub async fn list_streaming_nodes(
                 })
             };
 
-            node_infos.push(StreamingNodeInfo {
-                id: node_id.to_string(),
-                name: stream_state.registry.get_node_name(&node_id),
+            let node_info = StreamingNodeInfo {
+                id: string_id.clone(),
+                uuid: node_uuid.to_string(),
+                name: Some(name.clone()),
                 is_active: subscriber_count > 0,
                 subscriber_count,
-            });
+            };
+
+            log::debug!(
+                "Creating StreamingNodeInfo: id='{}', uuid='{}', name='{:?}'",
+                node_info.id,
+                node_info.uuid,
+                node_info.name
+            );
+
+            node_infos.push(node_info);
         }
     }
 
@@ -476,7 +498,10 @@ pub async fn list_streaming_nodes(
 
 /// Get statistics for a specific streaming node
 ///
-/// Returns detailed statistics for a specific streaming node identified by its UUID.
+/// Returns detailed statistics for a specific streaming node identified by its UUID or string ID.
+/// The endpoint supports both formats:
+/// - UUID format: `123e4567-e89b-12d3-a456-426614174000`
+/// - String ID format: `my_streaming_node`
 ///
 /// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
@@ -498,7 +523,10 @@ pub async fn get_node_stats(
 
 /// Get statistics for a specific fast streaming node
 ///
-/// Returns detailed statistics for a specific streaming node identified by its UUID.
+/// Returns detailed statistics for a specific streaming node identified by its UUID or string ID.
+/// The endpoint supports both formats:
+/// - UUID format: `123e4567-e89b-12d3-a456-426614174000`
+/// - String ID format: `my_streaming_node`
 ///
 /// ### Authentication
 /// Requires a valid JWT token with `read:api` permission.
@@ -516,14 +544,24 @@ pub async fn get_node_fast_stats(
 }
 
 /// Helper function to parse node ID and retrieve stream from registry
+///
+/// This function supports both UUID and string ID formats:
+/// - If the input is a valid UUID, it uses UUID-based lookup
+/// - Otherwise, it tries string ID-based lookup
 fn get_stream_by_node_id(
     node_id: &str,
     registry: &Arc<StreamingNodeRegistry>,
 ) -> Result<Arc<SharedAudioStream>, &'static str> {
-    let node_uuid = Uuid::parse_str(node_id).map_err(|_| "Invalid node ID format")?;
+    // First try parsing as UUID for backward compatibility
+    if let Ok(node_uuid) = Uuid::parse_str(node_id) {
+        if let Some(stream) = registry.get_stream(&node_uuid) {
+            return Ok(Arc::new(stream));
+        }
+    }
 
+    // If UUID parsing failed or UUID not found, try string ID lookup
     registry
-        .get_stream(&node_uuid)
+        .get_stream_by_string_id(node_id)
         .map(|stream| Arc::new(stream))
         .ok_or("No streaming node found")
 }

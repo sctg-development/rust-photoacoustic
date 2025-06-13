@@ -85,8 +85,8 @@ impl StreamingNode {
     pub fn new(id: Uuid, name: &str, registry: StreamingNodeRegistry) -> Self {
         let stream = SharedAudioStream::new(1024); // Default buffer size
 
-        // Register the stream with the registry using the name
-        registry.register_stream_with_name(id, name, stream.clone());
+        // Register the stream with the registry using the UUID as both UUID and string ID
+        registry.register_stream_with_name_and_string_id(id, &id.to_string(), name, stream.clone());
 
         Self {
             id_str: id.to_string(),
@@ -126,12 +126,12 @@ impl StreamingNode {
         let stream = SharedAudioStream::new(1024); // Default buffer size
         let id_uuid = Uuid::new_v4(); // Generate UUID for registry operations
 
-        // Register the stream with the registry using the UUID and name
+        // Register the stream with the registry using the UUID, string ID, and name
         debug!(
-            "Registering streaming node '{}' with ID '{}'",
-            name, id_uuid
+            "Registering streaming node '{}' with string ID '{}' and UUID '{}'",
+            name, id_str, id_uuid
         );
-        registry.register_stream_with_name(id_uuid, name, stream.clone());
+        registry.register_stream_with_name_and_string_id(id_uuid, id_str, name, stream.clone());
 
         Self {
             id_str: id_str.to_string(),
@@ -275,9 +275,9 @@ impl ProcessingNode for StreamingNode {
     }
 
     fn clone_node(&self) -> Box<dyn ProcessingNode> {
-        // Create a new StreamingNode with the same configuration
-        Box::new(StreamingNode::new(
-            self.id_uuid,
+        // Create a new StreamingNode with the same configuration, preserving the original string ID
+        Box::new(StreamingNode::new_with_string_id(
+            &self.id_str,
             &self.name,
             self.registry.clone(),
         ))
