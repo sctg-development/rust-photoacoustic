@@ -1,7 +1,6 @@
-import React from 'react';
-import { Card, CardBody, CardHeader } from '@heroui/card';
-import { Chip } from '@heroui/chip';
-import { Progress } from '@heroui/progress';
+import { Card, CardBody, CardHeader } from "@heroui/card";
+import { Chip } from "@heroui/chip";
+import { Progress } from "@heroui/progress";
 import {
   Table,
   TableHeader,
@@ -9,12 +8,12 @@ import {
   TableBody,
   TableRow,
   TableCell,
-} from '@heroui/table';
+} from "@heroui/table";
+
 import {
   SerializableProcessingGraph,
   ProcessingGraphUtils,
-  NodeStatistics,
-} from '../types/processing-graph';
+} from "../types/processing-graph";
 
 interface ProcessingGraphStatsProps {
   graph: SerializableProcessingGraph;
@@ -23,7 +22,7 @@ interface ProcessingGraphStatsProps {
 
 export function ProcessingGraphStats({
   graph,
-  className = '',
+  className = "",
 }: ProcessingGraphStatsProps) {
   const { statistics, performance_summary } = graph;
 
@@ -77,22 +76,22 @@ export function ProcessingGraphStats({
               className="mb-2"
               color={
                 performance_summary.efficiency_percentage > 80
-                  ? 'success'
+                  ? "success"
                   : performance_summary.efficiency_percentage > 60
-                  ? 'warning'
-                  : 'danger'
+                    ? "warning"
+                    : "danger"
               }
               value={performance_summary.efficiency_percentage}
             />
             <div className="flex justify-between text-xs text-gray-500">
               <span>
-                Best:{' '}
+                Best:{" "}
                 {ProcessingGraphUtils.formatDuration(
                   statistics.fastest_graph_execution,
                 )}
               </span>
               <span>
-                Worst:{' '}
+                Worst:{" "}
                 {ProcessingGraphUtils.formatDuration(
                   statistics.worst_graph_execution,
                 )}
@@ -161,10 +160,10 @@ export function ProcessingGraphStats({
                       <span
                         className={
                           isBottleneck
-                            ? 'text-red-600 font-semibold'
+                            ? "text-red-600 font-semibold"
                             : isFastest
-                            ? 'text-green-600 font-semibold'
-                            : ''
+                              ? "text-green-600 font-semibold"
+                              : ""
                         }
                       >
                         {ProcessingGraphUtils.formatDuration(
@@ -218,7 +217,7 @@ export function ProcessingGraphStats({
             </div>
             <div>
               <p className="text-sm text-gray-600">Input Node</p>
-              <p className="text-xl font-bold">{graph.input_node || 'None'}</p>
+              <p className="text-xl font-bold">{graph.input_node || "None"}</p>
             </div>
           </div>
 
@@ -226,11 +225,11 @@ export function ProcessingGraphStats({
           <div className="mt-4">
             <div className="flex items-center gap-2">
               <Chip
-                color={graph.is_valid ? 'success' : 'danger'}
+                color={graph.is_valid ? "success" : "danger"}
                 size="sm"
                 variant="flat"
               >
-                {graph.is_valid ? '✓ Valid' : '✗ Invalid'}
+                {graph.is_valid ? "✓ Valid" : "✗ Invalid"}
               </Chip>
               <span className="text-sm text-gray-600">Graph Structure</span>
             </div>

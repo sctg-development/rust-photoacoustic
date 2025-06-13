@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback, useState, useEffect } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -10,27 +10,27 @@ import ReactFlow, {
   Handle,
   Position,
   ReactFlowProvider,
-  useReactFlow,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
-import { 
-  Modal, 
-  ModalContent, 
-  ModalHeader, 
-  ModalBody, 
+} from "reactflow";
+import "reactflow/dist/style.css";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
   ModalFooter,
-  useDisclosure
-} from '@heroui/modal';
-import { Button } from '@heroui/button';
-import { Card, CardBody } from '@heroui/card';
-import { Chip } from '@heroui/chip';
-import { Progress } from '@heroui/progress';
-import { Divider } from '@heroui/divider';
-import { 
-  SerializableProcessingGraph, 
+  useDisclosure,
+} from "@heroui/modal";
+import { Button } from "@heroui/button";
+import { Card, CardBody } from "@heroui/card";
+import { Chip } from "@heroui/chip";
+import { Progress } from "@heroui/progress";
+import { Divider } from "@heroui/divider";
+
+import {
+  SerializableProcessingGraph,
   NodeStatistics,
-  ProcessingGraphUtils 
-} from '../types/processing-graph';
+  ProcessingGraphUtils,
+} from "../types/processing-graph";
 
 // Custom node types
 const nodeTypes = {
@@ -155,7 +155,6 @@ function NodeDetailsModal({
   isOpen,
   onClose,
   nodeData,
-  graphStatistics,
 }: NodeDetailsModalProps) {
   if (!nodeData) return null;
 
@@ -348,7 +347,7 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const handleNodeClick = useCallback(
-    (nodeId: string, nodeData: ProcessingNodeData) => {
+    (_nodeId: string, nodeData: ProcessingNodeData) => {
       setSelectedNode(nodeData);
       onOpen();
     },

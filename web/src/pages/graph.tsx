@@ -27,35 +27,36 @@ export default function DocsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>("graph");
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const { user, isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   // Configuration state - holds API endpoints and authentication details
   const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null
+    null as GenerixConfig | null,
   );
-  const [accessToken, setAccessToken] = useState("" as string | null);
 
   // Load Processing Graph function
   const loadProcessingGraph = async () => {
     if (!isAuthenticated || !generixConfig) {
       console.warn(
-        "User is not authenticated or Generix config is not loaded."
+        "User is not authenticated or Generix config is not loaded.",
       );
       setLoading(false);
+
       return;
     }
 
     try {
       setError(null);
       const graph = (await getJson(
-        `${generixConfig.api_base_url}/graph`
+        `${generixConfig.api_base_url}/graph`,
       )) as SerializableProcessingGraph;
+
       setGraph(graph);
     } catch (error) {
       console.error("Error loading processing graph:", error);
       setError(
         error instanceof Error
           ? error.message
-          : "Failed to load processing graph"
+          : "Failed to load processing graph",
       );
     } finally {
       setLoading(false);
@@ -74,16 +75,6 @@ export default function DocsPage() {
       setGenerixConfig(config);
     };
 
-    /**
-     * Load Access Token
-     */
-    const loadAccessToken = async () => {
-      const token = await getAccessToken();
-
-      setAccessToken(token);
-    };
-
-    loadAccessToken();
     loadGenerixConfig();
   }, [getAccessToken]);
 
@@ -132,13 +123,13 @@ export default function DocsPage() {
           <div className="max-w-2xl mx-auto mt-8">
             <Alert
               color="danger"
-              title="Failed to load processing graph"
               description={error}
               endContent={
                 <Button color="danger" variant="flat" onPress={handleRefresh}>
                   Retry
                 </Button>
               }
+              title="Failed to load processing graph"
             />
           </div>
         )}
@@ -148,8 +139,8 @@ export default function DocsPage() {
           <div className="max-w-2xl mx-auto mt-8">
             <Alert
               color="warning"
-              title="No processing graph available"
               description="No processing is currently active or no graph data is available."
+              title="No processing graph available"
             />
           </div>
         )}
@@ -162,17 +153,17 @@ export default function DocsPage() {
               <div className="flex items-center gap-4">
                 <Switch
                   isSelected={autoRefresh}
-                  onValueChange={setAutoRefresh}
                   size="sm"
+                  onValueChange={setAutoRefresh}
                 >
                   Auto-refresh
                 </Switch>
 
                 <Button
                   color="primary"
+                  isLoading={loading}
                   variant="flat"
                   onPress={handleRefresh}
-                  isLoading={loading}
                 >
                   Refresh
                 </Button>
@@ -202,7 +193,9 @@ export default function DocsPage() {
               <Card className="bg-purple-50 border-purple-200">
                 <CardBody className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
-                    {graph.performance_summary.average_execution_time_ms.toFixed(2)}
+                    {graph.performance_summary.average_execution_time_ms.toFixed(
+                      2,
+                    )}
                     ms
                   </p>
                   <p className="text-sm text-purple-800">Avg Time</p>
@@ -237,10 +230,10 @@ export default function DocsPage() {
 
             {/* Main Content Tabs */}
             <Tabs
-              selectedKey={selectedTab}
-              onSelectionChange={(key) => setSelectedTab(key as string)}
               className="w-full"
+              selectedKey={selectedTab}
               size="lg"
+              onSelectionChange={(key) => setSelectedTab(key as string)}
             >
               <Tab key="graph" title="Graph View">
                 <Card className="min-h-[600px]">
@@ -253,7 +246,7 @@ export default function DocsPage() {
                     </p>
                   </CardHeader>
                   <CardBody className="h-[600px] p-0">
-                    <ProcessingGraphView graph={graph} className="h-full" />
+                    <ProcessingGraphView className="h-full" graph={graph} />
                   </CardBody>
                 </Card>
               </Tab>
