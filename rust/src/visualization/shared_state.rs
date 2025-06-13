@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::processing::graph::ProcessingGraphStatistics;
+use crate::processing::SerializableProcessingGraph;
 
 /// Global shared state for the visualization server
 ///
@@ -21,6 +22,13 @@ pub struct SharedVisualizationState {
     /// Updated by the ProcessingConsumer as it processes frames.
     /// Can be None if no processing is currently active.
     processing_statistics: Arc<RwLock<Option<ProcessingGraphStatistics>>>,
+
+    /// Current processing graph structure
+    ///
+    /// Contains the serializable representation of the processing graph
+    /// including nodes, connections, and topology information.
+    /// Updated when the processing graph is initialized or modified.
+    processing_graph: Arc<RwLock<Option<SerializableProcessingGraph>>>,
 }
 
 impl Default for SharedVisualizationState {
@@ -34,6 +42,7 @@ impl SharedVisualizationState {
     pub fn new() -> Self {
         Self {
             processing_statistics: Arc::new(RwLock::new(None)),
+            processing_graph: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -50,6 +59,19 @@ impl SharedVisualizationState {
         *processing_stats = Some(stats);
     }
 
+    /// Update the processing graph structure
+    ///
+    /// This should be called when the processing graph is initialized
+    /// or modified to update the API-accessible representation.
+    ///
+    /// ### Parameters
+    ///
+    /// * `graph` - The serializable processing graph structure
+    pub async fn update_processing_graph(&self, graph: SerializableProcessingGraph) {
+        let mut processing_graph = self.processing_graph.write().await;
+        *processing_graph = Some(graph);
+    }
+
     /// Get the current processing graph statistics
     ///
     /// Returns None if no processing is currently active or if
@@ -63,12 +85,41 @@ impl SharedVisualizationState {
         processing_stats.clone()
     }
 
+    /// Get the current processing graph structure
+    ///
+    /// Returns the serializable representation of the processing graph
+    /// including nodes, connections, and topology information.
+    ///
+    /// ### Returns
+    ///
+    /// The current processing graph structure, or None if unavailable
+    pub async fn get_processing_graph(&self) -> Option<SerializableProcessingGraph> {
+        let processing_graph = self.processing_graph.read().await;
+        processing_graph.clone()
+    }
+
     /// Clear the processing statistics
     ///
     /// This should be called when processing stops or is reset.
     pub async fn clear_processing_statistics(&self) {
         let mut processing_stats = self.processing_statistics.write().await;
         *processing_stats = None;
+    }
+
+    /// Clear the processing graph
+    ///
+    /// This should be called when processing stops or is reset.
+    pub async fn clear_processing_graph(&self) {
+        let mut processing_graph = self.processing_graph.write().await;
+        *processing_graph = None;
+    }
+
+    /// Clear all processing data
+    ///
+    /// This should be called when processing stops or is reset.
+    pub async fn clear_all_processing_data(&self) {
+        self.clear_processing_statistics().await;
+        self.clear_processing_graph().await;
     }
 
     /// Check if processing statistics are available
@@ -79,6 +130,16 @@ impl SharedVisualizationState {
     pub async fn has_processing_statistics(&self) -> bool {
         let processing_stats = self.processing_statistics.read().await;
         processing_stats.is_some()
+    }
+
+    /// Check if processing graph is available
+    ///
+    /// ### Returns
+    ///
+    /// True if processing graph is available, false otherwise
+    pub async fn has_processing_graph(&self) -> bool {
+        let processing_graph = self.processing_graph.read().await;
+        processing_graph.is_some()
     }
 }
 

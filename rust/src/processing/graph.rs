@@ -1279,6 +1279,69 @@ impl ProcessingGraph {
         }
     }
 
+    /// Create a serializable representation of this graph
+    ///
+    /// This method creates a SerializableProcessingGraph from a reference to this graph,
+    /// allowing the original graph to remain in place. This is useful when you need
+    /// to serialize the graph state without moving ownership.
+    ///
+    /// ### Returns
+    ///
+    /// A SerializableProcessingGraph containing the current state and statistics
+    pub fn to_serializable(&self) -> SerializableProcessingGraph {
+        let mut serializable_nodes = Vec::new();
+        let mut validation_errors = Vec::new();
+
+        // Convert nodes to serializable format
+        for (_, node) in &self.nodes {
+            let serializable_node = SerializableProcessingGraph::create_serializable_node(node.as_ref());
+            serializable_nodes.push(serializable_node);
+        }
+
+        // Convert connections to serializable format
+        let serializable_connections: Vec<SerializableConnection> = self
+            .connections
+            .iter()
+            .map(|conn| SerializableConnection {
+                from: conn.from.clone(),
+                to: conn.to.clone(),
+            })
+            .collect();
+
+        // Get execution order (this might fail if graph has cycles)
+        let execution_order = match self.get_execution_order_immutable() {
+            Ok(order) => order,
+            Err(e) => {
+                validation_errors.push(format!("Failed to determine execution order: {}", e));
+                Vec::new()
+            }
+        };
+
+        // Validate the graph and collect errors
+        let is_valid = match self.validate() {
+            Ok(()) => validation_errors.is_empty(),
+            Err(e) => {
+                validation_errors.push(format!("Graph validation failed: {}", e));
+                false
+            }
+        };
+
+        // Get performance summary
+        let performance_summary = self.get_performance_summary();
+
+        SerializableProcessingGraph {
+            nodes: serializable_nodes,
+            connections: serializable_connections,
+            execution_order,
+            input_node: self.input_node.clone(),
+            output_nodes: self.output_nodes.clone(),
+            statistics: self.statistics.clone(),
+            performance_summary,
+            is_valid,
+            validation_errors,
+        }
+    }
+
     /// Update the graph structure information in statistics
     fn update_statistics_structure(&mut self) {
         self.statistics

@@ -91,15 +91,43 @@ pub async fn get_graph_statistics(
 
 /// Get processing graph information
 ///
-/// Returns a JSON object representing SerializableProcessingGraph
+/// **Endpoint:** `GET /api/graph`
+///
+/// Returns a JSON object representing the current processing graph structure
+/// including nodes, connections, execution order, and topology information.
+///
+/// ### Authentication
+///
+/// This endpoint requires a valid JWT bearer token in the Authorization header.
+/// The token must have the appropriate scope for API access.
+///
+/// ### Returns
+///
+/// Returns a JSON response containing `SerializableProcessingGraph` with:
+/// - `nodes`: Array of all processing nodes with their configurations
+/// - `connections`: Array of connections between nodes
+/// - `execution_order`: Topological order of node execution
+/// - `input_node`: ID of the designated input node
+/// - `output_node`: ID of the designated output node
+/// - `statistics`: Current performance statistics for the graph
+///
+/// ### Error Responses
+///
+/// - `401 Unauthorized`: Missing or invalid JWT token
+/// - `403 Forbidden`: Token lacks required scope
+/// - `404 Not Found`: No processing graph is currently available
+/// - `500 Internal Server Error`: Server error accessing graph data
 #[openapi_protect_get("/api/graph", "read:api", tag = "Processing")]
 pub async fn get_graph(
     state: &State<SharedVisualizationState>,
 ) -> Result<Json<SerializableProcessingGraph>, status::NotFound<String>> {
     // Get the current processing graph from shared state
-    Err(status::NotFound(
-        "No processing graph is currently available".to_string(),
-    ))
+    match state.get_processing_graph().await {
+        Some(graph) => Ok(Json(graph)),
+        None => Err(status::NotFound(
+            "No processing graph is currently available".to_string(),
+        )),
+    }
 }
 
 /// Centralized function to get all graph routes with OpenAPI documentation

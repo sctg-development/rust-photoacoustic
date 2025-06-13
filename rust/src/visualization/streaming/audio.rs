@@ -22,8 +22,7 @@ use rocket::{
 };
 use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::{openapi, openapi_get_routes_spec, JsonSchema};
-use serde::{de, Deserialize, Serialize};
-use serde_yml::libyml::tag;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;

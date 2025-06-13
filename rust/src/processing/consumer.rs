@@ -156,6 +156,19 @@ impl ProcessingConsumer {
             graph.validate()?;
         }
 
+        // Update shared visualization state with the processing graph if available
+        if let Some(ref visualization_state) = self.visualization_state {
+            let serializable_graph = {
+                let graph = self.processing_graph.read().await;
+                // Create a serializable representation of the graph
+                graph.to_serializable()
+            };
+
+            visualization_state
+                .update_processing_graph(serializable_graph)
+                .await;
+        }
+
         // Create the audio stream consumer
         self.consumer = Some(AudioStreamConsumer::new(&self.audio_stream));
 
@@ -175,7 +188,7 @@ impl ProcessingConsumer {
 
         // Clear visualization state when stopping
         if let Some(ref visualization_state) = self.visualization_state {
-            visualization_state.clear_processing_statistics().await;
+            visualization_state.clear_all_processing_data().await;
         }
     }
 
@@ -442,6 +455,14 @@ impl ProcessingConsumer {
     }
 
     /// Update processing statistics
+    /// This method is called after processing each frame
+    /// to keep track of performance metrics and update the shared visualization state.
+    ///
+    /// ### Notes
+    /// The serializable graph is updated periodically (every 100 frames)
+    /// to avoid performance overhead while still providing up-to-date statistics
+    /// for the /api/graph endpoint.
+    /// 100 frames of 8192 bytes at 48kHz is about 17 seconds
     async fn update_stats(&self, processing_time_us: u64, result: &ProcessingResult) {
         let mut stats = self.stats.write().await;
 
@@ -492,6 +513,21 @@ impl ProcessingConsumer {
             visualization_state
                 .update_processing_statistics(graph_stats)
                 .await;
+
+            // Update the serializable graph periodically to reflect latest statistics
+            // This ensures the /api/graph endpoint shows current performance data
+            // but avoids updating it on every frame for performance reasons
+            // 100 frames of 8192 bytes at 48kHz is about 17 seconds
+            if stats.total_frames_processed % 100 == 1 {
+                let serializable_graph = {
+                    let graph = self.processing_graph.read().await;
+                    graph.to_serializable()
+                };
+
+                visualization_state
+                    .update_processing_graph(serializable_graph)
+                    .await;
+            }
         }
     }
 
