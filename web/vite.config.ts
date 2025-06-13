@@ -153,6 +153,7 @@ export default defineConfig({
           ],
           heroui: extractPerVendorDependencies(packageJson, "@heroui"),
           auth0: extractPerVendorDependencies(packageJson, "@auth0"),
+          reactflow: extractPerVendorDependencies(packageJson, "reactflow"),
         },
       },
     },
