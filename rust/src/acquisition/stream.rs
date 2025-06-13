@@ -61,6 +61,15 @@ impl AudioFrame {
             && !self.channel_b.is_empty()
             && self.channel_a.len() == self.channel_b.len()
     }
+
+    /// Check if this frame contains actual dual channel data
+    /// Returns true only if both channels have data AND they are different
+    pub fn is_dual_channel(&self) -> bool {
+        !self.channel_a.is_empty()
+            && !self.channel_b.is_empty()
+            && self.channel_a.len() == self.channel_b.len()
+            && self.channel_a != self.channel_b
+    }
 }
 
 /// Shared audio stream for broadcasting frames to multiple consumers
@@ -91,6 +100,8 @@ pub struct StreamStats {
     pub frames_since_last_update: u64,
     /// Sample rate of the audio stream in Hz
     pub sample_rate: u32,
+    /// Whether the stream has dual channels (true) or is mono (false)
+    pub dual_channel: bool,
 }
 
 impl Default for StreamStats {
@@ -106,6 +117,7 @@ impl Default for StreamStats {
                 .as_millis() as u64,
             frames_since_last_update: 0,
             sample_rate: 0,
+            dual_channel: false,
         }
     }
 }
@@ -146,6 +158,7 @@ impl SharedAudioStream {
             stats.active_subscribers = self.sender.receiver_count();
 
             stats.sample_rate = frame.sample_rate;
+            stats.dual_channel = frame.is_dual_channel();
 
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)

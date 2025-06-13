@@ -36,6 +36,7 @@ import {
   NodeStatistics,
   ProcessingGraphUtils,
 } from "../types/processing-graph";
+import { StreamingNodeModal } from "./streaming-node-modal";
 
 // Custom node types
 const nodeTypes = {
@@ -210,8 +211,19 @@ function NodeDetailsModal({
   nodeData,
 }: NodeDetailsModalProps) {
   const { t } = useTranslation();
-
+  
   if (!nodeData) return null;
+
+  // For streaming and input nodes, use the special streaming modal
+  if (nodeData.nodeType === "streaming" || nodeData.nodeType === "input") {
+    return (
+      <StreamingNodeModal
+        isOpen={isOpen}
+        onClose={onClose}
+        nodeData={nodeData}
+      />
+    );
+  }
 
   const { statistics } = nodeData;
   const isBottleneck = nodeData.isBottleneck || false;

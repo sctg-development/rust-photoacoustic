@@ -127,6 +127,7 @@ export interface TimestampValidationConfig {
  * @property {Function} getPerformanceStats - Function to get performance statistics
  * @property {Function} resetTimestampValidation - Function to reset timestamp validation stats
  * @property {Function} updateTimestampValidationConfig - Function to update validation configuration
+ * @property {boolean} isDualChannel - Whether the audio stream has dual channels
  */
 interface UseAudioStreamReturn {
   // Connection state
@@ -164,6 +165,7 @@ interface UseAudioStreamReturn {
   updateTimestampValidationConfig: (
     config: Partial<TimestampValidationConfig>,
   ) => void;
+  isDualChannel: boolean;
 }
 
 /**
@@ -192,13 +194,22 @@ interface AudioFastFrame {
 }
 
 export interface AudioStreamStatistics {
+  // Total number of frames processed
   total_frames: number;
+  // Total number of dropped frames
   dropped_frames: number;
+  // Number of active subscribers
   active_subscribers: number;
+  // Average frames per second
   fps: number;
+  // Last update timestamp
   last_update: number;
+  // Frames processed since last FPS calculation
   frames_since_last_update: number;
+  // Sample rate of the audio stream in Hz
   sample_rate: number;
+  // Whether the stream has dual channels (true) or is mono (false)
+  dual_channel: boolean;
 }
 
 /**
@@ -232,7 +243,7 @@ export const useAudioStream = (
   const [frameCount, setFrameCount] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
   const [fps, setFps] = useState(0);
-  const [samplerate, setSamplerate] = useState(0);
+  const [statistics, setStatistics] = useState<AudioStreamStatistics | null>(null);
   const [averageFrameSizeBytes, setAverageFrameSizeBytes] = useState(0);
 
   /**
@@ -358,30 +369,33 @@ export const useAudioStream = (
    * This is used to ensure the audio context is created with the correct sample rate.
    * @returns {Promise<number>} The sample rate in Hz
    */
-  const getSampleRate = useCallback(async (): Promise<number> => {
-    console.log(
-      "Fetching sample rate from statsUrl:",
-      statsUrl,
-      "isAuthenticated:",
-      isAuthenticated,
-    );
-    if (statsUrl && isAuthenticated) {
-      try {
-        const stats = (await getJson(statsUrl)) as AudioStreamStatistics;
+  const getStreamStatistics =
+    useCallback(async (): Promise<AudioStreamStatistics | null> => {
+      console.log(
+        "Fetching sample rate from statsUrl:",
+        statsUrl,
+        "isAuthenticated:",
+        isAuthenticated,
+      );
+      if (statsUrl && isAuthenticated) {
+        try {
+          const stats = (await getJson(statsUrl)) as AudioStreamStatistics;
 
-        console.log("Fetched stats:", stats);
+          console.log("Fetched stats:", stats);
 
-        return stats.sample_rate || 48000; // Default to 48000 if not provided
-      } catch (error) {
-        console.warn("Failed to fetch sample rate from stats URL:", error);
+          return stats;
+        } catch (error) {
+          console.warn("Failed to fetch sample rate from stats URL:", error);
 
-        return 48000; // Fallback to standard rate
+          return null;
+        }
       }
-    }
-    console.log("No statsUrl or not authenticated, using default sample rate");
+      console.log(
+        "No statsUrl or not authenticated, using default sample rate",
+      );
 
-    return 48000; // Default sample rate if statsUrl is not provided
-  }, [statsUrl, isAuthenticated, getJson]);
+      return null; // Default sample rate if statsUrl is not provided
+    }, [statsUrl, isAuthenticated, getJson]);
 
   /**
    * Initializes the AudioContext and creates the audio processing graph.
@@ -407,10 +421,10 @@ export const useAudioStream = (
 
       // Get sample rate first - always fetch fresh from server
       console.log("Fetching current sample rate from server");
-      const currentSampleRate = await getSampleRate();
+      const currentStatistics = await getStreamStatistics();
 
-      setSamplerate(currentSampleRate);
-      sampleRateRef.current = currentSampleRate;
+      setStatistics(currentStatistics);
+      sampleRateRef.current = currentStatistics?.sample_rate || 48000;
 
       console.log(
         "Creating new AudioContext with sample rate:",
@@ -464,7 +478,7 @@ export const useAudioStream = (
       });
       setIsAudioReady(false);
     }
-  }, [audioContext, getSampleRate]); // Remove samplerate dependency, add getSampleRate
+  }, [audioContext, getStreamStatistics]); // Remove samplerate dependency, add getSampleRate
 
   /**
    * Resumes the audio context if it's in a suspended state.
@@ -880,8 +894,8 @@ export const useAudioStream = (
       processingEfficiency:
         stats.totalReceivedFrames > 0
           ? Math.round(
-              (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
-            )
+            (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
+          )
           : 100,
     };
   }, []);
@@ -1168,9 +1182,9 @@ export const useAudioStream = (
     }
 
     try {
-      if (samplerate === 0) {
+      if (statistics === null) {
         // Get sample rate from statsUrl if not already set
-        setSamplerate(await getSampleRate());
+        setStatistics(await getStreamStatistics());
       }
       setIsConnecting(true);
       setError(null);
@@ -1619,6 +1633,7 @@ export const useAudioStream = (
     isConnected,
     isConnecting,
     connect,
+    statistics,
   ]);
 
   // --- RETURN API ---
@@ -1648,5 +1663,6 @@ export const useAudioStream = (
     getPerformanceStats,
     resetTimestampValidation,
     updateTimestampValidationConfig,
+    isDualChannel: statistics?.dual_channel || false,
   };
 };

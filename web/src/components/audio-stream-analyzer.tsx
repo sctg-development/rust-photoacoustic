@@ -99,6 +99,7 @@ export default function AudioStreamAnalyzer({
     audioStreamNode,
     isAudioReady,
     averageFrameSizeBytes,
+    isDualChannel,
   } = useAudioStream(
     streamUrl,
     statsUrl,
@@ -167,7 +168,7 @@ export default function AudioStreamAnalyzer({
         maxDecibels: -10,
         minDecibels: -85,
         smoothing: 0.8,
-        channelLayout: "dual-horizontal",
+        channelLayout: isDualChannel ? "dual-horizontal" : "single",
       });
 
       console.log("Audio analyzer initialized successfully");
