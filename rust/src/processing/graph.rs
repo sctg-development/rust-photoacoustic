@@ -510,6 +510,8 @@ pub struct ProcessingGraph {
     output_nodes: Vec<NodeId>,
     /// Performance statistics
     statistics: ProcessingGraphStatistics,
+    /// Original node configuration parameters (for serialization)
+    node_parameters: HashMap<NodeId, HashMap<String, serde_yml::Value>>,
 }
 
 impl ProcessingGraph {
@@ -522,11 +524,21 @@ impl ProcessingGraph {
             input_node: None,
             output_nodes: Vec::new(),
             statistics: ProcessingGraphStatistics::new(),
+            node_parameters: HashMap::new(),
         }
     }
 
     /// Add a processing node to the graph
     pub fn add_node(&mut self, node: Box<dyn ProcessingNode>) -> Result<()> {
+        self.add_node_with_params(node, HashMap::new())
+    }
+
+    /// Add a processing node to the graph with configuration parameters
+    pub fn add_node_with_params(
+        &mut self,
+        node: Box<dyn ProcessingNode>,
+        parameters: HashMap<String, serde_yml::Value>,
+    ) -> Result<()> {
         let node_id = node.node_id().to_string();
         let node_type = node.node_type().to_string();
 
@@ -538,6 +550,9 @@ impl ProcessingGraph {
         if node.node_type() == "input" {
             self.input_node = Some(node_id.clone());
         }
+
+        // Store node parameters for serialization
+        self.node_parameters.insert(node_id.clone(), parameters);
 
         // Add node statistics tracking
         self.statistics
@@ -561,6 +576,9 @@ impl ProcessingGraph {
 
         // Remove the node
         self.nodes.remove(node_id);
+
+        // Remove node parameters
+        self.node_parameters.remove(node_id);
 
         // Remove node statistics
         self.statistics.remove_node_statistics(node_id);
@@ -773,7 +791,18 @@ impl ProcessingGraph {
                 node_config.id, node_config.node_type
             );
             let node = Self::create_node_from_config(node_config, &streaming_registry)?;
-            graph.add_node(node)?;
+
+            // Convert node_config.parameters to HashMap<String, serde_yml::Value>
+            let parameters = if let Some(params_mapping) = node_config.parameters.as_mapping() {
+                params_mapping
+                    .iter()
+                    .filter_map(|(k, v)| k.as_str().map(|key| (key.to_string(), v.clone())))
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+
+            graph.add_node_with_params(node, parameters)?;
             debug!("Successfully created node: {}", node_config.id);
         }
 
@@ -1293,9 +1322,16 @@ impl ProcessingGraph {
         let mut validation_errors = Vec::new();
 
         // Convert nodes to serializable format
-        for (_, node) in &self.nodes {
-            let serializable_node =
-                SerializableProcessingGraph::create_serializable_node(node.as_ref());
+        for (node_id, node) in &self.nodes {
+            let stored_parameters = self
+                .node_parameters
+                .get(node_id)
+                .cloned()
+                .unwrap_or_default();
+            let serializable_node = SerializableProcessingGraph::create_serializable_node(
+                node.as_ref(),
+                &stored_parameters,
+            );
             serializable_nodes.push(serializable_node);
         }
 
@@ -1861,7 +1897,13 @@ impl From<ProcessingGraph> for SerializableProcessingGraph {
 
         // Convert nodes to serializable format
         for (node_id, node) in &graph.nodes {
-            let serializable_node = Self::create_serializable_node(node.as_ref());
+            let stored_parameters = graph
+                .node_parameters
+                .get(node_id)
+                .cloned()
+                .unwrap_or_default();
+            let serializable_node =
+                Self::create_serializable_node(node.as_ref(), &stored_parameters);
             serializable_nodes.push(serializable_node);
         }
 
@@ -1920,11 +1962,15 @@ impl SerializableProcessingGraph {
     /// ### Arguments
     ///
     /// * `node` - The processing node to convert
+    /// * `stored_parameters` - The stored configuration parameters for this node
     ///
     /// ### Returns
     ///
     /// A SerializableNode containing the node's information and capabilities
-    fn create_serializable_node(node: &dyn ProcessingNode) -> SerializableNode {
+    fn create_serializable_node(
+        node: &dyn ProcessingNode,
+        stored_parameters: &HashMap<String, serde_yml::Value>,
+    ) -> SerializableNode {
         let node_id = node.node_id().to_string();
         let node_type = node.node_type().to_string();
 
@@ -1960,8 +2006,8 @@ impl SerializableProcessingGraph {
             None
         };
 
-        // Extract parameters based on node type
-        let parameters = Self::extract_node_parameters(&node_type, &node_id);
+        // Extract parameters based on node type and stored configuration
+        let parameters = Self::extract_node_parameters(&node_type, &node_id, stored_parameters);
 
         SerializableNode {
             id: node_id,
@@ -1974,66 +2020,89 @@ impl SerializableProcessingGraph {
 
     /// Extract node-specific parameters
     ///
-    /// This method attempts to extract configuration parameters from different
-    /// node types. Since we can't directly access internal configuration through
-    /// the trait, we provide basic type-specific defaults.
+    /// This method extracts the original configuration parameters for a node
+    /// that were stored during graph creation from configuration.
     ///
     /// ### Arguments
     ///
     /// * `node_type` - The type of the node
     /// * `node_id` - The ID of the node
+    /// * `stored_parameters` - The parameters stored during graph creation
     ///
     /// ### Returns
     ///
-    /// A HashMap containing the node's parameters
+    /// A HashMap containing the node's parameters, including both stored
+    /// configuration parameters and type-specific defaults
     fn extract_node_parameters(
         node_type: &str,
-        _node_id: &str,
+        node_id: &str,
+        stored_parameters: &HashMap<String, serde_yml::Value>,
     ) -> HashMap<String, serde_yml::Value> {
-        let mut parameters = HashMap::new();
+        let mut parameters = stored_parameters.clone();
 
-        match node_type {
-            "filter" => {
-                // Filter nodes have type-specific parameters but we can't extract them
-                // from the trait interface. In a real implementation, you might want
-                // to extend the ProcessingNode trait to include parameter extraction.
-                parameters.insert(
-                    "note".into(),
-                    "Filter parameters not extractable from current interface".into(),
-                );
-            }
-            "channel_selector" => {
-                parameters.insert(
-                    "note".into(),
-                    "Channel target not extractable from current interface".into(),
-                );
-            }
-            "channel_mixer" => {
-                parameters.insert(
-                    "note".into(),
-                    "Mix strategy not extractable from current interface".into(),
-                );
-            }
-            "photoacoustic_output" => {
-                parameters.insert(
-                    "note".into(),
-                    "Threshold and window size not extractable from current interface".into(),
-                );
-            }
-            "record" => {
-                parameters.insert(
-                    "note".into(),
-                    "Record configuration not extractable from current interface".into(),
-                );
-            }
-            "streaming" => {
-                parameters.insert(
-                    "note".into(),
-                    "Streaming configuration not extractable from current interface".into(),
-                );
-            }
-            _ => {
-                // Default case for unknown or simple node types
+        // Add type-specific metadata if no parameters were stored
+        if parameters.is_empty() {
+            match node_type {
+                "input" => {
+                    // Input nodes typically don't have parameters
+                }
+                "filter" => {
+                    parameters.insert(
+                        "note".into(),
+                        "Filter type and parameters should be specified in configuration".into(),
+                    );
+                    // Add common filter parameter defaults if not present
+                    if !parameters.contains_key("type") {
+                        parameters.insert("type".into(), "unknown".into());
+                    }
+                }
+                "channel_selector" => {
+                    // Add default channel target if not present
+                    if !parameters.contains_key("target_channel") {
+                        parameters.insert("target_channel".into(), "ChannelA".into());
+                    }
+                }
+                "channel_mixer" => {
+                    // Add default mix strategy if not present
+                    if !parameters.contains_key("strategy") {
+                        parameters.insert("strategy".into(), "Subtract".into());
+                    }
+                }
+                "photoacoustic_output" => {
+                    // Add default parameters if not present
+                    if !parameters.contains_key("detection_threshold") {
+                        parameters.insert("detection_threshold".into(), 0.1.into());
+                    }
+                    if !parameters.contains_key("analysis_window_size") {
+                        parameters.insert("analysis_window_size".into(), 1024.into());
+                    }
+                }
+                "record" => {
+                    if !parameters.contains_key("record_file") {
+                        parameters.insert("record_file".into(), "default_recording.wav".into());
+                    }
+                    if !parameters.contains_key("max_size") {
+                        parameters.insert("max_size".into(), 1048576.into()); // 1MB default
+                    }
+                    if !parameters.contains_key("auto_delete") {
+                        parameters.insert("auto_delete".into(), false.into());
+                    }
+                }
+                "streaming" => {
+                    if !parameters.contains_key("stream_id") {
+                        parameters.insert("stream_id".into(), node_id.into());
+                    }
+                }
+                "differential" => {
+                    // Differential nodes typically don't have many parameters
+                    if !parameters.contains_key("mode") {
+                        parameters.insert("mode".into(), "simple".into());
+                    }
+                }
+                _ => {
+                    // Default case for unknown node types
+                    parameters.insert("node_type".into(), node_type.into());
+                }
             }
         }
 
