@@ -1294,7 +1294,8 @@ impl ProcessingGraph {
 
         // Convert nodes to serializable format
         for (_, node) in &self.nodes {
-            let serializable_node = SerializableProcessingGraph::create_serializable_node(node.as_ref());
+            let serializable_node =
+                SerializableProcessingGraph::create_serializable_node(node.as_ref());
             serializable_nodes.push(serializable_node);
         }
 
