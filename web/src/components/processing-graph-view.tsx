@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 import { useMemo, useCallback, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import ReactFlow, {
@@ -134,13 +138,60 @@ function calculateNodePositions(
   const positions: Record<string, { x: number; y: number }> = {};
   const executionOrder = graph.execution_order;
 
-  // Simple horizontal layout based on execution order
+  // Configuration for layout
+  const NODE_WIDTH = 140; // Minimum width for nodes
+  const NODE_HEIGHT = 80; // Minimum height for nodes
+  const HORIZONTAL_SPACING = 240; // Space between nodes horizontally
+  const VERTICAL_SPACING = 200; // Space between rows
+  const MAX_NODES_PER_ROW = 4; // Maximum nodes per row before wrapping
+
+  // Calculate positions using multi-row layout with consistent left-to-right order
   executionOrder.forEach((nodeId, index) => {
+    const row = Math.floor(index / MAX_NODES_PER_ROW);
+    const colInRow = index % MAX_NODES_PER_ROW;
+
+    // All rows maintain left-to-right execution order
+    const x = colInRow * HORIZONTAL_SPACING;
+    const y = row * VERTICAL_SPACING + 100; // Start with some top margin
+
+    // Add small jitter to prevent perfect overlaps while maintaining general flow
+    const jitterX = (Math.random() - 0.5) * 15;
+    const jitterY = (Math.random() - 0.5) * 15;
+
     positions[nodeId] = {
-      x: index * 200,
-      y: 100,
+      x: x + jitterX,
+      y: y + jitterY,
     };
   });
+
+  // Post-process to ensure no overlaps
+  const nodeIds = Object.keys(positions);
+
+  for (let i = 0; i < nodeIds.length; i++) {
+    for (let j = i + 1; j < nodeIds.length; j++) {
+      const nodeA = positions[nodeIds[i]];
+      const nodeB = positions[nodeIds[j]];
+
+      const dx = Math.abs(nodeA.x - nodeB.x);
+      const dy = Math.abs(nodeB.y - nodeA.y);
+
+      // Check if nodes are too close
+      if (dx < NODE_WIDTH && dy < NODE_HEIGHT) {
+        // Move the second node to avoid overlap
+        if (dx < dy) {
+          // Move horizontally
+          nodeB.x =
+            nodeA.x +
+            (nodeB.x > nodeA.x ? NODE_WIDTH + 20 : -(NODE_WIDTH + 20));
+        } else {
+          // Move vertically
+          nodeB.y =
+            nodeA.y +
+            (nodeB.y > nodeA.y ? NODE_HEIGHT + 20 : -(NODE_HEIGHT + 20));
+        }
+      }
+    }
+  }
 
   return positions;
 }
@@ -159,7 +210,7 @@ function NodeDetailsModal({
   nodeData,
 }: NodeDetailsModalProps) {
   const { t } = useTranslation();
-  
+
   if (!nodeData) return null;
 
   const { statistics } = nodeData;
@@ -190,24 +241,34 @@ function NodeDetailsModal({
           {/* Node Information */}
           <Card>
             <CardBody>
-              <h3 className="text-lg font-semibold mb-3">{t("view-modal-node-information")}</h3>
+              <h3 className="text-lg font-semibold mb-3">
+                {t("view-modal-node-information")}
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">{t("view-modal-node-id")}</p>
+                  <p className="text-sm text-gray-600">
+                    {t("view-modal-node-id")}
+                  </p>
                   <p className="font-medium">{nodeData.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">{t("view-modal-node-type")}</p>
+                  <p className="text-sm text-gray-600">
+                    {t("view-modal-node-type")}
+                  </p>
                   <p className="font-medium">{nodeData.nodeType}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">{t("view-modal-output-type")}</p>
+                  <p className="text-sm text-gray-600">
+                    {t("view-modal-output-type")}
+                  </p>
                   <p className="font-medium">
                     {nodeData.outputType || t("view-modal-dynamic")}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">{t("view-modal-input-types")}</p>
+                  <p className="text-sm text-gray-600">
+                    {t("view-modal-input-types")}
+                  </p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {nodeData.acceptsInputTypes.map((type) => (
                       <Chip key={type} size="sm" variant="flat">
@@ -237,7 +298,9 @@ function NodeDetailsModal({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">{t("view-modal-frames-processed")}</p>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-frames-processed")}
+                    </p>
                     <p className="text-2xl font-bold text-blue-600">
                       {statistics.frames_processed.toLocaleString()}
                     </p>
@@ -253,7 +316,9 @@ function NodeDetailsModal({
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">{t("view-modal-fastest-processing")}</p>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-fastest-processing")}
+                    </p>
                     <p className="text-lg font-semibold text-green-500">
                       {ProcessingGraphUtils.formatDuration(
                         statistics.fastest_processing_time,
@@ -261,7 +326,9 @@ function NodeDetailsModal({
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">{t("view-modal-slowest-processing")}</p>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-slowest-processing")}
+                    </p>
                     <p className="text-lg font-semibold text-red-500">
                       {ProcessingGraphUtils.formatDuration(
                         statistics.worst_processing_time,
@@ -296,7 +363,9 @@ function NodeDetailsModal({
 
                 {/* Total Processing Time */}
                 <div className="mt-4">
-                  <p className="text-sm text-gray-600">{t("view-modal-total-processing-time")}</p>
+                  <p className="text-sm text-gray-600">
+                    {t("view-modal-total-processing-time")}
+                  </p>
                   <p className="text-lg font-semibold">
                     {ProcessingGraphUtils.formatDuration(
                       statistics.total_processing_time,
@@ -409,6 +478,7 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
         edges={edges}
         nodeTypes={nodeTypes}
         nodes={nodes}
+        proOptions={{ hideAttribution: true }}
         onEdgesChange={onEdgesChange}
         onNodesChange={onNodesChange}
       >
