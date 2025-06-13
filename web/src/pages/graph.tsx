@@ -26,7 +26,7 @@ export default function DocsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>("graph");
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const { isAuthenticated, getAccessToken } = useAuth();
   // Configuration state - holds API endpoints and authentication details
   const [generixConfig, setGenerixConfig] = useState(
@@ -56,7 +56,7 @@ export default function DocsPage() {
       setError(
         error instanceof Error
           ? error.message
-          : "Failed to load processing graph",
+          : t("graph-failed-to-load"),
       );
     } finally {
       setLoading(false);
@@ -91,7 +91,7 @@ export default function DocsPage() {
 
     const interval = setInterval(() => {
       loadProcessingGraph();
-    }, 5000); // Refresh every 5 seconds
+    }, 60000); // Refresh every 60 seconds
 
     return () => clearInterval(interval);
   }, [autoRefresh, generixConfig, isAuthenticated]);
@@ -113,7 +113,7 @@ export default function DocsPage() {
           <div className="flex items-center justify-center min-h-96">
             <div className="flex flex-col items-center gap-4">
               <Spinner size="lg" />
-              <p className="text-gray-600">Loading processing graph...</p>
+              <p className="text-gray-600">{t("graph-loading")}</p>
             </div>
           </div>
         )}
@@ -126,10 +126,10 @@ export default function DocsPage() {
               description={error}
               endContent={
                 <Button color="danger" variant="flat" onPress={handleRefresh}>
-                  Retry
+                  {t("retry")}
                 </Button>
               }
-              title="Failed to load processing graph"
+              title={t("graph-failed-to-load-title")}
             />
           </div>
         )}
@@ -139,8 +139,8 @@ export default function DocsPage() {
           <div className="max-w-2xl mx-auto mt-8">
             <Alert
               color="warning"
-              description="No processing is currently active or no graph data is available."
-              title="No processing graph available"
+              description={t("graph-no-data-description")}
+              title={t("graph-no-data-title")}
             />
           </div>
         )}
@@ -156,7 +156,7 @@ export default function DocsPage() {
                   size="sm"
                   onValueChange={setAutoRefresh}
                 >
-                  Auto-refresh
+                  {t("auto-refresh")}
                 </Switch>
 
                 <Button
@@ -165,7 +165,7 @@ export default function DocsPage() {
                   variant="flat"
                   onPress={handleRefresh}
                 >
-                  Refresh
+                  {t("refresh")}
                 </Button>
               </div>
             </div>
@@ -177,7 +177,7 @@ export default function DocsPage() {
                   <p className="text-2xl font-bold text-blue-600">
                     {graph.performance_summary.total_nodes}
                   </p>
-                  <p className="text-sm text-blue-800">Active Nodes</p>
+                  <p className="text-sm text-blue-800">{t("active-nodes")}</p>
                 </CardBody>
               </Card>
 
@@ -186,7 +186,7 @@ export default function DocsPage() {
                   <p className="text-2xl font-bold text-green-600">
                     {graph.performance_summary.throughput_fps.toFixed(1)}
                   </p>
-                  <p className="text-sm text-green-800">FPS</p>
+                  <p className="text-sm text-green-800">{t("fps")}</p>
                 </CardBody>
               </Card>
 
@@ -198,7 +198,7 @@ export default function DocsPage() {
                     )}
                     ms
                   </p>
-                  <p className="text-sm text-purple-800">Avg Time</p>
+                  <p className="text-sm text-purple-800">{t("avg-time")}</p>
                 </CardBody>
               </Card>
 
@@ -222,7 +222,7 @@ export default function DocsPage() {
                       graph.is_valid ? "text-green-800" : "text-red-800"
                     }`}
                   >
-                    {graph.is_valid ? "Valid" : "Invalid"}
+                    {graph.is_valid ? t("valid") : t("invalid")}
                   </p>
                 </CardBody>
               </Card>
@@ -235,14 +235,14 @@ export default function DocsPage() {
               size="lg"
               onSelectionChange={(key) => setSelectedTab(key as string)}
             >
-              <Tab key="graph" title="Graph View">
+              <Tab key="graph" title={t("graph-view")}>
                 <Card className="min-h-[600px]">
                   <CardHeader>
                     <h2 className="text-xl font-semibold">
-                      Processing Graph Visualization
+                      {t("graph-visualization-title")}
                     </h2>
                     <p className="text-sm text-gray-600 ml-auto">
-                      Click on any node to view detailed information
+                      {t("graph-click-node-hint")}
                     </p>
                   </CardHeader>
                   <CardBody className="h-[600px] p-0">
@@ -251,14 +251,14 @@ export default function DocsPage() {
                 </Card>
               </Tab>
 
-              <Tab key="stats" title="Performance Stats">
+              <Tab key="stats" title={t("performance-stats")}>
                 <ProcessingGraphStats graph={graph} />
               </Tab>
 
-              <Tab key="raw" title="Raw Data">
+              <Tab key="raw" title={t("raw-data")}>
                 <Card>
                   <CardHeader>
-                    <h2 className="text-xl font-semibold">Raw Graph Data</h2>
+                    <h2 className="text-xl font-semibold">{t("raw-graph-data")}</h2>
                   </CardHeader>
                   <CardBody>
                     <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">

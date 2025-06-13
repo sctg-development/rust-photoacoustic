@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Progress } from "@heroui/progress";
@@ -24,6 +25,7 @@ export function ProcessingGraphStats({
   graph,
   className = "",
 }: ProcessingGraphStatsProps) {
+  const { t } = useTranslation();
   const { statistics, performance_summary } = graph;
 
   // Get sorted nodes by performance
@@ -34,7 +36,9 @@ export function ProcessingGraphStats({
       {/* Overall Performance Summary */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Graph Performance Summary</h3>
+          <h3 className="text-lg font-semibold">
+            {t("stats-performance-summary")}
+          </h3>
         </CardHeader>
         <CardBody>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -42,32 +46,38 @@ export function ProcessingGraphStats({
               <p className="text-2xl font-bold text-blue-600">
                 {performance_summary.total_executions.toLocaleString()}
               </p>
-              <p className="text-sm text-gray-600">Total Executions</p>
+              <p className="text-sm text-gray-600">
+                {t("stats-total-executions")}
+              </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600">
                 {performance_summary.throughput_fps.toFixed(1)}
               </p>
-              <p className="text-sm text-gray-600">FPS</p>
+              <p className="text-sm text-gray-600">{t("fps")}</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-purple-600">
                 {performance_summary.average_execution_time_ms.toFixed(2)}ms
               </p>
-              <p className="text-sm text-gray-600">Avg Time</p>
+              <p className="text-sm text-gray-600">{t("avg-time")}</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-orange-600">
                 {performance_summary.efficiency_percentage.toFixed(1)}%
               </p>
-              <p className="text-sm text-gray-600">Efficiency</p>
+              <p className="text-sm text-gray-600">
+                {t("stats-efficiency")}
+              </p>
             </div>
           </div>
 
           {/* Efficiency Progress */}
           <div className="mt-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium">Processing Efficiency</span>
+              <span className="text-sm font-medium">
+                {t("stats-processing-efficiency")}
+              </span>
               <span className="text-sm text-gray-600">
                 {performance_summary.efficiency_percentage.toFixed(1)}%
               </span>
@@ -85,13 +95,13 @@ export function ProcessingGraphStats({
             />
             <div className="flex justify-between text-xs text-gray-500">
               <span>
-                Best:{" "}
+                {t("stats-best")}:{" "}
                 {ProcessingGraphUtils.formatDuration(
                   statistics.fastest_graph_execution,
                 )}
               </span>
               <span>
-                Worst:{" "}
+                {t("stats-worst")}:{" "}
                 {ProcessingGraphUtils.formatDuration(
                   statistics.worst_graph_execution,
                 )}
@@ -107,13 +117,11 @@ export function ProcessingGraphStats({
           <CardBody>
             <div className="flex items-center gap-2 mb-2">
               <Chip color="danger" variant="flat">
-                ⚠️ Bottleneck Detected
+                ⚠️ {t("stats-bottleneck-detected")}
               </Chip>
             </div>
             <p className="text-sm">
-              Node <strong>{performance_summary.slowest_node}</strong> is the
-              slowest in the pipeline. Consider optimizing this node to improve
-              overall performance.
+              {t("stats-bottleneck-message", { node: performance_summary.slowest_node })}
             </p>
           </CardBody>
         </Card>
@@ -122,17 +130,19 @@ export function ProcessingGraphStats({
       {/* Node Performance Table */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Node Performance Details</h3>
+          <h3 className="text-lg font-semibold">
+            {t("stats-node-performance-details")}
+          </h3>
         </CardHeader>
         <CardBody>
-          <Table aria-label="Node performance table">
+          <Table aria-label={t("stats-node-performance-table-aria")}>
             <TableHeader>
-              <TableColumn>Node</TableColumn>
-              <TableColumn>Type</TableColumn>
-              <TableColumn>Frames</TableColumn>
-              <TableColumn>Avg Time</TableColumn>
-              <TableColumn>Total Time</TableColumn>
-              <TableColumn>Status</TableColumn>
+              <TableColumn>{t("stats-table-node")}</TableColumn>
+              <TableColumn>{t("stats-table-type")}</TableColumn>
+              <TableColumn>{t("stats-table-frames")}</TableColumn>
+              <TableColumn>{t("stats-table-avg-time")}</TableColumn>
+              <TableColumn>{t("stats-table-total-time")}</TableColumn>
+              <TableColumn>{t("stats-table-status")}</TableColumn>
             </TableHeader>
             <TableBody>
               {nodesByPerformance.map((nodeStats) => {
@@ -179,12 +189,12 @@ export function ProcessingGraphStats({
                     <TableCell>
                       {isBottleneck && (
                         <Chip color="danger" size="sm" variant="flat">
-                          Bottleneck
+                          {t("stats-chip-bottleneck")}
                         </Chip>
                       )}
                       {isFastest && !isBottleneck && (
                         <Chip color="success" size="sm" variant="flat">
-                          Fastest
+                          {t("stats-chip-fastest")}
                         </Chip>
                       )}
                     </TableCell>
@@ -199,25 +209,35 @@ export function ProcessingGraphStats({
       {/* Graph Structure Info */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Graph Structure</h3>
+          <h3 className="text-lg font-semibold">
+            {t("stats-graph-structure")}
+          </h3>
         </CardHeader>
         <CardBody>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
-              <p className="text-sm text-gray-600">Total Nodes</p>
+              <p className="text-sm text-gray-600">
+                {t("stats-total-nodes")}
+              </p>
               <p className="text-xl font-bold">
                 {performance_summary.total_nodes}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Connections</p>
+              <p className="text-sm text-gray-600">
+                {t("stats-total-connections")}
+              </p>
               <p className="text-xl font-bold">
                 {performance_summary.total_connections}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Input Node</p>
-              <p className="text-xl font-bold">{graph.input_node || "None"}</p>
+              <p className="text-sm text-gray-600">
+                {t("stats-input-node")}
+              </p>
+              <p className="text-xl font-bold">
+                {graph.input_node || t("none")}
+              </p>
             </div>
           </div>
 
@@ -229,15 +249,17 @@ export function ProcessingGraphStats({
                 size="sm"
                 variant="flat"
               >
-                {graph.is_valid ? "✓ Valid" : "✗ Invalid"}
+                {graph.is_valid ? `✓ ${t("valid")}` : `✗ ${t("invalid")}`}
               </Chip>
-              <span className="text-sm text-gray-600">Graph Structure</span>
+              <span className="text-sm text-gray-600">
+                {t("stats-graph-structure")}
+              </span>
             </div>
 
             {graph.validation_errors.length > 0 && (
               <div className="mt-2">
                 <p className="text-sm font-medium text-red-600 mb-1">
-                  Validation Errors:
+                  {t("stats-validation-errors")}:
                 </p>
                 <ul className="text-sm text-red-600 space-y-1">
                   {graph.validation_errors.map((error, index) => (

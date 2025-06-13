@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import ReactFlow, {
   Node,
   Edge,
@@ -50,6 +51,7 @@ interface ProcessingNodeData {
 
 // Custom Processing Node Component
 function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
+  const { t } = useTranslation();
   const { statistics, isBottleneck, nodeType, id } = data;
 
   const getNodeColor = () => {
@@ -102,20 +104,20 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
         {statistics && statistics.frames_processed > 0 && (
           <div className="mt-2 text-xs text-center">
             <div className="text-green-600 font-medium">
-              {statistics.frames_processed} frames
+              {statistics.frames_processed} {t("view-frames")}
             </div>
             <div className="text-blue-600">
               {ProcessingGraphUtils.formatDuration(
                 statistics.average_processing_time,
               )}{" "}
-              avg
+              {t("view-avg")}
             </div>
           </div>
         )}
 
         {isBottleneck && (
           <Chip className="mt-1" color="danger" size="sm" variant="flat">
-            Bottleneck
+            {t("view-bottleneck")}
           </Chip>
         )}
       </div>
@@ -156,6 +158,8 @@ function NodeDetailsModal({
   onClose,
   nodeData,
 }: NodeDetailsModalProps) {
+  const { t } = useTranslation();
+  
   if (!nodeData) return null;
 
   const { statistics } = nodeData;
@@ -176,7 +180,7 @@ function NodeDetailsModal({
             <div>
               <h2 className="text-xl font-bold">{nodeData.id}</h2>
               <p className="text-sm text-gray-600 font-normal">
-                {nodeData.nodeType} node
+                {t("view-modal-node-subtitle", { type: nodeData.nodeType })}
               </p>
             </div>
           </div>
@@ -186,24 +190,24 @@ function NodeDetailsModal({
           {/* Node Information */}
           <Card>
             <CardBody>
-              <h3 className="text-lg font-semibold mb-3">Node Information</h3>
+              <h3 className="text-lg font-semibold mb-3">{t("view-modal-node-information")}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Node ID</p>
+                  <p className="text-sm text-gray-600">{t("view-modal-node-id")}</p>
                   <p className="font-medium">{nodeData.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Node Type</p>
+                  <p className="text-sm text-gray-600">{t("view-modal-node-type")}</p>
                   <p className="font-medium">{nodeData.nodeType}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Output Type</p>
+                  <p className="text-sm text-gray-600">{t("view-modal-output-type")}</p>
                   <p className="font-medium">
-                    {nodeData.outputType || "Dynamic"}
+                    {nodeData.outputType || t("view-modal-dynamic")}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Input Types</p>
+                  <p className="text-sm text-gray-600">{t("view-modal-input-types")}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {nodeData.acceptsInputTypes.map((type) => (
                       <Chip key={type} size="sm" variant="flat">
@@ -222,25 +226,25 @@ function NodeDetailsModal({
               <CardBody>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold">
-                    Performance Statistics
+                    {t("view-modal-performance-statistics")}
                   </h3>
                   {isBottleneck && (
                     <Chip color="danger" variant="flat">
-                      Bottleneck ⚠️
+                      {t("view-modal-bottleneck-chip")}
                     </Chip>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Frames Processed</p>
+                    <p className="text-sm text-gray-600">{t("view-modal-frames-processed")}</p>
                     <p className="text-2xl font-bold text-blue-600">
                       {statistics.frames_processed.toLocaleString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">
-                      Average Processing Time
+                      {t("view-modal-average-processing-time")}
                     </p>
                     <p className="text-2xl font-bold text-green-600">
                       {ProcessingGraphUtils.formatDuration(
@@ -249,7 +253,7 @@ function NodeDetailsModal({
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Fastest Processing</p>
+                    <p className="text-sm text-gray-600">{t("view-modal-fastest-processing")}</p>
                     <p className="text-lg font-semibold text-green-500">
                       {ProcessingGraphUtils.formatDuration(
                         statistics.fastest_processing_time,
@@ -257,7 +261,7 @@ function NodeDetailsModal({
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Slowest Processing</p>
+                    <p className="text-sm text-gray-600">{t("view-modal-slowest-processing")}</p>
                     <p className="text-lg font-semibold text-red-500">
                       {ProcessingGraphUtils.formatDuration(
                         statistics.worst_processing_time,
@@ -271,7 +275,7 @@ function NodeDetailsModal({
                 {/* Performance Visualization */}
                 <div>
                   <p className="text-sm text-gray-600 mb-2">
-                    Processing Time Consistency
+                    {t("view-modal-processing-time-consistency")}
                   </p>
                   <div className="relative">
                     <Progress
@@ -284,15 +288,15 @@ function NodeDetailsModal({
                       }
                     />
                     <div className="flex justify-between text-xs text-gray-500">
-                      <span>Consistent</span>
-                      <span>Variable</span>
+                      <span>{t("view-modal-consistent")}</span>
+                      <span>{t("view-modal-variable")}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Total Processing Time */}
                 <div className="mt-4">
-                  <p className="text-sm text-gray-600">Total Processing Time</p>
+                  <p className="text-sm text-gray-600">{t("view-modal-total-processing-time")}</p>
                   <p className="text-lg font-semibold">
                     {ProcessingGraphUtils.formatDuration(
                       statistics.total_processing_time,
@@ -308,7 +312,7 @@ function NodeDetailsModal({
             <Card>
               <CardBody>
                 <h3 className="text-lg font-semibold mb-3">
-                  Configuration Parameters
+                  {t("view-modal-configuration-parameters")}
                 </h3>
                 <div className="space-y-2">
                   {Object.entries(nodeData.parameters).map(([key, value]) => (
@@ -329,7 +333,7 @@ function NodeDetailsModal({
 
         <ModalFooter>
           <Button color="primary" onPress={onClose}>
-            Close
+            {t("view-modal-close")}
           </Button>
         </ModalFooter>
       </ModalContent>
