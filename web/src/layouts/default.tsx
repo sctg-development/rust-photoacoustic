@@ -116,13 +116,14 @@ export default function DefaultLayout({
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
-        <Link
+        <a
           className="flex items-center mx-1"
           color="secondary"
-          href="../api/doc"
+          href="/api/doc"
+          target="_blank"
         >
           API
-        </Link>
+        </a>
       </footer>
     </div>
   );

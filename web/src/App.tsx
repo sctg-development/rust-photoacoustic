@@ -12,7 +12,7 @@ import IndexPage from "@/pages/index";
 import ApiPage from "@/pages/api";
 import PricingPage from "@/pages/pricing";
 import BlogPage from "@/pages/blog";
-import AboutPage from "@/pages/about";
+import GraphPage from "@/pages/graph";
 
 function App() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -26,7 +26,7 @@ function App() {
   if (!isAuthenticated && !isLoading) {
     // eslint-disable-next-line no-console
     console.log(
-      "User is not authenticated but auth is not loading - likely an error condition",
+      "User is not authenticated but auth is not loading - likely an error condition"
     );
 
     return (
@@ -66,7 +66,10 @@ function App() {
           element={<AuthenticationGuard component={BlogPage} />}
           path="/blog"
         />
-        <Route element={<AboutPage />} path="/about" />
+        <Route
+          element={<AuthenticationGuard component={GraphPage} />}
+          path="/graph"
+        />
         <Route element={<PageNotFound />} path="*" />
       </Routes>
     </Suspense>

@@ -25,8 +25,8 @@ export const siteConfig = () => ({
       href: "/blog",
     },
     {
-      label: i18next.t("about"),
-      href: "/about",
+      label: i18next.t("graph"),
+      href: "/graph",
     },
   ],
   navMenuItems: [
@@ -47,8 +47,8 @@ export const siteConfig = () => ({
       href: "/blog",
     },
     {
-      label: i18next.t("about"),
-      href: "/about",
+      label: i18next.t("graph"),
+      href: "/graph",
     },
   ],
   links: {

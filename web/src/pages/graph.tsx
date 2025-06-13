@@ -1,0 +1,283 @@
+import { useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
+import { Card, CardBody, CardHeader } from "@heroui/card";
+import { Button } from "@heroui/button";
+import { Spinner } from "@heroui/spinner";
+import { Alert } from "@heroui/alert";
+import { Tabs, Tab } from "@heroui/tabs";
+import { Switch } from "@heroui/switch";
+
+import {
+  getGenerixConfig,
+  GenerixConfig,
+} from "../authentication/providers/generix-config";
+
+import { SerializableProcessingGraph } from "@/types/processing-graph";
+import { useAuth, useSecuredApi } from "@/authentication";
+import { title } from "@/components/primitives";
+import DefaultLayout from "@/layouts/default";
+import { ProcessingGraphView } from "@/components/processing-graph-view";
+import { ProcessingGraphStats } from "@/components/processing-graph-stats";
+
+export default function DocsPage() {
+  const { t } = useTranslation();
+  const { getJson } = useSecuredApi();
+  const [graph, setGraph] = useState<SerializableProcessingGraph | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string>("graph");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const { user, isAuthenticated, getAccessToken } = useAuth();
+  // Configuration state - holds API endpoints and authentication details
+  const [generixConfig, setGenerixConfig] = useState(
+    null as GenerixConfig | null
+  );
+  const [accessToken, setAccessToken] = useState("" as string | null);
+
+  // Load Processing Graph function
+  const loadProcessingGraph = async () => {
+    if (!isAuthenticated || !generixConfig) {
+      console.warn(
+        "User is not authenticated or Generix config is not loaded."
+      );
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError(null);
+      const graph = (await getJson(
+        `${generixConfig.api_base_url}/graph`
+      )) as SerializableProcessingGraph;
+      setGraph(graph);
+    } catch (error) {
+      console.error("Error loading processing graph:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load processing graph"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Configuration loading effects
+  useEffect(() => {
+    /**
+     * Load Generix Configuration
+     */
+    const loadGenerixConfig = async () => {
+      const config = await getGenerixConfig();
+
+      console.log("Config is :", config);
+      setGenerixConfig(config);
+    };
+
+    /**
+     * Load Access Token
+     */
+    const loadAccessToken = async () => {
+      const token = await getAccessToken();
+
+      setAccessToken(token);
+    };
+
+    loadAccessToken();
+    loadGenerixConfig();
+  }, [getAccessToken]);
+
+  // Load graph when config is ready
+  useEffect(() => {
+    if (generixConfig && isAuthenticated) {
+      loadProcessingGraph();
+    }
+  }, [generixConfig, isAuthenticated]);
+
+  // Auto-refresh effect
+  useEffect(() => {
+    if (!autoRefresh || !generixConfig || !isAuthenticated) return;
+
+    const interval = setInterval(() => {
+      loadProcessingGraph();
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, generixConfig, isAuthenticated]);
+
+  const handleRefresh = () => {
+    setLoading(true);
+    loadProcessingGraph();
+  };
+
+  return (
+    <DefaultLayout>
+      <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+        <div className="inline-block max-w-lg text-center justify-center">
+          <h1 className={title()}>{t("graph-title")}</h1>
+        </div>
+
+        {/* Loading State */}
+        {loading && !graph && (
+          <div className="flex items-center justify-center min-h-96">
+            <div className="flex flex-col items-center gap-4">
+              <Spinner size="lg" />
+              <p className="text-gray-600">Loading processing graph...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !graph && (
+          <div className="max-w-2xl mx-auto mt-8">
+            <Alert
+              color="danger"
+              title="Failed to load processing graph"
+              description={error}
+              endContent={
+                <Button color="danger" variant="flat" onPress={handleRefresh}>
+                  Retry
+                </Button>
+              }
+            />
+          </div>
+        )}
+
+        {/* No Graph State */}
+        {!loading && !error && !graph && (
+          <div className="max-w-2xl mx-auto mt-8">
+            <Alert
+              color="warning"
+              title="No processing graph available"
+              description="No processing is currently active or no graph data is available."
+            />
+          </div>
+        )}
+
+        {/* Graph Content */}
+        {graph && (
+          <div className="container mx-auto px-4 max-w-7xl w-full">
+            {/* Controls */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <Switch
+                  isSelected={autoRefresh}
+                  onValueChange={setAutoRefresh}
+                  size="sm"
+                >
+                  Auto-refresh
+                </Switch>
+
+                <Button
+                  color="primary"
+                  variant="flat"
+                  onPress={handleRefresh}
+                  isLoading={loading}
+                >
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Status Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardBody className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {graph.performance_summary.total_nodes}
+                  </p>
+                  <p className="text-sm text-blue-800">Active Nodes</p>
+                </CardBody>
+              </Card>
+
+              <Card className="bg-green-50 border-green-200">
+                <CardBody className="text-center">
+                  <p className="text-2xl font-bold text-green-600">
+                    {graph.performance_summary.throughput_fps.toFixed(1)}
+                  </p>
+                  <p className="text-sm text-green-800">FPS</p>
+                </CardBody>
+              </Card>
+
+              <Card className="bg-purple-50 border-purple-200">
+                <CardBody className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {graph.performance_summary.average_execution_time_ms.toFixed(2)}
+                    ms
+                  </p>
+                  <p className="text-sm text-purple-800">Avg Time</p>
+                </CardBody>
+              </Card>
+
+              <Card
+                className={`${
+                  graph.is_valid
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                <CardBody className="text-center">
+                  <p
+                    className={`text-2xl font-bold ${
+                      graph.is_valid ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {graph.is_valid ? "✓" : "✗"}
+                  </p>
+                  <p
+                    className={`text-sm ${
+                      graph.is_valid ? "text-green-800" : "text-red-800"
+                    }`}
+                  >
+                    {graph.is_valid ? "Valid" : "Invalid"}
+                  </p>
+                </CardBody>
+              </Card>
+            </div>
+
+            {/* Main Content Tabs */}
+            <Tabs
+              selectedKey={selectedTab}
+              onSelectionChange={(key) => setSelectedTab(key as string)}
+              className="w-full"
+              size="lg"
+            >
+              <Tab key="graph" title="Graph View">
+                <Card className="min-h-[600px]">
+                  <CardHeader>
+                    <h2 className="text-xl font-semibold">
+                      Processing Graph Visualization
+                    </h2>
+                    <p className="text-sm text-gray-600 ml-auto">
+                      Click on any node to view detailed information
+                    </p>
+                  </CardHeader>
+                  <CardBody className="h-[600px] p-0">
+                    <ProcessingGraphView graph={graph} className="h-full" />
+                  </CardBody>
+                </Card>
+              </Tab>
+
+              <Tab key="stats" title="Performance Stats">
+                <ProcessingGraphStats graph={graph} />
+              </Tab>
+
+              <Tab key="raw" title="Raw Data">
+                <Card>
+                  <CardHeader>
+                    <h2 className="text-xl font-semibold">Raw Graph Data</h2>
+                  </CardHeader>
+                  <CardBody>
+                    <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
+                      {JSON.stringify(graph, null, 2)}
+                    </pre>
+                  </CardBody>
+                </Card>
+              </Tab>
+            </Tabs>
+          </div>
+        )}
+      </section>
+    </DefaultLayout>
+  );
+}

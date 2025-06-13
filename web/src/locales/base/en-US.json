@@ -103,5 +103,7 @@
   "analyzer": "Analyzer",
   "use-fast-stream": "Use fast stream",
   "toggle-fast-stream-mode": "Toggle fast stream mode",
-  "average-frame-size": "Frame (average size)"
+  "average-frame-size": "Frame (average size)",
+  "graph-title": "Processing graph",
+  "graph": "Graph"
 }
