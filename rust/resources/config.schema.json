@@ -528,6 +528,7 @@
                       "differential",
                       "channel_selector",
                       "channel_mixer",
+                      "gain",
                       "photoacoustic_output",
                       "record",
                       "streaming"
@@ -648,6 +649,19 @@
                             "description": "Maximum total size of all recordings in kilobytes. When exceeded, oldest files are deleted."
                           }
                         }
+                      },
+                      {
+                        "type": "object",
+                        "description": "Gain node parameters",
+                        "properties": {
+                          "value": {
+                            "type": "number",
+                            "description": "Gain value in decibels (dB). Positive values amplify, negative values attenuate."
+                          }
+                        },
+                        "required": [
+                          "value"
+                        ]
                       },
                       {
                         "type": "object",

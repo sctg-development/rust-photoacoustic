@@ -11,7 +11,7 @@ use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::nodes::{
-    ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, InputNode,
+    ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode, InputNode,
     MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode, RecordNode,
     StreamingNode, StreamingNodeRegistry,
 };
@@ -1078,6 +1078,21 @@ impl ProcessingGraph {
                     &config.id, &name, registry,
                 )))
             }
+            "gain" => {
+                // Extract gain parameters
+                let params = config
+                    .parameters
+                    .as_mapping()
+                    .ok_or_else(|| anyhow::anyhow!("Gain node requires parameters"))?;
+
+                let gain_db = params
+                    .get("value")
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| anyhow::anyhow!("Gain node requires 'value' parameter in dB"))?
+                    as f32;
+
+                Ok(Box::new(GainNode::new(config.id.clone(), gain_db)))
+            }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),
         }
     }
@@ -1456,20 +1471,6 @@ impl JsonSchema for PerformanceSummary {
             })),
             ..Default::default()
         })
-    }
-}
-
-impl fmt::Display for PerformanceSummary {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Graph: {} nodes, {} connections | Perf: {:.2}ms avg, {:.1} FPS, {:.1}% efficiency",
-            self.total_nodes,
-            self.total_connections,
-            self.average_execution_time_ms,
-            self.throughput_fps,
-            self.efficiency_percentage
-        )
     }
 }
 
@@ -2097,6 +2098,12 @@ impl SerializableProcessingGraph {
                     // Differential nodes typically don't have many parameters
                     if !parameters.contains_key("mode") {
                         parameters.insert("mode".into(), "simple".into());
+                    }
+                }
+                "gain" => {
+                    // Add default gain parameter if not present
+                    if !parameters.contains_key("value") {
+                        parameters.insert("value".into(), 0.0.into()); // 0 dB default (unity gain)
                     }
                 }
                 _ => {

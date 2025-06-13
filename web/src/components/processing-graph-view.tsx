@@ -36,6 +36,7 @@ import {
   NodeStatistics,
   ProcessingGraphUtils,
 } from "../types/processing-graph";
+
 import { StreamingNodeModal } from "./streaming-node-modal";
 
 // Custom node types
@@ -53,6 +54,33 @@ interface ProcessingNodeData {
   isBottleneck?: boolean;
   onClick: (nodeId: string, nodeData: any) => void;
 }
+
+export const getNodeIcon = (nodeType: string) => {
+  switch (nodeType) {
+    case "input":
+      return "🔆"; // Laser for laser input
+    case "filter":
+      return "🔬"; // Microscope for analysis/filtering
+    case "differential":
+      return "⚡"; // Lightning for signal processing
+    case "record":
+      return "💾"; // Disk for recording
+    case "streaming":
+      return "📡"; // Antenna for streaming
+    case "gain":
+      return "🔊"; // Speaker for amplification
+    case "channel_mixer":
+      return "🎛️"; // Control knobs for mixing
+    case "channel_selector":
+      return "🎯"; // Target for selection
+    case "photoacoustic_output":
+      return "📊"; // Chart for measurement output
+    case "output":
+      return "📤"; // Outbox for final output
+    default:
+      return "⚙️"; // Gear for processing
+  }
+};
 
 // Custom Processing Node Component
 function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
@@ -77,23 +105,6 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
     }
   };
 
-  const getNodeIcon = () => {
-    switch (nodeType) {
-      case "input":
-        return "📥";
-      case "filter":
-        return "🔧";
-      case "differential":
-        return "📊";
-      case "record":
-        return "💾";
-      case "streaming":
-        return "📡";
-      default:
-        return "⚙️";
-    }
-  };
-
   return (
     <div
       className={`px-4 py-2 shadow-lg rounded-lg border-2 bg-white min-w-[120px] cursor-pointer hover:shadow-xl transition-shadow ${getNodeColor()}`}
@@ -102,7 +113,7 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
       <Handle className="w-3 h-3" position={Position.Left} type="target" />
 
       <div className="flex flex-col items-center">
-        <div className="text-lg mb-1">{getNodeIcon()}</div>
+        <div className="text-lg mb-1">{getNodeIcon(nodeType)}</div>
         <div className="text-sm font-semibold text-center">{id}</div>
         <div className="text-xs text-gray-600 text-center">{nodeType}</div>
 
@@ -211,7 +222,7 @@ function NodeDetailsModal({
   nodeData,
 }: NodeDetailsModalProps) {
   const { t } = useTranslation();
-  
+
   if (!nodeData) return null;
 
   // For streaming and input nodes, use the special streaming modal
@@ -219,8 +230,8 @@ function NodeDetailsModal({
     return (
       <StreamingNodeModal
         isOpen={isOpen}
-        onClose={onClose}
         nodeData={nodeData}
+        onClose={onClose}
       />
     );
   }
@@ -233,13 +244,7 @@ function NodeDetailsModal({
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">
-              {nodeData.nodeType === "input"
-                ? "📥"
-                : nodeData.nodeType === "filter"
-                  ? "🔧"
-                  : "⚙️"}
-            </span>
+            <span className="text-2xl">{getNodeIcon(nodeData.nodeType)}</span>
             <div>
               <h2 className="text-xl font-bold">{nodeData.id}</h2>
               <p className="text-sm text-gray-600 font-normal">

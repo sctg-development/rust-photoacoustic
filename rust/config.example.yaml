@@ -270,6 +270,12 @@ processing:
         center_frequency: 2000.0  # Center at 2 kHz
         bandwidth: 200.0          # 200 Hz bandwidth (1900-2100 Hz passband)
 
+    # Apply gain adjustment (+3 dB amplification)
+    - id: "gain_amplifier"
+      node_type: "gain"
+      parameters:
+        value: 3.0  # +3 dB gain (approximately 1.41x amplification)
+
     - id: "streaming_bandpass_filter"
       node_type: "streaming"
       parameters: null
@@ -296,6 +302,10 @@ processing:
     - from: bandpass_filter
       to: streaming_bandpass_filter
     - from: streaming_bandpass_filter
+      to: processed_recorder
+    - from: streaming_bandpass_filter
+      to: gain_amplifier
+    - from: gain_amplifier
       to: processed_recorder
       
   performance:
