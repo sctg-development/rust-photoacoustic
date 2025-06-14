@@ -11,9 +11,9 @@ use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::nodes::{
-    ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode, InputNode,
-    MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode, RecordNode,
-    StreamingNode, StreamingNodeRegistry,
+    ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
+    InputNode, MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
+    RecordNode, StreamingNode, StreamingNodeRegistry,
 };
 use anyhow::Result;
 use log::debug;
