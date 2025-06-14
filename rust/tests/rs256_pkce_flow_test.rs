@@ -12,6 +12,7 @@ use jsonwebtoken::{Algorithm, DecodingKey};
 use log::debug;
 use regex::Regex;
 use reqwest::Url;
+use rocket::config;
 use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rust_photoacoustic::visualization::server;
@@ -19,6 +20,7 @@ use rust_photoacoustic::{config::AccessConfig, visualization::auth::jwt::JwkKeyS
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Generate a test configuration for Rocket
 fn get_test_figment() -> rocket::figment::Figment {
@@ -467,7 +469,11 @@ async fn test_rs256_pkce_flow_s256() {
         ))
         .merge(("access_config", test_access_config));
 
-    let rocket = server::build_rocket(figment, None, None, None).await;
+    let mut config = rust_photoacoustic::config::Config::default();
+    config.visualization.rs256_private_key = private_base64.clone();
+    config.visualization.rs256_public_key = public_base64.clone();
+    config.visualization.hmac_secret = test_hmac_secret.to_string();
+    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -531,7 +537,11 @@ async fn test_rs256_pkce_flow_plain() {
         ))
         .merge(("access_config", test_access_config));
 
-    let rocket = server::build_rocket(figment, None, None, None).await;
+    let mut config = rust_photoacoustic::config::Config::default();
+    config.visualization.rs256_private_key = private_base64.clone();
+    config.visualization.rs256_public_key = public_base64.clone();
+    config.visualization.hmac_secret = test_hmac_secret.to_string();
+    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -590,6 +600,11 @@ async fn test_rs256_pkce_flow() {
         // The default config includes admin / admin123 as test credentials
         let test_access_config = AccessConfig::default();
 
+        let mut config = rust_photoacoustic::config::Config::default();
+        config.visualization.rs256_private_key = private_base64.clone();
+        config.visualization.rs256_public_key = public_base64.clone();
+        config.visualization.hmac_secret = test_hmac_secret.to_string();
+
         // Initialize Rocket with RS256 keys - separate instance for each method
         let figment = get_test_figment()
             .merge(("rs256_private_key", &private_base64))
@@ -601,7 +616,8 @@ async fn test_rs256_pkce_flow() {
             ))
             .merge(("access_config", test_access_config));
 
-        let rocket = server::build_rocket(figment, None, None, None).await;
+        let rocket =
+            server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
 
         let client = rocket::local::asynchronous::Client::tracked(rocket)
             .await
@@ -625,6 +641,10 @@ async fn test_rs256_jwks_endpoint() {
     // Test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
 
+    let mut config = rust_photoacoustic::config::Config::default();
+    config.visualization.rs256_private_key = private_base64.clone();
+    config.visualization.rs256_public_key = public_base64.clone();
+    config.visualization.hmac_secret = test_hmac_secret.to_string();
     // Initialize Rocket with RS256 keys
     let figment = get_test_figment()
         .merge(("rs256_private_key", &private_base64))
@@ -637,7 +657,7 @@ async fn test_rs256_jwks_endpoint() {
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
-    let rocket = server::build_rocket(figment, None, None, None).await;
+    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -713,7 +733,11 @@ async fn test_rs256_pkce_invalid_challenge_method() {
         ))
         .merge(("access_config", test_access_config));
 
-    let rocket = server::build_rocket(figment, None, None, None).await;
+    let mut config = rust_photoacoustic::config::Config::default();
+    config.visualization.rs256_private_key = private_base64.clone();
+    config.visualization.rs256_public_key = public_base64.clone();
+    config.visualization.hmac_secret = test_hmac_secret.to_string();
+    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await

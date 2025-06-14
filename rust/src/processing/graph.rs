@@ -1423,6 +1423,30 @@ pub struct PerformanceSummary {
     pub fastest_node: Option<String>,
 }
 
+impl Into<String> for PerformanceSummary {
+    fn into(self) -> String {
+        format!(
+            "Performance Summary:\n\
+             - Total Nodes: {}\n\
+             - Total Connections: {}\n\
+             - Total Executions: {}\n\
+             - Average Execution Time: {:.2} ms\n\
+             - Throughput: {:.2} FPS\n\
+             - Efficiency: {:.2}%\n\
+             - Slowest Node: {}\n\
+             - Fastest Node: {}",
+            self.total_nodes,
+            self.total_connections,
+            self.total_executions,
+            self.average_execution_time_ms,
+            self.throughput_fps,
+            self.efficiency_percentage,
+            self.slowest_node.as_deref().unwrap_or("N/A"),
+            self.fastest_node.as_deref().unwrap_or("N/A")
+        )
+    }
+}
+
 impl JsonSchema for PerformanceSummary {
     fn schema_name() -> String {
         "PerformanceSummary".to_string()

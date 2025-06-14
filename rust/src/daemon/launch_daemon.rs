@@ -316,6 +316,7 @@ impl Daemon {
 
         let rocket = build_rocket(
             figment,
+            Arc::new(config.clone()), // Pass config as Arc for future dynamic configuration
             self.audio_stream.clone(),
             Some(Arc::clone(&self.visualization_state)),
             Some(Arc::clone(&self.streaming_registry)),

@@ -2,14 +2,14 @@
 
 use base64::{engine::general_purpose, Engine as _};
 use rocket::{
-    config::LogLevel,
+    config::{self, LogLevel},
     http::{ContentType, Status},
     local::asynchronous::Client,
 };
 use rust_photoacoustic::config::AccessConfig;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use url::Url;
 
 fn get_figment() -> rocket::figment::Figment {
@@ -101,6 +101,8 @@ async fn test_oauth2_pkce_flow() {
     // Test HMAC secret - use a longer, more secure key for testing
     let test_hmac_secret = "test-hmac-secret-key-for-testing-with-sufficient-length-32-chars";
 
+    let mut test_config = rust_photoacoustic::config::Config::default();
+    test_config.visualization.hmac_secret = test_hmac_secret.to_string();
     // Test AccessConfig with default admin user
     let test_access_config = AccessConfig::default();
 
@@ -113,8 +115,14 @@ async fn test_oauth2_pkce_flow() {
         .merge(("hmac_secret", test_hmac_secret))
         .merge(("access_config", test_access_config));
 
-    let rocket =
-        rust_photoacoustic::visualization::server::build_rocket(figment, None, None, None).await;
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(
+        figment,
+        Arc::new(test_config),
+        None,
+        None,
+        None,
+    )
+    .await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");
@@ -373,8 +381,16 @@ async fn test_oauth2_invalid_credentials() {
         .merge(("hmac_secret", test_hmac_secret))
         .merge(("access_config", test_access_config));
 
-    let rocket =
-        rust_photoacoustic::visualization::server::build_rocket(figment, None, None, None).await;
+    let mut config = rust_photoacoustic::config::Config::default();
+    config.visualization.hmac_secret = test_hmac_secret.to_string();
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(
+        figment,
+        Arc::new(config),
+        None,
+        None,
+        None,
+    )
+    .await;
     let client = Client::tracked(rocket)
         .await
         .expect("valid rocket instance");

@@ -10,7 +10,7 @@
 use super::cors::CORS;
 use super::handlers::*;
 use crate::acquisition::SharedAudioStream;
-use crate::config::{AccessConfig, GenerixConfig, VisualizationConfig};
+use crate::config::{AccessConfig, Config, GenerixConfig, VisualizationConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
 use crate::visualization::api::get::graph_statistics::*;
@@ -47,7 +47,10 @@ use std::sync::Arc;
 /// ### Parameters
 ///
 /// * `figment` - The Rocket configuration figment containing server settings
+/// * `config` - The application configuration (for future dynamic configuration support)
 /// * `audio_stream` - Optional shared audio stream for real-time audio endpoints
+/// * `visualization_state` - Optional shared visualization state for statistics
+/// * `streaming_registry` - Optional streaming node registry for audio processing
 ///
 /// ### Returns
 ///
@@ -62,17 +65,20 @@ use std::sync::Arc;
 ///
 /// ```
 /// use rocket::figment::Figment;
-/// use rust_photoacoustic::visualization::server;
+/// use std::sync::Arc;
+/// use rust_photoacoustic::{config::Config, visualization::server};
 ///
 /// async fn example() {
-///     let config = Figment::from(rocket::Config::default());
-///     let rocket = server::build_rocket(config, None, None, None).await;
+///     let figment = Figment::from(rocket::Config::default());
+///     let config = Arc::new(Config::default());
+///     let rocket = server::build_rocket(figment, config, None, None, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }
 /// ```
 pub async fn build_rocket(
     figment: Figment,
+    config: Arc<Config>,
     audio_stream: Option<Arc<SharedAudioStream>>,
     visualization_state: Option<Arc<SharedVisualizationState>>,
     streaming_registry: Option<Arc<StreamingNodeRegistry>>,
@@ -213,7 +219,8 @@ pub async fn build_rocket(
         )
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
         .manage(oxide_state)
-        .manage(jwt_validator);
+        .manage(jwt_validator)
+        .manage(config); // Add config as managed state for future dynamic configuration
 
     // Attach compression fairing if enabled in config and not using VITE_DEVELOPMENT
     // VITE_DEVELOPMENT is an environment variable for proxying Vite dev server
@@ -310,11 +317,12 @@ pub async fn build_rocket(
 /// and is primarily intended for internal unit and integration tests.
 pub fn build_rocket_test_instance() -> Rocket<Build> {
     use rocket::Config;
+    use std::sync::Arc;
 
     use crate::visualization::introspection::introspect;
 
     // Create a test configuration
-    let config = Config::figment()
+    let rocket_config = Config::figment()
         .merge(("address", "localhost"))
         .merge(("port", 0)) // Random port for tests
         .merge(("log_level", rocket::config::LogLevel::Off));
@@ -324,10 +332,10 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
     // Use a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
     // Add the test HMAC secret to the configuration
-    let config = config.merge(("hmac_secret", test_hmac_secret.to_string()));
+    let rocket_config = rocket_config.merge(("hmac_secret", test_hmac_secret.to_string()));
 
     // Create OAuth2 state with the test secret
-    let oxide_state = OxideState::preconfigured(config.clone());
+    let oxide_state = OxideState::preconfigured(rocket_config.clone());
 
     // Initialize JWT validator with the test secret
     let jwt_validator = match crate::visualization::api_auth::init_jwt_validator(
@@ -342,8 +350,11 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
         }
     };
 
+    // Create a test application config
+    let app_config = Arc::new(crate::config::Config::default());
+
     // Build Rocket instance for tests
-    rocket::custom(config)
+    rocket::custom(rocket_config)
         .attach(CORS)
         .mount(
             "/",
@@ -368,15 +379,20 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
         )
         .manage(oxide_state)
         .manage(jwt_validator)
+        .manage(app_config) // Add config as managed state
 }
 
-use rocket::{get, http::Status, serde::json::Json};
+use rocket::{get, http::Status, serde::json::Json, State};
 
 #[get("/client/generix.json", rank = 1)]
 /// Endpoint to retrieve the Generix configuration
+///
+/// This endpoint demonstrates Phase 1 of the dynamic configuration evolution.
+/// It accesses the GenerixConfig through the managed Config state instead of
+/// the GenerixConfig request guard, preparing for future dynamic configuration.
 pub async fn get_generix_config(
-    generix_config: GenerixConfig,
+    config: &State<Arc<Config>>,
 ) -> Result<Json<GenerixConfig>, Status> {
-    // This endpoint returns the Generix configuration as a JSON string
-    Ok(Json(generix_config))
+    // Access the generix config through the managed Config state
+    Ok(Json(config.generix.clone()))
 }

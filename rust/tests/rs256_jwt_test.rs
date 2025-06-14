@@ -12,9 +12,11 @@ use rocket::config::LogLevel;
 use rocket::http::{ContentType, Status};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rust_photoacoustic::config::AccessConfig;
+use rust_photoacoustic::visualization::api::get::test;
 use rust_photoacoustic::visualization::auth::jwt::JwkKeySet;
 use rust_photoacoustic::visualization::auth::jwt::JwtIssuer;
 use serde_json::Value;
+use std::sync::Arc;
 use std::sync::Once;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -182,8 +184,18 @@ async fn test_oidc_endpoints_with_rs256() {
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
-    let rocket =
-        rust_photoacoustic::visualization::server::build_rocket(figment, None, None, None).await;
+    let mut test_config = rust_photoacoustic::config::Config::default();
+    test_config.visualization.rs256_private_key = private_base64.clone();
+    test_config.visualization.rs256_public_key = public_base64.clone();
+    test_config.visualization.hmac_secret = test_hmac_secret.to_string();
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(
+        figment,
+        Arc::new(test_config),
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -265,8 +277,18 @@ async fn test_token_endpoint_with_rs256() {
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
 
-    let rocket =
-        rust_photoacoustic::visualization::server::build_rocket(figment, None, None, None).await;
+    let mut test_config = rust_photoacoustic::config::Config::default();
+    test_config.visualization.rs256_private_key = private_base64.clone();
+    test_config.visualization.rs256_public_key = public_base64.clone();
+    test_config.visualization.hmac_secret = test_hmac_secret.to_string();
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(
+        figment,
+        Arc::new(test_config),
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await

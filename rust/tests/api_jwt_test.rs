@@ -6,6 +6,7 @@ use rocket::http::Header;
 use rocket::{config::LogLevel, http::Status};
 use rust_photoacoustic::config::{AccessConfig, VisualizationConfig};
 use serde_json::Value;
+use std::sync::Arc;
 
 fn get_figment() -> rocket::figment::Figment {
     rocket::Config::figment()
@@ -18,6 +19,14 @@ fn get_figment() -> rocket::figment::Figment {
         ))
         .merge(("access_config", AccessConfig::default()))
         .merge(("visualization_config", VisualizationConfig::default()))
+}
+
+fn get_test_config() -> rust_photoacoustic::config::Config {
+    let mut config = rust_photoacoustic::config::Config::default();
+    config.visualization.port = 8080;
+    config.visualization.address = "127.0.0.1".to_string();
+    config.visualization.hmac_secret = "test-hmac-secret-key-for-testing".to_string();
+    config
 }
 
 #[rocket::async_test]
@@ -35,8 +44,10 @@ async fn test_protected_api_with_jwt() {
         .update_processing_statistics(test_stats)
         .await;
 
+    let test_config = get_test_config();
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         get_figment(),
+        Arc::new(test_config),
         None,
         Some(visualization_state),
         None,
