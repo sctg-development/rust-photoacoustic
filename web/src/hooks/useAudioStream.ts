@@ -243,7 +243,9 @@ export const useAudioStream = (
   const [frameCount, setFrameCount] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
   const [fps, setFps] = useState(0);
-  const [statistics, setStatistics] = useState<AudioStreamStatistics | null>(null);
+  const [statistics, setStatistics] = useState<AudioStreamStatistics | null>(
+    null,
+  );
   const [averageFrameSizeBytes, setAverageFrameSizeBytes] = useState(0);
 
   /**
@@ -894,8 +896,8 @@ export const useAudioStream = (
       processingEfficiency:
         stats.totalReceivedFrames > 0
           ? Math.round(
-            (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
-          )
+              (stats.totalProcessedFrames / stats.totalReceivedFrames) * 100,
+            )
           : 100,
     };
   }, []);

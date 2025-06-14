@@ -114,20 +114,17 @@ export default function AudioStreamAnalyzer({
    */
   const initializeAnalyzer = async () => {
     if (!analyzerContainerRef.current) {
-      console.warn("Cannot initialize analyzer: container not ready");
+      console.warn(t("cannot-initialize-analyzer-container-not-ready"));
 
       return;
     }
 
     if (!audioContext || !audioStreamNode) {
-      console.warn(
-        "Cannot initialize analyzer: audio context or stream node not ready",
-        {
-          hasAudioContext: !!audioContext,
-          hasAudioStreamNode: !!audioStreamNode,
-          isAudioReady,
-        },
-      );
+      console.warn(t("cannot-initialize-analyzer-audio-not-ready"), {
+        hasAudioContext: !!audioContext,
+        hasAudioStreamNode: !!audioStreamNode,
+        isAudioReady,
+      });
 
       return;
     }
@@ -135,11 +132,11 @@ export default function AudioStreamAnalyzer({
     try {
       // Clean up existing analyzer to prevent memory leaks
       if (audioAnalyzer) {
-        console.log("Cleaning up existing analyzer");
+        console.log(t("cleaning-up-existing-analyzer"));
         audioAnalyzer.destroy();
       }
 
-      console.log("Initializing analyzer with:", {
+      console.log(t("initializing-analyzer-with"), {
         sampleRate: audioContext.sampleRate,
         analyserNode: audioStreamNode.analyserNode,
         containerReady: !!analyzerContainerRef.current,
@@ -171,11 +168,11 @@ export default function AudioStreamAnalyzer({
         channelLayout: isDualChannel ? "dual-horizontal" : "single",
       });
 
-      console.log("Audio analyzer initialized successfully");
+      console.log(t("audio-analyzer-initialized-successfully"));
       setAudioAnalyzer(analyzer);
       setIsAnalyzerInitialized(true);
     } catch (error) {
-      console.error("Failed to initialize audio analyzer:", error);
+      console.error(t("failed-to-initialize-audio-analyzer"), error);
       setIsAnalyzerInitialized(false);
     }
   };
@@ -187,9 +184,9 @@ export default function AudioStreamAnalyzer({
     if (audioAnalyzer) {
       try {
         audioAnalyzer.destroy();
-        console.log("Audio analyzer cleaned up");
+        console.log(t("audio-analyzer-cleaned-up"));
       } catch (error) {
-        console.error("Error cleaning up analyzer:", error);
+        console.error(t("error-cleaning-up-analyzer"), error);
       }
       setAudioAnalyzer(null);
       setIsAnalyzerInitialized(false);
@@ -207,7 +204,7 @@ export default function AudioStreamAnalyzer({
       showAnalyzer &&
       !isAnalyzerInitialized
     ) {
-      console.log("Conditions met, initializing analyzer");
+      console.log(t("conditions-met-initializing-analyzer"));
       await initializeAnalyzer();
     }
   }, [
@@ -234,7 +231,7 @@ export default function AudioStreamAnalyzer({
       !error &&
       !manuallyDisconnectedRef.current
     ) {
-      console.log("Audio ready, auto-connecting to stream");
+      console.log(t("audio-ready-auto-connecting-to-stream"));
       connect();
     }
   }, [isAudioReady, isConnected, isConnecting, error, connect]);
@@ -260,7 +257,7 @@ export default function AudioStreamAnalyzer({
   // Effect: Handle analyzer cleanup when visibility is toggled
   useEffect(() => {
     if (!showAnalyzer && isAnalyzerInitialized) {
-      console.log("Show analyzer disabled, cleaning up analyzer");
+      console.log(t("show-analyzer-disabled-cleaning-up"));
       cleanupAnalyzer();
     }
   }, [showAnalyzer, isAnalyzerInitialized]);
@@ -269,7 +266,7 @@ export default function AudioStreamAnalyzer({
   useEffect(() => {
     return () => {
       if (isAnalyzerInitialized) {
-        console.log("Component unmounting, cleaning up analyzer");
+        console.log(t("component-unmounting-cleaning-up-analyzer"));
         cleanupAnalyzer();
       }
     };
@@ -279,7 +276,7 @@ export default function AudioStreamAnalyzer({
    * Handle Analyzer Visibility Toggle
    */
   const handleAnalyzerToggle = (visible: boolean) => {
-    console.log("Analyzer toggle:", visible);
+    console.log(t("analyzer-toggle"), visible);
     setShowAnalyzer(visible);
     if (!visible) {
       cleanupAnalyzer();
@@ -292,16 +289,16 @@ export default function AudioStreamAnalyzer({
    * Handle Audio Initialization
    */
   const handleInitializeAudio = useCallback(async () => {
-    console.log("Initialize audio button clicked");
+    console.log(t("initialize-audio-button-clicked"));
     try {
       if (onInitializeAudio) {
         await onInitializeAudio();
       } else {
         await initializeAudio();
       }
-      console.log("Audio initialization completed");
+      console.log(t("audio-initialization-completed"));
     } catch (error) {
-      console.error("Failed to initialize audio:", error);
+      console.error(t("failed-to-initialize-audio"), error);
     }
   }, [initializeAudio, onInitializeAudio]);
 

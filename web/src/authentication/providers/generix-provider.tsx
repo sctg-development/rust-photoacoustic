@@ -3,6 +3,7 @@
  * @license AGPL-3.0-or-later
  */
 
+import { useTranslation } from "react-i18next";
 import { UserManager, User, WebStorageStateStore, Log } from "oidc-client-ts";
 import { useEffect, useState } from "react";
 import { JWTPayload, jwtVerify, createRemoteJWKSet } from "jose";
@@ -25,6 +26,8 @@ export const useGenerixProvider = (
   // Active debug logging for OIDC client to help troubleshoot
   Log.setLogger(console);
   Log.setLevel(Log.DEBUG);
+
+  const { t } = useTranslation("authentication");
 
   // Use providedConfig directly (from generix.json)
   const config: AuthProviderConfig = {
@@ -65,15 +68,16 @@ export const useGenerixProvider = (
           window.location.search.includes("code=") &&
           window.location.search.includes("state=")
         ) {
-          console.log("Detected authorization callback");
+          console.log(t("detected-authorization-callback"));
 
           try {
             // Process the callback
             const user = await userManager.signinRedirectCallback();
 
             console.log(
-              "Successfully processed signinRedirectCallback",
-              user.profile.name,
+              t("successfully-processed-signin-callback", {
+                name: user.profile.name,
+              }),
             );
 
             setUser(user);
@@ -86,7 +90,7 @@ export const useGenerixProvider = (
             sessionStorage.removeItem("redirect_after_login");
             window.history.replaceState({}, document.title, redirectPath);
           } catch (callbackError) {
-            console.error("Error handling redirect callback:", callbackError);
+            console.error(t("error-handling-redirect-callback"), callbackError);
 
             // Clean URL even on error
             window.history.replaceState(
@@ -104,12 +108,12 @@ export const useGenerixProvider = (
             const currentUser = await userManager.getUser();
 
             if (currentUser && currentUser.access_token) {
-              console.log("User already logged in", currentUser);
+              console.log(t("user-already-logged-in"), currentUser);
 
               setUser(currentUser);
               setIsAuthenticated(true);
             } else {
-              console.log("No authenticated user found");
+              console.log(t("no-authenticated-user-found"));
 
               // Check if we should auto login
               const shouldAutoLogin =
@@ -119,7 +123,7 @@ export const useGenerixProvider = (
                 shouldAutoLogin &&
                 !window.location.pathname.includes("/callback")
               ) {
-                console.log("Initiating automatic login flow");
+                console.log(t("initiating-automatic-login-flow"));
 
                 // Store the current location to return after login
                 sessionStorage.setItem(
@@ -130,12 +134,12 @@ export const useGenerixProvider = (
                 // Redirect to Dex login - important to await this
                 try {
                   await userManager.signinRedirect();
-                  console.log("SigninRedirect initiated");
+                  console.log(t("signin-redirect-initiated"));
 
                   return; // Return early as we're redirecting
                 } catch (redirectError) {
                   console.error(
-                    "Error initiating signin redirect:",
+                    t("error-initiating-signin-redirect"),
                     redirectError,
                   );
                 }
@@ -145,13 +149,13 @@ export const useGenerixProvider = (
               setIsAuthenticated(false);
             }
           } catch (error) {
-            console.error("Error checking user session:", error);
+            console.error(t("error-checking-user-session"), error);
             setUser(null);
             setIsAuthenticated(false);
           }
         }
       } catch (error) {
-        console.error("Authentication error:", error);
+        console.error(t("authentication-error"), error);
       } finally {
         setIsLoading(false);
       }
@@ -161,13 +165,13 @@ export const useGenerixProvider = (
 
     // Set up event listeners for user session changes
     const addUserSignedIn = (user: User) => {
-      console.log("User signed in event received", user);
+      console.log(t("user-signed-in-event-received"), user);
       setUser(user);
       setIsAuthenticated(true);
     };
 
     const addUserSignedOut = () => {
-      console.log("User signed out event received");
+      console.log(t("user-signed-out-event-received"));
       setUser(null);
       setIsAuthenticated(false);
     };
@@ -176,23 +180,23 @@ export const useGenerixProvider = (
     userManager.events.addUserUnloaded(addUserSignedOut);
     // Also listen for token expiration
     userManager.events.addAccessTokenExpiring(() => {
-      console.log("Access token expiring soon");
+      console.log(t("access-token-expiring-soon"));
     });
     userManager.events.addAccessTokenExpired(() => {
-      console.log("Access token expired");
+      console.log(t("access-token-expired"));
     });
 
     return () => {
       userManager.events.removeUserLoaded(addUserSignedIn);
       userManager.events.removeUserUnloaded(addUserSignedOut);
-      userManager.events.removeAccessTokenExpiring(() => {});
-      userManager.events.removeAccessTokenExpired(() => {});
+      userManager.events.removeAccessTokenExpiring(() => { });
+      userManager.events.removeAccessTokenExpired(() => { });
     };
   }, [userManager]);
 
   const login = async (options?: LoginOptions): Promise<void> => {
     try {
-      console.log("Login initiated", options);
+      console.log(t("login-initiated"), options);
 
       // Store the current path to redirect back after login
       if (window.location.pathname !== "/callback") {
@@ -203,16 +207,16 @@ export const useGenerixProvider = (
       }
 
       await userManager.signinRedirect(options);
-      console.log("Redirect to authentication provider initiated");
+      console.log(t("redirect-to-authentication-provider-initiated"));
     } catch (error) {
-      console.error("Error during login:", error);
+      console.error(t("error-during-login"), error);
       throw error;
     }
   };
 
   const logout = async (options?: LogoutOptions): Promise<void> => {
     try {
-      console.log("Logout initiated", options);
+      console.log(t("logout-initiated"), options);
 
       // Clear any stored redirect paths
       sessionStorage.removeItem("redirect_after_login");
@@ -226,9 +230,9 @@ export const useGenerixProvider = (
           ).toString(),
       });
 
-      console.log("Redirect to logout initiated");
+      console.log(t("redirect-to-logout-initiated"));
     } catch (error) {
-      console.error("Error during logout:", error);
+      console.error(t("error-during-logout"), error);
       throw error;
     }
   };
@@ -240,13 +244,13 @@ export const useGenerixProvider = (
       const currentUser = await userManager.getUser();
 
       if (!currentUser || !currentUser.access_token) {
-        console.log("No access token available");
+        console.log(t("no-access-token-available"));
 
         // Token is missing - we should authenticate
         // But this might cause infinite loops if called repeatedly
         // So only redirect if it's an explicit token request (not background check)
         if (_options?.redirect !== false) {
-          console.log("Initiating login to obtain access token");
+          console.log(t("initiating-login-to-obtain-access-token"));
           login();
         }
 
@@ -258,22 +262,22 @@ export const useGenerixProvider = (
         currentUser.expires_at &&
         currentUser.expires_at < Date.now() / 1000
       ) {
-        console.log("Access token expired, attempting silent refresh");
+        console.log(t("access-token-expired-attempting-silent-refresh"));
 
         try {
           // Try to silently refresh the token
           const newUser = await userManager.signinSilent();
 
-          console.log("Silent token refresh successful");
+          console.log(t("silent-token-refresh-successful"));
 
           return newUser?.access_token || null;
         } catch (silentError) {
-          console.error("Silent token refresh failed:", silentError);
+          console.error(t("silent-token-refresh-failed"), silentError);
 
           // Silent refresh failed, redirect to login
           if (_options?.redirect !== false) {
             console.warn(
-              "Token expired and silent refresh failed. Redirecting to login.",
+              t("token-expired-silent-refresh-failed-redirecting-to-login"),
             );
             login();
           }
@@ -284,7 +288,7 @@ export const useGenerixProvider = (
 
       return currentUser.access_token;
     } catch (error) {
-      console.error("Error getting access token:", error);
+      console.error(t("error-getting-access-token"), error);
 
       return null;
     }
@@ -324,7 +328,7 @@ export const useGenerixProvider = (
 
       return false;
     } catch (error) {
-      console.error("Error checking permission:", error);
+      console.error(t("error-checking-permission"), error);
 
       return false;
     }
@@ -336,7 +340,7 @@ export const useGenerixProvider = (
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
-        throw new Error("Not authenticated");
+        throw new Error(t("not-authenticated"));
       }
 
       const response = await fetch(url, {
@@ -347,13 +351,16 @@ export const useGenerixProvider = (
 
       if (!response.ok) {
         throw new Error(
-          `HTTP error ${response.status}: ${response.statusText}`,
+          t("http-error-status-text", {
+            status: response.status,
+            statusText: response.statusText,
+          }),
         );
       }
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching JSON:", error);
+      console.error(t("error-fetching-json"), error);
       throw error;
     }
   };
@@ -363,7 +370,7 @@ export const useGenerixProvider = (
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
-        throw new Error("Not authenticated");
+        throw new Error(t("not-authenticated"));
       }
 
       const response = await fetch(url, {
@@ -377,13 +384,16 @@ export const useGenerixProvider = (
 
       if (!response.ok) {
         throw new Error(
-          `HTTP error ${response.status}: ${response.statusText}`,
+          t("http-error-status-text", {
+            status: response.status,
+            statusText: response.statusText,
+          }),
         );
       }
 
       return await response.json();
     } catch (error) {
-      console.error("Error posting JSON:", error);
+      console.error(t("error-posting-json"), error);
       throw error;
     }
   };
@@ -393,7 +403,7 @@ export const useGenerixProvider = (
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
-        throw new Error("Not authenticated");
+        throw new Error(t("not-authenticated"));
       }
 
       const response = await fetch(url, {
@@ -406,13 +416,16 @@ export const useGenerixProvider = (
 
       if (!response.ok) {
         throw new Error(
-          `HTTP error ${response.status}: ${response.statusText}`,
+          t("http-error-status-text", {
+            status: response.status,
+            statusText: response.statusText,
+          }),
         );
       }
 
       return await response.json();
     } catch (error) {
-      console.error("Error deleting JSON:", error);
+      console.error(t("error-deleting-json"), error);
       throw error;
     }
   };
@@ -420,11 +433,11 @@ export const useGenerixProvider = (
   // Map OIDC user to common AuthUser format
   const authUser: AuthUser | null = user
     ? {
-        name: user.profile.name,
-        nickname: user.profile.nickname || user.profile.preferred_username,
-        email: user.profile.email,
-        ...user.profile,
-      }
+      name: user.profile.name,
+      nickname: user.profile.nickname || user.profile.preferred_username,
+      email: user.profile.email,
+      ...user.profile,
+    }
     : null;
 
   return {

@@ -76,7 +76,10 @@ export function StreamingNodeModal({
     }
   };
 
-  if (!nodeData || (nodeData.nodeType !== "streaming" && nodeData.nodeType !== "input")) {
+  if (
+    !nodeData ||
+    (nodeData.nodeType !== "streaming" && nodeData.nodeType !== "input")
+  ) {
     return null;
   }
 
@@ -110,7 +113,9 @@ export function StreamingNodeModal({
     if (nodeData.nodeType === "input") {
       return {
         subtitle: t("streaming-modal-input-subtitle", { name: streamName }),
-        liveAudioTitle: t("streaming-modal-input-live-audio", { name: streamName }),
+        liveAudioTitle: t("streaming-modal-input-live-audio", {
+          name: streamName,
+        }),
       };
     } else {
       return {
@@ -127,12 +132,12 @@ export function StreamingNodeModal({
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{nodeData.nodeType === "input" ? "📥" : "📡"}</span>
+            <span className="text-2xl">
+              {nodeData.nodeType === "input" ? "📥" : "📡"}
+            </span>
             <div>
               <h2 className="text-xl font-bold">{nodeData.id}</h2>
-              <p className="text-sm text-gray-600 font-normal">
-                {subtitle}
-              </p>
+              <p className="text-sm text-gray-600 font-normal">{subtitle}</p>
             </div>
           </div>
         </ModalHeader>
@@ -153,10 +158,9 @@ export function StreamingNodeModal({
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">
-                    {nodeData.nodeType === "input" 
+                    {nodeData.nodeType === "input"
                       ? t("streaming-modal-input-name")
-                      : t("streaming-modal-stream-name")
-                    }
+                      : t("streaming-modal-stream-name")}
                   </p>
                   <p className="font-medium">{streamName}</p>
                 </div>
@@ -260,10 +264,10 @@ export function StreamingNodeModal({
                 <div className="space-y-2 text-sm">
                   <div>
                     <p className="text-gray-600">
-                      {nodeData.nodeType === "input" 
+                      {nodeData.nodeType === "input"
                         ? t("streaming-modal-stream-url")
-                        : t("streaming-modal-websocket-url")
-                      }:
+                        : t("streaming-modal-websocket-url")}
+                      :
                     </p>
                     <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
                       {streamUrl}

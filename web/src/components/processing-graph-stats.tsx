@@ -70,9 +70,7 @@ export function ProcessingGraphStats({
               <p className="text-2xl font-bold text-orange-600">
                 {performance_summary.efficiency_percentage.toFixed(1)}%
               </p>
-              <p className="text-sm text-gray-600">
-                {t("stats-efficiency")}
-              </p>
+              <p className="text-sm text-gray-600">{t("stats-efficiency")}</p>
             </div>
           </div>
 
@@ -125,7 +123,9 @@ export function ProcessingGraphStats({
               </Chip>
             </div>
             <p className="text-sm">
-              {t("stats-bottleneck-message", { node: performance_summary.slowest_node })}
+              {t("stats-bottleneck-message", {
+                node: performance_summary.slowest_node,
+              })}
             </p>
           </CardBody>
         </Card>
@@ -220,9 +220,7 @@ export function ProcessingGraphStats({
         <CardBody>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
-              <p className="text-sm text-gray-600">
-                {t("stats-total-nodes")}
-              </p>
+              <p className="text-sm text-gray-600">{t("stats-total-nodes")}</p>
               <p className="text-xl font-bold">
                 {performance_summary.total_nodes}
               </p>
@@ -236,9 +234,7 @@ export function ProcessingGraphStats({
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">
-                {t("stats-input-node")}
-              </p>
+              <p className="text-sm text-gray-600">{t("stats-input-node")}</p>
               <p className="text-xl font-bold">
                 {graph.input_node || t("none")}
               </p>

@@ -40,9 +40,7 @@ export default function DocsPage() {
   // Load Processing Graph function
   const loadProcessingGraph = async () => {
     if (!isAuthenticated || !generixConfig) {
-      console.warn(
-        "User is not authenticated or Generix config is not loaded.",
-      );
+      console.warn(t("user-not-authenticated-or-config-not-loaded"));
       setLoading(false);
 
       return;
@@ -56,11 +54,9 @@ export default function DocsPage() {
 
       setGraph(graph);
     } catch (error) {
-      console.error("Error loading processing graph:", error);
+      console.error(t("error-loading-processing-graph"), error);
       setError(
-        error instanceof Error
-          ? error.message
-          : t("graph-failed-to-load"),
+        error instanceof Error ? error.message : t("graph-failed-to-load"),
       );
     } finally {
       setLoading(false);
@@ -75,7 +71,7 @@ export default function DocsPage() {
     const loadGenerixConfig = async () => {
       const config = await getGenerixConfig();
 
-      console.log("Config is :", config);
+      console.log(t("config-is"), config);
       setGenerixConfig(config);
     };
 
@@ -199,8 +195,8 @@ export default function DocsPage() {
                   <p className="text-2xl font-bold text-purple-600">
                     {graph.performance_summary.average_execution_time_ms.toFixed(
                       2,
-                    )}
-                    ms
+                    )}{" "}
+                    {t("ms")}
                   </p>
                   <p className="text-sm text-purple-800">{t("avg-time")}</p>
                 </CardBody>
@@ -262,7 +258,9 @@ export default function DocsPage() {
               <Tab key="raw" title={t("raw-data")}>
                 <Card>
                   <CardHeader>
-                    <h2 className="text-xl font-semibold">{t("raw-graph-data")}</h2>
+                    <h2 className="text-xl font-semibold">
+                      {t("raw-graph-data")}
+                    </h2>
                   </CardHeader>
                   <CardBody>
                     <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
