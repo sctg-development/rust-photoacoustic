@@ -438,23 +438,24 @@ processing:
     id: "photoacoustic_pipeline"
     nodes:
       - id: "input"
-        type: "input"
+        node_type: "input"
+        parameters: null
         
       - id: "bandpass_filter"
-        type: "filter"
+        node_type: "filter"
         parameters:
-          filter_type: "bandpass"
+          type: "bandpass"
           center_frequency: 1000.0
           bandwidth: 100.0
           target_channel: "Both"
+          order: 4
           
       - id: "differential"
-        type: "differential"
-        parameters:
-          calculator_type: "simple"
+        node_type: "differential"
+        parameters: null
           
       - id: "photoacoustic_output"
-        type: "photoacoustic_output"
+        node_type: "photoacoustic_output"
         parameters:
           detection_threshold: 0.05
           analysis_window_size: 2048
@@ -483,7 +484,17 @@ let config = ProcessingGraphConfig {
         NodeConfig {
             id: "input".to_string(),
             node_type: "input".to_string(),
-            parameters: serde_yml::Value::Null,
+            parameters: serde_json::Value::Null,
+        },
+        NodeConfig {
+            id: "filter".to_string(),
+            node_type: "filter".to_string(),
+            parameters: serde_json::json!({
+                "type": "bandpass",
+                "center_frequency": 1000.0,
+                "bandwidth": 100.0,
+                "target_channel": "Both"
+            }),
         },
         // ... more nodes
     ],
