@@ -13,7 +13,6 @@ use crate::acquisition::SharedAudioStream;
 use crate::config::{Config, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
-use crate::visualization::api::get::config::get_config;
 use crate::visualization::api::get::graph_statistics::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
@@ -146,7 +145,7 @@ pub async fn build_rocket(
     let rocket_builder = rocket::custom(figment).attach(CORS);
 
     // Add config routes
-    let (openapi_routes_config, openapi_spec_config) = openapi_get_routes_spec![get_config,];
+    let (openapi_routes_config, openapi_spec_config) = get_config_routes();
     let rocket_builder = rocket_builder.mount("/", openapi_routes_config); // Add config as managed state
                                                                            // Add visualization state if available (before mounting routes that need it)
 
@@ -194,7 +193,7 @@ pub async fn build_rocket(
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
         .manage(oxide_state)
         .manage(jwt_validator)
-        .manage(config); // Add config as managed state for future dynamic configuration
+        .manage(config.clone()); // Add config as managed state for future dynamic configuration
 
     // Attach compression fairing if enabled in config and not using VITE_DEVELOPMENT
     // VITE_DEVELOPMENT is an environment variable for proxying Vite dev server

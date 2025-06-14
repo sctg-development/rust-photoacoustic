@@ -440,27 +440,3 @@ impl Config {
         }
     }
 }
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for &'r Config {
-    type Error = ();
-
-    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        match req.guard::<&State<Config>>().await {
-            Outcome::Success(config_state) => Outcome::Success(config_state.inner()),
-            Outcome::Error(e) => Outcome::Error((rocket::http::Status::InternalServerError, ())),
-            Outcome::Forward(f) => Outcome::Forward(f),
-        }
-    }
-}
-
-impl<'r> OpenApiFromRequest<'r> for &'r Config {
-    fn from_request_input(
-        _gen: &mut OpenApiGenerator,
-        _name: String,
-        _required: bool,
-    ) -> rocket_okapi::Result<rocket_okapi::request::RequestHeaderInput> {
-        // Config is injected from application state, not from request headers/body
-        Ok(rocket_okapi::request::RequestHeaderInput::None)
-    }
-}
