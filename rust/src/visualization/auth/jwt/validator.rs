@@ -335,11 +335,21 @@ impl JwtValidator {
             validation.set_issuer(&[issuer]);
         }
 
-        // Get expected audience from config or set a default
-        let expected_audience = Some("LaserSmartClient"); // TODO: replace with config if needed
-        if let Some(ref aud) = expected_audience {
-            debug!("Validating audience: {}", aud);
-            validation.set_audience(&[aud]);
+        // Extract all valid audiences from the access config
+        let audiences: Vec<String> = self
+            .access_config
+            .clients
+            .iter()
+            .map(|client| client.client_id.clone())
+            .collect();
+
+        // Use configured audiences for validation
+        if !audiences.is_empty() {
+            debug!("Validating against configured audiences: {:?}", audiences);
+            let audience_refs: Vec<&str> = audiences.iter().map(|s| s.as_str()).collect();
+            validation.set_audience(&audience_refs);
+        } else {
+            debug!("No audiences configured, skipping audience validation");
         }
 
         let token_data = decode::<JwtClaims>(token, key, &validation).map_err(|e| {
