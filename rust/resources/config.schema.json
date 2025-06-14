@@ -641,14 +641,14 @@
                             "type": "string",
                             "description": "Path to the output recording file"
                           },
-                          "max_size_kb": {
+                          "max_size": {
                             "type": "integer",
                             "minimum": 1,
                             "description": "Maximum size per recording file in kilobytes"
                           },
                           "auto_delete": {
                             "type": "boolean",
-                            "description": "Whether to automatically delete files when max_size_kb is reached"
+                            "description": "Whether to automatically delete files when max_size (kb) is reached"
                           },
                           "total_limit": {
                             "type": "integer",
