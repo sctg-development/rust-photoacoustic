@@ -156,5 +156,3 @@ fn test_processing_graph() -> Result<()> {
 
     Ok(())
 }
-    Ok(())
-}
