@@ -10,7 +10,7 @@
 use super::cors::CORS;
 use super::handlers::*;
 use crate::acquisition::SharedAudioStream;
-use crate::config::{AccessConfig, Config, GenerixConfig, VisualizationConfig};
+use crate::config::{Config, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
 use crate::visualization::api::get::graph_statistics::*;
@@ -24,14 +24,13 @@ use crate::visualization::shared_state::SharedVisualizationState;
 use crate::visualization::streaming::AudioStreamState;
 use crate::visualization::streaming::*;
 use crate::visualization::vite_dev_proxy;
-use anyhow::Context;
 use base64::Engine;
 use log::{debug, info, warn};
 use rocket::figment::Figment;
 use rocket::{routes, Route};
 use rocket::{Build, Rocket};
-use rocket_async_compression::{CachedCompression, Compression};
-use rocket_okapi::okapi::merge::{self, marge_spec_list};
+use rocket_async_compression::CachedCompression;
+use rocket_okapi::okapi::merge::marge_spec_list;
 use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::settings::OpenApiSettings;
 use rocket_okapi::{get_openapi_route, openapi_get_routes_spec};
@@ -83,66 +82,49 @@ pub async fn build_rocket(
     visualization_state: Option<Arc<SharedVisualizationState>>,
     streaming_registry: Option<Arc<StreamingNodeRegistry>>,
 ) -> Rocket<Build> {
-    let hmac_secret = figment
-        .extract_inner::<String>("hmac_secret")
-        .context("Missing HMAC secret in config")
-        .unwrap();
-    let access_config: AccessConfig = figment
-        .extract_inner::<AccessConfig>("access_config")
-        .context("Missing access in figment")
-        .unwrap();
-    let compression_config = figment
-        .extract_inner::<VisualizationConfig>("visualization_config")
-        .context("Missing visualization_config in figment")
-        .unwrap()
-        .enable_compression;
+    // Load hmac secret from config
+    let hmac_secret = config.visualization.hmac_secret.clone();
+
+    // Load access configuration from config
+    let access_config = config.access.clone();
+
+    // Load compression configuration from config
+    let compression_config = config.visualization.enable_compression;
 
     // Create OAuth2 state with the HMAC secret from config
     let mut oxide_state = OxideState::preconfigured(figment.clone());
 
-    // Extract RS256 keys from figment if present
-    if let Ok(private_key) = figment.extract_inner::<String>("rs256_private_key") {
-        oxide_state.rs256_private_key = private_key;
-    }
+    // Extract RS256 keys from config
+    oxide_state.rs256_private_key = config.visualization.rs256_private_key.clone();
 
-    // Extract the Generix configuration from the figment key generix_config
-    if let Ok(generix_config) = figment.extract_inner::<GenerixConfig>("generix_config") {
-        oxide_state.generix_config = generix_config;
-    }
+    // Extract Generix configuration from config
+    oxide_state.generix_config = config.generix.clone();
 
-    if let Ok(public_key) = figment.extract_inner::<String>("rs256_public_key") {
-        oxide_state.rs256_public_key = public_key;
+    oxide_state.rs256_public_key = config.visualization.rs256_public_key.clone();
 
-        // If we have RS256 keys, update the JWT issuer
-        if !oxide_state.rs256_public_key.is_empty() && !oxide_state.rs256_private_key.is_empty() {
-            if let Ok(decoded_private) =
-                base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_private_key)
+    // If we have RS256 keys, update the JWT issuer
+    if !oxide_state.rs256_public_key.is_empty() && !oxide_state.rs256_private_key.is_empty() {
+        if let Ok(decoded_private) =
+            base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_private_key)
+        {
+            if let Ok(decoded_public) =
+                base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key)
             {
-                if let Ok(decoded_public) =
-                    base64::engine::general_purpose::STANDARD.decode(&oxide_state.rs256_public_key)
-                {
-                    // Create a new JWT issuer with RS256 keys
-                    if let Ok(mut jwt_issuer) = crate::visualization::jwt::JwtIssuer::with_rs256_pem(
-                        &decoded_private,
-                        &decoded_public,
-                    ) {
-                        let duration: chrono::TimeDelta = chrono::TimeDelta::seconds(
-                            access_config.duration.or(Some(86400)).unwrap(),
-                        );
-                        jwt_issuer.valid_for(duration);
-                        oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
-                    }
+                // Create a new JWT issuer with RS256 keys
+                if let Ok(mut jwt_issuer) = crate::visualization::jwt::JwtIssuer::with_rs256_pem(
+                    &decoded_private,
+                    &decoded_public,
+                ) {
+                    let duration: chrono::TimeDelta =
+                        chrono::TimeDelta::seconds(access_config.duration.or(Some(86400)).unwrap());
+                    jwt_issuer.valid_for(duration);
+                    oxide_state.issuer = std::sync::Arc::new(std::sync::Mutex::new(jwt_issuer));
                 }
             }
         }
     }
 
-    // Extract user access configuration from figment
-    if let Ok(access_config) = figment.extract_inner::<AccessConfig>("access_config") {
-        oxide_state.access_config = access_config;
-    } else {
-        log::error!("Access config not found in figment");
-    }
+    oxide_state.access_config = access_config.clone();
 
     // Initialize JWT validator - try to use RS256 if keys are available, otherwise use HMAC secret
     let rs256_public_key_bytes = if !oxide_state.rs256_public_key.is_empty() {
@@ -157,9 +139,6 @@ pub async fn build_rocket(
         None
     };
 
-    let access_config = figment
-        .extract_inner::<AccessConfig>("access_config")
-        .expect("Failed to extract config from Rocket");
     // Initialize JWT validator with RS256 public key if available, otherwise use HMAC
     let jwt_validator = match crate::visualization::api_auth::init_jwt_validator(
         hmac_secret.clone().as_str(),
@@ -327,7 +306,7 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
         .merge(("port", 0)) // Random port for tests
         .merge(("log_level", rocket::config::LogLevel::Off));
 
-    let access_config = AccessConfig::default();
+    let access_config = crate::config::AccessConfig::default();
 
     // Use a test HMAC secret
     let test_hmac_secret = "test-hmac-secret-key-for-testing";
