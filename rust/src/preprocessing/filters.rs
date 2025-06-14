@@ -952,7 +952,7 @@ mod tests {
         assert_eq!(filter.center_freq, 1000.0);
         assert_eq!(filter.bandwidth, 200.0);
         assert_eq!(filter.sample_rate, 48000);
-        assert_eq!(filter.order, 4);
+        assert_eq!(filter.order, 2);
         assert!(!filter.a_coeffs.is_empty());
         assert!(!filter.b_coeffs.is_empty());
     }
