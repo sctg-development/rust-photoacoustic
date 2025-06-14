@@ -4,7 +4,6 @@
 
 use rust_photoacoustic::config::processing::*;
 use rust_photoacoustic::processing::ProcessingGraph;
-use serde_yml;
 
 #[test]
 fn test_highpass_filter_from_config() {
@@ -14,16 +13,15 @@ fn test_highpass_filter_from_config() {
             NodeConfig {
                 id: "input".to_string(),
                 node_type: "input".to_string(),
-                parameters: serde_yml::Value::Null,
+                parameters: serde_json::Value::Null,
             },
             NodeConfig {
                 id: "highpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-                    ("type".into(), "highpass".into()),
-                    ("cutoff_frequency".into(), 100.0.into()),
-                ]))
-                .unwrap(),
+                parameters: serde_json::json!({
+                    "type": "highpass",
+                    "cutoff_frequency": 100.0
+                }),
             },
         ],
         connections: vec![ConnectionConfig {
@@ -50,16 +48,15 @@ fn test_lowpass_filter_from_config() {
             NodeConfig {
                 id: "input".to_string(),
                 node_type: "input".to_string(),
-                parameters: serde_yml::Value::Null,
+                parameters: serde_json::Value::Null,
             },
             NodeConfig {
                 id: "lowpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-                    ("type".into(), "lowpass".into()),
-                    ("cutoff_frequency".into(), 5000.0.into()),
-                ]))
-                .unwrap(),
+                parameters: serde_json::json!({
+                    "type": "lowpass",
+                    "cutoff_frequency": 5000.0
+                }),
             },
         ],
         connections: vec![ConnectionConfig {
@@ -86,35 +83,32 @@ fn test_filter_chain_from_config() {
             NodeConfig {
                 id: "input".to_string(),
                 node_type: "input".to_string(),
-                parameters: serde_yml::Value::Null,
+                parameters: serde_json::Value::Null,
             },
             NodeConfig {
                 id: "highpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-                    ("type".into(), "highpass".into()),
-                    ("cutoff_frequency".into(), 100.0.into()),
-                ]))
-                .unwrap(),
+                parameters: serde_json::json!({
+                    "type": "highpass",
+                    "cutoff_frequency": 100.0
+                }),
             },
             NodeConfig {
                 id: "bandpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-                    ("type".into(), "bandpass".into()),
-                    ("center_frequency".into(), 2000.0.into()),
-                    ("bandwidth".into(), 200.0.into()),
-                ]))
-                .unwrap(),
+                parameters: serde_json::json!({
+                    "type": "bandpass",
+                    "center_frequency": 2000.0,
+                    "bandwidth": 200.0
+                }),
             },
             NodeConfig {
                 id: "lowpass".to_string(),
                 node_type: "filter".to_string(),
-                parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-                    ("type".into(), "lowpass".into()),
-                    ("cutoff_frequency".into(), 5000.0.into()),
-                ]))
-                .unwrap(),
+                parameters: serde_json::json!({
+                    "type": "lowpass",
+                    "cutoff_frequency": 5000.0
+                }),
             },
         ],
         connections: vec![
