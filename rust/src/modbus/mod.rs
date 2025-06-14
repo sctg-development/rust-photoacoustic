@@ -20,10 +20,15 @@
 //! ```no_run
 //! use rust_photoacoustic::config::Config;
 //! use rust_photoacoustic::daemon::launch_daemon::Daemon;
+//! use std::sync::Arc;
 //!
+//! # async fn example() -> anyhow::Result<()> {
 //! let config = Config::default();
+//! let config_arc = Arc::new(config);
 //! let mut daemon = Daemon::new();
-//! daemon.launch(&config); //  might await
+//! daemon.launch(config_arc).await?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Register Map

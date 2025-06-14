@@ -13,13 +13,15 @@
 //!
 //! ```no_run
 //! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
+//! use std::sync::Arc;
 //!
 //! async fn run() -> anyhow::Result<()> {
 //!     let config = Config::from_file("config.yaml")?;
+//!     let config_arc = Arc::new(config);
 //!     
 //!     // Create and launch daemon
 //!     let mut daemon = Daemon::new();
-//!     daemon.launch(&config).await?;
+//!     daemon.launch(config_arc).await?;
 //!     
 //!     // Wait for shutdown signal (e.g., Ctrl+C)
 //!     tokio::signal::ctrl_c().await?;

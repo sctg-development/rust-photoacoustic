@@ -4,7 +4,7 @@
 
 //! # Daemon Management Module
 //!
-//! This module provides functionality for running and manageing background
+//! This module provides functionality for running and managing background
 //! tasks (daemons) in the photoacoustic application. It handles the lifecycle of various
 //! services including:
 //!
@@ -19,19 +19,22 @@
 //!
 //! The daemon system uses Tokio's asynchronous runtime to manage concurrent tasks.
 //! Each service runs as an independent task, and the main daemon structure tracks
-//! and coordinates these tasks.
+//! and coordinates these tasks. The daemon maintains a shared `Arc<Config>` that
+//! provides dynamic configuration access to all components.
 //!
 //! ## Usage
 //!
 //! ```no_run
 //! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
+//! use std::sync::Arc;
 //!
 //! async fn example() -> anyhow::Result<()> {
 //!     let config = Config::from_file("config.yaml")?;
+//!     let config_arc = Arc::new(config);
 //!     
 //!     // Create and launch daemon with all enabled services
 //!     let mut daemon = Daemon::new();
-//!     daemon.launch(&config).await?;
+//!     daemon.launch(config_arc).await?;
 //!     
 //!     // Later, trigger a graceful shutdown
 //!     daemon.shutdown();
@@ -59,8 +62,8 @@ use tokio::time;
 use crate::acquisition::record_consumer::RecordConsumer;
 use crate::acquisition::{
     get_default_realtime_audio_source, get_realtime_audio_source_from_device,
-    get_realtime_audio_source_from_file, get_realtime_mock_audio_source,
-    get_realtime_simulated_photoacoustic_source, RealTimeAcquisitionDaemon, SharedAudioStream,
+    get_realtime_audio_source_from_file, get_realtime_simulated_photoacoustic_source,
+    RealTimeAcquisitionDaemon, SharedAudioStream,
 };
 use crate::processing::nodes::StreamingNodeRegistry;
 use crate::processing::{ProcessingConsumer, ProcessingGraph};
@@ -86,12 +89,16 @@ use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
 ///
 /// * `tasks` - Collection of handles to running tasks for management and cleanup
 /// * `running` - Atomic flag shared between tasks to coordinate shutdown
+/// * `config` - Shared configuration (`Arc<Config>`) providing dynamic access for all components
 ///
 /// ### Thread Safety
 ///
 /// The `running` flag is wrapped in an `Arc` (Atomic Reference Counter) to allow
 /// safe sharing between multiple tasks. Each task checks this flag periodically
 /// to determine if it should continue running or gracefully terminate.
+///
+/// The `config` is also wrapped in an `Arc` to enable efficient sharing of configuration
+/// data across all daemon components while supporting future dynamic configuration updates.
 ///
 /// The `data_source` provides measurement data that can be accessed by multiple
 /// components including the web API, visualizations, and Modbus server.
@@ -128,8 +135,9 @@ impl Default for Daemon {
 impl Daemon {
     /// Create a new daemon instance
     ///
-    /// Initializes a new daemon manager with an empty task list and the
-    /// running flag set to `true`.
+    /// Initializes a new daemon manager with an empty task list, the running flag
+    /// set to `true`, and a default configuration that will be replaced when
+    /// `launch()` is called with the actual configuration.
     ///
     /// ### Returns
     ///
@@ -141,7 +149,7 @@ impl Daemon {
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
     /// let daemon = Daemon::new();
-    /// // Daemon is now ready to launch tasks
+    /// // Daemon is now ready to launch tasks with a configuration
     /// ```
     pub fn new() -> Self {
         Daemon {
@@ -162,17 +170,23 @@ impl Daemon {
     /// Launch all configured tasks based on configuration
     ///
     /// Starts the various daemon services according to the provided configuration.
-    /// Only services that are enabled in the configuration will be started.
-    /// Each service runs as a separate asynchronous task.
+    /// The configuration is stored internally as `Arc<Config>` and shared with all
+    /// spawned tasks to enable dynamic configuration access. Only services that are
+    /// enabled in the configuration will be started. Each service runs as a separate
+    /// asynchronous task.
     ///
     /// The following services may be started:
     /// * Visualization web server - If `config.visualization.enabled` is `true`
     /// * Data acquisition - If `config.acquisition.enabled` is `true`
+    /// * Processing consumer - If `config.processing.enabled` is `true`
+    /// * Modbus server - If `config.modbus.enabled` is `true`
+    /// * Record consumer - If `config.photoacoustic.record_consumer` is `true`
     /// * Heartbeat monitoring - Always started for system health monitoring
     ///
     /// ### Parameters
     ///
-    /// * `config` - Application configuration containing service settings
+    /// * `config` - Application configuration as `Arc<Config>` for shared access
+    ///   across all daemon components, enabling dynamic configuration support.
     ///
     /// ### Returns
     ///
@@ -184,54 +198,57 @@ impl Daemon {
     /// * The web server fails to bind to the specified port
     /// * Certificate decoding fails for TLS
     /// * Data acquisition initialization fails
+    /// * Processing graph configuration is invalid
     ///
     /// ### Examples
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
+    /// use std::sync::Arc;
     ///
     /// async fn start_daemon() -> anyhow::Result<Daemon> {
     ///     let config = Config::from_file("config.yaml")?;
+    ///     let config_arc = Arc::new(config);
     ///     let mut daemon = Daemon::new();
-    ///     daemon.launch(&config).await?;
+    ///     daemon.launch(config_arc).await?;
     ///     Ok(daemon)
     /// }
     /// ```
-    pub async fn launch(&mut self, config: &Config) -> Result<()> {
+    pub async fn launch(&mut self, config: Arc<Config>) -> Result<()> {
         // Store the config as a shared Arc for dynamic configuration support
-        self.config = Arc::new(config.clone());
+        self.config = config;
 
         // Démarrer l'acquisition audio AVANT le serveur web
-        self.start_audio_acquisition(config).await?;
+        self.start_audio_acquisition().await?;
 
         // Start record consumer if enabled
-        if config.photoacoustic.record_consumer {
-            self.start_record_consumer(config).await?;
+        if self.config.photoacoustic.record_consumer {
+            self.start_record_consumer().await?;
         }
 
         // Start processing consumer if enabled
-        if config.processing.enabled {
-            self.start_processing_consumer(config).await?;
+        if self.config.processing.enabled {
+            self.start_processing_consumer().await?;
         }
 
         // Start web server if enabled
-        if config.visualization.enabled {
-            self.start_visualization_server(config).await?;
+        if self.config.visualization.enabled {
+            self.start_visualization_server().await?;
         }
 
         // Start data acquisition task if enabled
-        if config.acquisition.enabled {
-            self.start_auxiliary_data_acquisition(config)?;
+        if self.config.acquisition.enabled {
+            self.start_auxiliary_data_acquisition()?;
         }
 
         // Start modbus server if enabled
-        if config.modbus.enabled {
-            self.start_modbus_server(config).await?;
+        if self.config.modbus.enabled {
+            self.start_modbus_server().await?;
         }
 
         // Start computation task if enabled
         if true {
-            self.start_photoacoustic_computation(config)?;
+            self.start_photoacoustic_computation()?;
         }
         // Add additional tasks here as needed
 
@@ -244,15 +261,12 @@ impl Daemon {
     /// Start the Rocket web server for visualization
     ///
     /// Initializes and launches a Rocket web server for the visualization interface.
-    /// The server is configured according to the provided configuration, including
-    /// address, port, and optional TLS settings.
+    /// The server is configured according to the shared `Arc<Config>` stored in the daemon,
+    /// including address, port, and optional TLS settings.
     ///
     /// This method spawns an asynchronous task that runs the web server in the background.
     /// The server will continue running until the daemon's `running` flag is set to `false`.
-    ///
-    /// ### Parameters
-    ///
-    /// * `config` - Application configuration containing web server settings
+    /// The server has access to the shared configuration for dynamic updates.
     ///
     /// ### Returns
     ///
@@ -264,7 +278,7 @@ impl Daemon {
     /// * TLS certificate decoding fails
     /// * The server fails to bind to the specified address/port
     /// * The Rocket server fails to initialize for any other reason
-    async fn start_visualization_server(&mut self, _config: &Config) -> Result<()> {
+    async fn start_visualization_server(&mut self) -> Result<()> {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
 
@@ -336,18 +350,15 @@ impl Daemon {
         Ok(())
     }
 
-    /// Start the data acquisition task for collecting auxiliaries measurements
+    /// Start the data acquisition task for collecting auxiliary measurements
     ///
     /// Initializes and launches a background task that periodically acquires data
     /// from the configured sensors. This task runs on a fixed interval and continues
-    /// until the daemon's `running` flag is set to `false`.
+    /// until the daemon's `running` flag is set to `false`. The task uses the shared
+    /// `Arc<Config>` for accessing acquisition settings.
     ///
     /// In a complete implementation, this would integrate with hardware sensors
     /// via the acquisition module to collect real-time photoacoustic data.
-    ///
-    /// ### Parameters
-    ///
-    /// * `config` - Application configuration containing acquisition settings
     ///
     /// ### Returns
     ///
@@ -359,8 +370,10 @@ impl Daemon {
     /// * The acquisition hardware is not available
     /// * Sensor initialization fails
     /// * Task spawning fails
-    fn start_auxiliary_data_acquisition(&mut self, config: &Config) -> Result<()> {
+    fn start_auxiliary_data_acquisition(&mut self) -> Result<()> {
         info!("Starting auxliary data acquisition task");
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
 
         let running = self.running.clone();
         let _config = config.clone();
@@ -378,8 +391,10 @@ impl Daemon {
         Ok(())
     }
 
-    fn start_photoacoustic_computation(&mut self, config: &Config) -> Result<()> {
+    fn start_photoacoustic_computation(&mut self) -> Result<()> {
         info!("Starting photoacoustic computation task");
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
 
         let running = self.running.clone();
         let data_source_clone = self.data_source.clone();
@@ -452,14 +467,11 @@ impl Daemon {
     ///
     /// Initializes and launches a Modbus TCP server that allows external systems
     /// to access photoacoustic data using the Modbus protocol. The server is
-    /// configured according to the provided configuration, including address and port.
+    /// configured according to the shared `Arc<Config>` stored in the daemon,
+    /// including address and port settings.
     ///
     /// This method spawns an asynchronous task that runs the Modbus server in the background.
     /// The server will continue running until the daemon's `running` flag is set to `false`.
-    ///
-    /// ### Parameters
-    ///
-    /// * `config` - Application configuration containing Modbus server settings
     ///
     /// ### Returns
     ///
@@ -471,12 +483,14 @@ impl Daemon {
     /// * The server fails to bind to the specified address/port
     /// * The socket address is invalid
     /// * The Modbus server fails to initialize for any other reason
-    async fn start_modbus_server(&mut self, config: &Config) -> Result<()> {
+    async fn start_modbus_server(&mut self) -> Result<()> {
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
         info!(
             "Starting modbus server on {}:{}",
             config.modbus.address, config.modbus.port
         );
-        let config = config.clone();
+
         let running = self.running.clone();
         // Create a clone of the data source to share with the server
         let data_source = self.get_data_source();
@@ -565,6 +579,7 @@ impl Daemon {
     /// Initializes and starts a background task for real-time audio acquisition from the
     /// configured source (microphone, file, or mock). The acquired audio data is streamed
     /// directly to the shared audio stream for real-time consumption by web clients via SSE endpoints.
+    /// The task uses the shared `Arc<Config>` for accessing audio acquisition settings.
     ///
     /// This new implementation uses the RealTimeAudioSource trait which provides native
     /// streaming capabilities, eliminating the batching issues present in the previous
@@ -573,7 +588,7 @@ impl Daemon {
     /// ### Audio Source Priority
     ///
     /// The function selects the audio source based on configuration priority:
-    /// 1. **Mock source** - If `config.photoacoustic.mock_source` is enabled
+    /// 1. **Simulated source** - If `config.photoacoustic.simulated_source` is configured
     /// 2. **File source** - If `config.photoacoustic.input_file` is specified
     /// 3. **Device source** - If `config.photoacoustic.input_device` is specified  
     /// 4. **Default source** - Uses the system's default audio input device
@@ -586,10 +601,6 @@ impl Daemon {
     /// - **RealTimeAcquisitionDaemon**: Core acquisition manager with direct streaming
     /// - **Background Task**: Async task for non-blocking operation
     ///
-    /// ### Parameters
-    ///
-    /// * `config` - Application configuration containing acquisition settings
-    ///
     /// ### Returns
     ///
     /// * `Result<()>` - Success if the acquisition started successfully, or error details
@@ -600,7 +611,9 @@ impl Daemon {
     /// * **Audio source initialization fails**
     /// * **Real-time daemon creation fails**
     /// * **Task spawning fails**
-    async fn start_audio_acquisition(&mut self, config: &Config) -> Result<()> {
+    async fn start_audio_acquisition(&mut self) -> Result<()> {
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
         // Early return if acquisition is disabled in configuration
         if !config.acquisition.enabled {
             info!("Audio acquisition is disabled in configuration");
@@ -696,10 +709,7 @@ impl Daemon {
     /// Creates and starts a RecordConsumerDaemon that consumes audio frames from the
     /// shared audio stream and saves them to a WAV file. This daemon is used for
     /// validating the producer/consumer system and studying consumer behavior.
-    ///
-    /// ### Parameters
-    ///
-    /// * `config` - Application configuration containing record consumer settings
+    /// The task uses the shared `Arc<Config>` for accessing record consumer settings.
     ///
     /// ### Returns
     ///
@@ -713,7 +723,7 @@ impl Daemon {
     ///
     /// ### Configuration
     ///
-    /// The record consumer is controlled by the `config.acquisition.record_consumer` flag.
+    /// The record consumer is controlled by the `config.photoacoustic.record_consumer` flag.
     /// When enabled, it will:
     /// - Start consuming audio frames after audio acquisition begins
     /// - Save audio stream to WAV file with same precision and sample rate as producer
@@ -725,21 +735,23 @@ impl Daemon {
     /// ```no_run,ignore
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     /// use rust_photoacoustic::config::Config;
+    /// use std::sync::Arc;
     ///
-    /// ### async fn example() -> anyhow::Result<()> {
-    /// let mut daemon = Daemon::new();
-    /// let config = Config::load("config.yaml")?;
+    /// async fn example() -> anyhow::Result<()> {
+    ///     let mut daemon = Daemon::new();
+    ///     let config = Config::load("config.yaml")?;
+    ///     let config_arc = Arc::new(config);
     ///
-    /// // Start audio acquisition first
-    /// daemon.start_audio_acquisition(&config).await?;
-    ///
-    /// // Start record consumer for validation
-    /// daemon.start_record_consumer(&config).await?;
-    /// ### Ok(())
-    /// ### }
+    ///     // Launch daemon with config (starts audio acquisition internally)
+    ///     daemon.launch(config_arc).await?;
+    ///     
+    ///     Ok(())
+    /// }
     /// ```
-    async fn start_record_consumer(&mut self, config: &Config) -> Result<()> {
+    async fn start_record_consumer(&mut self) -> Result<()> {
         info!("Starting record consumer daemon for validation");
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
 
         // Ensure audio stream is available
         let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
@@ -788,10 +800,7 @@ impl Daemon {
     /// Initializes and starts the processing consumer daemon which handles audio processing
     /// using a configurable processing graph. The daemon consumes audio data from the
     /// shared audio stream and processes it through the configured processing nodes.
-    ///
-    /// ### Parameters
-    ///
-    /// * `config` - Application configuration containing processing settings
+    /// The task uses the shared `Arc<Config>` for accessing processing configuration.
     ///
     /// ### Returns
     ///
@@ -803,8 +812,10 @@ impl Daemon {
     /// * Audio stream is not available (acquisition must be started first)
     /// * Processing graph configuration is invalid
     /// * Processing consumer fails to initialize
-    async fn start_processing_consumer(&mut self, config: &Config) -> Result<()> {
+    async fn start_processing_consumer(&mut self) -> Result<()> {
         info!("Starting processing consumer daemon");
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
 
         // Ensure audio stream is available
         let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
@@ -892,7 +903,8 @@ impl Daemon {
     ///
     /// Signals all spawned tasks to terminate by setting the shared `running` flag to `false`.
     /// Each task should periodically check this flag and perform a clean shutdown when
-    /// the flag becomes `false`.
+    /// the flag becomes `false`. Tasks have access to the shared configuration through
+    /// their `Arc<Config>` for any shutdown-specific configuration needs.
     ///
     /// This method only signals the tasks to stop; it does not wait for them to complete.
     /// To wait for all tasks to finish, call `join()` after this method.
@@ -903,13 +915,13 @@ impl Daemon {
     /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
     ///
     /// async fn example() -> anyhow::Result<()> {
-    /// let daemon = Daemon::new();
-    /// // Signal all tasks to stop
-    /// daemon.shutdown();
+    ///     let mut daemon = Daemon::new();
+    ///     // Signal all tasks to stop
+    ///     daemon.shutdown();
     ///
-    /// // Wait for all tasks to complete
-    /// daemon.join().await?;
-    /// Ok(())
+    ///     // Wait for all tasks to complete
+    ///     daemon.join().await?;
+    ///     Ok(())
     /// }
     /// ```
     pub fn shutdown(&self) {
@@ -922,6 +934,7 @@ impl Daemon {
     ///
     /// Consumes the daemon and waits for all spawned tasks to finish execution.
     /// This method should be called after `shutdown()` to ensure a clean application exit.
+    /// All tasks will have had access to the shared `Arc<Config>` during their execution.
     ///
     /// If any task panics, the error is logged but this method will still wait for
     /// all other tasks to complete.
@@ -938,17 +951,22 @@ impl Daemon {
     /// ### Examples
     ///
     /// ```no_run
-    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
+    /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
+    /// use std::sync::Arc;
     ///
     /// async fn example() -> anyhow::Result<()> {
-    /// let daemon = Daemon::new();
-    /// // First signal shutdown
-    /// daemon.shutdown();
+    ///     let config = Config::from_file("config.yaml")?;
+    ///     let config_arc = Arc::new(config);
+    ///     let mut daemon = Daemon::new();
+    ///     daemon.launch(config_arc).await?;
+    ///     
+    ///     // First signal shutdown
+    ///     daemon.shutdown();
     ///
-    /// // Then wait for all tasks to finish
-    /// daemon.join().await?;
-    /// println!("All daemon tasks have completed");
-    /// Ok(())
+    ///     // Then wait for all tasks to finish
+    ///     daemon.join().await?;
+    ///     println!("All daemon tasks have completed");
+    ///     Ok(())
     /// }
     /// ```
     pub async fn join(self) -> Result<()> {

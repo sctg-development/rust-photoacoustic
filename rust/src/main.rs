@@ -164,8 +164,11 @@ async fn main() -> Result<()> {
         info!("Starting in daemon mode");
         let mut daemon = daemon::launch_daemon::Daemon::new();
 
+        // Create shared configuration for dynamic configuration support
+        let config_arc = std::sync::Arc::new(config);
+
         // Launch all configured tasks
-        daemon.launch(&config).await?;
+        daemon.launch(config_arc).await?;
 
         // Wait for termination signal
         match signal::ctrl_c().await {
