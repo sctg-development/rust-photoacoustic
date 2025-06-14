@@ -118,12 +118,3 @@ graph TD
 ```
 
 ---
-
-## 6. Pour aller plus loin
-
-- Voir le code source pour chaque composant pour confirmer s’il lit la config dynamiquement (ex : [daemon/launch_daemon.rs](https://github.com/sctg-development/rust-photoacoustic/blob/main/rust/src/daemon/launch_daemon.rs))
-- Pour des recherches plus poussées, élargir la recherche sur [GitHub Code Search](https://github.com/sctg-development/rust-photoacoustic/search?q=daemon).
-
----
-
-**_Ce rapport se base sur une analyse partielle (limitée à 10 résultats). Vérifiez le code source complet pour les cas particuliers._**
