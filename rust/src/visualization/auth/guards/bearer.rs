@@ -26,6 +26,7 @@
 //! 3. Extracting user information and permissions from the token
 //! 4. Optionally checking for specific permissions
 
+use crate::config::Config;
 use crate::visualization::auth::jwt::{JwtValidator, UserSysInfo};
 use crate::visualization::auth::oauth2::OxideState;
 use base64::Engine;
@@ -38,8 +39,7 @@ use rocket_okapi::{
     gen::OpenApiGenerator,
     request::{OpenApiFromRequest, RequestHeaderInput},
 };
-
-use crate::visualization::server::get_config_from_request;
+use std::sync::Arc;
 
 /// Request guard for extracting and validating a Bearer JWT from the Authorization header
 ///
@@ -110,7 +110,19 @@ impl<'r> FromRequest<'r> for OAuthBearer {
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         // Get the Authorization header
         let auth_header = request.headers().get_one("Authorization");
-        let access_config = get_config_from_request(request);
+
+        // Get the Config from State instead of using get_config_from_request
+        let config_state = match request.guard::<&State<Arc<Config>>>().await {
+            Outcome::Success(config) => config,
+            _ => {
+                return Outcome::Error((
+                    Status::InternalServerError,
+                    (Status::InternalServerError, "Missing config state"),
+                ))
+            }
+        };
+        let access_config = &config_state.access;
+
         if let Some(header) = auth_header {
             if let Some(token) = header.strip_prefix("Bearer ") {
                 // Get the OxideState from Rocket state

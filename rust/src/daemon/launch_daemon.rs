@@ -315,14 +315,6 @@ impl Daemon {
 
             info!("TLS enabled for web server");
         }
-        // Add the access config to the figment
-        figment = figment.merge(("access_config", config.access.clone()));
-
-        // Add the Generix configuration to the figment
-        figment = figment.merge(("generix_config", config.generix.clone()));
-
-        // Add the visualization configuration to the figment
-        figment = figment.merge(("visualization_config", config.visualization.clone()));
 
         let rocket = build_rocket(
             figment,
