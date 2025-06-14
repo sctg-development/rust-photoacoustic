@@ -88,24 +88,16 @@ fn test_config_creation() -> Result<()> {
     let record_file = temp_dir.path().join("config_recording.wav");
 
     // Create node configuration
-    let mut params = serde_yml::Mapping::new();
-    params.insert(
-        serde_yml::Value::String("record_file".to_string()),
-        serde_yml::Value::String(record_file.to_string_lossy().to_string()),
-    );
-    params.insert(
-        serde_yml::Value::String("max_size".to_string()),
-        serde_yml::Value::Number(serde_yml::Number::from(1024u64)),
-    );
-    params.insert(
-        serde_yml::Value::String("auto_delete".to_string()),
-        serde_yml::Value::Bool(false),
-    );
+    let params = serde_json::json!({
+        "record_file": record_file.to_string_lossy().to_string(),
+        "max_size": 1024u64,
+        "auto_delete": false
+    });
 
     let node_config = NodeConfig {
         id: "record_from_config".to_string(),
         node_type: "record".to_string(),
-        parameters: serde_yml::Value::Mapping(params),
+        parameters: params,
     };
 
     // Test configuration with from_config method (create minimal graph)
@@ -138,27 +130,16 @@ fn test_processing_graph() -> Result<()> {
             NodeConfig {
                 id: "input".to_string(),
                 node_type: "input".to_string(),
-                parameters: serde_yml::Value::Null,
+                parameters: serde_json::Value::Null,
             },
             NodeConfig {
                 id: "recorder".to_string(),
                 node_type: "record".to_string(),
-                parameters: {
-                    let mut params = serde_yml::Mapping::new();
-                    params.insert(
-                        serde_yml::Value::String("record_file".to_string()),
-                        serde_yml::Value::String(record_file.to_string_lossy().to_string()),
-                    );
-                    params.insert(
-                        serde_yml::Value::String("max_size".to_string()),
-                        serde_yml::Value::Number(serde_yml::Number::from(2048u64)),
-                    );
-                    params.insert(
-                        serde_yml::Value::String("auto_delete".to_string()),
-                        serde_yml::Value::Bool(true),
-                    );
-                    serde_yml::Value::Mapping(params)
-                },
+                parameters: serde_json::json!({
+                    "record_file": record_file.to_string_lossy().to_string(),
+                    "max_size": 2048u64,
+                    "auto_delete": true
+                }),
             },
         ],
         connections: vec![ConnectionConfig {
