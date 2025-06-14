@@ -288,7 +288,28 @@
               "default": 20.0,
               "description": "Pulse frequency [Hz] - for pulsed modulation mode"
             }
-          }
+          },
+          "required": [
+            "source_type"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "modulation_mode": {
+                    "const": "pulsed"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "pulse_width_seconds",
+                  "pulse_frequency_hz"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
         },
         "record_consumer": {
           "type": "boolean",
@@ -536,151 +557,271 @@
                     "description": "Type of processing node"
                   },
                   "parameters": {
-                    "description": "Node-specific parameters",
-                    "anyOf": [
-                      {
-                        "type": "null",
-                        "description": "No parameters"
-                      },
-                      {
-                        "type": "object",
-                        "description": "Filter node parameters",
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "enum": [
-                              "bandpass",
-                              "lowpass",
-                              "highpass"
-                            ],
-                            "description": "Filter type"
-                          },
-                          "center_frequency": {
-                            "type": "number",
-                            "minimum": 1,
-                            "maximum": 50000,
-                            "description": "Center frequency in Hz (required for bandpass filters)"
-                          },
-                          "bandwidth": {
-                            "type": "number",
-                            "minimum": 1,
-                            "maximum": 10000,
-                            "description": "Bandwidth in Hz (required for bandpass filters)"
-                          },
-                          "cutoff_frequency": {
-                            "type": "number",
-                            "minimum": 1,
-                            "maximum": 50000,
-                            "description": "Cutoff frequency in Hz (required for lowpass and highpass filters)"
-                          },
-                          "order": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 10,
-                            "default": 1,
-                            "description": "Filter order - each order adds 6dB/octave roll-off (1st order = 6dB/octave, 2nd = 12dB/octave, etc. Note:bandpass filters support only even orders)"
-                          }
-                        },
-                        "required": [
-                          "type"
-                        ],
-                        "allOf": [
-                          {
-                            "if": {
-                              "properties": {
-                                "type": {
-                                  "const": "bandpass"
-                                }
-                              }
-                            },
-                            "then": {
-                              "required": [
-                                "center_frequency",
-                                "bandwidth"
-                              ]
-                            }
-                          },
-                          {
-                            "if": {
-                              "properties": {
-                                "type": {
-                                  "enum": [
-                                    "lowpass",
-                                    "highpass"
-                                  ]
-                                }
-                              }
-                            },
-                            "then": {
-                              "required": [
-                                "cutoff_frequency"
-                              ]
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "type": "object",
-                        "description": "Channel selector parameters",
-                        "properties": {
-                          "target_channel": {
-                            "type": "string",
-                            "enum": [
-                              "ChannelA",
-                              "ChannelB"
-                            ],
-                            "description": "Target channel for selection"
-                          }
-                        }
-                      },
-                      {
-                        "type": "object",
-                        "description": "Record node parameters",
-                        "properties": {
-                          "record_file": {
-                            "type": "string",
-                            "description": "Path to the output recording file"
-                          },
-                          "max_size": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "description": "Maximum size per recording file in kilobytes"
-                          },
-                          "auto_delete": {
-                            "type": "boolean",
-                            "description": "Whether to automatically delete files when max_size (kb) is reached"
-                          },
-                          "total_limit": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "description": "Maximum total size of all recordings in kilobytes. When exceeded, oldest files are deleted."
-                          }
-                        }
-                      },
-                      {
-                        "type": "object",
-                        "description": "Gain node parameters",
-                        "properties": {
-                          "value": {
-                            "type": "number",
-                            "description": "Gain value in decibels (dB). Positive values amplify, negative values attenuate."
-                          }
-                        },
-                        "required": [
-                          "value"
-                        ]
-                      },
-                      {
-                        "type": "object",
-                        "description": "Other node parameters"
-                      }
-                    ]
+                    "description": "Node-specific parameters"
                   }
                 },
                 "required": [
                   "id",
                   "node_type"
-                ]
+                ],
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "filter"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "bandpass",
+                                "lowpass",
+                                "highpass"
+                              ],
+                              "description": "Filter type"
+                            },
+                            "center_frequency": {
+                              "type": "number",
+                              "minimum": 1,
+                              "maximum": 50000,
+                              "description": "Center frequency in Hz (required for bandpass filters)"
+                            },
+                            "bandwidth": {
+                              "type": "number",
+                              "minimum": 1,
+                              "maximum": 10000,
+                              "description": "Bandwidth in Hz (required for bandpass filters)"
+                            },
+                            "cutoff_frequency": {
+                              "type": "number",
+                              "minimum": 1,
+                              "maximum": 50000,
+                              "description": "Cutoff frequency in Hz (required for lowpass and highpass filters)"
+                            },
+                            "order": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10,
+                              "default": 1,
+                              "description": "Filter order - each order adds 6dB/octave roll-off (1st order = 6dB/octave, 2nd = 12dB/octave, etc. Note:bandpass filters support only even orders)"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "order"
+                          ],
+                          "allOf": [
+                            {
+                              "if": {
+                                "properties": {
+                                  "type": {
+                                    "const": "bandpass"
+                                  }
+                                }
+                              },
+                              "then": {
+                                "required": [
+                                  "center_frequency",
+                                  "bandwidth"
+                                ]
+                              }
+                            },
+                            {
+                              "if": {
+                                "properties": {
+                                  "type": {
+                                    "enum": [
+                                      "lowpass",
+                                      "highpass"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "required": [
+                                  "cutoff_frequency"
+                                ]
+                              }
+                            }
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "parameters"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "gain"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "number",
+                              "description": "Gain value in decibels (dB). Positive values amplify, negative values attenuate."
+                            }
+                          },
+                          "required": [
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "parameters"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "record"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "record_file": {
+                              "type": "string",
+                              "description": "Path to the output recording file"
+                            },
+                            "max_size": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Maximum size per recording file in kilobytes"
+                            },
+                            "auto_delete": {
+                              "type": "boolean",
+                              "description": "Whether to automatically delete files when max_size (kb) is reached"
+                            },
+                            "total_limit": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Maximum total size of all recordings in kilobytes. When exceeded, oldest files are deleted."
+                            }
+                          },
+                          "required": [
+                            "record_file"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "parameters"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "channel_selector"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "target_channel": {
+                              "type": "string",
+                              "enum": [
+                                "ChannelA",
+                                "ChannelB"
+                              ],
+                              "description": "Target channel for selection"
+                            }
+                          },
+                          "required": [
+                            "target_channel"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "parameters"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "channel_mixer"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "strategy": {
+                              "type": "string",
+                              "enum": [
+                                "add",
+                                "subtract",
+                                "multiply",
+                                "average"
+                              ],
+                              "description": "Mixing strategy for channels"
+                            }
+                          },
+                          "required": [
+                            "strategy"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "parameters"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "enum": [
+                            "input",
+                            "streaming",
+                            "photoacoustic_output",
+                            "differential"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "additionalProperties": false
               }
             },
             "connections": {
@@ -701,7 +842,8 @@
                 "required": [
                   "from",
                   "to"
-                ]
+                ],
+                "additionalProperties": false
               }
             },
             "output_node": {
@@ -711,7 +853,10 @@
               ],
               "description": "Output node identifier"
             }
-          }
+          },
+          "required": [
+            "nodes"
+          ]
         },
         "performance": {
           "type": "object",
