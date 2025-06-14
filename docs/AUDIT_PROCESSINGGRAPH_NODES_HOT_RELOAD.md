@@ -112,16 +112,3 @@ impl FilterNode {
 ```
 
 ---
-
-## 7. Pour aller plus loin
-
-- Voir le code source pour confirmer la présence de setters dynamiques pour chaque type de nœud :  
-  [processing/nodes.rs](https://github.com/sctg-development/rust-photoacoustic/tree/main/rust/src/processing/nodes.rs)
-- Pour vérifier la dynamique du graphe, voir :  
-  [processing/graph.rs](https://github.com/sctg-development/rust-photoacoustic/tree/main/rust/src/processing/graph.rs)
-- Pour lister tous les types de nœuds disponibles :  
-  [config/processing.rs (NodeConfig)](https://github.com/sctg-development/rust-photoacoustic/blob/main/rust/src/config/processing.rs)
-
----
-
-**_Analyse basée sur un échantillon limité. Voir [GitHub Code Search](https://github.com/sctg-development/rust-photoacoustic/search?q=ProcessingNode) pour le code complet._**
