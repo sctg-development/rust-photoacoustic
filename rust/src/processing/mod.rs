@@ -67,26 +67,26 @@
 //!         NodeConfig {
 //!             id: "input".to_string(),
 //!             node_type: "input".to_string(),
-//!             parameters: serde_yml::Value::Null,
+//!             parameters: serde_json::Value::Null,
 //!         },
 //!         NodeConfig {
 //!             id: "bandpass".to_string(),
 //!             node_type: "filter".to_string(),
-//!             parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-//!                 ("type".into(), "bandpass".into()),
-//!                 ("center_frequency".into(), 1000.0.into()),
-//!                 ("bandwidth".into(), 100.0.into()),
-//!                 ("order".into(), 2.into()), // 2nd order = 12dB/octave
-//!                 ("target_channel".into(), "Both".into()),
-//!             ])).unwrap(),
+//!             parameters: serde_json::json!({
+//!                 "type": "bandpass",
+//!                 "center_frequency": 1000.0,
+//!                 "bandwidth": 100.0,
+//!                 "order": 2, // 2nd order = 12dB/octave
+//!                 "target_channel": "Both"
+//!             }),
 //!         },
 //!         NodeConfig {
 //!             id: "photoacoustic".to_string(),
 //!             node_type: "photoacoustic_output".to_string(),
-//!             parameters: serde_yml::to_value(&serde_yml::mapping::Mapping::from_iter([
-//!                 ("detection_threshold".into(), 0.1.into()),
-//!                 ("analysis_window_size".into(), 1024.into()),
-//!             ])).unwrap(),
+//!             parameters: serde_json::json!({
+//!                 "detection_threshold": 0.1,
+//!                 "analysis_window_size": 1024
+//!             }),
 //!         },
 //!     ],
 //!     connections: vec![

@@ -87,17 +87,15 @@ fn test_config_creation() -> Result<()> {
     let temp_dir = tempdir()?;
     let record_file = temp_dir.path().join("config_recording.wav");
 
-    // Create node configuration
-    let params = serde_json::json!({
-        "record_file": record_file.to_string_lossy().to_string(),
-        "max_size": 1024u64,
-        "auto_delete": false
-    });
-
+    // Create node configuration using serde_json::json! for parameters
     let node_config = NodeConfig {
         id: "record_from_config".to_string(),
         node_type: "record".to_string(),
-        parameters: params,
+        parameters: serde_json::json!({
+            "record_file": record_file.to_string_lossy().to_string(),
+            "max_size": 1024u64,
+            "auto_delete": false
+        }),
     };
 
     // Test configuration with from_config method (create minimal graph)
@@ -156,5 +154,7 @@ fn test_processing_graph() -> Result<()> {
     println!("  ✅ Input -> Record pipeline configured");
     println!("  ✅ Graph ready for processing");
 
+    Ok(())
+}
     Ok(())
 }
