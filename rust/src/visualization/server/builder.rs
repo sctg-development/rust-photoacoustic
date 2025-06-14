@@ -13,6 +13,7 @@ use crate::acquisition::SharedAudioStream;
 use crate::config::{Config, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
+use crate::visualization::api::get::config::get_config;
 use crate::visualization::api::get::graph_statistics::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
@@ -91,16 +92,8 @@ pub async fn build_rocket(
     // Load compression configuration from config
     let compression_config = config.visualization.enable_compression;
 
-    // Create OAuth2 state with the HMAC secret from config
-    let mut oxide_state = OxideState::preconfigured(figment.clone());
-
-    // Extract RS256 keys from config
-    oxide_state.rs256_private_key = config.visualization.rs256_private_key.clone();
-
-    // Extract Generix configuration from config
-    oxide_state.generix_config = config.generix.clone();
-
-    oxide_state.rs256_public_key = config.visualization.rs256_public_key.clone();
+    // Create OAuth2 state from config (improved dynamic configuration approach)
+    let mut oxide_state = OxideState::from_config(&config);
 
     // If we have RS256 keys, update the JWT issuer
     if !oxide_state.rs256_public_key.is_empty() && !oxide_state.rs256_private_key.is_empty() {
@@ -123,8 +116,6 @@ pub async fn build_rocket(
             }
         }
     }
-
-    oxide_state.access_config = access_config.clone();
 
     // Initialize JWT validator - try to use RS256 if keys are available, otherwise use HMAC secret
     let rs256_public_key_bytes = if !oxide_state.rs256_public_key.is_empty() {
@@ -154,7 +145,11 @@ pub async fn build_rocket(
 
     let rocket_builder = rocket::custom(figment).attach(CORS);
 
-    // Add visualization state if available (before mounting routes that need it)
+    // Add config routes
+    let (openapi_routes_config, openapi_spec_config) = openapi_get_routes_spec![get_config,];
+    let rocket_builder = rocket_builder.mount("/", openapi_routes_config); // Add config as managed state
+                                                                           // Add visualization state if available (before mounting routes that need it)
+
     let (rocket_builder, openapi_spec_graph) = if let Some(vis_state) = visualization_state {
         debug!("Adding SharedVisualizationState to Rocket state management");
         // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
@@ -235,7 +230,7 @@ pub async fn build_rocket(
         (openapi_routes_audio, openapi_spec_audio) = get_audio_streaming_routes();
 
         // Merge the audio OpenAPI spec with the base spec
-        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), ("/".to_string(),openapi_spec_audio), ("/".to_string(),openapi_spec_graph)]).unwrap();
+        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), ("/".to_string(),openapi_spec_audio), ("/".to_string(),openapi_spec_graph), ("/".to_string(),openapi_spec_config)]).unwrap();
         let openapi_settings = OpenApiSettings::default();
         rocket_builder
             .mount(

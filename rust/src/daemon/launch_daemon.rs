@@ -114,6 +114,9 @@ pub struct Daemon {
     visualization_state: Arc<SharedVisualizationState>,
     /// Streaming node registry for managing real-time audio streams
     streaming_registry: Arc<StreamingNodeRegistry>,
+    /// Shared configuration for dynamic configuration support
+    /// This is the single source of truth for all configuration across the application
+    config: Arc<crate::config::Config>,
 }
 
 impl Default for Daemon {
@@ -152,6 +155,7 @@ impl Daemon {
             processing_consumer_daemon: None,
             visualization_state: Arc::new(SharedVisualizationState::new()),
             streaming_registry: Arc::new(StreamingNodeRegistry::new()),
+            config: Arc::new(crate::config::Config::default()),
         }
     }
 
@@ -194,6 +198,9 @@ impl Daemon {
     /// }
     /// ```
     pub async fn launch(&mut self, config: &Config) -> Result<()> {
+        // Store the config as a shared Arc for dynamic configuration support
+        self.config = Arc::new(config.clone());
+
         // Démarrer l'acquisition audio AVANT le serveur web
         self.start_audio_acquisition(config).await?;
 
@@ -257,7 +264,10 @@ impl Daemon {
     /// * TLS certificate decoding fails
     /// * The server fails to bind to the specified address/port
     /// * The Rocket server fails to initialize for any other reason
-    async fn start_visualization_server(&mut self, config: &Config) -> Result<()> {
+    async fn start_visualization_server(&mut self, _config: &Config) -> Result<()> {
+        // Use the shared config from the daemon
+        let config = Arc::clone(&self.config);
+
         info!(
             "Starting web server on {}:{}",
             config.visualization.address, config.visualization.port
@@ -316,7 +326,7 @@ impl Daemon {
 
         let rocket = build_rocket(
             figment,
-            Arc::new(config.clone()), // Pass config as Arc for future dynamic configuration
+            Arc::clone(&config), // Use the shared Arc<Config> directly
             self.audio_stream.clone(),
             Some(Arc::clone(&self.visualization_state)),
             Some(Arc::clone(&self.streaming_registry)),

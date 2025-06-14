@@ -511,7 +511,7 @@ pub struct ProcessingGraph {
     /// Performance statistics
     statistics: ProcessingGraphStatistics,
     /// Original node configuration parameters (for serialization)
-    node_parameters: HashMap<NodeId, HashMap<String, serde_yml::Value>>,
+    node_parameters: HashMap<NodeId, HashMap<String, serde_json::Value>>,
 }
 
 impl ProcessingGraph {
@@ -537,7 +537,7 @@ impl ProcessingGraph {
     pub fn add_node_with_params(
         &mut self,
         node: Box<dyn ProcessingNode>,
-        parameters: HashMap<String, serde_yml::Value>,
+        parameters: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
         let node_id = node.node_id().to_string();
         let node_type = node.node_type().to_string();
@@ -792,11 +792,11 @@ impl ProcessingGraph {
             );
             let node = Self::create_node_from_config(node_config, &streaming_registry)?;
 
-            // Convert node_config.parameters to HashMap<String, serde_yml::Value>
-            let parameters = if let Some(params_mapping) = node_config.parameters.as_mapping() {
-                params_mapping
+            // Convert node_config.parameters to HashMap<String, serde_json::Value>
+            let parameters = if let Some(params_object) = node_config.parameters.as_object() {
+                params_object
                     .iter()
-                    .filter_map(|(k, v)| k.as_str().map(|key| (key.to_string(), v.clone())))
+                    .map(|(key, value)| (key.clone(), value.clone()))
                     .collect()
             } else {
                 HashMap::new()
@@ -841,7 +841,7 @@ impl ProcessingGraph {
             "input" => Ok(Box::new(InputNode::new(config.id.clone()))),
             "channel_selector" => {
                 // Extract target_channel parameter
-                let target_channel = if let Some(params) = config.parameters.as_mapping() {
+                let target_channel = if let Some(params) = config.parameters.as_object() {
                     if let Some(channel_value) = params.get("target_channel") {
                         if let Some(channel_str) = channel_value.as_str() {
                             match channel_str {
@@ -868,7 +868,7 @@ impl ProcessingGraph {
             }
             "channel_mixer" => {
                 // Extract mix strategy parameters
-                let mix_strategy = if let Some(params) = config.parameters.as_mapping() {
+                let mix_strategy = if let Some(params) = config.parameters.as_object() {
                     if let Some(strategy_value) = params.get("strategy") {
                         match strategy_value.as_str() {
                             Some("add") => MixStrategy::Add,
@@ -905,7 +905,7 @@ impl ProcessingGraph {
                 // Extract filter parameters
                 let params = config
                     .parameters
-                    .as_mapping()
+                    .as_object()
                     .ok_or_else(|| anyhow::anyhow!("Filter node requires parameters"))?;
 
                 let filter_type = params
@@ -1005,7 +1005,7 @@ impl ProcessingGraph {
                 // Extract photoacoustic output parameters
                 let mut node = PhotoacousticOutputNode::new(config.id.clone());
 
-                if let Some(params) = config.parameters.as_mapping() {
+                if let Some(params) = config.parameters.as_object() {
                     if let Some(threshold_value) = params.get("detection_threshold") {
                         if let Some(threshold) = threshold_value.as_f64() {
                             node = node.with_detection_threshold(threshold as f32);
@@ -1025,7 +1025,7 @@ impl ProcessingGraph {
                 // Extract record parameters
                 let params = config
                     .parameters
-                    .as_mapping()
+                    .as_object()
                     .ok_or_else(|| anyhow::anyhow!("Record node requires parameters"))?;
 
                 let record_file = params
@@ -1072,7 +1072,7 @@ impl ProcessingGraph {
                     .clone();
 
                 // Extract streaming parameters
-                let name = if let Some(params) = config.parameters.as_mapping() {
+                let name = if let Some(params) = config.parameters.as_object() {
                     params
                         .get("name")
                         .and_then(|v| v.as_str())
@@ -1091,7 +1091,7 @@ impl ProcessingGraph {
                 // Extract gain parameters
                 let params = config
                     .parameters
-                    .as_mapping()
+                    .as_object()
                     .ok_or_else(|| anyhow::anyhow!("Gain node requires parameters"))?;
 
                 let gain_db = params
@@ -1520,7 +1520,7 @@ impl JsonSchema for PerformanceSummary {
 /// ```no_run
 /// use rust_photoacoustic::processing::{SerializableNode, ProcessingData};
 /// use rust_photoacoustic::processing::nodes::{InputNode, ProcessingNode};
-/// use serde_yml::Value;
+/// use serde_json::Value;
 /// use std::collections::HashMap;
 ///
 /// let node = InputNode::new("main_input".to_string());
@@ -1553,7 +1553,7 @@ pub struct SerializableNode {
     /// Output type this node produces (if deterministic)
     pub output_type: Option<String>,
     /// Node-specific configuration parameters
-    pub parameters: HashMap<String, serde_yml::Value>,
+    pub parameters: HashMap<String, serde_json::Value>,
 }
 
 impl JsonSchema for SerializableNode {
@@ -2003,7 +2003,7 @@ impl SerializableProcessingGraph {
     /// A SerializableNode containing the node's information and capabilities
     fn create_serializable_node(
         node: &dyn ProcessingNode,
-        stored_parameters: &HashMap<String, serde_yml::Value>,
+        stored_parameters: &HashMap<String, serde_json::Value>,
     ) -> SerializableNode {
         let node_id = node.node_id().to_string();
         let node_type = node.node_type().to_string();
@@ -2070,8 +2070,8 @@ impl SerializableProcessingGraph {
     fn extract_node_parameters(
         node_type: &str,
         node_id: &str,
-        stored_parameters: &HashMap<String, serde_yml::Value>,
-    ) -> HashMap<String, serde_yml::Value> {
+        stored_parameters: &HashMap<String, serde_json::Value>,
+    ) -> HashMap<String, serde_json::Value> {
         let mut parameters = stored_parameters.clone();
 
         // Add type-specific metadata if no parameters were stored
@@ -2083,60 +2083,89 @@ impl SerializableProcessingGraph {
                 "filter" => {
                     parameters.insert(
                         "note".into(),
-                        "Filter type and parameters should be specified in configuration".into(),
+                        serde_json::Value::String(
+                            "Filter type and parameters should be specified in configuration"
+                                .into(),
+                        ),
                     );
                     // Add common filter parameter defaults if not present
                     if !parameters.contains_key("type") {
-                        parameters.insert("type".into(), "unknown".into());
+                        parameters
+                            .insert("type".into(), serde_json::Value::String("unknown".into()));
                     }
                 }
                 "channel_selector" => {
                     // Add default channel target if not present
                     if !parameters.contains_key("target_channel") {
-                        parameters.insert("target_channel".into(), "ChannelA".into());
+                        parameters.insert(
+                            "target_channel".into(),
+                            serde_json::Value::String("ChannelA".into()),
+                        );
                     }
                 }
                 "channel_mixer" => {
                     // Add default mix strategy if not present
                     if !parameters.contains_key("strategy") {
-                        parameters.insert("strategy".into(), "Subtract".into());
+                        parameters.insert(
+                            "strategy".into(),
+                            serde_json::Value::String("Subtract".into()),
+                        );
                     }
                 }
                 "photoacoustic_output" => {
                     // Add default parameters if not present
                     if !parameters.contains_key("detection_threshold") {
-                        parameters.insert("detection_threshold".into(), 0.1.into());
+                        parameters.insert(
+                            "detection_threshold".into(),
+                            serde_json::Value::Number(serde_json::Number::from_f64(0.1).unwrap()),
+                        );
                     }
                     if !parameters.contains_key("analysis_window_size") {
-                        parameters.insert("analysis_window_size".into(), 1024.into());
+                        parameters.insert(
+                            "analysis_window_size".into(),
+                            serde_json::Value::Number(serde_json::Number::from(1024)),
+                        );
                     }
                 }
                 "record" => {
                     if !parameters.contains_key("record_file") {
-                        parameters.insert("record_file".into(), "default_recording.wav".into());
+                        parameters.insert(
+                            "record_file".into(),
+                            serde_json::Value::String("default_recording.wav".into()),
+                        );
                     }
                     if !parameters.contains_key("max_size") {
-                        parameters.insert("max_size".into(), 1048576.into()); // 1MB default
+                        parameters.insert(
+                            "max_size".into(),
+                            serde_json::Value::Number(serde_json::Number::from(1048576)),
+                        ); // 1MB default
                     }
                     if !parameters.contains_key("auto_delete") {
-                        parameters.insert("auto_delete".into(), false.into());
+                        parameters.insert("auto_delete".into(), serde_json::Value::Bool(false));
                     }
                 }
                 "streaming" => {
                     if !parameters.contains_key("stream_id") {
-                        parameters.insert("stream_id".into(), node_id.into());
+                        parameters.insert(
+                            "stream_id".into(),
+                            serde_json::Value::String(node_id.into()),
+                        );
                     }
                 }
                 "differential" => {
                     // Differential nodes typically don't have many parameters
                     if !parameters.contains_key("mode") {
-                        parameters.insert("mode".into(), "simple".into());
+                        parameters
+                            .insert("mode".into(), serde_json::Value::String("simple".into()));
                     }
                 }
                 "gain" => {
                     // Add default gain parameter if not present
                     if !parameters.contains_key("value") {
-                        parameters.insert("value".into(), 0.0.into()); // 0 dB default (unity gain)
+                        parameters.insert(
+                            "value".into(),
+                            serde_json::Value::Number(serde_json::Number::from_f64(0.0).unwrap()),
+                        ); // 0 dB default (unity gain)
                     }
                 }
                 _ => {

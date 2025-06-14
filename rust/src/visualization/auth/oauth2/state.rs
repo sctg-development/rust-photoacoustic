@@ -208,6 +208,95 @@ impl OxideState {
         }
     }
 
+    /// Create a preconfigured OxideState from application configuration
+    ///
+    /// This factory method creates an OxideState using the application's Config struct
+    /// instead of extracting from figment. This is part of the dynamic configuration
+    /// refactoring to use the managed Config state.
+    ///
+    /// ### Parameters
+    ///
+    /// * `config` - The application configuration containing all OAuth settings
+    ///
+    /// ### Returns
+    ///
+    /// A preconfigured `OxideState` instance ready to use with Rocket
+    ///
+    /// ### Example
+    ///
+    /// ```no_run
+    /// use std::sync::Arc;
+    /// use rust_photoacoustic::{config::Config, visualization::auth::OxideState};
+    ///
+    /// // Create the OAuth state from config
+    /// let config = Arc::new(Config::default());
+    /// let state = OxideState::from_config(&config);
+    /// ```
+    pub fn from_config(config: &crate::config::Config) -> Self {
+        // Use the HMAC secret from configuration
+        let hmac_secret = &config.visualization.hmac_secret;
+        let jwt_secret = hmac_secret.as_bytes();
+
+        // Create a ClientMap based on config::AccessConfig::clients
+        // The client_id is mapped to the Client::client_id
+        // The first string in the allowed_callbacks is the default callback
+        // The rest are additional allowed callbacks
+        let mut client_map: Vec<Client> = vec![];
+        // Use the AccessConfig from the config
+        let access_config = &config.access;
+
+        // Create and configure the JWT issuer
+        let mut jwt_issuer = JwtIssuer::new(jwt_secret);
+        jwt_issuer
+            .with_issuer(
+                access_config
+                    .clone()
+                    .iss
+                    .unwrap_or("LaserSmartServer".to_string()),
+            ) // Set the issuer name
+            .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
+
+        for client in &access_config.clients {
+            debug!("Adding client to oxide-auth: {:?}", client.client_id);
+            let mut oauth_client = Client::public(
+                client.client_id.as_str(),
+                RegisteredUrl::Semantic(client.allowed_callbacks[0].parse::<Url>().unwrap()),
+                client.default_scope.parse::<Scope>().unwrap(),
+            );
+            debug!("  - registered url: {:?}", client.allowed_callbacks[0]);
+            // Add additional redirect URIs
+            for callback in &client.allowed_callbacks[1..] {
+                oauth_client =
+                    oauth_client.with_additional_redirect_uris(vec![RegisteredUrl::Semantic(
+                        callback.parse().unwrap(),
+                    )]);
+                debug!("  - additional redirect uri: {:?}", callback);
+            }
+            // For debugging purposes, log the default from the Client
+            debug!("  - default scope: {:?}", client.default_scope);
+            client_map.push(oauth_client);
+        }
+
+        OxideState {
+            registrar: Arc::new(Mutex::new(client_map.into_iter().collect::<ClientMap>())),
+            // Authorization tokens are 16 byte random keys to a memory hash map.
+            authorizer: Arc::new(Mutex::new(AuthMap::new(RandomGenerator::new(16)))),
+            // Use JWT issuer for access tokens
+            // These tokens can be verified independently by the resource server
+            // and contain user information embedded within them
+            issuer: Arc::new(Mutex::new(jwt_issuer)),
+            // Store the HMAC secret for validation elsewhere
+            hmac_secret: hmac_secret.clone(),
+            // Set RS256 keys from config
+            rs256_private_key: config.visualization.rs256_private_key.clone(),
+            rs256_public_key: config.visualization.rs256_public_key.clone(),
+            // Use the access config from config
+            access_config: access_config.clone(),
+            // Use the generix configuration from config
+            generix_config: config.generix.clone(),
+        }
+    }
+
     /// Create an OAuth endpoint with this state
     ///
     /// This method creates a new OAuth endpoint configured with this state's

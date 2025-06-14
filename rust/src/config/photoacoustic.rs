@@ -8,6 +8,7 @@
 //! measurement process in the application.
 
 use super::SimulatedSourceConfig;
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the photoacoustic measurement system.
@@ -49,7 +50,7 @@ use serde::{Deserialize, Serialize};
 ///     record_file: "recorded_audio.wav".to_string(),
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PhotoacousticConfig {
     /// The input device to use for data acquisition
     #[serde(skip_serializing_if = "Option::is_none")]

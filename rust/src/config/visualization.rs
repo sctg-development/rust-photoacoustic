@@ -8,6 +8,7 @@
 //! visualization server in the photoacoustic application.
 
 use base64::Engine;
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the visualization web server.
@@ -31,7 +32,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// For secure HTTPS connections, both `cert` and `key` fields must be provided as
 /// Base64-encoded PEM files. If either is missing, the server will operate in non-TLS mode.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct VisualizationConfig {
     /// The TCP port the visualization server will listen on.
     ///

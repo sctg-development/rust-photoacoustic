@@ -4,4 +4,5 @@
 pub mod get;
 mod post;
 
+pub use get::config::*;
 pub use get::test::*;

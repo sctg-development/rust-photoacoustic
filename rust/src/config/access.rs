@@ -13,6 +13,7 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request, State,
 };
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// OAuth2 client configuration for authorization code flow
@@ -39,7 +40,7 @@ use serde::{Deserialize, Serialize};
 ///     ],
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Client {
     /// The unique identifier for the OAuth2 client
     pub client_id: String,
@@ -85,7 +86,7 @@ fn default_duration() -> Option<i64> {
 ///     permissions: vec!["read:api".to_string(), "write:api".to_string(), "admin:api".to_string()],
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct User {
     /// The username used for authentication
     pub user: String,
@@ -148,7 +149,7 @@ pub struct User {
 ///          }],
 ///     };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AccessConfig {
     /// List of users with their credentials and permissions
     pub users: Vec<User>,

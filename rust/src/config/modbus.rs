@@ -7,8 +7,8 @@
 //! This module defines the structures for configuring the Modbus TCP server
 //! component of the photoacoustic application.
 
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
-
 /// Configuration for the Modbus TCP server component.
 ///
 /// This structure contains settings that control the Modbus TCP server functionality,
@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 ///     address: "0.0.0.0".to_string(),
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ModbusConfig {
     /// Flag to enable or disable the Modbus server.
     ///

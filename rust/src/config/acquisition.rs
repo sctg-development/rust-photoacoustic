@@ -7,6 +7,7 @@
 //! This module defines the structures for configuring the data acquisition
 //! process in the photoacoustic application.
 
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the data acquisition process.
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// This structure contains settings that control how data is acquired
 /// from the photoacoustic sensor, including timing parameters and
 /// whether the acquisition system is enabled.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, JsonSchema)]
 pub struct AcquisitionConfig {
     /// Flag to enable or disable data acquisition.
     ///

@@ -69,8 +69,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use log::{debug, error};
+use rocket::request::{FromRequest, Outcome};
+use rocket::{Request, State};
+use rocket_okapi::r#gen::OpenApiGenerator;
+use rocket_okapi::request::OpenApiFromRequest;
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
-
 // Re-export all types for public API
 pub use access::{AccessConfig, User};
 pub use acquisition::AcquisitionConfig;
@@ -101,7 +105,7 @@ pub const USER_SESSION_SEPARATOR: char = '⛷';
 ///
 /// Each section uses default values when not explicitly specified in the configuration
 /// file, allowing for minimal configuration when custom settings are not required.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     /// Settings for the visualization web server component.
     ///
@@ -264,7 +268,7 @@ impl Config {
             anyhow::bail!("Configuration validation failed: {}", error);
         }
 
-        // Now that YAML has been validated, deserialize to Config
+        // Now that YAML has been validated, deserializing to Config
         debug!("Schema validation passed, deserializing into Config structure");
         let config: Config = match serde_yml::from_str(&contents) {
             Ok(config) => config,
@@ -434,5 +438,29 @@ impl Config {
             debug!("Overriding Modbus address from command line: {}", address);
             self.modbus.address = address;
         }
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for &'r Config {
+    type Error = ();
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        match req.guard::<&State<Config>>().await {
+            Outcome::Success(config_state) => Outcome::Success(config_state.inner()),
+            Outcome::Error(e) => Outcome::Error((rocket::http::Status::InternalServerError, ())),
+            Outcome::Forward(f) => Outcome::Forward(f),
+        }
+    }
+}
+
+impl<'r> OpenApiFromRequest<'r> for &'r Config {
+    fn from_request_input(
+        _gen: &mut OpenApiGenerator,
+        _name: String,
+        _required: bool,
+    ) -> rocket_okapi::Result<rocket_okapi::request::RequestHeaderInput> {
+        // Config is injected from application state, not from request headers/body
+        Ok(rocket_okapi::request::RequestHeaderInput::None)
     }
 }

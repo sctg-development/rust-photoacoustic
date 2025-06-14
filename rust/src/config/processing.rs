@@ -3,10 +3,10 @@
 //! This module defines the configuration structure for the processing system.
 //! It allows configuration of processing graphs, nodes, and consumer behavior.
 
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
-
 /// Configuration for the processing system
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ProcessingConfig {
     /// Enable or disable the processing consumer
     #[serde(default = "default_enabled")]
@@ -26,7 +26,7 @@ pub struct ProcessingConfig {
 }
 
 /// Configuration for a processing graph
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ProcessingGraphConfig {
     /// Graph identifier
     #[serde(default = "default_graph_id")]
@@ -46,7 +46,7 @@ pub struct ProcessingGraphConfig {
 }
 
 /// Configuration for a processing node
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct NodeConfig {
     /// Node identifier
     pub id: String,
@@ -56,11 +56,11 @@ pub struct NodeConfig {
 
     /// Node-specific parameters
     #[serde(default)]
-    pub parameters: serde_yml::Value,
+    pub parameters: serde_json::Value,
 }
 
 /// Configuration for a connection between nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ConnectionConfig {
     /// Source node identifier
     pub from: String,
@@ -70,7 +70,7 @@ pub struct ConnectionConfig {
 }
 
 /// Performance configuration for processing
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ProcessingPerformanceConfig {
     /// Maximum processing time per frame (microseconds)
     #[serde(default = "default_max_processing_time_us")]
@@ -130,16 +130,14 @@ impl Default for ProcessingGraphConfig {
                 NodeConfig {
                     id: "input".to_string(),
                     node_type: "input".to_string(),
-                    parameters: serde_yml::Value::Null,
+                    parameters: serde_json::Value::Null,
                 },
                 NodeConfig {
                     id: "channel_selector".to_string(),
                     node_type: "channel_selector".to_string(),
-                    parameters: serde_yml::to_value(serde_yml::mapping::Mapping::from_iter([(
-                        "target_channel".into(),
-                        "ChannelA".into(),
-                    )]))
-                    .unwrap_or(serde_yml::Value::Null),
+                    parameters: serde_json::json!({
+                        "target_channel": "ChannelA"
+                    }),
                 },
             ],
             connections: vec![ConnectionConfig {

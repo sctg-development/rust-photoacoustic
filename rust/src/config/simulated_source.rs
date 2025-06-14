@@ -8,8 +8,8 @@
 //! `SimulatedPhotoacousticRealtimeAudioSource` that uses the universal photoacoustic
 //! generator function.
 
+use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
-
 /// Configuration for simulated photoacoustic sources
 ///
 /// This structure configures all parameters for generating synthetic photoacoustic signals
@@ -61,7 +61,7 @@ use serde::{Deserialize, Serialize};
 ///     ..Default::default()
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SimulatedSourceConfig {
     /// Source type: "mock" for simple MockSource or "universal" for full physics simulation
     ///
