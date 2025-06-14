@@ -243,5 +243,5 @@
   "user-not-authenticated-or-config-not-loaded": "المستخدم غير مصدق عليه أو لم يتم تحميل تكوين Generix.",
   "error-loading-processing-graph": "خطأ في تحميل رسم المعالجة:",
   "config-is": "التكوين هو:",
-  "ms": "مللي ثانية"
+  "ms": "ms"
 }
