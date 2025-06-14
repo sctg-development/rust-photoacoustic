@@ -33,8 +33,8 @@ use anyhow::Result;
 /// use rust_photoacoustic::processing::{FilterNode, ChannelTarget, ProcessingNode, ProcessingData};
 /// use rust_photoacoustic::preprocessing::BandpassFilter;
 ///
-/// // Create a bandpass filter for both channels
-/// let filter = Box::new(BandpassFilter::new(1000.0, 100.0)); // 1kHz center, 100Hz bandwidth
+/// // Create a bandpass filter for both channels (2nd order = 12dB/octave)
+/// let filter = Box::new(BandpassFilter::new(1000.0, 100.0).with_order(2)); // 1kHz center, 100Hz bandwidth
 /// let mut filter_node = FilterNode::new(
 ///     "bandpass".to_string(),
 ///     filter,
@@ -67,8 +67,8 @@ use anyhow::Result;
 /// use rust_photoacoustic::processing::{FilterNode, ChannelTarget, ProcessingNode};
 /// use rust_photoacoustic::preprocessing::BandpassFilter;
 ///
-/// // Create a bandpass filter for channel A only
-/// let filter = Box::new(BandpassFilter::new(2000.0, 200.0)); // 2kHz center, 200Hz bandwidth
+/// // Create a bandpass filter for channel A only (4th order = 24dB/octave)
+/// let filter = Box::new(BandpassFilter::new(2000.0, 200.0).with_order(4)); // 2kHz center, 200Hz bandwidth
 /// let filter_node = FilterNode::new(
 ///     "bandpass_a".to_string(),
 ///     filter,
@@ -133,7 +133,8 @@ impl FilterNode {
     /// use rust_photoacoustic::processing::{FilterNode, ChannelTarget};
     /// use rust_photoacoustic::preprocessing::BandpassFilter;
     ///
-    /// let filter = Box::new(BandpassFilter::new(1000.0, 100.0)); // 1kHz center, 100Hz bandwidth
+    /// // Create a 3rd-order bandpass filter (18dB/octave roll-off)
+    /// let filter = Box::new(BandpassFilter::new(1000.0, 100.0).with_order(3)); // 1kHz center, 100Hz bandwidth
     /// let filter_node = FilterNode::new(
     ///     "bandpass_filter".to_string(),
     ///     filter,

@@ -944,7 +944,10 @@ impl ProcessingGraph {
                                 anyhow::anyhow!("Bandpass filter requires 'bandwidth'")
                             })? as f32;
 
-                        let filter = BandpassFilter::new(center_freq, bandwidth);
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(4) as usize; // Default to 4th order for bandpass
+
+                        let filter = BandpassFilter::new(center_freq, bandwidth).with_order(order);
                         Ok(Box::new(FilterNode::new(
                             config.id.clone(),
                             Box::new(filter),
@@ -959,7 +962,10 @@ impl ProcessingGraph {
                                 anyhow::anyhow!("Lowpass filter requires 'cutoff_frequency'")
                             })? as f32;
 
-                        let filter = LowpassFilter::new(cutoff_freq);
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(1) as usize; // Default to 1st order for lowpass
+
+                        let filter = LowpassFilter::new(cutoff_freq).with_order(order);
                         Ok(Box::new(FilterNode::new(
                             config.id.clone(),
                             Box::new(filter),
@@ -974,7 +980,10 @@ impl ProcessingGraph {
                                 anyhow::anyhow!("Highpass filter requires 'cutoff_frequency'")
                             })? as f32;
 
-                        let filter = HighpassFilter::new(cutoff_freq);
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(1) as usize; // Default to 1st order for highpass
+
+                        let filter = HighpassFilter::new(cutoff_freq).with_order(order);
                         Ok(Box::new(FilterNode::new(
                             config.id.clone(),
                             Box::new(filter),

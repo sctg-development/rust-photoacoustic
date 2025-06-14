@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// Copyright (c) 2025 Ronan LE MEILLART and SC
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
@@ -36,10 +36,15 @@
 //! - `input`: Entry point for audio frames from acquisition system
 //!
 //! ### Filter Nodes
-//! - `filter` with `type: "bandpass"`: Bandpass filter with center frequency and bandwidth
-//! - `filter` with `type: "lowpass"`: Lowpass filter with cutoff frequency  
-//! - `filter` with `type: "highpass"`: Highpass filter with cutoff frequency
-//! - `filter` with `type: "lowpass"`: Lowpass filter with cutoff frequency
+//! - `filter` with `type: "bandpass"`: Bandpass filter with center frequency, bandwidth, and optional order (default: 4th order = 24dB/octave)
+//! - `filter` with `type: "lowpass"`: Lowpass filter with cutoff frequency and optional order (default: 1st order = 6dB/octave)
+//! - `filter` with `type: "highpass"`: Highpass filter with cutoff frequency and optional order (default: 1st order = 6dB/octave)
+//!
+//! All filters support an `order` parameter that controls the steepness of the roll-off:
+//! - Order 1: 6dB/octave roll-off (gentle)
+//! - Order 2: 12dB/octave roll-off (moderate)
+//! - Order 3: 18dB/octave roll-off (steep)
+//! - Order 4: 24dB/octave roll-off (very steep)
 //!
 //! ### Channel Operations
 //! - `channel_selector`: Selects ChannelA, ChannelB, or Both channels
@@ -71,6 +76,7 @@
 //!                 ("type".into(), "bandpass".into()),
 //!                 ("center_frequency".into(), 1000.0.into()),
 //!                 ("bandwidth".into(), 100.0.into()),
+//!                 ("order".into(), 2.into()), // 2nd order = 12dB/octave
 //!                 ("target_channel".into(), "Both".into()),
 //!             ])).unwrap(),
 //!         },
@@ -117,7 +123,7 @@
 //! let input_node = Box::new(InputNode::new("input".to_string()));
 //! let filter_node = Box::new(FilterNode::new(
 //!     "bandpass".to_string(),
-//!     Box::new(BandpassFilter::new(1000.0, 100.0)),
+//!     Box::new(BandpassFilter::new(1000.0, 100.0).with_order(4)), // 4th order = 24dB/octave
 //!     ChannelTarget::ChannelA,
 //! ));
 //! let diff_node = Box::new(DifferentialNode::new(

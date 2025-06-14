@@ -10,9 +10,13 @@
 //!
 //! # Filter Types
 //!
-//! - **[`BandpassFilter`]**: Butterworth bandpass filter with cascaded biquad sections
-//! - **[`LowpassFilter`]**: First-order IIR lowpass filter for noise reduction
-//! - **[`HighpassFilter`]**: First-order RC highpass filter for DC removal
+//! - **[`BandpassFilter`]**: Butterworth bandpass filter with cascaded biquad sections (configurable order)
+//! - **[`LowpassFilter`]**: Cascaded first-order IIR lowpass filter for noise reduction (configurable order)
+//! - **[`HighpassFilter`]**: Cascaded first-order RC highpass filter for DC removal (configurable order)
+//!
+//! All filters support configurable order which controls the steepness of the roll-off:
+//! - Order 2: -12dB/octave roll-off (moderate)  
+//! - Order 4: -24dB/octave roll-off (very steep)
 //!
 //! # Performance Characteristics
 //!
@@ -30,9 +34,10 @@
 //! use rust_photoacoustic::preprocessing::filters::{Filter, BandpassFilter, LowpassFilter, HighpassFilter};
 //! use std::f32::consts::PI;
 //!
-//! // Create a bandpass filter for 1kHz ± 100Hz
+//! // Create a bandpass filter for 1kHz ± 100Hz (2nd order = 12dB/octave)
 //! let bandpass = BandpassFilter::new(1000.0, 200.0)
-//!     .with_sample_rate(48000);
+//!     .with_sample_rate(48000)
+//!     .with_order(2);
 //!
 //! // Create a test signal with multiple frequencies
 //! let mut signal = Vec::new();
@@ -56,9 +61,9 @@
 //! use rust_photoacoustic::preprocessing::filters::{Filter, HighpassFilter, LowpassFilter};
 //! use std::f32::consts::PI;
 //!
-//! // Create a filter chain: highpass -> lowpass
-//! let highpass = HighpassFilter::new(20.0).with_sample_rate(48000);
-//! let lowpass = LowpassFilter::new(20000.0).with_sample_rate(48000);
+//! // Create a filter chain: highpass -> lowpass (both 2nd order)
+//! let highpass = HighpassFilter::new(20.0).with_sample_rate(48000).with_order(2);
+//! let lowpass = LowpassFilter::new(20000.0).with_sample_rate(48000).with_order(2);
 //!
 //! // Generate noisy signal with DC offset
 //! let mut signal = Vec::new();
@@ -187,7 +192,7 @@ impl BandpassFilter {
     /// ```
     pub fn new(center_freq: f32, bandwidth: f32) -> Self {
         let sample_rate = 48000; // Default sample rate
-        let order = 4; // Default 4th order filter (2 biquad sections)
+        let order = 2; // Default 4th order filter (2 biquad sections)
 
         let mut filter = Self {
             center_freq,
@@ -406,12 +411,17 @@ impl Filter for BandpassFilter {
 /// A lowpass filter for removing high frequency noise
 ///
 /// This filter allows frequencies below the cutoff frequency to pass through
-/// while attenuating higher frequencies. It's implemented as a simple first-order
-/// IIR (Infinite Impulse Response) filter with good stability and low computational cost.
+/// while attenuating higher frequencies. It's implemented using cascaded first-order
+/// IIR (Infinite Impulse Response) filters for higher-order response with good stability.
 ///
-/// The filter uses a single-pole design with the transfer function:
-/// H(z) = α / (1 - (1-α)z⁻¹)
+/// The filter uses cascaded single-pole designs, where each first-order section provides
+/// -6dB/octave roll-off. Multiple sections are cascaded to achieve higher orders:
+/// - Order 1: -6dB/octave roll-off
+/// - Order 2: -12dB/octave roll-off  
+/// - Order 3: -18dB/octave roll-off
+/// - etc.
 ///
+/// Each section has transfer function: H(z) = α / (1 - (1-α)z⁻¹)
 /// where α is calculated based on the cutoff frequency and sample rate.
 ///
 /// ### Examples
@@ -420,9 +430,15 @@ impl Filter for BandpassFilter {
 /// use rust_photoacoustic::preprocessing::filters::{Filter, LowpassFilter};
 /// use std::f32::consts::PI;
 ///
-/// // Create a lowpass filter with 1kHz cutoff
+/// // Create a first-order lowpass filter with 1kHz cutoff (-6dB/octave)
 /// let filter = LowpassFilter::new(1000.0)
-///     .with_sample_rate(48000);
+///     .with_sample_rate(48000)
+///     .with_order(1);
+///
+/// // Create a third-order filter for steeper roll-off (-18dB/octave)
+/// let steep_filter = LowpassFilter::new(1000.0)
+///     .with_sample_rate(48000)
+///     .with_order(3);
 ///
 /// // Generate a test signal with low and high frequency components
 /// let mut signal = Vec::new();
@@ -439,6 +455,7 @@ impl Filter for BandpassFilter {
 pub struct LowpassFilter {
     cutoff_freq: f32,
     sample_rate: u32,
+    order: usize,
 }
 
 impl LowpassFilter {
@@ -446,6 +463,7 @@ impl LowpassFilter {
     ///
     /// Creates a first-order IIR lowpass filter with default sample rate of 48kHz.
     /// The filter provides -6dB/octave roll-off above the cutoff frequency.
+    /// Use `with_order()` to create higher-order filters for steeper roll-off.
     ///
     /// ### Arguments
     ///
@@ -453,14 +471,14 @@ impl LowpassFilter {
     ///
     /// ### Returns
     ///
-    /// A new `LowpassFilter` instance
+    /// A new `LowpassFilter` instance with order 1 (first-order, -6dB/octave)
     ///
     /// ### Examples
     ///
     /// ```
     /// use rust_photoacoustic::preprocessing::filters::LowpassFilter;
     ///
-    /// // Create a filter to remove frequencies above 1kHz
+    /// // Create a filter to remove frequencies above 1kHz (-6dB/octave)
     /// let filter = LowpassFilter::new(1000.0);
     ///
     /// // Create a filter for audio applications (remove above 20kHz)
@@ -468,10 +486,12 @@ impl LowpassFilter {
     /// ```
     pub fn new(cutoff_freq: f32) -> Self {
         let sample_rate = 48000; // Default sample rate
+        let order = 1; // Default to first-order filter
 
         Self {
             cutoff_freq,
             sample_rate,
+            order,
         }
     }
 
@@ -500,14 +520,54 @@ impl LowpassFilter {
         self.sample_rate = sample_rate;
         self
     }
+
+    /// Set the filter order (number of cascaded first-order sections)
+    ///
+    /// Updates the filter order, where each additional order adds another -6dB/octave
+    /// of roll-off and increases the steepness of the transition band.
+    ///
+    /// ### Arguments
+    ///
+    /// * `order` - Filter order (must be positive, typical values: 1, 2, 3, 4)
+    ///   - Order 1: -6dB/octave roll-off (gentle)
+    ///   - Order 2: -12dB/octave roll-off (moderate)
+    ///   - Order 3: -18dB/octave roll-off (steep)
+    ///   - Order 4: -24dB/octave roll-off (very steep)
+    ///
+    /// ### Returns
+    ///
+    /// The modified filter instance for method chaining
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::LowpassFilter;
+    ///
+    /// // Create a third-order filter (-18dB/octave)
+    /// let filter = LowpassFilter::new(1000.0)
+    ///     .with_order(3);
+    /// ```
+    pub fn with_order(mut self, order: usize) -> Self {
+        if order == 0 {
+            panic!("Filter order must be greater than 0");
+        }
+        self.order = order;
+        self
+    }
 }
 
 impl Filter for LowpassFilter {
     /// Apply the lowpass filter to a signal
     ///
-    /// Processes the input signal using a first-order IIR filter with automatic
+    /// Processes the input signal using cascaded first-order IIR filters with automatic
     /// gain control to prevent numerical overflow. The implementation includes
     /// input clamping and output validation for robust operation.
+    ///
+    /// Higher-order filters provide steeper roll-off:
+    /// - Order 1: -6dB/octave
+    /// - Order 2: -12dB/octave  
+    /// - Order 3: -18dB/octave
+    /// - etc.
     ///
     /// ### Arguments
     ///
@@ -523,7 +583,8 @@ impl Filter for LowpassFilter {
     /// use rust_photoacoustic::preprocessing::filters::{Filter, LowpassFilter};
     /// use std::f32::consts::PI;
     ///
-    /// let filter = LowpassFilter::new(1000.0);
+    /// let filter = LowpassFilter::new(1000.0)
+    ///     .with_order(2); // Second-order filter (-12dB/octave)
     ///
     /// // Generate a signal with high frequency noise
     /// let mut input = Vec::new();
@@ -538,7 +599,7 @@ impl Filter for LowpassFilter {
     /// assert_eq!(output.len(), input.len());
     /// ```
     fn apply(&self, signal: &[f32]) -> Vec<f32> {
-        // Simple first-order IIR lowpass filter implementation
+        // Cascaded first-order IIR lowpass filter implementation
         let mut filtered = Vec::with_capacity(signal.len());
 
         if signal.is_empty() {
@@ -549,22 +610,29 @@ impl Filter for LowpassFilter {
         let omega_c = 2.0 * std::f32::consts::PI * self.cutoff_freq / self.sample_rate as f32;
         let alpha = omega_c / (omega_c + 1.0); // More stable coefficient calculation
 
-        let mut prev_sample = 0.0;
+        // Initialize state variables for each cascade stage
+        let mut prev_samples = vec![0.0; self.order];
 
         for &sample in signal {
             // Clamp input to prevent overflow
-            let clamped_sample = sample.clamp(-1e6, 1e6);
-            let filtered_sample = alpha * clamped_sample + (1.0 - alpha) * prev_sample;
+            let mut current_sample = sample.clamp(-1e6, 1e6);
 
-            // Ensure output is finite
-            let final_sample = if filtered_sample.is_finite() {
-                filtered_sample
-            } else {
-                0.0
-            };
+            // Process through each cascade stage
+            for stage in 0..self.order {
+                let filtered_sample = alpha * current_sample + (1.0 - alpha) * prev_samples[stage];
 
-            filtered.push(final_sample);
-            prev_sample = final_sample;
+                // Ensure output is finite
+                let final_sample = if filtered_sample.is_finite() {
+                    filtered_sample
+                } else {
+                    0.0
+                };
+
+                prev_samples[stage] = final_sample;
+                current_sample = final_sample;
+            }
+
+            filtered.push(current_sample);
         }
 
         filtered
@@ -577,8 +645,15 @@ impl Filter for LowpassFilter {
 /// while attenuating lower frequencies. It's particularly useful for removing
 /// DC offset and low-frequency noise from signals.
 ///
-/// The filter is implemented using a first-order RC highpass design with
-/// the transfer function: H(z) = (1 - z⁻¹) / (1 - αz⁻¹)
+/// The filter is implemented using cascaded first-order RC highpass designs, where
+/// each first-order section provides -6dB/octave roll-off. Multiple sections are
+/// cascaded to achieve higher orders:
+/// - Order 1: -6dB/octave roll-off
+/// - Order 2: -12dB/octave roll-off
+/// - Order 3: -18dB/octave roll-off  
+/// - etc.
+///
+/// Each section has transfer function: H(z) = (1 - z⁻¹) / (1 - αz⁻¹)
 /// where α = e^(-2πfc/fs)
 ///
 /// ### Examples
@@ -587,9 +662,15 @@ impl Filter for LowpassFilter {
 /// use rust_photoacoustic::preprocessing::filters::{Filter, HighpassFilter};
 /// use std::f32::consts::PI;
 ///
-/// // Create a highpass filter to remove DC and low frequency noise
+/// // Create a first-order highpass filter to remove DC and low frequency noise (-6dB/octave)
 /// let filter = HighpassFilter::new(100.0)
-///     .with_sample_rate(48000);
+///     .with_sample_rate(48000)
+///     .with_order(1);
+///
+/// // Create a second-order filter for steeper roll-off (-12dB/octave)
+/// let steep_filter = HighpassFilter::new(100.0)
+///     .with_sample_rate(48000)
+///     .with_order(2);
 ///
 /// // Generate a test signal with DC offset and various frequencies
 /// let mut signal = Vec::new();
@@ -607,6 +688,7 @@ impl Filter for LowpassFilter {
 pub struct HighpassFilter {
     cutoff_freq: f32,
     sample_rate: u32,
+    order: usize,
 }
 
 impl HighpassFilter {
@@ -614,7 +696,8 @@ impl HighpassFilter {
     ///
     /// Creates a first-order IIR highpass filter with default sample rate of 48kHz.
     /// The filter provides -6dB/octave roll-off below the cutoff frequency and
-    /// completely removes DC offset.
+    /// completely removes DC offset. Use `with_order()` to create higher-order
+    /// filters for steeper roll-off.
     ///
     /// ### Arguments
     ///
@@ -622,7 +705,7 @@ impl HighpassFilter {
     ///
     /// ### Returns
     ///
-    /// A new `HighpassFilter` instance
+    /// A new `HighpassFilter` instance with order 1 (first-order, -6dB/octave)
     ///
     /// ### Examples
     ///
@@ -637,10 +720,12 @@ impl HighpassFilter {
     /// ```
     pub fn new(cutoff_freq: f32) -> Self {
         let sample_rate = 48000; // Default sample rate
+        let order = 1; // Default to first-order filter
 
         Self {
             cutoff_freq,
             sample_rate,
+            order,
         }
     }
 
@@ -669,15 +754,55 @@ impl HighpassFilter {
         self.sample_rate = sample_rate;
         self
     }
+
+    /// Set the filter order (number of cascaded first-order sections)
+    ///
+    /// Updates the filter order, where each additional order adds another -6dB/octave
+    /// of roll-off and increases the steepness of the transition band.
+    ///
+    /// ### Arguments
+    ///
+    /// * `order` - Filter order (must be positive, typical values: 1, 2, 3, 4)
+    ///   - Order 1: -6dB/octave roll-off (gentle)
+    ///   - Order 2: -12dB/octave roll-off (moderate)
+    ///   - Order 3: -18dB/octave roll-off (steep)
+    ///   - Order 4: -24dB/octave roll-off (very steep)
+    ///
+    /// ### Returns
+    ///
+    /// The modified filter instance for method chaining
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::HighpassFilter;
+    ///
+    /// // Create a second-order filter (-12dB/octave)
+    /// let filter = HighpassFilter::new(100.0)
+    ///     .with_order(2);
+    /// ```
+    pub fn with_order(mut self, order: usize) -> Self {
+        if order == 0 {
+            panic!("Filter order must be greater than 0");
+        }
+        self.order = order;
+        self
+    }
 }
 
 impl Filter for HighpassFilter {
     /// Apply the highpass filter to a signal
     ///
-    /// Processes the input signal using a first-order RC highpass filter that
-    /// effectively removes DC offset and low-frequency components. The implementation
-    /// uses the difference equation y[n] = α*y[n-1] + (x[n] - x[n-1]) with
-    /// input clamping for numerical stability.
+    /// Processes the input signal using cascaded first-order RC highpass filters that
+    /// effectively remove DC offset and low-frequency components. The implementation
+    /// uses the difference equation y[n] = α*y[n-1] + (x[n] - x[n-1]) for each stage
+    /// with input clamping for numerical stability.
+    ///
+    /// Higher-order filters provide steeper roll-off:
+    /// - Order 1: -6dB/octave
+    /// - Order 2: -12dB/octave
+    /// - Order 3: -18dB/octave
+    /// - etc.
     ///
     /// ### Arguments
     ///
@@ -693,7 +818,8 @@ impl Filter for HighpassFilter {
     /// use rust_photoacoustic::preprocessing::filters::{Filter, HighpassFilter};
     /// use std::f32::consts::PI;
     ///
-    /// let filter = HighpassFilter::new(100.0);
+    /// let filter = HighpassFilter::new(100.0)
+    ///     .with_order(2); // Second-order filter (-12dB/octave)
     ///
     /// // Generate a signal with DC offset and low frequency component
     /// let mut input = Vec::new();
@@ -709,8 +835,8 @@ impl Filter for HighpassFilter {
     /// assert_eq!(output.len(), input.len());
     /// ```
     fn apply(&self, signal: &[f32]) -> Vec<f32> {
-        // Simple first-order RC highpass filter implementation
-        // H(z) = (1 - z^-1) / (1 - α*z^-1) where α = e^(-2πfc/fs)
+        // Cascaded first-order RC highpass filter implementation
+        // Each stage: H(z) = (1 - z^-1) / (1 - α*z^-1) where α = e^(-2πfc/fs)
 
         let mut filtered = Vec::with_capacity(signal.len());
 
@@ -722,29 +848,41 @@ impl Filter for HighpassFilter {
         let omega_c = 2.0 * std::f32::consts::PI * self.cutoff_freq / self.sample_rate as f32;
         let alpha = (-omega_c).exp(); // Pole location
 
-        // Initialize state variables
-        let mut x_prev = 0.0; // Previous input sample
-        let mut y_prev = 0.0; // Previous output sample
+        // Initialize state variables for each cascade stage
+        let mut x_prev = vec![0.0; self.order]; // Previous input sample for each stage
+        let mut y_prev = vec![0.0; self.order]; // Previous output sample for each stage
 
         // Process first sample (no previous state)
         let first_sample = signal[0].clamp(-1e6, 1e6);
-        filtered.push(first_sample);
-        x_prev = first_sample;
-        y_prev = first_sample;
 
-        // Process remaining samples using difference equation:
+        // Initialize all stages with the first sample
+        for stage in 0..self.order {
+            x_prev[stage] = first_sample;
+            y_prev[stage] = first_sample;
+        }
+        filtered.push(first_sample);
+
+        // Process remaining samples using difference equation for each stage:
         // y[n] = α*y[n-1] + (x[n] - x[n-1])
         for &x_curr in &signal[1..] {
-            let x_clamped = x_curr.clamp(-1e6, 1e6);
-            let y_curr = alpha * y_prev + (x_clamped - x_prev);
+            let mut current_sample = x_curr.clamp(-1e6, 1e6);
 
-            // Ensure output is finite
-            let final_sample = if y_curr.is_finite() { y_curr } else { 0.0 };
+            // Process through each cascade stage
+            for stage in 0..self.order {
+                let y_curr = alpha * y_prev[stage] + (current_sample - x_prev[stage]);
 
-            filtered.push(final_sample);
+                // Ensure output is finite
+                let final_sample = if y_curr.is_finite() { y_curr } else { 0.0 };
 
-            x_prev = x_clamped;
-            y_prev = final_sample;
+                // Update state variables for this stage
+                x_prev[stage] = current_sample;
+                y_prev[stage] = final_sample;
+
+                // Output of this stage becomes input to next stage
+                current_sample = final_sample;
+            }
+
+            filtered.push(current_sample);
         }
 
         filtered
@@ -891,12 +1029,25 @@ mod tests {
         let filter = LowpassFilter::new(1000.0);
         assert_eq!(filter.cutoff_freq, 1000.0);
         assert_eq!(filter.sample_rate, 48000);
+        assert_eq!(filter.order, 1);
     }
 
     #[test]
     fn test_lowpass_filter_with_sample_rate() {
         let filter = LowpassFilter::new(1000.0).with_sample_rate(44100);
         assert_eq!(filter.sample_rate, 44100);
+    }
+
+    #[test]
+    fn test_lowpass_filter_with_order() {
+        let filter = LowpassFilter::new(1000.0).with_order(3);
+        assert_eq!(filter.order, 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "Filter order must be greater than 0")]
+    fn test_lowpass_filter_zero_order_panics() {
+        LowpassFilter::new(1000.0).with_order(0);
     }
 
     #[test]
@@ -930,12 +1081,25 @@ mod tests {
         let filter = HighpassFilter::new(100.0);
         assert_eq!(filter.cutoff_freq, 100.0);
         assert_eq!(filter.sample_rate, 48000);
+        assert_eq!(filter.order, 1);
     }
 
     #[test]
     fn test_highpass_filter_with_sample_rate() {
         let filter = HighpassFilter::new(100.0).with_sample_rate(44100);
         assert_eq!(filter.sample_rate, 44100);
+    }
+
+    #[test]
+    fn test_highpass_filter_with_order() {
+        let filter = HighpassFilter::new(100.0).with_order(2);
+        assert_eq!(filter.order, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Filter order must be greater than 0")]
+    fn test_highpass_filter_zero_order_panics() {
+        HighpassFilter::new(100.0).with_order(0);
     }
 
     #[test]
@@ -1023,6 +1187,87 @@ mod tests {
             let result = filter.apply(&test_signal);
             assert_eq!(result.len(), test_signal.len());
         }
+    }
+
+    #[test]
+    fn test_filter_order_effectiveness() {
+        // Test that higher-order filters provide better attenuation
+        let sample_rate = 48000;
+        let cutoff = 1000.0;
+        let test_freq = 5000.0; // 5x cutoff frequency
+
+        // Create filters of different orders
+        let filter_order1 = LowpassFilter::new(cutoff)
+            .with_sample_rate(sample_rate)
+            .with_order(1);
+        let filter_order2 = LowpassFilter::new(cutoff)
+            .with_sample_rate(sample_rate)
+            .with_order(2);
+        let filter_order3 = LowpassFilter::new(cutoff)
+            .with_sample_rate(sample_rate)
+            .with_order(3);
+
+        // Generate high frequency signal
+        let signal = generate_sine_wave(test_freq, sample_rate, 0.1);
+
+        let filtered1 = filter_order1.apply(&signal);
+        let filtered2 = filter_order2.apply(&signal);
+        let filtered3 = filter_order3.apply(&signal);
+
+        let original_rms = calculate_rms(&signal);
+        let filtered1_rms = calculate_rms(&filtered1);
+        let filtered2_rms = calculate_rms(&filtered2);
+        let filtered3_rms = calculate_rms(&filtered3);
+
+        // Higher order filters should provide better attenuation
+        assert!(
+            filtered2_rms < filtered1_rms,
+            "Order 2 should attenuate more than order 1"
+        );
+        assert!(
+            filtered3_rms < filtered2_rms,
+            "Order 3 should attenuate more than order 2"
+        );
+        assert!(
+            filtered3_rms < original_rms * 0.1,
+            "Order 3 should provide significant attenuation"
+        );
+    }
+
+    #[test]
+    fn test_highpass_filter_order_effectiveness() {
+        // Test that higher-order highpass filters provide better attenuation of low frequencies
+        let sample_rate = 48000;
+        let cutoff = 1000.0;
+        let test_freq = 200.0; // 1/5 of cutoff frequency
+
+        // Create filters of different orders
+        let filter_order1 = HighpassFilter::new(cutoff)
+            .with_sample_rate(sample_rate)
+            .with_order(1);
+        let filter_order2 = HighpassFilter::new(cutoff)
+            .with_sample_rate(sample_rate)
+            .with_order(2);
+
+        // Generate low frequency signal
+        let signal = generate_sine_wave(test_freq, sample_rate, 0.1);
+
+        let filtered1 = filter_order1.apply(&signal);
+        let filtered2 = filter_order2.apply(&signal);
+
+        let original_rms = calculate_rms(&signal);
+        let filtered1_rms = calculate_rms(&filtered1);
+        let filtered2_rms = calculate_rms(&filtered2);
+
+        // Higher order filter should provide better attenuation
+        assert!(
+            filtered2_rms < filtered1_rms,
+            "Order 2 should attenuate low frequencies more than order 1"
+        );
+        assert!(
+            filtered2_rms < original_rms * 0.5,
+            "Order 2 should provide significant attenuation"
+        );
     }
 
     #[test]

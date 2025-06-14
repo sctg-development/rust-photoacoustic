@@ -572,6 +572,13 @@
                             "minimum": 1,
                             "maximum": 50000,
                             "description": "Cutoff frequency in Hz (required for lowpass and highpass filters)"
+                          },
+                          "order": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10,
+                            "default": 1,
+                            "description": "Filter order - each order adds 6dB/octave roll-off (1st order = 6dB/octave, 2nd = 12dB/octave, etc. Note:bandpass filters support only even orders)"
                           }
                         },
                         "required": [

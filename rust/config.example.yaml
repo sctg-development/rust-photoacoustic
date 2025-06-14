@@ -269,6 +269,8 @@ processing:
         type: bandpass
         center_frequency: 2000.0  # Center at 2 kHz
         bandwidth: 200.0          # 200 Hz bandwidth (1900-2100 Hz passband)
+        order: 2                  # optional order second-order (-12dB/octave)  (must be even)
+                                  # for first-order use a combination of lowpass and highpass filters
 
     # Apply gain adjustment (+3 dB amplification)
     - id: "gain_amplifier"
