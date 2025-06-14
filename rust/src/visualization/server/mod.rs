@@ -37,7 +37,7 @@
 //!
 //! ```
 //! use rocket::figment::Figment;
-//! use std::sync::Arc;
+//! use std::sync::{Arc, RwLock};
 //! use rust_photoacoustic::visualization::server;
 //! use rust_photoacoustic::config::Config;
 //!
@@ -47,7 +47,7 @@
 //!         .merge(("port", 8000))
 //!         .merge(("hmac_secret", "your-secret-key".to_string()));
 //!     
-//!     let config = Arc::new(Config::default());
+//!     let config = Arc::new(RwLock::new(Config::default()));
 //!     let rocket = server::build_rocket(figment, config, None, None, None).await;
 //!     rocket.launch().await.expect("Failed to launch server");
 //! }

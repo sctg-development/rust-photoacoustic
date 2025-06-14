@@ -13,11 +13,11 @@
 //!
 //! ```no_run
 //! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-//! use std::sync::Arc;
+//! use std::sync::{Arc, RwLock};
 //!
 //! async fn run() -> anyhow::Result<()> {
 //!     let config = Config::from_file("config.yaml")?;
-//!     let config_arc = Arc::new(config);
+//!     let config_arc = Arc::new(RwLock::new(config));
 //!     
 //!     // Create and launch daemon
 //!     let mut daemon = Daemon::new();

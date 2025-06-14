@@ -35,7 +35,7 @@ use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::settings::OpenApiSettings;
 use rocket_okapi::{get_openapi_route, openapi_get_routes_spec};
 use rocket_okapi::{rapidoc::*, settings::UrlObject};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Build a configured Rocket server instance
 ///
@@ -64,12 +64,12 @@ use std::sync::Arc;
 ///
 /// ```
 /// use rocket::figment::Figment;
-/// use std::sync::Arc;
+/// use std::sync::{Arc, RwLock};
 /// use rust_photoacoustic::{config::Config, visualization::server};
 ///
 /// async fn example() {
 ///     let figment = Figment::from(rocket::Config::default());
-///     let config = Arc::new(Config::default());
+///     let config = Arc::new(RwLock::new(Config::default()));
 ///     let rocket = server::build_rocket(figment, config, None, None, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
@@ -77,19 +77,19 @@ use std::sync::Arc;
 /// ```
 pub async fn build_rocket(
     figment: Figment,
-    config: Arc<Config>,
+    config: Arc<RwLock<Config>>,
     audio_stream: Option<Arc<SharedAudioStream>>,
     visualization_state: Option<Arc<SharedVisualizationState>>,
     streaming_registry: Option<Arc<StreamingNodeRegistry>>,
 ) -> Rocket<Build> {
     // Load hmac secret from config
-    let hmac_secret = config.visualization.hmac_secret.clone();
+    let config_read = config.read().unwrap();
+    let hmac_secret = config_read.visualization.hmac_secret.clone();
 
     // Load access configuration from config
-    let access_config = config.access.clone();
-
-    // Load compression configuration from config
-    let compression_config = config.visualization.enable_compression;
+    let access_config = config_read.access.clone();
+    let compression_config = config_read.visualization.enable_compression;
+    drop(config_read);
 
     // Create OAuth2 state from config (improved dynamic configuration approach)
     let mut oxide_state = OxideState::from_config(&config);
@@ -364,8 +364,8 @@ use rocket::{get, http::Status, serde::json::Json, State};
 /// It accesses the GenerixConfig through the managed Config state instead of
 /// the GenerixConfig request guard, preparing for future dynamic configuration.
 pub async fn get_generix_config(
-    config: &State<Arc<Config>>,
+    config: &State<Arc<RwLock<Config>>>,
 ) -> Result<Json<GenerixConfig>, Status> {
     // Access the generix config through the managed Config state
-    Ok(Json(config.generix.clone()))
+    Ok(Json(config.read().unwrap().generix.clone()))
 }

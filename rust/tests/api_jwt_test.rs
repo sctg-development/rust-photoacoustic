@@ -6,7 +6,7 @@ use rocket::http::Header;
 use rocket::{config::LogLevel, http::Status};
 use rust_photoacoustic::config::{AccessConfig, VisualizationConfig};
 use serde_json::Value;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 fn get_figment() -> rocket::figment::Figment {
     rocket::Config::figment()
@@ -47,7 +47,7 @@ async fn test_protected_api_with_jwt() {
     let test_config = get_test_config();
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         get_figment(),
-        Arc::new(test_config),
+        Arc::new(RwLock::new(test_config)),
         None,
         Some(visualization_state),
         None,

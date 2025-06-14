@@ -1,51 +1,7 @@
 // Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
 // This file is part of the rust-photoacoustic project and is licensed under the
-// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
-
-//! # Daemon Management Module
-//!
-//! This module provides functionality for running and managing background
-//! tasks (daemons) in the photoacoustic application. It handles the lifecycle of various
-//! services including:
-//!
-//! - Web server for visualization
-//! - Data acquisition from sensors
-//! - System health monitoring (heartbeat)
-//!
-//! The daemon system allows for graceful startup and shutdown of these services,
-//! with proper error handling and task coordination.
-//!
-//! ## Architecture
-//!
-//! The daemon system uses Tokio's asynchronous runtime to manage concurrent tasks.
-//! Each service runs as an independent task, and the main daemon structure tracks
-//! and coordinates these tasks. The daemon maintains a shared `Arc<Config>` that
-//! provides dynamic configuration access to all components.
-//!
-//! ## Usage
-//!
-//! ```no_run
-//! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-//! use std::sync::Arc;
-//!
-//! async fn example() -> anyhow::Result<()> {
-//!     let config = Config::from_file("config.yaml")?;
-//!     let config_arc = Arc::new(config);
-//!     
-//!     // Create and launch daemon with all enabled services
-//!     let mut daemon = Daemon::new();
-//!     daemon.launch(config_arc).await?;
-//!     
-//!     // Later, trigger a graceful shutdown
-//!     daemon.shutdown();
-//!     
-//!     // Wait for all tasks to complete
-//!     daemon.join().await?;
-//!     
-//!     Ok(())
-//! }
-//! ```
-
+// SCTG Development Non-Commercial License v1.0 (    /// * `config` - Application configuration as `Arc<RwLock<Config>>` for shared access
+///   across all daemon components, enabling dynamic configuration support.e LICENSE.md for details).
 use anyhow::Result;
 use log::{debug, error, info, warn};
 use std::time::{Duration, SystemTime};
@@ -53,7 +9,7 @@ use std::{
     net::SocketAddr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, RwLock,
     },
 };
 use tokio::task::JoinHandle;
@@ -89,7 +45,7 @@ use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
 ///
 /// * `tasks` - Collection of handles to running tasks for management and cleanup
 /// * `running` - Atomic flag shared between tasks to coordinate shutdown
-/// * `config` - Shared configuration (`Arc<Config>`) providing dynamic access for all components
+/// * `config` - Shared configuration (`Arc<RwLock<Config>>`) providing dynamic access for all components
 ///
 /// ### Thread Safety
 ///
@@ -123,7 +79,7 @@ pub struct Daemon {
     streaming_registry: Arc<StreamingNodeRegistry>,
     /// Shared configuration for dynamic configuration support
     /// This is the single source of truth for all configuration across the application
-    config: Arc<crate::config::Config>,
+    config: Arc<RwLock<crate::config::Config>>,
 }
 
 impl Default for Daemon {
@@ -163,14 +119,14 @@ impl Daemon {
             processing_consumer_daemon: None,
             visualization_state: Arc::new(SharedVisualizationState::new()),
             streaming_registry: Arc::new(StreamingNodeRegistry::new()),
-            config: Arc::new(crate::config::Config::default()),
+            config: Arc::new(RwLock::new(crate::config::Config::default())),
         }
     }
 
     /// Launch all configured tasks based on configuration
     ///
     /// Starts the various daemon services according to the provided configuration.
-    /// The configuration is stored internally as `Arc<Config>` and shared with all
+    /// The configuration is stored internally as `Arc<RwLock<Config>>` and shared with all
     /// spawned tasks to enable dynamic configuration access. Only services that are
     /// enabled in the configuration will be started. Each service runs as a separate
     /// asynchronous task.
@@ -204,45 +160,45 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-    /// use std::sync::Arc;
+    /// use std::sync::{Arc, RwLock};
     ///
     /// async fn start_daemon() -> anyhow::Result<Daemon> {
     ///     let config = Config::from_file("config.yaml")?;
-    ///     let config_arc = Arc::new(config);
+    ///     let config_arc = Arc::new(RwLock::new(config));
     ///     let mut daemon = Daemon::new();
     ///     daemon.launch(config_arc).await?;
     ///     Ok(daemon)
     /// }
     /// ```
-    pub async fn launch(&mut self, config: Arc<Config>) -> Result<()> {
-        // Store the config as a shared Arc for dynamic configuration support
+    pub async fn launch(&mut self, config: Arc<RwLock<Config>>) -> Result<()> {
+        // Store the config as a shared Arc<RwLock<Config>> for dynamic configuration support
         self.config = config;
 
         // Démarrer l'acquisition audio AVANT le serveur web
         self.start_audio_acquisition().await?;
 
         // Start record consumer if enabled
-        if self.config.photoacoustic.record_consumer {
+        if self.config.read().unwrap().photoacoustic.record_consumer {
             self.start_record_consumer().await?;
         }
 
         // Start processing consumer if enabled
-        if self.config.processing.enabled {
+        if self.config.read().unwrap().processing.enabled {
             self.start_processing_consumer().await?;
         }
 
         // Start web server if enabled
-        if self.config.visualization.enabled {
+        if self.config.read().unwrap().visualization.enabled {
             self.start_visualization_server().await?;
         }
 
         // Start data acquisition task if enabled
-        if self.config.acquisition.enabled {
+        if self.config.read().unwrap().acquisition.enabled {
             self.start_auxiliary_data_acquisition()?;
         }
 
         // Start modbus server if enabled
-        if self.config.modbus.enabled {
+        if self.config.read().unwrap().modbus.enabled {
             self.start_modbus_server().await?;
         }
 
@@ -282,37 +238,57 @@ impl Daemon {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
 
+        // Extract all needed values in one scope and immediately release the lock
+        let (
+            visualization_address,
+            visualization_port,
+            visualization_name,
+            session_secret,
+            rs256_public_key,
+            rs256_private_key,
+            visualization_cert,
+            visualization_key,
+            hmac_secret,
+            enable_compression,
+        ) = {
+            let config_read = config.read().unwrap();
+            (
+                config_read.visualization.address.clone(),
+                config_read.visualization.port,
+                config_read.visualization.name.clone(),
+                config_read.visualization.session_secret.clone(),
+                config_read.visualization.rs256_public_key.clone(),
+                config_read.visualization.rs256_private_key.clone(),
+                config_read.visualization.cert.clone(),
+                config_read.visualization.key.clone(),
+                config_read.visualization.hmac_secret.clone(),
+                config_read.visualization.enable_compression,
+            )
+        };
+
         info!(
             "Starting web server on {}:{}",
-            config.visualization.address, config.visualization.port
+            visualization_address, visualization_port
         );
 
         let mut figment = rocket::Config::figment()
-            .merge(("ident", config.visualization.name.clone()))
+            .merge(("ident", visualization_name))
             .merge(("limits", Limits::new().limit("json", 2.mebibytes())))
-            .merge(("address", config.visualization.address.clone()))
-            .merge(("port", config.visualization.port))
+            .merge(("address", visualization_address))
+            .merge(("port", visualization_port))
             .merge(("log_level", LogLevel::Normal))
-            .merge(("secret_key", config.visualization.session_secret.clone()));
+            .merge(("secret_key", session_secret));
 
         // Add RS256 keys to figment
-        if !config.visualization.rs256_public_key.is_empty()
-            && !config.visualization.rs256_private_key.is_empty()
-        {
+        if !rs256_public_key.is_empty() && !rs256_private_key.is_empty() {
             debug!("RS256 keys found in configuration");
             figment = figment
-                .merge((
-                    "rs256_public_key",
-                    config.visualization.rs256_public_key.clone(),
-                ))
-                .merge((
-                    "rs256_private_key",
-                    config.visualization.rs256_private_key.clone(),
-                ));
+                .merge(("rs256_public_key", rs256_public_key))
+                .merge(("rs256_private_key", rs256_private_key));
         }
 
         // Configure TLS if certificates are provided
-        if let (Some(cert), Some(key)) = (&config.visualization.cert, &config.visualization.key) {
+        if let (Some(cert), Some(key)) = (&visualization_cert, &visualization_key) {
             debug!("SSL certificates found in configuration, enabling TLS");
 
             // Decode base64 certificates
@@ -325,14 +301,14 @@ impl Daemon {
                 .merge(("tls.key", key_data));
 
             // Add the hmac secret to the figment
-            figment = figment.merge(("hmac_secret", config.visualization.hmac_secret.clone()));
+            figment = figment.merge(("hmac_secret", hmac_secret));
 
             info!("TLS enabled for web server");
         }
 
         let rocket = build_rocket(
             figment,
-            Arc::clone(&config), // Use the shared Arc<Config> directly
+            Arc::clone(&config),
             self.audio_stream.clone(),
             Some(Arc::clone(&self.visualization_state)),
             Some(Arc::clone(&self.streaming_registry)),
@@ -395,10 +371,10 @@ impl Daemon {
         info!("Starting photoacoustic computation task");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
+        let interval_ms = config.read().unwrap().acquisition.interval_ms;
 
         let running = self.running.clone();
         let data_source_clone = self.data_source.clone();
-        let config = config.clone();
 
         let task = tokio::spawn(async move {
             let now = SystemTime::now();
@@ -418,7 +394,7 @@ impl Daemon {
                     (5678 + timestamp) as f32,
                     (1000 + timestamp) as f32,
                 );
-                time::sleep(Duration::from_millis(config.acquisition.interval_ms)).await;
+                time::sleep(Duration::from_millis(interval_ms)).await;
             }
             Ok(())
         });
@@ -486,10 +462,15 @@ impl Daemon {
     async fn start_modbus_server(&mut self) -> Result<()> {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
+        let config_read = config.read().unwrap();
+
         info!(
             "Starting modbus server on {}:{}",
-            config.modbus.address, config.modbus.port
+            config_read.modbus.address, config_read.modbus.port
         );
+
+        let socket_addr_str = format!("{}:{}", config_read.modbus.address, config_read.modbus.port);
+        drop(config_read); // Release the read lock
 
         let running = self.running.clone();
         // Create a clone of the data source to share with the server
@@ -497,10 +478,7 @@ impl Daemon {
         // Create another clone for the server task
 
         let task = tokio::spawn(async move {
-            let socket_addr: SocketAddr =
-                format!("{}:{}", config.modbus.address, config.modbus.port)
-                    .parse()
-                    .expect("Invalid socket address");
+            let socket_addr: SocketAddr = socket_addr_str.parse().expect("Invalid socket address");
             let listener = TcpListener::bind(socket_addr).await?;
 
             let server = Server::new(listener);
@@ -614,8 +592,11 @@ impl Daemon {
     async fn start_audio_acquisition(&mut self) -> Result<()> {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
+        let config_read = config.read().unwrap();
+
         // Early return if acquisition is disabled in configuration
-        if !config.acquisition.enabled {
+        if !config_read.acquisition.enabled {
+            drop(config_read);
             info!("Audio acquisition is disabled in configuration");
             return Ok(());
         }
@@ -623,32 +604,36 @@ impl Daemon {
         info!("Starting real-time audio acquisition system");
 
         // === PHASE 1: Real-Time Audio Source Selection ===
+        // Clone the necessary data from config before dropping the read lock
+        let photoacoustic_config = config_read.photoacoustic.clone();
+        let buffer_size: usize = config_read.photoacoustic.frame_size.into();
+        drop(config_read);
+
         // Select and initialize the appropriate real-time audio source based on configuration
-        let audio_source = if let Some(ref simulated_config) = config.photoacoustic.simulated_source
+        let audio_source = if let Some(ref simulated_config) = photoacoustic_config.simulated_source
         {
             // Simulated photoacoustic source for testing and advanced simulation
             info!(
                 "Using simulated photoacoustic source with type: {}",
                 simulated_config.source_type
             );
-            get_realtime_simulated_photoacoustic_source(config.photoacoustic.clone())?
-        } else if let Some(ref file_path) = config.photoacoustic.input_file {
+            get_realtime_simulated_photoacoustic_source(photoacoustic_config.clone())?
+        } else if let Some(ref file_path) = photoacoustic_config.input_file {
             // File-based real-time audio source for testing and playback scenarios
             info!("Using real-time file audio source: {}", file_path);
-            get_realtime_audio_source_from_file(config.photoacoustic.clone())?
-        } else if let Some(ref device_name) = config.photoacoustic.input_device {
+            get_realtime_audio_source_from_file(photoacoustic_config.clone())?
+        } else if let Some(ref device_name) = photoacoustic_config.input_device {
             // Named device source for specific hardware targeting
             info!("Using real-time device audio source: {}", device_name);
-            get_realtime_audio_source_from_device(config.photoacoustic.clone())?
+            get_realtime_audio_source_from_device(photoacoustic_config.clone())?
         } else {
             // Default system audio input as fallback
             info!("Using default real-time audio source");
-            get_default_realtime_audio_source(config.photoacoustic.clone())?
+            get_default_realtime_audio_source(photoacoustic_config.clone())?
         };
 
         // === PHASE 2: Real-Time Acquisition Daemon Creation ===
         // Create the real-time acquisition daemon with the selected source
-        let buffer_size: usize = config.photoacoustic.frame_size.into();
         let mut realtime_daemon = RealTimeAcquisitionDaemon::new(audio_source, buffer_size);
 
         // === PHASE 3: Stream Connection ===
@@ -752,6 +737,7 @@ impl Daemon {
         info!("Starting record consumer daemon for validation");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
+        let record_file = config.read().unwrap().photoacoustic.record_file.clone();
 
         // Ensure audio stream is available
         let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
@@ -759,10 +745,7 @@ impl Daemon {
         })?;
 
         // Create record consumer daemon
-        let record_consumer = RecordConsumer::new(
-            audio_stream.clone(),
-            config.photoacoustic.record_file.clone(),
-        );
+        let record_consumer = RecordConsumer::new(audio_stream.clone(), record_file);
 
         // Start the record consumer in a background task
         let mut record_consumer_for_task = record_consumer;
@@ -816,6 +799,13 @@ impl Daemon {
         info!("Starting processing consumer daemon");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
+        let (processing_config, default_graph) = {
+            let config_read = config.read().unwrap();
+            (
+                config_read.processing.clone(),
+                config_read.processing.default_graph.clone(),
+            )
+        };
 
         // Ensure audio stream is available
         let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
@@ -823,14 +813,13 @@ impl Daemon {
         })?;
 
         // Validate processing configuration
-        config
-            .processing
+        processing_config
             .validate()
             .map_err(|e| anyhow::anyhow!("Invalid processing configuration: {}", e))?;
 
         // Create processing graph from configuration with streaming registry
         let processing_graph = ProcessingGraph::from_config_with_registry(
-            &config.processing.default_graph,
+            &default_graph,
             Some((*self.streaming_registry).clone()),
         )
         .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
@@ -952,11 +941,11 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-    /// use std::sync::Arc;
+    /// use std::sync::{Arc, RwLock};
     ///
     /// async fn example() -> anyhow::Result<()> {
     ///     let config = Config::from_file("config.yaml")?;
-    ///     let config_arc = Arc::new(config);
+    ///     let config_arc = Arc::new(RwLock::new(config));
     ///     let mut daemon = Daemon::new();
     ///     daemon.launch(config_arc).await?;
     ///     

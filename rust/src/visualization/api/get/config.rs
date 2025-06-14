@@ -8,11 +8,11 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::openapi_get_routes_spec;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use auth_macros::openapi_protect_get;
 
-type ConfigState = State<Arc<Config>>;
+type ConfigState = State<Arc<RwLock<Config>>>;
 
 /// Get the current application configuration
 ///
@@ -111,7 +111,7 @@ type ConfigState = State<Arc<Config>>;
 #[openapi_protect_get("/api/config", "admin:api", tag = "Configuration")]
 pub async fn get_config(config: &ConfigState) -> Json<Config> {
     // Return the current configuration as JSON
-    Json(config.inner().as_ref().clone())
+    Json(config.inner().read().unwrap().clone())
 }
 
 /// Get the configuration schema

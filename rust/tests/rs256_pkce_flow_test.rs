@@ -20,7 +20,7 @@ use rust_photoacoustic::{config::AccessConfig, visualization::auth::jwt::JwkKeyS
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Generate a test configuration for Rocket
 fn get_test_figment() -> rocket::figment::Figment {
@@ -473,7 +473,14 @@ async fn test_rs256_pkce_flow_s256() {
     config.visualization.rs256_private_key = private_base64.clone();
     config.visualization.rs256_public_key = public_base64.clone();
     config.visualization.hmac_secret = test_hmac_secret.to_string();
-    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
+    let rocket = server::build_rocket(
+        figment,
+        Arc::new(RwLock::new(config.clone())),
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -541,7 +548,14 @@ async fn test_rs256_pkce_flow_plain() {
     config.visualization.rs256_private_key = private_base64.clone();
     config.visualization.rs256_public_key = public_base64.clone();
     config.visualization.hmac_secret = test_hmac_secret.to_string();
-    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
+    let rocket = server::build_rocket(
+        figment,
+        Arc::new(RwLock::new(config.clone())),
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -615,9 +629,14 @@ async fn test_rs256_pkce_flow() {
                 rust_photoacoustic::config::VisualizationConfig::default(),
             ))
             .merge(("access_config", test_access_config));
-
-        let rocket =
-            server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
+        let rocket = server::build_rocket(
+            figment,
+            Arc::new(RwLock::new(config.clone())),
+            None,
+            None,
+            None,
+        )
+        .await;
 
         let client = rocket::local::asynchronous::Client::tracked(rocket)
             .await
@@ -656,8 +675,14 @@ async fn test_rs256_jwks_endpoint() {
         .merge(("access_config", AccessConfig::default()));
     // Add hmac secret to the figment
     let figment = figment.merge(("hmac_secret", test_hmac_secret));
-
-    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
+    let rocket = server::build_rocket(
+        figment,
+        Arc::new(RwLock::new(config.clone())),
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await
@@ -732,12 +757,18 @@ async fn test_rs256_pkce_invalid_challenge_method() {
             rust_photoacoustic::config::VisualizationConfig::default(),
         ))
         .merge(("access_config", test_access_config));
-
     let mut config = rust_photoacoustic::config::Config::default();
     config.visualization.rs256_private_key = private_base64.clone();
     config.visualization.rs256_public_key = public_base64.clone();
     config.visualization.hmac_secret = test_hmac_secret.to_string();
-    let rocket = server::build_rocket(figment, Arc::new(config.clone()), None, None, None).await;
+    let rocket = server::build_rocket(
+        figment,
+        Arc::new(RwLock::new(config.clone())),
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let client = rocket::local::asynchronous::Client::tracked(rocket)
         .await

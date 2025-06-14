@@ -20,6 +20,7 @@ use config::Config;
 use log::info;
 
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use tokio::signal;
 
 /// Water vapor analyzer using photoacoustic spectroscopy
@@ -165,7 +166,7 @@ async fn main() -> Result<()> {
         let mut daemon = daemon::launch_daemon::Daemon::new();
 
         // Create shared configuration for dynamic configuration support
-        let config_arc = std::sync::Arc::new(config);
+        let config_arc = std::sync::Arc::new(std::sync::RwLock::new(config));
 
         // Launch all configured tasks
         daemon.launch(config_arc).await?;

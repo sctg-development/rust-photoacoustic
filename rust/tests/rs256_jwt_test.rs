@@ -16,8 +16,8 @@ use rust_photoacoustic::visualization::api::get::test;
 use rust_photoacoustic::visualization::auth::jwt::JwkKeySet;
 use rust_photoacoustic::visualization::auth::jwt::JwtIssuer;
 use serde_json::Value;
-use std::sync::Arc;
 use std::sync::Once;
+use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static INIT: Once = Once::new();
@@ -190,7 +190,7 @@ async fn test_oidc_endpoints_with_rs256() {
     test_config.visualization.hmac_secret = test_hmac_secret.to_string();
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         figment,
-        Arc::new(test_config),
+        Arc::new(RwLock::new(test_config)),
         None,
         None,
         None,
@@ -283,7 +283,7 @@ async fn test_token_endpoint_with_rs256() {
     test_config.visualization.hmac_secret = test_hmac_secret.to_string();
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         figment,
-        Arc::new(test_config),
+        Arc::new(RwLock::new(test_config)),
         None,
         None,
         None,

@@ -8,7 +8,7 @@
 //! which manages the OAuth 2.0 server state including client registrations,
 //! authorization storage, and token issuance.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use log::debug;
 use oxide_auth::frontends::simple::endpoint::{Generic, Vacant};
@@ -225,16 +225,17 @@ impl OxideState {
     /// ### Example
     ///
     /// ```no_run
-    /// use std::sync::Arc;
+    /// use std::sync::{Arc, RwLock};
     /// use rust_photoacoustic::{config::Config, visualization::auth::OxideState};
     ///
     /// // Create the OAuth state from config
-    /// let config = Arc::new(Config::default());
+    /// let config = Arc::new(RwLock::new(Config::default()));
     /// let state = OxideState::from_config(&config);
     /// ```
-    pub fn from_config(config: &crate::config::Config) -> Self {
+    pub fn from_config(config: &Arc<RwLock<crate::config::Config>>) -> Self {
+        let config_read = config.read().unwrap();
         // Use the HMAC secret from configuration
-        let hmac_secret = &config.visualization.hmac_secret;
+        let hmac_secret = config_read.visualization.hmac_secret.clone();
         let jwt_secret = hmac_secret.as_bytes();
 
         // Create a ClientMap based on config::AccessConfig::clients
@@ -243,15 +244,15 @@ impl OxideState {
         // The rest are additional allowed callbacks
         let mut client_map: Vec<Client> = vec![];
         // Use the AccessConfig from the config
-        let access_config = &config.access;
+        let access_config = config_read.access.clone();
 
         // Create and configure the JWT issuer
         let mut jwt_issuer = JwtIssuer::new(jwt_secret);
         jwt_issuer
             .with_issuer(
                 access_config
-                    .clone()
                     .iss
+                    .clone()
                     .unwrap_or("LaserSmartServer".to_string()),
             ) // Set the issuer name
             .valid_for(chrono::Duration::hours(1)); // Tokens valid for 1 hour
@@ -277,6 +278,11 @@ impl OxideState {
             client_map.push(oauth_client);
         }
 
+        let rs256_private_key = config_read.visualization.rs256_private_key.clone();
+        let rs256_public_key = config_read.visualization.rs256_public_key.clone();
+        let generix_config = config_read.generix.clone();
+        drop(config_read);
+
         OxideState {
             registrar: Arc::new(Mutex::new(client_map.into_iter().collect::<ClientMap>())),
             // Authorization tokens are 16 byte random keys to a memory hash map.
@@ -286,14 +292,14 @@ impl OxideState {
             // and contain user information embedded within them
             issuer: Arc::new(Mutex::new(jwt_issuer)),
             // Store the HMAC secret for validation elsewhere
-            hmac_secret: hmac_secret.clone(),
+            hmac_secret,
             // Set RS256 keys from config
-            rs256_private_key: config.visualization.rs256_private_key.clone(),
-            rs256_public_key: config.visualization.rs256_public_key.clone(),
+            rs256_private_key,
+            rs256_public_key,
             // Use the access config from config
-            access_config: access_config.clone(),
+            access_config,
             // Use the generix configuration from config
-            generix_config: config.generix.clone(),
+            generix_config,
         }
     }
 

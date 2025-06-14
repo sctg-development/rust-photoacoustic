@@ -9,7 +9,10 @@ use rocket::{
 use rust_photoacoustic::config::AccessConfig;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use url::Url;
 
 fn get_figment() -> rocket::figment::Figment {
@@ -117,7 +120,7 @@ async fn test_oauth2_pkce_flow() {
 
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         figment,
-        Arc::new(test_config),
+        Arc::new(RwLock::new(test_config)),
         None,
         None,
         None,
@@ -385,7 +388,7 @@ async fn test_oauth2_invalid_credentials() {
     config.visualization.hmac_secret = test_hmac_secret.to_string();
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         figment,
-        Arc::new(config),
+        Arc::new(RwLock::new(config)),
         None,
         None,
         None,
