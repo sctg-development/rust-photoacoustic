@@ -13,9 +13,10 @@ use crate::processing::{PhotoacousticAnalysis, ProcessingData, ProcessingGraph, 
 use crate::visualization::shared_state::SharedVisualizationState;
 use anyhow::Result;
 use log::{debug, error, info, warn};
+use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc,
+    Arc, RwLock as StdRwLock,
 };
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, RwLock};
@@ -42,6 +43,10 @@ pub struct ProcessingConsumer {
     stats: Arc<RwLock<ProcessingStats>>,
     /// Shared visualization state for API access
     visualization_state: Option<Arc<SharedVisualizationState>>,
+    /// Shared configuration for dynamic updates
+    config: Option<Arc<StdRwLock<crate::config::Config>>>,
+    /// Last known configuration version (for change detection)
+    last_config_version: Arc<AtomicU64>,
 }
 
 /// Processing statistics
@@ -80,6 +85,8 @@ impl ProcessingConsumer {
             result_sender: None,
             stats: Arc::new(RwLock::new(ProcessingStats::default())),
             visualization_state: None,
+            config: None,
+            last_config_version: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -108,6 +115,45 @@ impl ProcessingConsumer {
             result_sender: None,
             stats: Arc::new(RwLock::new(ProcessingStats::default())),
             visualization_state: Some(visualization_state),
+            config: None,
+            last_config_version: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    /// Create a new processing consumer with shared visualization state and configuration monitoring
+    pub fn new_with_visualization_state_and_config(
+        audio_stream: Arc<SharedAudioStream>,
+        processing_graph: ProcessingGraph,
+        visualization_state: Arc<SharedVisualizationState>,
+        config: Arc<StdRwLock<crate::config::Config>>,
+    ) -> Self {
+        let consumer_id = format!(
+            "processing_consumer_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+
+        // Calculate initial configuration hash for change detection
+        let initial_hash = {
+            let config_read = config.read().unwrap();
+            Self::calculate_config_hash(&config_read.processing)
+        };
+
+        Self {
+            audio_stream,
+            processing_graph: Arc::new(RwLock::new(processing_graph)),
+            consumer: None,
+            running: Arc::new(AtomicBool::new(false)),
+            frames_processed: Arc::new(AtomicU64::new(0)),
+            processing_failures: Arc::new(AtomicU64::new(0)),
+            consumer_id,
+            result_sender: None,
+            stats: Arc::new(RwLock::new(ProcessingStats::default())),
+            visualization_state: Some(visualization_state),
+            config: Some(config),
+            last_config_version: Arc::new(AtomicU64::new(initial_hash)),
         }
     }
 
@@ -171,6 +217,11 @@ impl ProcessingConsumer {
 
         // Create the audio stream consumer
         self.consumer = Some(AudioStreamConsumer::new(&self.audio_stream));
+
+        // Start configuration monitoring if available
+        if let Some(ref config) = self.config {
+            self.start_config_monitoring(Arc::clone(config)).await;
+        }
 
         info!(
             "ProcessingConsumer '{}' started successfully",
@@ -663,6 +714,216 @@ impl ProcessingConsumer {
     /// A RwLock guard providing read access to the processing graph
     pub async fn get_processing_graph(&self) -> tokio::sync::RwLockReadGuard<'_, ProcessingGraph> {
         self.processing_graph.read().await
+    }
+
+    /// Start configuration monitoring in a background task
+    ///
+    /// This method spawns a background task that periodically checks for configuration
+    /// changes and applies hot-reload updates to compatible nodes in the processing graph.
+    /// The monitoring task runs independently and doesn't block the main processing loop.
+    ///
+    /// ### Arguments
+    ///
+    /// * `config` - Shared configuration to monitor for changes
+    async fn start_config_monitoring(&self, config: Arc<StdRwLock<crate::config::Config>>) {
+        let processing_graph = Arc::clone(&self.processing_graph);
+        let consumer_id = self.consumer_id.clone();
+        let running = Arc::clone(&self.running);
+        let last_config_version = Arc::clone(&self.last_config_version);
+
+        tokio::spawn(async move {
+            info!(
+                "ProcessingConsumer '{}': Starting configuration monitoring",
+                consumer_id
+            );
+
+            while running.load(Ordering::Relaxed) {
+                // Check for configuration changes every 1 second
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                match Self::check_and_apply_config_changes(
+                    &config,
+                    &processing_graph,
+                    &last_config_version,
+                    &consumer_id,
+                )
+                .await
+                {
+                    Ok(changed) => {
+                        if changed {
+                            debug!(
+                                "ProcessingConsumer '{}': Configuration updated successfully",
+                                consumer_id
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        error!(
+                            "ProcessingConsumer '{}': Configuration update failed: {}",
+                            consumer_id, e
+                        );
+                    }
+                }
+            }
+
+            info!(
+                "ProcessingConsumer '{}': Configuration monitoring stopped",
+                consumer_id
+            );
+        });
+    }
+
+    /// Check for configuration changes and apply hot-reload updates
+    ///
+    /// This method compares the current configuration hash with the last known hash
+    /// and applies hot-reload updates to compatible nodes if changes are detected.
+    ///
+    /// ### Arguments
+    ///
+    /// * `config` - Shared configuration to check
+    /// * `processing_graph` - Processing graph to update
+    /// * `last_config_version` - Last known configuration hash
+    /// * `consumer_id` - Consumer ID for logging
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration was changed and updates were applied
+    /// * `Ok(false)` - No configuration changes detected
+    /// * `Err(anyhow::Error)` - Error during configuration update
+    async fn check_and_apply_config_changes(
+        config: &Arc<StdRwLock<crate::config::Config>>,
+        processing_graph: &Arc<RwLock<ProcessingGraph>>,
+        last_config_version: &Arc<AtomicU64>,
+        consumer_id: &str,
+    ) -> Result<bool> {
+        let (current_hash, node_configs) = {
+            let config_read = config.read().unwrap();
+            let hash = Self::calculate_config_hash(&config_read.processing);
+            let node_configs = config_read
+                .processing
+                .default_graph
+                .nodes
+                .iter()
+                .map(|node_config| (node_config.id.clone(), node_config.clone()))
+                .collect::<HashMap<String, _>>();
+            (hash, node_configs)
+        };
+
+        let last_hash = last_config_version.load(Ordering::Relaxed);
+
+        if current_hash != last_hash {
+            info!(
+                "ProcessingConsumer '{}': Configuration changed (hash: {} -> {})",
+                consumer_id, last_hash, current_hash
+            );
+
+            // Apply hot-reload updates to compatible nodes
+            let mut hot_reload_updates = HashMap::new();
+            let mut graph = processing_graph.write().await;
+
+            for (node_id, node_config) in node_configs {
+                // Convert node configuration to parameters JSON
+                if let Ok(parameters) = serde_json::to_value(&node_config.parameters) {
+                    hot_reload_updates.insert(node_id, parameters);
+                }
+            }
+
+            // Apply batch updates to all nodes
+            let results = graph.update_multiple_node_configs(&hot_reload_updates);
+
+            // Log results
+            let mut updated_count = 0;
+            let mut failed_count = 0;
+            let mut needs_rebuild_count = 0;
+
+            for (node_id, result) in results {
+                match result {
+                    Ok(true) => {
+                        debug!(
+                            "ProcessingConsumer '{}': Hot-reload applied to node '{}'",
+                            consumer_id, node_id
+                        );
+                        updated_count += 1;
+                    }
+                    Ok(false) => {
+                        warn!(
+                            "ProcessingConsumer '{}': Node '{}' requires rebuild for configuration change",
+                            consumer_id, node_id
+                        );
+                        needs_rebuild_count += 1;
+                    }
+                    Err(e) => {
+                        error!(
+                            "ProcessingConsumer '{}': Failed to update node '{}': {}",
+                            consumer_id, node_id, e
+                        );
+                        failed_count += 1;
+                    }
+                }
+            }
+
+            info!(
+                "ProcessingConsumer '{}': Configuration update complete - {} hot-reloaded, {} require rebuild, {} failed",
+                consumer_id, updated_count, needs_rebuild_count, failed_count
+            );
+
+            // Update the last known hash
+            last_config_version.store(current_hash, Ordering::Relaxed);
+
+            if needs_rebuild_count > 0 {
+                warn!(
+                    "ProcessingConsumer '{}': {} nodes require processing graph rebuild for full configuration update",
+                    consumer_id, needs_rebuild_count
+                );
+            }
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Calculate a hash of the processing configuration for change detection
+    ///
+    /// This method creates a hash of the relevant parts of the processing configuration
+    /// to detect when hot-reload updates should be applied.
+    ///
+    /// ### Arguments
+    ///
+    /// * `config` - Processing configuration to hash
+    ///
+    /// ### Returns
+    ///
+    /// A 64-bit hash representing the configuration state
+    pub fn calculate_config_hash(config: &crate::config::processing::ProcessingConfig) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+
+        // Hash the enabled state
+        config.enabled.hash(&mut hasher);
+
+        // Hash each node configuration
+        for node in &config.default_graph.nodes {
+            node.id.hash(&mut hasher);
+            node.node_type.hash(&mut hasher);
+            // Hash the parameters as JSON string for consistency
+            if let Ok(params_json) = serde_json::to_string(&node.parameters) {
+                params_json.hash(&mut hasher);
+            }
+        }
+
+        // Hash connections
+        for connection in &config.default_graph.connections {
+            connection.from.hash(&mut hasher);
+            connection.to.hash(&mut hasher);
+        }
+
+        // Hash output node
+        config.default_graph.output_node.hash(&mut hasher);
+
+        hasher.finish()
     }
 }
 

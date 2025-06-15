@@ -824,11 +824,12 @@ impl Daemon {
         )
         .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
 
-        // Create processing consumer daemon with shared visualization state
-        let processing_consumer = ProcessingConsumer::new_with_visualization_state(
+        // Create processing consumer daemon with shared visualization state and config
+        let processing_consumer = ProcessingConsumer::new_with_visualization_state_and_config(
             audio_stream.clone(),
             processing_graph,
             Arc::clone(&self.visualization_state),
+            Arc::clone(&self.config),
         );
 
         // Start the processing consumer in a background task
