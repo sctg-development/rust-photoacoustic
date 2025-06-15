@@ -41,38 +41,101 @@ Ce document détaille, pour chaque type de nœud du `ProcessingGraph`, si une mi
     - Pour `cutoff_frequency`, `order`, `target_channel`: Implémenter des setters thread-safe permettant la mise à jour dynamique.
     - Pour `filter_type`: Nécessite la reconstruction du nœud (et potentiellement du graphe si les connexions sont affectées).
 
-### 2.3 `ChannelSelectorNode`
+### 2.3 `ChannelSelectorNode` ✅ **IMPLÉMENTÉ**
 
-- **Description** : Nœud sélectionnant un ou plusieurs canaux spécifiques à partir d'un flux multi-canaux.
-- **Paramètres principaux** : `selected_channels` (liste des canaux à conserver/sélectionner).
+- **Description** : Nœud sélectionnant un canal spécifique à partir d'un flux dual-channel.
+- **Paramètres principaux** : `target_channel` (canal à sélectionner: ChannelA ou ChannelB).
 - **Analyse de la capacité de Hot-Reload** :
-    - `selected_channels`: OUI. La sélection des canaux peut typiquement être modifiée dynamiquement par un setter, car cela implique souvent un changement d'index ou de mapping simple.
-- **Conclusion sur le Hot-Reload du Nœud** : SUPPORTÉ.
-- **Stratégie de mise à jour recommandée** : Implémenter un setter thread-safe pour `selected_channels`.
+    - `target_channel`: **OUI - IMPLÉMENTÉ**. La sélection du canal peut être modifiée dynamiquement via la méthode `update_config()`. Le nœud accepte "ChannelA" ou "ChannelB" (Note: "Both" n'est pas valide pour ce nœud car il produit une sortie SingleChannel).
+- **Conclusion sur le Hot-Reload du Nœud** : **ENTIÈREMENT SUPPORTÉ**.
+- **Stratégie de mise à jour recommandée** : **IMPLÉMENTÉE** - Changement direct du paramètre `target_channel` sans état interne complexe à réinitialiser.
+- **Implémentation actuelle** :
+    ```rust
+    impl ProcessingNode for ChannelSelectorNode {
+        fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+            if let Value::Object(params) = parameters {
+                if let Some(channel_value) = params.get("target_channel") {
+                    match channel_value.as_str() {
+                        Some("ChannelA") => {
+                            self.target_channel = ChannelTarget::ChannelA;
+                            return Ok(true); // Hot-reload successful
+                        }
+                        Some("ChannelB") => {
+                            self.target_channel = ChannelTarget::ChannelB;
+                            return Ok(true); // Hot-reload successful
+                        }
+                        // ... validation and error handling
+                    }
+                }
+            }
+            Ok(false) // No matching parameters found
+        }
+    }
+    ```
 
-### 2.4 `DifferentialNode`
+### 2.4 `DifferentialNode` ⚠️ **STRUCTURE PRÉPARÉE**
 
 - **Description** : Nœud calculant une différence (e.g., entre canaux, ou par rapport à une valeur).
-- **Paramètres principaux** : `mode` (type de différentiel: e.g., `ChannelA - ChannelB`, `ChannelA - Constant`), `constant_value` (si applicable).
+- **Paramètres principaux** : `calculator_type` (type de calculateur différentiel), paramètres spécifiques au calculateur utilisé.
 - **Analyse de la capacité de Hot-Reload** :
-    - `mode`: NON. Changer le mode de calcul différentiel peut impliquer une logique différente et un nombre d'entrées différent. Nécessite ré-instanciation.
-    - `constant_value`: OUI. Si le mode utilise une constante, cette valeur peut être mise à jour dynamiquement via un setter.
-- **Conclusion sur le Hot-Reload du Nœud** : PARTIELLEMENT SUPPORTÉ.
-- **Stratégie de mise à jour recommandée** :
-    - Pour `constant_value`: Setter thread-safe.
-    - Pour `mode`: Reconstruction du nœud.
+    - **État actuel** : La méthode `update_config()` est implémentée mais retourne `false` (pas de hot-reload supporté).
+    - **Raison** : Le `DifferentialCalculator` actuel (`SimpleDifferential`) n'a pas de paramètres configurables.
+    - **Possibilités futures** : Extension pour supporter différents types de calculateurs (weighted, adaptive) avec leurs paramètres spécifiques.
+- **Conclusion sur le Hot-Reload du Nœud** : **NON SUPPORTÉ ACTUELLEMENT** (structure préparée pour futures améliorations).
+- **Stratégie de mise à jour recommandée** : **PRÉPARÉE** - Infrastructure en place pour ajouter le hot-reload quand des calculateurs configurables seront disponibles.
+- **Implémentation actuelle** :
+    ```rust
+    impl ProcessingNode for DifferentialNode {
+        fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+            if let Value::Object(_params) = parameters {
+                // Currently no hot-reloadable parameters
+                // Future: support for different calculator types and their parameters
+            } else {
+                anyhow::bail!("Parameters must be a JSON object");
+            }
+            Ok(false) // No hot-reload support currently - requires node reconstruction
+        }
+    }
+    ```
 
-### 2.5 `MixerNode` / `ChannelMixerNode`
+### 2.5 `MixerNode` / `ChannelMixerNode` ✅ **IMPLÉMENTÉ**
 
-- **Description** : Nœud combinant plusieurs canaux ou signaux.
-- **Paramètres principaux** : `mix_strategy` (e.g., addition, moyenne), `channel_weights` (pondérations pour chaque canal d'entrée).
+- **Description** : Nœud combinant deux canaux audio avec différentes stratégies.
+- **Paramètres principaux** : `mix_strategy` (Add, Subtract, Average, ou Weighted avec a_weight/b_weight).
 - **Analyse de la capacité de Hot-Reload** :
-    - `mix_strategy`: NON. Changer la stratégie de mixage (e.g., d'une simple addition à une moyenne pondérée complexe) peut nécessiter une refonte de la logique interne.
-    - `channel_weights`: OUI. Les pondérations des canaux sont typiquement des coefficients qui peuvent être ajustés dynamiquement via des setters.
-- **Conclusion sur le Hot-Reload du Nœud** : PARTIELLEMENT SUPPORTÉ.
-- **Stratégie de mise à jour recommandée** :
-    - Pour `channel_weights`: Setters thread-safe.
-    - Pour `mix_strategy`: Reconstruction du nœud.
+    - `mix_strategy`: **OUI - IMPLÉMENTÉ**. La stratégie de mixage peut être modifiée dynamiquement via la méthode `update_config()`. Supporte toutes les stratégies : Add, Subtract, Average, et Weighted avec des poids personnalisés.
+- **Conclusion sur le Hot-Reload du Nœud** : **ENTIÈREMENT SUPPORTÉ**.
+- **Stratégie de mise à jour recommandée** : **IMPLÉMENTÉE** - Changement direct de la `mix_strategy` sans interruption du traitement.
+- **Implémentation actuelle** :
+    ```rust
+    impl ProcessingNode for ChannelMixerNode {
+        fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+            if let Value::Object(params) = parameters {
+                if let Some(strategy_value) = params.get("mix_strategy") {
+                    match strategy_value {
+                        Value::String(s) => match s.as_str() {
+                            "Add" => { self.mix_strategy = MixStrategy::Add; return Ok(true); }
+                            "Subtract" => { self.mix_strategy = MixStrategy::Subtract; return Ok(true); }
+                            "Average" => { self.mix_strategy = MixStrategy::Average; return Ok(true); }
+                            // ... error handling
+                        },
+                        Value::Object(obj) => {
+                            // Handle Weighted strategy with a_weight and b_weight
+                            if let (Some(a), Some(b)) = (obj.get("a_weight"), obj.get("b_weight")) {
+                                self.mix_strategy = MixStrategy::Weighted { 
+                                    a_weight: a.as_f64().unwrap() as f32,
+                                    b_weight: b.as_f64().unwrap() as f32 
+                                };
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(false)
+        }
+    }
+    ```
 
 ### 2.6 `RecordNode`
 
@@ -140,9 +203,9 @@ Ce document détaille, pour chaque type de nœud du `ProcessingGraph`, si une mi
 |---------------------|:----------------------:|:--------------------------------------|:------------------------------------------|:----------------------------------------------------------------------:|
 | InputNode           | NON                    | -                                     | `id`, `data_format`                       | NON (rebuild requis)                                                  |
 | FilterNode          | PARTIEL                | `cutoff_frequency`, `order`           | `filter_type`                             | NON (rebuild requis)                                                  |
-| ChannelSelectorNode | OUI                    | `selected_channels`                   | -                                         | NON (rebuild requis)                                                  |
-| DifferentialNode    | PARTIEL                | `constant_value`                      | `mode`                                    | NON (rebuild requis)                                                  |
-| MixerNode           | PARTIEL                | `channel_weights`                     | `mix_strategy`                            | NON (rebuild requis)                                                  |
+| **ChannelSelectorNode** | **OUI ✅**            | **`target_channel`**                  | -                                         | NON (rebuild requis)                                                  |
+| DifferentialNode    | NON ⚠️                 | -                                     | `calculator_type`, paramètres calculateur | NON (rebuild requis)                                                  |
+| **MixerNode**       | **OUI ✅**            | **`mix_strategy`** (toutes variantes) | -                                         | NON (rebuild requis)                                                  |
 | RecordNode          | PARTIEL                | `max_size`, `rolling_buffer`          | `output_path`, `file_format`              | NON (rebuild requis)                                                  |
 | OutputNode          | PARTIEL                | `analysis_thresholds`, `window_size`  | `output_target`                           | NON (rebuild requis)                                                  |
 | **GainNode**        | **OUI ✅**            | **`gain_db`**                         | -                                         | NON (rebuild requis)                                                  |

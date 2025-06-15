@@ -168,6 +168,42 @@ impl ProcessingNode for ChannelSelectorNode {
             self.target_channel.clone(),
         ))
     }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+        use serde_json::Value;
+
+        // Parse the parameters and update compatible ones
+        if let Value::Object(params) = parameters {
+            if let Some(channel_value) = params.get("target_channel") {
+                match channel_value.as_str() {
+                    Some("ChannelA") => {
+                        self.target_channel = ChannelTarget::ChannelA;
+                        return Ok(true); // Hot-reload successful
+                    }
+                    Some("ChannelB") => {
+                        self.target_channel = ChannelTarget::ChannelB;
+                        return Ok(true); // Hot-reload successful
+                    }
+                    Some("Both") => {
+                        // Both is not valid for ChannelSelectorNode as it produces SingleChannel output
+                        anyhow::bail!(
+                            "ChannelSelectorNode cannot use 'Both' target for SingleChannel output"
+                        );
+                    }
+                    Some(other) => {
+                        anyhow::bail!("Invalid target_channel value: '{}'. Valid values are 'ChannelA' or 'ChannelB'", other);
+                    }
+                    None => {
+                        anyhow::bail!("target_channel must be a string value");
+                    }
+                }
+            }
+        } else {
+            anyhow::bail!("Parameters must be a JSON object");
+        }
+
+        Ok(false) // No matching parameters found for hot-reload
+    }
 }
 
 /// Channel mixer node that combines two channels using various strategies
@@ -385,5 +421,272 @@ impl ProcessingNode for ChannelMixerNode {
             self.id.clone(),
             self.mix_strategy.clone(),
         ))
+    }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+        use serde_json::Value;
+
+        // Parse the parameters and update compatible ones
+        if let Value::Object(params) = parameters {
+            if let Some(strategy_value) = params.get("mix_strategy") {
+                match strategy_value {
+                    Value::String(strategy_str) => {
+                        match strategy_str.as_str() {
+                            "Add" => {
+                                self.mix_strategy = MixStrategy::Add;
+                                return Ok(true); // Hot-reload successful
+                            }
+                            "Subtract" => {
+                                self.mix_strategy = MixStrategy::Subtract;
+                                return Ok(true); // Hot-reload successful
+                            }
+                            "Average" => {
+                                self.mix_strategy = MixStrategy::Average;
+                                return Ok(true); // Hot-reload successful
+                            }
+                            other => {
+                                anyhow::bail!("Invalid mix_strategy string: '{}'. Valid values are 'Add', 'Subtract', 'Average', or use object format for 'Weighted'", other);
+                            }
+                        }
+                    }
+                    Value::Object(strategy_obj) => {
+                        // Handle Weighted strategy
+                        if let (Some(a_weight), Some(b_weight)) =
+                            (strategy_obj.get("a_weight"), strategy_obj.get("b_weight"))
+                        {
+                            if let (Some(a_val), Some(b_val)) =
+                                (a_weight.as_f64(), b_weight.as_f64())
+                            {
+                                self.mix_strategy = MixStrategy::Weighted {
+                                    a_weight: a_val as f32,
+                                    b_weight: b_val as f32,
+                                };
+                                return Ok(true); // Hot-reload successful
+                            } else {
+                                anyhow::bail!("Weighted mix_strategy requires numeric a_weight and b_weight values");
+                            }
+                        } else {
+                            anyhow::bail!(
+                                "Weighted mix_strategy requires both a_weight and b_weight fields"
+                            );
+                        }
+                    }
+                    _ => {
+                        anyhow::bail!("mix_strategy must be a string ('Add', 'Subtract', 'Average') or an object with a_weight and b_weight for Weighted strategy");
+                    }
+                }
+            }
+        } else {
+            anyhow::bail!("Parameters must be a JSON object");
+        }
+
+        Ok(false) // No matching parameters found for hot-reload
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_channel_selector_update_config_success() {
+        let mut selector = ChannelSelectorNode::new("test".to_string(), ChannelTarget::ChannelA);
+
+        // Test changing to ChannelB
+        let params = json!({
+            "target_channel": "ChannelB"
+        });
+
+        let result = selector.update_config(&params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+        assert!(matches!(selector.target_channel, ChannelTarget::ChannelB));
+    }
+
+    #[test]
+    fn test_channel_selector_update_config_channel_a() {
+        let mut selector = ChannelSelectorNode::new("test".to_string(), ChannelTarget::ChannelB);
+
+        // Test changing to ChannelA
+        let params = json!({
+            "target_channel": "ChannelA"
+        });
+
+        let result = selector.update_config(&params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+        assert!(matches!(selector.target_channel, ChannelTarget::ChannelA));
+    }
+
+    #[test]
+    fn test_channel_selector_update_config_invalid_channel() {
+        let mut selector = ChannelSelectorNode::new("test".to_string(), ChannelTarget::ChannelA);
+
+        // Test invalid target_channel value
+        let params = json!({
+            "target_channel": "Both"
+        });
+
+        let result = selector.update_config(&params);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("ChannelSelectorNode cannot use 'Both' target"));
+    }
+
+    #[test]
+    fn test_channel_selector_update_config_no_matching_params() {
+        let mut selector = ChannelSelectorNode::new("test".to_string(), ChannelTarget::ChannelA);
+
+        // Test with no matching parameters
+        let params = json!({
+            "other_param": "value"
+        });
+
+        let result = selector.update_config(&params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), false); // No matching parameters
+    }
+
+    #[test]
+    fn test_channel_mixer_update_config_add() {
+        let mut mixer = ChannelMixerNode::new("test".to_string(), MixStrategy::Average);
+
+        let params = json!({
+            "mix_strategy": "Add"
+        });
+
+        let result = mixer.update_config(&params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+        assert!(matches!(mixer.mix_strategy, MixStrategy::Add));
+    }
+
+    #[test]
+    fn test_channel_mixer_update_config_weighted() {
+        let mut mixer = ChannelMixerNode::new("test".to_string(), MixStrategy::Add);
+
+        let params = json!({
+            "mix_strategy": {
+                "a_weight": 0.7,
+                "b_weight": 0.3
+            }
+        });
+
+        let result = mixer.update_config(&params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+
+        match mixer.mix_strategy {
+            MixStrategy::Weighted { a_weight, b_weight } => {
+                assert!((a_weight - 0.7).abs() < 0.001);
+                assert!((b_weight - 0.3).abs() < 0.001);
+            }
+            _ => panic!("Expected Weighted strategy"),
+        }
+    }
+
+    #[test]
+    fn test_channel_mixer_update_config_all_strategies() {
+        let strategies = vec![
+            ("Add", MixStrategy::Add),
+            ("Subtract", MixStrategy::Subtract),
+            ("Average", MixStrategy::Average),
+        ];
+
+        for (strategy_name, expected) in strategies {
+            let mut mixer = ChannelMixerNode::new("test".to_string(), MixStrategy::Add);
+
+            let params = json!({
+                "mix_strategy": strategy_name
+            });
+
+            let result = mixer.update_config(&params);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), true);
+
+            match (&mixer.mix_strategy, &expected) {
+                (MixStrategy::Add, MixStrategy::Add)
+                | (MixStrategy::Subtract, MixStrategy::Subtract)
+                | (MixStrategy::Average, MixStrategy::Average) => {
+                    // Success
+                }
+                _ => panic!("Strategy mismatch for {}", strategy_name),
+            }
+        }
+    }
+
+    #[test]
+    fn test_channel_mixer_update_config_invalid_strategy() {
+        let mut mixer = ChannelMixerNode::new("test".to_string(), MixStrategy::Add);
+
+        let params = json!({
+            "mix_strategy": "InvalidStrategy"
+        });
+
+        let result = mixer.update_config(&params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_channel_mixer_update_config_invalid_weighted() {
+        let mut mixer = ChannelMixerNode::new("test".to_string(), MixStrategy::Add);
+
+        // Missing b_weight
+        let params = json!({
+            "mix_strategy": {
+                "a_weight": 0.7
+            }
+        });
+
+        let result = mixer.update_config(&params);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("requires both a_weight and b_weight"));
+    }
+
+    #[test]
+    fn test_update_config_integration() {
+        // Test that update_config works with actual processing
+        let mut selector = ChannelSelectorNode::new("test".to_string(), ChannelTarget::ChannelA);
+
+        // Create test input
+        let input = ProcessingData::DualChannel {
+            channel_a: vec![1.0, 2.0, 3.0],
+            channel_b: vec![4.0, 5.0, 6.0],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        // Process with ChannelA
+        let result = selector.process(input.clone()).unwrap();
+        match result {
+            ProcessingData::SingleChannel { samples, .. } => {
+                assert_eq!(samples, vec![1.0, 2.0, 3.0]); // ChannelA data
+            }
+            _ => panic!("Expected SingleChannel output"),
+        }
+
+        // Update config to ChannelB
+        let params = json!({
+            "target_channel": "ChannelB"
+        });
+        let update_result = selector.update_config(&params);
+        assert!(update_result.is_ok());
+        assert_eq!(update_result.unwrap(), true);
+
+        // Process again with ChannelB
+        let result = selector.process(input).unwrap();
+        match result {
+            ProcessingData::SingleChannel { samples, .. } => {
+                assert_eq!(samples, vec![4.0, 5.0, 6.0]); // ChannelB data
+            }
+            _ => panic!("Expected SingleChannel output"),
+        }
     }
 }

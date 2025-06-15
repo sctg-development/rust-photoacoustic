@@ -181,4 +181,182 @@ impl ProcessingNode for DifferentialNode {
         // TODO: Implement proper cloning when calculator cloning is supported
         panic!("DifferentialNode cloning not yet implemented")
     }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+        use serde_json::Value;
+
+        // Parse the parameters and update compatible ones
+        if let Value::Object(_params) = parameters {
+            // Currently, the DifferentialNode doesn't have hot-reloadable parameters
+            // because the DifferentialCalculator doesn't support runtime reconfiguration.
+            //
+            // Future enhancements could include:
+            // - Different calculator types (simple, weighted, adaptive)
+            // - Calculator-specific parameters (weights, thresholds, etc.)
+            //
+            // For now, return false to indicate no hot-reload support
+            // This will trigger a node reconstruction when parameters change
+        } else {
+            anyhow::bail!("Parameters must be a JSON object");
+        }
+
+        Ok(false) // No hot-reload support currently - requires node reconstruction
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::preprocessing::differential::SimpleDifferential;
+    use serde_json::json;
+
+    #[test]
+    fn test_differential_node_creation() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let node = DifferentialNode::new("test_diff".to_string(), calculator);
+
+        assert_eq!(node.node_id(), "test_diff");
+        assert_eq!(node.node_type(), "differential");
+    }
+
+    #[test]
+    fn test_differential_node_accepts_input() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let node = DifferentialNode::new("test".to_string(), calculator);
+
+        let dual_channel = ProcessingData::DualChannel {
+            channel_a: vec![1.0, 2.0],
+            channel_b: vec![0.5, 1.0],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        let single_channel = ProcessingData::SingleChannel {
+            samples: vec![1.0, 2.0],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        assert!(node.accepts_input(&dual_channel));
+        assert!(!node.accepts_input(&single_channel));
+    }
+
+    #[test]
+    fn test_differential_node_output_type() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let node = DifferentialNode::new("test".to_string(), calculator);
+
+        let dual_channel = ProcessingData::DualChannel {
+            channel_a: vec![1.0, 2.0],
+            channel_b: vec![0.5, 1.0],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        let single_channel = ProcessingData::SingleChannel {
+            samples: vec![1.0, 2.0],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        assert_eq!(
+            node.output_type(&dual_channel),
+            Some("SingleChannel".to_string())
+        );
+        assert_eq!(node.output_type(&single_channel), None);
+    }
+
+    #[test]
+    fn test_differential_node_process() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let mut node = DifferentialNode::new("test".to_string(), calculator);
+
+        let input = ProcessingData::DualChannel {
+            channel_a: vec![1.0, 2.0, 3.0],
+            channel_b: vec![0.5, 1.0, 1.5],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        let result = node.process(input).unwrap();
+        match result {
+            ProcessingData::SingleChannel {
+                samples,
+                sample_rate,
+                timestamp,
+                frame_number,
+            } => {
+                assert_eq!(samples, vec![0.5, 1.0, 1.5]); // A - B
+                assert_eq!(sample_rate, 44100);
+                assert_eq!(timestamp, 1000);
+                assert_eq!(frame_number, 1);
+            }
+            _ => panic!("Expected SingleChannel output"),
+        }
+    }
+
+    #[test]
+    fn test_differential_node_process_invalid_input() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let mut node = DifferentialNode::new("test".to_string(), calculator);
+
+        let input = ProcessingData::SingleChannel {
+            samples: vec![1.0, 2.0],
+            sample_rate: 44100,
+            timestamp: 1000,
+            frame_number: 1,
+        };
+
+        let result = node.process(input);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("DifferentialNode requires DualChannel input"));
+    }
+
+    #[test]
+    fn test_differential_node_update_config_no_support() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let mut node = DifferentialNode::new("test".to_string(), calculator);
+
+        // Test with valid JSON object (but no hot-reload support)
+        let params = json!({
+            "some_parameter": "value"
+        });
+
+        let result = node.update_config(&params);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), false); // No hot-reload support currently
+    }
+
+    #[test]
+    fn test_differential_node_update_config_invalid_params() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let mut node = DifferentialNode::new("test".to_string(), calculator);
+
+        // Test with non-object JSON
+        let params = json!("not_an_object");
+
+        let result = node.update_config(&params);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Parameters must be a JSON object"));
+    }
+
+    #[test]
+    fn test_differential_node_reset() {
+        let calculator = Box::new(SimpleDifferential::new());
+        let mut node = DifferentialNode::new("test".to_string(), calculator);
+
+        // Reset should not panic
+        node.reset();
+    }
 }

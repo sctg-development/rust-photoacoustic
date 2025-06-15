@@ -71,15 +71,20 @@ Pour chaque composant, l\'analyse considère :
     -   **NON** pour des changements majeurs dans `graph_definition` (ajout/suppression de nœuds, changement de connexions, changement de type de nœud nécessitant une ré-instanciation) : Cela requiert une reconstruction complète du `ProcessingGraph` et donc un redémarrage du consumer. Voir `AUDIT_PROCESSINGGRAPH_NODES_HOT_RELOAD.md`.
     -   **PARTIEL (via les nœuds)** pour les modifications de paramètres *internes* aux nœuds du `ProcessingGraph` qui supportent eux-mêmes le hot-reload (ex: fréquence de coupure d\'un `FilterNode`). Le `ProcessingConsumer` doit être capable de propager ces changements aux nœuds concernés ou les nœuds doivent s\'abonner aux changements.
     -   **✅ OUI - IMPLÉMENTÉ** pour les paramètres du `GainNode` : Le `GainNode` supporte désormais le hot-reload complet de son paramètre `gain_db` via la méthode `update_config()`. Le `ProcessingConsumer` peut propager les changements de configuration directement au nœud sans redémarrage.
+    -   **✅ OUI - IMPLÉMENTÉ** pour les paramètres du `ChannelSelectorNode` : Le `ChannelSelectorNode` supporte le hot-reload de son paramètre `target_channel` (ChannelA/ChannelB) permettant de changer dynamiquement le canal sélectionné.
+    -   **✅ OUI - IMPLÉMENTÉ** pour les paramètres du `ChannelMixerNode` : Le `ChannelMixerNode` supporte le hot-reload de sa `mix_strategy` (Add, Subtract, Average, Weighted) permettant de changer dynamiquement la stratégie de mixage des canaux.
+    -   **⚠️ PRÉPARÉ** pour le `DifferentialNode` : Infrastructure `update_config()` en place mais pas de paramètres hot-reloadables actuellement. Nécessite reconstruction du nœud pour tout changement.
     -   **NON** pour `enabled` : Géré par le `DaemonManager`.
 -   **Conclusion** :
     -   **Redémarrage Indispensable** pour toute modification de la topologie du graphe ou des types de nœuds incompatibles avec le hot-reload.
     -   **Hot-Reload Possible (Délégué aux Nœuds)** pour les paramètres internes des nœuds qui le supportent. Le `ProcessingConsumer` agit comme un orchestrateur.
     -   **✅ Hot-Reload Entièrement Supporté** pour les paramètres du `GainNode` - aucun redémarrage requis.
+    -   **✅ Hot-Reload Entièrement Supporté** pour les paramètres du `ChannelSelectorNode` et `ChannelMixerNode` - aucun redémarrage requis.
 -   **Stratégie de Mise à Jour Recommandée** :
     -   Le `DaemonManager` redémarre le `ProcessingConsumer` si la structure du graphe change fondamentalement.
     -   Pour les changements de paramètres de nœuds, le `ProcessingConsumer` (ou les nœuds directement) doit gérer le rechargement. Une notification du `DaemonManager` au `ProcessingConsumer` peut initier ce processus.
     -   **Pour le `GainNode`** : Simple notification au `ProcessingConsumer` qui peut appeler `node.update_config()` avec les nouveaux paramètres. Aucune interruption de service requise.
+    -   **Pour le `ChannelSelectorNode` et `ChannelMixerNode`** : Même approche - notification au `ProcessingConsumer` qui appelle `node.update_config()`. Changements appliqués instantanément sans interruption.
 
 ### 2.4 Modbus Server
 
@@ -144,7 +149,7 @@ Pour chaque composant, l\'analyse considère :
 |---------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|-----------------------------------------|
 | **Visualization Server**  | `address`, `port`, `tls` (certs)                                                  | Sécurité (HMAC, session), options UI                                                         | Oui                                     |
 | **Data Acquisition**      | `device_name`, `sample_rate`, `channels`, `format`                                | `buffer_size` (partiel), `polling_interval`, `gain_db`                                       | Oui                                     |
-| **Processing Consumer**   | Structure du `ProcessingGraph` (nœuds, connexions, types incompatibles)           | Paramètres internes des nœuds du graphe (si le nœud supporte le hot-reload), **`GainNode.gain_db` ✅**  | Oui                                     |
+| **Processing Consumer**   | Structure du `ProcessingGraph` (nœuds, connexions, types incompatibles)           | Paramètres internes des nœuds du graphe (si le nœud supporte le hot-reload), **`GainNode.gain_db` ✅**, **`ChannelSelectorNode.target_channel` ✅**, **`ChannelMixerNode.mix_strategy` ✅**  | Oui                                     |
 | **Modbus Server**         | `address`, `port`                                                                 | `registers_mapping` (partiel/complexe), `polling_period_ms`                                  | Oui                                     |
 | **Record Consumer**       | `output_directory`, `file_format`                                                 | `max_file_size_mb`, `max_duration_s`, `rolling_buffer_config`                                | Oui                                     |
 | **Heartbeat Monitoring**  | (Rarement des changements structurels majeurs)                                    | `interval_s`, `targets`                                                                      | Oui (si on peut le désactiver)          |

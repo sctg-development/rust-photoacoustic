@@ -1,4 +1,16 @@
-# Audit pour l’introduction d’une configuration dynamique dans `rust-photoacoustic`
+# Audit pour l’intr1. **GainNode** - Gain en décibels (`gain_db`)
+2. **ChannelSelectorNode** - Sélection de canal (`target_channel`)  
+3. **ChannelMixerNode** - Stratégie de mixage (`mix_strategy`)
+
+**Nœuds avec Infrastructure Préparée** :
+4. **DifferentialNode** - Infrastructure `update_config()` en place, en attente de paramètres configurables
+
+**Impact Global** :
+- **3 nœuds entièrement hot-reloadables** dans le ProcessingGraph (vs 0 précédemment)
+- **1 nœud avec infrastructure préparée** pour futures améliorations
+- **Réduction significative des interruptions de service** pour les ajustements de traitement audio
+- **Base architecturale solide** pour étendre le hot-reload à d'autres nœuds
+- **Pattern validé** : `update_config()` + validation + gestion d'erreursd’une configuration dynamique dans `rust-photoacoustic`
 
 ## Objectif
 
@@ -13,23 +25,26 @@ Permettre la mise à jour dynamique de la configuration via un endpoint POST `/a
 
 **Date de mise à jour** : 15 juin 2025
 
-### ✅ Fonctionnalité Implémentée : Configuration Dynamique du GainNode
+### ✅ Fonctionnalités Implémentées : Configuration Dynamique des Nœuds de Traitement
 
-Le `GainNode` est désormais **entièrement configurable dynamiquement**, marquant une amélioration significative de l'architecture de configuration dynamique du projet :
+**Nœuds avec Hot-Reload Entièrement Supporté** :
 
-- **Paramètre Hot-Reloadable** : `gain_db` (gain en décibels)
-- **Implémentation** : Méthode `update_config()` avec `Arc<RwLock<f32>>` thread-safe
-- **Impact** : ✅ Zéro interruption de service, mise à jour instantanée
-- **Tests** : Validé en conditions réelles de traitement audio
+1. **GainNode** - Gain en décibels (`gain_db`)
+2. **ChannelSelectorNode** - Sélection de canal (`target_channel`)  
+3. **ChannelMixerNode** - Stratégie de mixage (`mix_strategy`)
 
-Cette implémentation sert de **modèle de référence** pour l'extension du hot-reload à d'autres nœuds du `ProcessingGraph`.
+**Impact Global** :
+- **3 nœuds entièrement hot-reloadables** dans le ProcessingGraph (vs 0 précédemment)
+- **Réduction significative des interruptions de service** pour les ajustements de traitement audio
+- **Base architecturale solide** pour étendre le hot-reload à d'autres nœuds
+- **Pattern validé** : `update_config()` + validation + gestion d'erreurs
 
 ### 📈 Impact sur la Configuration Dynamique
 
-1. **Premier nœud entièrement hot-reloadable** dans le ProcessingGraph
-2. **Réduction des interruptions de service** pour les ajustements de gain
-3. **Base architecturale** pour étendre le hot-reload à d'autres nœuds
-4. **Validation du pattern** `Arc<RwLock<>>` + `update_config()` pour la configuration dynamique
+1. **Trois nœuds entièrement hot-reloadables** dans le ProcessingGraph
+2. **Réduction drastique des interruptions de service** pour les ajustements de traitement audio
+3. **Architecture extensible** pour ajouter le hot-reload à d'autres nœuds
+4. **Validation robuste du pattern** `update_config()` pour la configuration dynamique
 
 ---
 
@@ -152,21 +167,34 @@ Cette section détaille la marche à suivre pour introduire la configuration dyn
 
 Le `ProcessingGraph` contient différents types de nœuds de traitement, chacun avec ses propres paramètres configurables. L'audit détaillé de chaque type de nœud est couvert dans `AUDIT_PROCESSINGGRAPH_NODES_HOT_RELOAD.md`, mais voici les points clés pour la configuration dynamique :
 
-#### 2.7.1. **GainNode** ✅ **Configuration Dynamique Entièrement Supportée**
+#### 2.7.1. **Nœuds avec Configuration Dynamique Entièrement Supportée** ✅
 
-Le `GainNode` est le **premier nœud du ProcessingGraph à supporter entièrement la configuration dynamique** :
-
+**GainNode** - Le **premier nœud du ProcessingGraph à supporter entièrement la configuration dynamique** :
 - **Paramètre Configurable** : `gain_db` (gain en décibels)
-- **Mécanisme de Hot-Reload** : 
-  - Implémente la méthode `update_config()` du trait `ProcessingNode`
-  - Utilise `Arc<RwLock<f32>>` pour un accès thread-safe au paramètre `gain_db`
-  - Calcule automatiquement le facteur de gain linéaire correspondant
-- **Impact sur la Configuration Dynamique** :
-  - ✅ **Aucun redémarrage requis** : Les changements de `gain_db` sont appliqués immédiatement
-  - ✅ **Pas d'interruption de service** : Le traitement audio continue sans interruption
-  - ✅ **Thread-safe** : Peut être modifié pendant que le nœud traite des données
+- **Impact sur la Configuration Dynamique** : ✅ **Aucun redémarrage requis** - Les changements sont appliqués immédiatement
 
-**Exemple de configuration JSON pour GainNode** :
+**ChannelSelectorNode** - **Sélection de canal dynamique** :
+- **Paramètre Configurable** : `target_channel` (ChannelA ou ChannelB)
+- **Impact sur la Configuration Dynamique** : ✅ **Aucun redémarrage requis** - Changement instantané du canal sélectionné
+
+**ChannelMixerNode** - **Stratégie de mixage dynamique** :
+- **Paramètre Configurable** : `mix_strategy` (Add, Subtract, Average, ou Weighted)
+- **Impact sur la Configuration Dynamique** : ✅ **Aucun redémarrage requis** - Changement instantané de la stratégie de mixage
+
+**Mécanisme de Hot-Reload commun** :
+- Implémente la méthode `update_config()` du trait `ProcessingNode`
+- Thread-safe et sans interruption de service
+- Validation des paramètres avec gestion d'erreurs appropriée
+
+#### 2.7.2. **Nœuds avec Infrastructure Préparée** ⚠️
+
+**DifferentialNode** - **Infrastructure préparée pour futures améliorations** :
+- **État actuel** : Méthode `update_config()` implémentée mais retourne `false`
+- **Raison** : Pas de paramètres configurables dans l'implémentation actuelle (`SimpleDifferential`)
+- **Potentiel futur** : Support de différents calculateurs (weighted, adaptive) avec paramètres configurables
+- **Impact** : ⚠️ **Reconstruction de nœud requise** pour tout changement actuellement
+
+**Exemples de configuration JSON pour les nœuds hot-reloadables** :
 ```json
 {
   "processing": {
@@ -178,6 +206,21 @@ Le `GainNode` est le **premier nœud du ProcessingGraph à supporter entièremen
           "parameters": {
             "gain_db": 12.0  // ← Modifiable dynamiquement
           }
+        },
+        {
+          "id": "channel_selector",
+          "type": "ChannelSelectorNode", 
+          "parameters": {
+            "target_channel": "ChannelA"  // ← Modifiable dynamiquement (ChannelA/ChannelB)
+          }
+        },
+        {
+          "id": "channel_mixer",
+          "type": "ChannelMixerNode",
+          "parameters": {
+            "mix_strategy": "Average"  // ← Modifiable dynamiquement
+            // ou: { "a_weight": 0.7, "b_weight": 0.3 } pour Weighted
+          }
         }
       ]
     }
@@ -185,21 +228,23 @@ Le `GainNode` est le **premier nœud du ProcessingGraph à supporter entièremen
 }
 ```
 
-**Propagation des changements** :
-1. L'API `/api/config` reçoit une nouvelle configuration avec `gain_db` modifié
+**Propagation des changements (exemple avec tous les nœuds hot-reloadables)** :
+1. L'API `/api/config` reçoit une nouvelle configuration avec des paramètres modifiés
 2. La configuration est validée et écrite dans `Arc<RwLock<Config>>`
 3. Le `DaemonManager` identifie que `processing.graph_definition` a changé
 4. Le `ProcessingConsumer` est notifié du changement
-5. Le `ProcessingConsumer` appelle `gain_node.update_config(new_parameters)`
-6. Le `GainNode` met à jour son paramètre `gain_db` de manière thread-safe
-7. Les nouveaux échantillons audio sont traités avec le nouveau gain
+5. Le `ProcessingConsumer` appelle `node.update_config(new_parameters)` pour chaque nœud concerné :
+   - **GainNode** : Met à jour `gain_db` de manière thread-safe
+   - **ChannelSelectorNode** : Change `target_channel` instantanément
+   - **ChannelMixerNode** : Modifie `mix_strategy` sans interruption
+6. Les nouveaux échantillons audio sont traités avec les nouveaux paramètres
 
-#### 2.7.2. Autres Nœuds du ProcessingGraph
+#### 2.7.3. Autres Nœuds du ProcessingGraph
 
-- **FilterNode, ChannelSelectorNode, etc.** : Support partiel ou aucun support de hot-reload selon le paramètre modifié
+- **FilterNode, RecordNode, etc.** : Support partiel ou aucun support de hot-reload selon le paramètre modifié
 - **Modifications structurelles** : Ajout/suppression de nœuds ou modification des connexions nécessitent une reconstruction complète du graphe
 
-#### 2.7.3. Stratégie de Gestion pour le ProcessingGraph
+#### 2.7.4. Stratégie de Gestion pour le ProcessingGraph
 
 ```rust
 // Pseudo-code pour la gestion des changements de configuration du ProcessingGraph
@@ -465,14 +510,28 @@ impl DaemonManager {
 }
 ```
 
-**Scénario de test pour GainNode** :
+**Scénarios de test pour les nœuds hot-reloadables** :
+
+**GainNode** :
 1. Configuration initiale : `GainNode` avec `gain_db: 0.0`
 2. Requête API : `POST /api/config` avec `gain_db: 12.0`
-3. Résultat attendu : 
-   - ✅ Aucune interruption du traitement audio
-   - ✅ Nouveau gain appliqué immédiatement aux prochains échantillons
-   - ✅ Log de succès : "Hot-reload successful for gain_amplifier (GainNode)"
-   - ✅ Réponse API : HTTP 200 OK
+3. Résultat : ✅ Nouveau gain appliqué immédiatement
+
+**ChannelSelectorNode** :
+1. Configuration initiale : `ChannelSelectorNode` avec `target_channel: "ChannelA"`
+2. Requête API : `POST /api/config` avec `target_channel: "ChannelB"`
+3. Résultat : ✅ Sélection de canal changée instantanément
+
+**ChannelMixerNode** :
+1. Configuration initiale : `ChannelMixerNode` avec `mix_strategy: "Add"`
+2. Requête API : `POST /api/config` avec `mix_strategy: {"a_weight": 0.7, "b_weight": 0.3}`
+3. Résultat : ✅ Stratégie de mixage mise à jour sans interruption
+
+**Résultats attendus pour tous** :
+- ✅ Aucune interruption du traitement audio
+- ✅ Changements appliqués immédiatement aux prochains échantillons
+- ✅ Logs de succès : "Hot-reload successful for [node_id] ([node_type])"
+- ✅ Réponse API : HTTP 200 OK
 ```
 ---
 ## 5. Points de Vigilance et Bonnes Pratiques
