@@ -9,6 +9,30 @@ Permettre la mise à jour dynamique de la configuration via un endpoint POST `/a
 
 ---
 
+## 🚀 Mises à Jour Récentes - GainNode Hot-Reload
+
+**Date de mise à jour** : 15 juin 2025
+
+### ✅ Fonctionnalité Implémentée : Configuration Dynamique du GainNode
+
+Le `GainNode` est désormais **entièrement configurable dynamiquement**, marquant une amélioration significative de l'architecture de configuration dynamique du projet :
+
+- **Paramètre Hot-Reloadable** : `gain_db` (gain en décibels)
+- **Implémentation** : Méthode `update_config()` avec `Arc<RwLock<f32>>` thread-safe
+- **Impact** : ✅ Zéro interruption de service, mise à jour instantanée
+- **Tests** : Validé en conditions réelles de traitement audio
+
+Cette implémentation sert de **modèle de référence** pour l'extension du hot-reload à d'autres nœuds du `ProcessingGraph`.
+
+### 📈 Impact sur la Configuration Dynamique
+
+1. **Premier nœud entièrement hot-reloadable** dans le ProcessingGraph
+2. **Réduction des interruptions de service** pour les ajustements de gain
+3. **Base architecturale** pour étendre le hot-reload à d'autres nœuds
+4. **Validation du pattern** `Arc<RwLock<>>` + `update_config()` pour la configuration dynamique
+
+---
+
 ## 1. Analyse de l’existant
 
 ### 1.1 Structure de la configuration
@@ -124,7 +148,95 @@ Cette section détaille la marche à suivre pour introduire la configuration dyn
       - Journaliser l'événement de mise à jour de configuration (succès ou échec), incluant l'initiateur (si authentifié) et un résumé des changements ou un ID de version de la config.
       - Journaliser les actions entreprises par le `DaemonManager` (quels services redémarrés/notifiés).
 
+### 2.7. Considérations Spécifiques pour le ProcessingGraph et les Nœuds
+
+Le `ProcessingGraph` contient différents types de nœuds de traitement, chacun avec ses propres paramètres configurables. L'audit détaillé de chaque type de nœud est couvert dans `AUDIT_PROCESSINGGRAPH_NODES_HOT_RELOAD.md`, mais voici les points clés pour la configuration dynamique :
+
+#### 2.7.1. **GainNode** ✅ **Configuration Dynamique Entièrement Supportée**
+
+Le `GainNode` est le **premier nœud du ProcessingGraph à supporter entièrement la configuration dynamique** :
+
+- **Paramètre Configurable** : `gain_db` (gain en décibels)
+- **Mécanisme de Hot-Reload** : 
+  - Implémente la méthode `update_config()` du trait `ProcessingNode`
+  - Utilise `Arc<RwLock<f32>>` pour un accès thread-safe au paramètre `gain_db`
+  - Calcule automatiquement le facteur de gain linéaire correspondant
+- **Impact sur la Configuration Dynamique** :
+  - ✅ **Aucun redémarrage requis** : Les changements de `gain_db` sont appliqués immédiatement
+  - ✅ **Pas d'interruption de service** : Le traitement audio continue sans interruption
+  - ✅ **Thread-safe** : Peut être modifié pendant que le nœud traite des données
+
+**Exemple de configuration JSON pour GainNode** :
+```json
+{
+  "processing": {
+    "graph_definition": {
+      "nodes": [
+        {
+          "id": "gain_amplifier",
+          "type": "GainNode",
+          "parameters": {
+            "gain_db": 12.0  // ← Modifiable dynamiquement
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Propagation des changements** :
+1. L'API `/api/config` reçoit une nouvelle configuration avec `gain_db` modifié
+2. La configuration est validée et écrite dans `Arc<RwLock<Config>>`
+3. Le `DaemonManager` identifie que `processing.graph_definition` a changé
+4. Le `ProcessingConsumer` est notifié du changement
+5. Le `ProcessingConsumer` appelle `gain_node.update_config(new_parameters)`
+6. Le `GainNode` met à jour son paramètre `gain_db` de manière thread-safe
+7. Les nouveaux échantillons audio sont traités avec le nouveau gain
+
+#### 2.7.2. Autres Nœuds du ProcessingGraph
+
+- **FilterNode, ChannelSelectorNode, etc.** : Support partiel ou aucun support de hot-reload selon le paramètre modifié
+- **Modifications structurelles** : Ajout/suppression de nœuds ou modification des connexions nécessitent une reconstruction complète du graphe
+
+#### 2.7.3. Stratégie de Gestion pour le ProcessingGraph
+
+```rust
+// Pseudo-code pour la gestion des changements de configuration du ProcessingGraph
+impl ProcessingConsumer {
+    async fn handle_config_update(&mut self, new_config: &Config) -> Result<(), ProcessingError> {
+        let graph_config = &new_config.processing.graph_definition;
+        
+        // 1. Analyser les changements
+        for (node_id, new_node_config) in &graph_config.nodes {
+            if let Some(existing_node) = self.graph.get_node_mut(node_id) {
+                // 2. Tenter le hot-reload pour les nœuds qui le supportent
+                match existing_node.update_config(&new_node_config.parameters) {
+                    Ok(true) => {
+                        debug!("Hot-reload successful for node {}", node_id);
+                        // ✅ GainNode prend ce chemin
+                    }
+                    Ok(false) => {
+                        debug!("Node {} doesn't support hot-reload for these parameters", node_id);
+                        // Marquer pour reconstruction
+                    }
+                    Err(e) => {
+                        warn!("Hot-reload failed for node {}: {}", node_id, e);
+                        // Marquer pour reconstruction
+                    }
+                }
+            }
+        }
+        
+        // 3. Reconstruire les nœuds qui ne supportent pas le hot-reload
+        // (seulement si nécessaire)
+        
+        Ok(())
+    }
+}
+```
 ---
+
 ## 3. Exemple d’implémentation
 
 ### 3.1 Diagramme d’architecture (mémoire partagée)
@@ -283,6 +395,85 @@ impl MyServiceRequiringProcessingConfig {
 ```
 **Avantage**: Réactif, évite la relecture constante du `RwLock` global. **Inconvénient**: Plus complexe, nécessite de découper la config ou d'avoir des canaux par section.
 
+### 4.3 Exemple spécifique de hot-reload pour GainNode
+
+```rust
+// Exemple de mise à jour dynamique du GainNode via l'API de configuration
+impl ProcessingGraph {
+    pub async fn update_node_config(&mut self, node_id: &str, new_params: &serde_json::Value) -> Result<bool, ProcessingError> {
+        if let Some(node) = self.nodes.get_mut(node_id) {
+            match node.update_config(new_params) {
+                Ok(true) => {
+                    info!("Node {} configuration updated successfully via hot-reload", node_id);
+                    Ok(true)
+                }
+                Ok(false) => {
+                    warn!("Node {} does not support hot-reload for the provided parameters", node_id);
+                    Ok(false)
+                }
+                Err(e) => {
+                    error!("Failed to update configuration for node {}: {}", node_id, e);
+                    Err(e)
+                }
+            }
+        } else {
+            Err(ProcessingError::NodeNotFound(node_id.to_string()))
+        }
+    }
+}
+
+// Exemple d'utilisation côté DaemonManager pour le ProcessingConsumer
+impl DaemonManager {
+    async fn handle_processing_config_change(&self, old_config: &Config, new_config: &Config) -> Result<(), DaemonError> {
+        // Vérifier si la définition du graphe a changé
+        if old_config.processing.graph_definition != new_config.processing.graph_definition {
+            // Analyser les changements nœud par nœud
+            for (node_id, new_node_config) in &new_config.processing.graph_definition.nodes {
+                if let Some(old_node_config) = old_config.processing.graph_definition.nodes.get(node_id) {
+                    // Vérifier si seuls les paramètres ont changé (pas le type de nœud)
+                    if old_node_config.node_type == new_node_config.node_type {
+                        // Tenter le hot-reload
+                        match self.processing_consumer.update_node_config(node_id, &new_node_config.parameters).await {
+                            Ok(true) => {
+                                info!("✅ Hot-reload successful for {} ({})", node_id, new_node_config.node_type);
+                                // Pour GainNode, on arrive ici !
+                            }
+                            Ok(false) => {
+                                info!("⚠️  Node {} requires restart for these parameter changes", node_id);
+                                // Marquer pour reconstruction partielle ou complète
+                                self.schedule_processing_graph_rebuild().await?;
+                                break;
+                            }
+                            Err(e) => {
+                                error!("❌ Hot-reload failed for {}: {}", node_id, e);
+                                // Fallback : reconstruction complète
+                                self.restart_processing_consumer().await?;
+                                return Ok(());
+                            }
+                        }
+                    } else {
+                        // Changement de type de nœud : reconstruction nécessaire
+                        info!("Node {} type changed, full graph rebuild required", node_id);
+                        self.restart_processing_consumer().await?;
+                        return Ok(());
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**Scénario de test pour GainNode** :
+1. Configuration initiale : `GainNode` avec `gain_db: 0.0`
+2. Requête API : `POST /api/config` avec `gain_db: 12.0`
+3. Résultat attendu : 
+   - ✅ Aucune interruption du traitement audio
+   - ✅ Nouveau gain appliqué immédiatement aux prochains échantillons
+   - ✅ Log de succès : "Hot-reload successful for gain_amplifier (GainNode)"
+   - ✅ Réponse API : HTTP 200 OK
+```
 ---
 ## 5. Points de Vigilance et Bonnes Pratiques
 
@@ -319,7 +510,7 @@ impl MyServiceRequiringProcessingConfig {
     - Son rôle, ses valeurs possibles, et les unités si applicable.
     - Quel(s) service(s) ou démon(s) il affecte directement.
     - Indiquer clairement si sa modification supporte le hot-reload, nécessite un redémarrage du service concerné, ou n'a d'effet qu'au prochain démarrage complet.
-- **Maintenance des Audits**: Tenir à jour `AUDIT_IMPACT_RELOAD_DAEMON.md` et `AUDIT_PROCESSINGGRAPH_NODES_HOT_RELOAD.md` à mesure que le code évolue.
+- **Maintenance des Audits**: Tenir à jour `AUDIT_IMPACT_RELOAD_DAEMON.md` et `AUDIT_PROCESSINGGRAPH_NODES_HOT_RELOAD.md` à mesure que le code évolue. **Note importante** : Le `GainNode` est maintenant entièrement hot-reloadable (✅), ce qui représente une amélioration significative par rapport aux analyses précédentes.
 
 ### 5.5. Impact sur les Performances et la Disponibilité
 - **Lecture de Configuration**: La relecture fréquente de la configuration par de nombreux threads/services peut avoir un coût. Optimiser si cela devient un goulot d'étranglement (cf. 5.2 Contention).
@@ -349,5 +540,3 @@ impl MyServiceRequiringProcessingConfig {
     - **Manuelle**: Stocker les N dernières configurations valides (ex: dans des fichiers versionnés, une base de données simple) et permettre à un administrateur de reposter une version antérieure.
     - **Automatisée (Complexe)**: Si des "health checks" post-mise à jour échouent de manière persistante, un système pourrait tenter de revenir à la dernière configuration stable. Ceci est complexe à mettre en œuvre correctement.
 - La journalisation de l'ancienne et de la nouvelle configuration (ou de leurs hashs/versions) est une première étape utile.
-
----

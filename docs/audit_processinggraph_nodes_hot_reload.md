@@ -98,6 +98,32 @@ Ce document détaille, pour chaque type de nœud du `ProcessingGraph`, si une mi
     - Pour `analysis_thresholds`, `window_size`: Setters thread-safe.
     - Pour `output_target`: Reconstruction du nœud.
 
+### 2.8 `GainNode` ✅ **IMPLÉMENTÉ**
+
+- **Description** : Nœud appliquant un gain (amplification/atténuation) aux signaux audio.
+- **Paramètres principaux** : `gain_db` (gain en décibels), `linear_gain` (facteur de gain linéaire calculé).
+- **Analyse de la capacité de Hot-Reload** :
+    - `gain_db`: **OUI - IMPLÉMENTÉ**. Le gain en décibels peut être modifié dynamiquement via la méthode `update_config()`. Le nœud recalcule automatiquement le facteur de gain linéaire correspondant.
+    - `linear_gain`: Calculé automatiquement à partir de `gain_db`, pas modifiable directement.
+- **Conclusion sur le Hot-Reload du Nœud** : **ENTIÈREMENT SUPPORTÉ**.
+- **Stratégie de mise à jour recommandée** : **IMPLÉMENTÉE** - Utilisation de `Arc<RwLock<f32>>` pour un accès thread-safe au paramètre `gain_db`.
+- **Implémentation actuelle** :
+    ```rust
+    impl ProcessingNode for GainNode {
+        fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+            if let Some(gain_value) = parameters.get("gain_db") {
+                if let Some(new_gain_db) = gain_value.as_f64() {
+                    let mut gain_guard = self.gain_db.write().unwrap();
+                    *gain_guard = new_gain_db as f32;
+                    debug!("GainNode '{}': Updated gain_db to {} dB", self.id, new_gain_db);
+                    return Ok(true); // Hot-reload successful
+                }
+            }
+            Ok(false) // No matching parameters found
+        }
+    }
+    ```
+
 ### 2.8 `Custom/PluginNode`
 
 - **Description** : Nœud défini par l'utilisateur ou un plugin externe.
@@ -119,6 +145,7 @@ Ce document détaille, pour chaque type de nœud du `ProcessingGraph`, si une mi
 | MixerNode           | PARTIEL                | `channel_weights`                     | `mix_strategy`                            | NON (rebuild requis)                                                  |
 | RecordNode          | PARTIEL                | `max_size`, `rolling_buffer`          | `output_path`, `file_format`              | NON (rebuild requis)                                                  |
 | OutputNode          | PARTIEL                | `analysis_thresholds`, `window_size`  | `output_target`                           | NON (rebuild requis)                                                  |
+| **GainNode**        | **OUI ✅**            | **`gain_db`**                         | -                                         | NON (rebuild requis)                                                  |
 | Custom/PluginNode   | DÉPEND DU PLUGIN       | Selon implémentation                  | Selon implémentation                      | NON (rebuild requis)                                                  |
 | Ajout/Suppression nœud/connexion | -                      | -                                     | -                                         | NON (rebuild requis)                                                  |
 
