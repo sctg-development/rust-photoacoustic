@@ -85,7 +85,7 @@ fn main() -> Result<()> {
 
     // Display performance summary
     println!("=== Performance Summary ===");
-    let summary: String = graph.get_performance_summary().into();
+    let summary: String = graph.get_performance_summary().to_string();
     println!("{}\n", summary);
 
     // Display individual node statistics

@@ -1,6 +1,6 @@
 // Test file to verify serializable ProcessingGraph functionality
-use rust_photoacoustic::processing::nodes::{InputNode, ProcessingNode};
-use rust_photoacoustic::processing::{ProcessingGraph, SerializableProcessingGraph};
+use rust_photoacoustic::processing::nodes::InputNode;
+use rust_photoacoustic::processing::ProcessingGraph;
 
 fn main() -> anyhow::Result<()> {
     // Create a simple processing graph
@@ -10,8 +10,8 @@ fn main() -> anyhow::Result<()> {
     let input_node = Box::new(InputNode::new("main_input".to_string()));
     graph.add_node(input_node)?;
 
-    // Convert to serializable format
-    let serializable_graph: SerializableProcessingGraph = graph.into();
+    // Convert to serializable format using the to_serializable method
+    let serializable_graph = graph.to_serializable();
 
     // Verify the conversion
     println!("Serializable Graph Created Successfully!");
@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(node) = serializable_graph.nodes.first() {
         println!("First node: {} (type: {})", node.id, node.node_type);
-        println!("Accepts input types: {:?}", node.accepts_input_types);
+        println!("Node config: {:?}", node.config);
     }
 
     // Try serializing to JSON

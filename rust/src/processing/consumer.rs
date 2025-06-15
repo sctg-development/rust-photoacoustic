@@ -539,6 +539,117 @@ impl ProcessingConsumer {
         // Note: Cannot clear visualization state in sync context
         // The caller should use stop() method instead for proper cleanup
     }
+
+    /// Update configuration for a specific node in the processing graph
+    ///
+    /// This method provides a way to update the configuration of a specific node
+    /// in the processing graph during runtime. It supports hot-reload for compatible
+    /// parameters without requiring a full restart of the processing consumer.
+    ///
+    /// ### Arguments
+    ///
+    /// * `node_id` - The ID of the node to update
+    /// * `parameters` - New configuration parameters as JSON value
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration updated successfully (hot-reload)
+    /// * `Ok(false)` - Configuration requires processing graph reconstruction
+    /// * `Err(anyhow::Error)` - Node not found or configuration update failed
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::ProcessingConsumer;
+    /// use serde_json::json;
+    ///
+    /// # async fn example(mut consumer: ProcessingConsumer) -> anyhow::Result<()> {
+    /// // Update gain parameter for a gain node
+    /// let result = consumer.update_node_config("gain_node", &json!({"gain_db": 6.0})).await;
+    /// if result? {
+    ///     println!("Gain updated with hot-reload");
+    /// } else {
+    ///     println!("Node requires reconstruction");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn update_node_config(&self, node_id: &str, parameters: &serde_json::Value) -> Result<bool> {
+        debug!("ProcessingConsumer '{}': Updating configuration for node '{}'", 
+               self.consumer_id, node_id);
+        
+        let mut graph = self.processing_graph.write().await;
+        let result = graph.update_node_config(node_id, parameters)?;
+        
+        if result {
+            info!("ProcessingConsumer '{}': Node '{}' configuration updated successfully", 
+                  self.consumer_id, node_id);
+        } else {
+            warn!("ProcessingConsumer '{}': Node '{}' requires reconstruction for configuration change", 
+                  self.consumer_id, node_id);
+        }
+        
+        Ok(result)
+    }
+
+    /// Update configuration for multiple nodes in the processing graph
+    ///
+    /// This method allows batch updates of multiple nodes, which is more efficient
+    /// than updating them individually and provides atomicity.
+    ///
+    /// ### Arguments
+    ///
+    /// * `node_configs` - Map of node ID to new configuration parameters
+    ///
+    /// ### Returns
+    ///
+    /// A HashMap where:
+    /// * key = node_id
+    /// * value = Result<bool> indicating success and whether hot-reload was possible
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::ProcessingConsumer;
+    /// use serde_json::json;
+    /// use std::collections::HashMap;
+    ///
+    /// # async fn example(consumer: ProcessingConsumer) -> anyhow::Result<()> {
+    /// let mut updates = HashMap::new();
+    /// updates.insert("gain1".to_string(), json!({"gain_db": 6.0}));
+    /// updates.insert("gain2".to_string(), json!({"gain_db": -3.0}));
+    ///
+    /// let results = consumer.update_multiple_node_configs(&updates).await;
+    /// for (node_id, result) in results {
+    ///     match result {
+    ///         Ok(true) => println!("Node {} updated with hot-reload", node_id),
+    ///         Ok(false) => println!("Node {} requires reconstruction", node_id),
+    ///         Err(e) => println!("Node {} update failed: {}", node_id, e),
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn update_multiple_node_configs(&self, node_configs: &std::collections::HashMap<String, serde_json::Value>) -> std::collections::HashMap<String, Result<bool>> {
+        debug!("ProcessingConsumer '{}': Updating configuration for {} nodes", 
+               self.consumer_id, node_configs.len());
+        
+        let mut graph = self.processing_graph.write().await;
+        graph.update_multiple_node_configs(node_configs)
+    }
+
+    /// Get a reference to the processing graph for read-only operations
+    ///
+    /// This method provides read-only access to the processing graph, which is
+    /// useful for inspecting the current graph structure, getting statistics,
+    /// or creating serializable representations.
+    ///
+    /// ### Returns
+    ///
+    /// A RwLock guard providing read access to the processing graph
+    pub async fn get_processing_graph(&self) -> tokio::sync::RwLockReadGuard<'_, ProcessingGraph> {
+        self.processing_graph.read().await
+    }
 }
 
 impl Drop for ProcessingConsumer {

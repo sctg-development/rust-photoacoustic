@@ -974,4 +974,224 @@ impl Daemon {
         }
         Ok(())
     }
+
+    /// Update configuration for processing graph nodes dynamically
+    ///
+    /// This method enables dynamic configuration updates for processing nodes without
+    /// requiring a full restart of the processing consumer. It follows the hot-reload
+    /// strategy defined in the audit documentation.
+    ///
+    /// ### Arguments
+    ///
+    /// * `node_id` - The ID of the node to update
+    /// * `parameters` - New configuration parameters as JSON value
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration updated successfully (hot-reload)
+    /// * `Ok(false)` - Configuration requires node reconstruction
+    /// * `Err(anyhow::Error)` - Update failed or processing consumer not available
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
+    /// use serde_json::json;
+    ///
+    /// # async fn example(daemon: &Daemon) -> anyhow::Result<()> {
+    /// // Update gain parameter for a gain node
+    /// let result = daemon.update_processing_node_config("gain_amp", &json!({"gain_db": 6.0})).await;
+    /// if result? {
+    ///     println!("Gain updated with hot-reload");
+    /// } else {
+    ///     println!("Node requires reconstruction");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn update_processing_node_config(
+        &self,
+        node_id: &str,
+        parameters: &serde_json::Value,
+    ) -> Result<bool> {
+        if let Some(ref processing_consumer) = self.processing_consumer_daemon {
+            debug!(
+                "Daemon: Updating processing node '{}' configuration",
+                node_id
+            );
+            processing_consumer
+                .update_node_config(node_id, parameters)
+                .await
+        } else {
+            warn!("Daemon: Cannot update processing node configuration - processing consumer not available");
+            Err(anyhow::anyhow!("Processing consumer not available"))
+        }
+    }
+
+    /// Update configuration for multiple processing graph nodes
+    ///
+    /// This method allows batch updates of multiple nodes in the processing graph,
+    /// which is more efficient than updating them individually.
+    ///
+    /// ### Arguments
+    ///
+    /// * `node_configs` - Map of node ID to new configuration parameters
+    ///
+    /// ### Returns
+    ///
+    /// A HashMap where:
+    /// * key = node_id
+    /// * value = Result<bool> indicating success and whether hot-reload was possible
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::daemon::launch_daemon::Daemon;
+    /// use serde_json::json;
+    /// use std::collections::HashMap;
+    ///
+    /// # async fn example(daemon: &Daemon) -> anyhow::Result<()> {
+    /// let mut updates = HashMap::new();
+    /// updates.insert("gain1".to_string(), json!({"gain_db": 6.0}));
+    /// updates.insert("gain2".to_string(), json!({"gain_db": -3.0}));
+    ///
+    /// let results = daemon.update_multiple_processing_node_configs(&updates).await;
+    /// for (node_id, result) in results {
+    ///     match result {
+    ///         Ok(true) => println!("Node {} updated with hot-reload", node_id),
+    ///         Ok(false) => println!("Node {} requires reconstruction", node_id),
+    ///         Err(e) => println!("Node {} update failed: {}", node_id, e),
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn update_multiple_processing_node_configs(
+        &self,
+        node_configs: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> std::collections::HashMap<String, Result<bool>> {
+        if let Some(ref processing_consumer) = self.processing_consumer_daemon {
+            debug!(
+                "Daemon: Updating configuration for {} processing nodes",
+                node_configs.len()
+            );
+            processing_consumer
+                .update_multiple_node_configs(node_configs)
+                .await
+        } else {
+            // Return error for all nodes
+            let mut results = std::collections::HashMap::new();
+            for node_id in node_configs.keys() {
+                results.insert(
+                    node_id.clone(),
+                    Err(anyhow::anyhow!("Processing consumer not available")),
+                );
+            }
+            warn!("Daemon: Cannot update processing node configurations - processing consumer not available");
+            results
+        }
+    }
+
+    /// Apply configuration changes from the shared config
+    ///
+    /// This method detects changes in the shared configuration and applies them
+    /// to the appropriate components. It follows the audit strategy for determining
+    /// which components need restart vs hot-reload.
+    ///
+    /// ### Arguments
+    ///
+    /// * `config_changes` - Map of configuration section to changed parameters
+    ///
+    /// ### Returns
+    ///
+    /// * `Result<()>` - Success if all applicable changes were processed
+    ///
+    /// ### Implementation Notes
+    ///
+    /// This method implements the strategy defined in `audit_impact_reload_daemon.md`:
+    /// - Processing node parameters: Attempt hot-reload via ProcessingConsumer
+    /// - Structural changes: Log requirement for daemon restart
+    /// - Operational parameters: Apply dynamically where possible
+    pub async fn apply_configuration_changes(
+        &self,
+        config_changes: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        debug!(
+            "Daemon: Applying {} configuration changes",
+            config_changes.len()
+        );
+
+        for (section, changes) in config_changes {
+            match section.as_str() {
+                "processing.default_graph.nodes" => {
+                    // Processing node parameter changes
+                    if let serde_json::Value::Object(node_changes) = changes {
+                        let mut node_configs = std::collections::HashMap::new();
+
+                        for (node_id, node_params) in node_changes {
+                            if let serde_json::Value::Object(params) = node_params {
+                                if let Some(parameters) = params.get("parameters") {
+                                    node_configs.insert(node_id.clone(), parameters.clone());
+                                }
+                            }
+                        }
+
+                        if !node_configs.is_empty() {
+                            let results = self
+                                .update_multiple_processing_node_configs(&node_configs)
+                                .await;
+
+                            // Log results and identify nodes that need reconstruction
+                            let mut reconstruction_needed = Vec::new();
+                            for (node_id, result) in results {
+                                match result {
+                                    Ok(true) => {
+                                        info!(
+                                            "Node '{}' configuration updated with hot-reload",
+                                            node_id
+                                        );
+                                    }
+                                    Ok(false) => {
+                                        reconstruction_needed.push(node_id.clone());
+                                    }
+                                    Err(e) => {
+                                        error!(
+                                            "Failed to update node '{}' configuration: {}",
+                                            node_id, e
+                                        );
+                                    }
+                                }
+                            }
+
+                            if !reconstruction_needed.is_empty() {
+                                warn!("The following nodes require daemon restart for configuration changes: {:?}", 
+                                      reconstruction_needed);
+                            }
+                        }
+                    }
+                }
+                "visualization" => {
+                    // Visualization server changes typically require restart
+                    warn!(
+                        "Visualization configuration changes require daemon restart to take effect"
+                    );
+                }
+                "acquisition" => {
+                    // Acquisition changes typically require restart
+                    warn!(
+                        "Acquisition configuration changes require daemon restart to take effect"
+                    );
+                }
+                "modbus" => {
+                    // Modbus server changes typically require restart
+                    warn!("Modbus configuration changes require daemon restart to take effect");
+                }
+                _ => {
+                    debug!("Configuration section '{}' changes noted but no specific handler implemented", section);
+                }
+            }
+        }
+
+        Ok(())
+    }
 }

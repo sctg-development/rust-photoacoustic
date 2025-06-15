@@ -174,4 +174,42 @@ pub trait ProcessingNode: Send + Sync {
     ///
     /// A boxed clone of this node with the same configuration
     fn clone_node(&self) -> Box<dyn ProcessingNode>;
+
+    /// Update the node's configuration dynamically
+    ///
+    /// Attempts to update the node's parameters with new configuration values.
+    /// This method supports hot-reload of compatible parameters without requiring
+    /// node reconstruction. Returns true if the update was successful, false if
+    /// the change requires node reconstruction.
+    ///
+    /// ### Arguments
+    ///
+    /// * `parameters` - New configuration parameters as JSON value
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration updated successfully (hot-reload)
+    /// * `Ok(false)` - Configuration requires node reconstruction
+    /// * `Err(anyhow::Error)` - Configuration update failed
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::nodes::{GainNode, ProcessingNode};
+    /// use serde_json::json;
+    ///
+    /// let mut gain_node = GainNode::new("amp".to_string(), 0.0);
+    ///
+    /// // This should succeed with hot-reload
+    /// let result = gain_node.update_config(&json!({"gain_db": 6.0}));
+    /// assert!(result.unwrap()); // true = hot-reload successful
+    ///
+    /// // Check that the gain was updated
+    /// assert_eq!(gain_node.get_gain_db(), 6.0);
+    /// ```
+    fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+        // Default implementation: no dynamic configuration support
+        let _ = parameters;
+        Ok(false)
+    }
 }

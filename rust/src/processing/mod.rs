@@ -167,7 +167,7 @@ pub mod result;
 
 pub use consumer::ProcessingConsumer;
 pub use graph::{
-    ProcessingGraph, ProcessingGraphError, SerializableConnection, SerializableNode,
+    ProcessingGraph, ProcessingGraphError, PerformanceSummary, SerializableConnection, SerializableNode,
     SerializableProcessingGraph,
 };
 pub use nodes::{
