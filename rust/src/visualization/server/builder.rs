@@ -166,8 +166,13 @@ pub async fn build_rocket(
     };
 
     let openapi_spec_audio: OpenApi;
-    let (openapi_routes_base, openapi_spec_base) =
-        openapi_get_routes_spec![webclient_index, webclient_index_html, options, test_api,];
+    let (openapi_routes_base, openapi_spec_base) = openapi_get_routes_spec![
+        webclient_index,
+        webclient_index_html,
+        options,
+        test_api,
+        test_post_api
+    ];
     let rocket_builder = rocket_builder
         .mount("/", openapi_routes_base)
         .mount(
