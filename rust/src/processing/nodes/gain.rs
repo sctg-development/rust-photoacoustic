@@ -11,6 +11,7 @@
 use super::data::ProcessingData;
 use super::traits::ProcessingNode;
 use anyhow::Result;
+use log::debug;
 
 /// A processing node that applies gain (amplification/attenuation) to audio signals.
 ///
@@ -335,6 +336,53 @@ impl ProcessingNode for GainNode {
     fn clone_node(&self) -> Box<dyn ProcessingNode> {
         Box::new(self.clone())
     }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
+        use serde_json::Value;
+
+        // Parse the parameters and update compatible ones
+        if let Value::Object(params) = parameters {
+            let mut updated = false;
+
+            // Check for gain_db parameter (hot-reloadable)
+            if let Some(gain_value) = params.get("gain_db") {
+                match gain_value {
+                    Value::Number(num) => {
+                        if let Some(gain_db) = num.as_f64() {
+                            debug!(
+                                "GainNode '{}': Updating gain_db from {:.2} to {:.2} dB",
+                                self.id, self.gain_db, gain_db
+                            );
+                            self.set_gain_db(gain_db as f32);
+                            updated = true;
+                        } else {
+                            anyhow::bail!("gain_db parameter must be a valid number");
+                        }
+                    }
+                    _ => anyhow::bail!("gain_db parameter must be a number"),
+                }
+            }
+
+            // Check for any non-hot-reloadable parameters
+            // For GainNode, all current parameters are hot-reloadable
+
+            if updated {
+                debug!(
+                    "GainNode '{}': Configuration updated successfully (hot-reload)",
+                    self.id
+                );
+                Ok(true) // Hot-reload successful
+            } else {
+                debug!(
+                    "GainNode '{}': No compatible parameters found for update",
+                    self.id
+                );
+                Ok(false) // No relevant parameters found, but not an error
+            }
+        } else {
+            anyhow::bail!("Parameters must be a JSON object");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -628,5 +676,84 @@ mod tests {
         // Test zero dB
         let unity_gain = GainNode::new("unity".to_string(), 0.0);
         assert!((unity_gain.get_linear_gain() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_dynamic_config_update() {
+        let mut gain_node = GainNode::new("dynamic".to_string(), 0.0);
+        assert_eq!(gain_node.get_gain_db(), 0.0);
+
+        // Test successful hot-reload of gain_db
+        let config = serde_json::json!({
+            "gain_db": 6.0
+        });
+
+        let result = gain_node.update_config(&config);
+        assert!(result.is_ok());
+        assert!(result.unwrap()); // Should return true for successful hot-reload
+        assert_eq!(gain_node.get_gain_db(), 6.0);
+        assert!((gain_node.get_linear_gain() - 1.995).abs() < 0.01);
+
+        // Test update with negative gain
+        let config = serde_json::json!({
+            "gain_db": -12.0
+        });
+
+        let result = gain_node.update_config(&config);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(gain_node.get_gain_db(), -12.0);
+        assert!((gain_node.get_linear_gain() - 0.251).abs() < 0.01);
+
+        // Test update with no relevant parameters
+        let config = serde_json::json!({
+            "irrelevant_param": "value"
+        });
+
+        let result = gain_node.update_config(&config);
+        assert!(result.is_ok());
+        assert!(!result.unwrap()); // Should return false (no relevant params)
+        assert_eq!(gain_node.get_gain_db(), -12.0); // Should remain unchanged
+    }
+
+    #[test]
+    fn test_dynamic_config_update_invalid() {
+        let mut gain_node = GainNode::new("test".to_string(), 0.0);
+        
+        // Test invalid parameter type
+        let config = serde_json::json!({
+            "gain_db": "not_a_number"
+        });
+        
+        let result = gain_node.update_config(&config);
+        assert!(result.is_err());
+        assert_eq!(gain_node.get_gain_db(), 0.0); // Should remain unchanged
+        
+        // Test invalid JSON structure
+        let config = serde_json::json!("not_an_object");
+        
+        let result = gain_node.update_config(&config);
+        assert!(result.is_err());
+        assert_eq!(gain_node.get_gain_db(), 0.0); // Should remain unchanged
+    }
+
+    #[test]
+    fn test_gain_node_integration_with_graph() {
+        use crate::processing::ProcessingGraph;
+        
+        let mut graph = ProcessingGraph::new();
+        let gain_node = Box::new(GainNode::new("test_gain".to_string(), 0.0));
+        
+        // Add node to graph and test configuration update
+        graph.add_node(gain_node).unwrap();
+        
+        // Test hot-reload configuration update
+        let config = serde_json::json!({
+            "gain_db": 12.0
+        });
+        
+        let result = graph.update_node_config("test_gain", &config);
+        assert!(result.is_ok());
+        assert!(result.unwrap()); // Should return true for successful hot-reload
     }
 }
