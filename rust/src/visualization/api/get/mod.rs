@@ -3,5 +3,4 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 pub mod config;
-pub mod graph_statistics;
 pub mod test;

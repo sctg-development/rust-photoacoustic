@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 
 use auth_macros::openapi_protect_get;
 
-type ConfigState = State<Arc<RwLock<Config>>>;
+pub type ConfigState = State<Arc<RwLock<Config>>>;
 
 /// Get the current application configuration
 ///

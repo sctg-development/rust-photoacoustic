@@ -20,6 +20,19 @@
   "settings": {
     "git.openRepositoryInParentFolders": "always",
     "i18n-ally.keystyle": "nested",
-    "i18n-ally.sourceLanguage": "en-US"
+    "i18n-ally.sourceLanguage": "en-US",
+    "rust-analyzer.procMacro.ignored": {
+      "auth_macros": [
+        "openapi_protect_get",
+        "openapi_protect_post",
+        "openapi_protect_put",
+        "openapi_protect_delete",
+        "openapi_protect_patch",
+        "openapi_protect_head",
+        "openapi_protect_options",
+        "openapi_protect_trace",
+        "openapi_protect_connect"
+      ]
+    }
   }
 }

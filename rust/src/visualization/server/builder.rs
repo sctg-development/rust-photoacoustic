@@ -13,7 +13,7 @@ use crate::acquisition::SharedAudioStream;
 use crate::config::{Config, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
-use crate::visualization::api::get::graph_statistics::*;
+use crate::visualization::api::graph::graph::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
     authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
