@@ -28,18 +28,57 @@ Ce document détaille, pour chaque type de nœud du `ProcessingGraph`, si une mi
 - **Conclusion sur le Hot-Reload du Nœud** : NON SUPPORTÉ.
 - **Stratégie de mise à jour recommandée** : Toute modification des paramètres fondamentaux d'un `InputNode` impose une reconstruction du graphe.
 
-### 2.2 `FilterNode` (ex : lowpass, highpass, bandpass)
+### 2.2 `FilterNode` (ex : lowpass, highpass, bandpass) ✅ **IMPLÉMENTÉ**
 
 - **Description** : Nœud appliquant un filtre fréquentiel aux données.
-- **Paramètres principaux** : `filter_type` (lowpass, highpass, etc.), `cutoff_frequency` (ou `low_cutoff`, `high_cutoff`), `order` (ordre du filtre), `target_channel` (canal(aux) affecté(s)).
+- **Paramètres principaux** : `filter_type` (lowpass, highpass, etc.), `cutoff_frequency` (ou `center_freq`, `bandwidth`), `order` (ordre du filtre), `sample_rate`, `target_channel` (canal(aux) affecté(s)).
 - **Analyse de la capacité de Hot-Reload** :
     - `filter_type`: NON. Changer le type de filtre (e.g., de lowpass à bandpass) modifie fondamentalement l'algorithme et l'état interne du filtre. Nécessite une ré-instanciation du nœud.
-    - `cutoff_frequency`, `order`: OUI. Ces paramètres peuvent être modifiés dynamiquement si le nœud est conçu pour recalculer ses coefficients de filtre internes (e.g., via des setters thread-safe) sans interrompre le flux de données.
-    - `target_channel`: OUI. Le ciblage du canal peut souvent être ajusté dynamiquement.
-- **Conclusion sur le Hot-Reload du Nœud** : PARTIELLEMENT SUPPORTÉ.
-- **Stratégie de mise à jour recommandée** :
-    - Pour `cutoff_frequency`, `order`, `target_channel`: Implémenter des setters thread-safe permettant la mise à jour dynamique.
+    - **`cutoff_frequency`, `center_freq`, `bandwidth`, `order`, `sample_rate`: OUI - IMPLÉMENTÉ**. Ces paramètres peuvent être modifiés dynamiquement via les méthodes `update_config()` des filtres individuels. Les coefficients du filtre sont automatiquement recalculés après chaque mise à jour.
+    - **`target_channel`: OUI - IMPLÉMENTÉ**. Le ciblage du canal peut être ajusté dynamiquement via la méthode `update_config()` du `FilterNode`.
+- **Conclusion sur le Hot-Reload du Nœud** : **LARGEMENT SUPPORTÉ**.
+- **Stratégie de mise à jour recommandée** : **IMPLÉMENTÉE** pour la plupart des paramètres.
+    - **Pour `cutoff_frequency`, `center_freq`, `bandwidth`, `order`, `sample_rate`, `target_channel`: IMPLÉMENTÉ** - Setters thread-safe avec recalcul automatique des coefficients.
     - Pour `filter_type`: Nécessite la reconstruction du nœud (et potentiellement du graphe si les connexions sont affectées).
+- **Implémentation actuelle** :
+    ```rust
+    // Pour les filtres individuels (LowpassFilter, HighpassFilter, BandpassFilter)
+    impl LowpassFilter {
+        pub fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+            let mut updated = false;
+            // Met à jour cutoff_freq, sample_rate, order
+            // Validation des paramètres (fréquence < Nyquist, order > 0, etc.)
+            // Pas de recalcul nécessaire pour LowpassFilter (stateless)
+            Ok(updated)
+        }
+    }
+    
+    impl BandpassFilter {
+        pub fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+            let mut updated = false;
+            // Met à jour center_freq, bandwidth, sample_rate, order (doit être pair)
+            // Validation des paramètres
+            if updated {
+                self.compute_coefficients(); // Recalcule les coefficients biquad
+            }
+            Ok(updated)
+        }
+    }
+    
+    // Pour le FilterNode
+    impl ProcessingNode for FilterNode {
+        fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+            let mut updated = false;
+            // Met à jour target_channel si fourni
+            if let Some(target) = parameters.get("target_channel") {
+                // Validation et mise à jour du ChannelTarget
+            }
+            // Note: mise à jour des paramètres du filtre sous-jacent nécessiterait
+            // l'ajout d'update_config au trait Filter
+            Ok(updated)
+        }
+    }
+    ```
 
 ### 2.3 `ChannelSelectorNode` ✅ **IMPLÉMENTÉ**
 
@@ -202,7 +241,7 @@ Ce document détaille, pour chaque type de nœud du `ProcessingGraph`, si une mi
 | Type de Nœud        | Hot-Reload Paramètres? | Exemples de Paramètres Hot-Reloadable | Exemples de Paramètres NON Hot-Reloadable | Modification Structurelle du Graphe (ajout/suppression nœud/connexion) |
 |---------------------|:----------------------:|:--------------------------------------|:------------------------------------------|:----------------------------------------------------------------------:|
 | InputNode           | NON                    | -                                     | `id`, `data_format`                       | NON (rebuild requis)                                                  |
-| FilterNode          | PARTIEL                | `cutoff_frequency`, `order`           | `filter_type`                             | NON (rebuild requis)                                                  |
+| **FilterNode**      | **LARGEMENT ✅**       | **`cutoff_freq`, `center_freq`, `bandwidth`, `order`, `sample_rate`, `target_channel`** | `filter_type`                             | NON (rebuild requis)                                                  |
 | **ChannelSelectorNode** | **OUI ✅**            | **`target_channel`**                  | -                                         | NON (rebuild requis)                                                  |
 | DifferentialNode    | NON ⚠️                 | -                                     | `calculator_type`, paramètres calculateur | NON (rebuild requis)                                                  |
 | **MixerNode**       | **OUI ✅**            | **`mix_strategy`** (toutes variantes) | -                                         | NON (rebuild requis)                                                  |

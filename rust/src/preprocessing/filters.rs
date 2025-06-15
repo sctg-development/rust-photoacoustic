@@ -269,6 +269,117 @@ impl BandpassFilter {
         self
     }
 
+    /// Update the filter configuration with new parameters (hot-reload support)
+    ///
+    /// This method allows dynamic updating of filter parameters without recreating
+    /// the filter instance. Supported parameters:
+    /// - `center_freq`: Center frequency in Hz
+    /// - `bandwidth`: Filter bandwidth in Hz  
+    /// - `sample_rate`: Sample rate in Hz
+    /// - `order`: Filter order (must be even)
+    ///
+    /// ### Arguments
+    ///
+    /// * `parameters` - JSON object containing the new parameters
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration updated successfully
+    /// * `Ok(false)` - No supported parameters found in input
+    /// * `Err(anyhow::Error)` - Configuration update failed
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::BandpassFilter;
+    /// use serde_json::json;
+    ///
+    /// let mut filter = BandpassFilter::new(1000.0, 200.0);
+    ///
+    /// // Update center frequency
+    /// let result = filter.update_config(&json!({"center_freq": 1500.0}));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    ///
+    /// // Update multiple parameters
+    /// let result = filter.update_config(&json!({
+    ///     "center_freq": 2000.0,
+    ///     "bandwidth": 300.0,
+    ///     "sample_rate": 44100
+    /// }));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    /// ```
+    pub fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        let mut updated = false;
+
+        // Update center frequency if provided
+        if let Some(center_freq) = parameters.get("center_freq") {
+            if let Some(freq) = center_freq.as_f64() {
+                if freq > 0.0 && freq < (self.sample_rate as f64 / 2.0) {
+                    self.center_freq = freq as f32;
+                    updated = true;
+                } else {
+                    anyhow::bail!(
+                        "center_freq must be positive and less than Nyquist frequency ({})",
+                        self.sample_rate / 2
+                    );
+                }
+            } else {
+                anyhow::bail!("center_freq must be a number");
+            }
+        }
+
+        // Update bandwidth if provided
+        if let Some(bandwidth) = parameters.get("bandwidth") {
+            if let Some(bw) = bandwidth.as_f64() {
+                if bw > 0.0 {
+                    self.bandwidth = bw as f32;
+                    updated = true;
+                } else {
+                    anyhow::bail!("bandwidth must be positive");
+                }
+            } else {
+                anyhow::bail!("bandwidth must be a number");
+            }
+        }
+
+        // Update sample rate if provided
+        if let Some(sample_rate) = parameters.get("sample_rate") {
+            if let Some(sr) = sample_rate.as_u64() {
+                if sr > 0 && sr <= u32::MAX as u64 {
+                    self.sample_rate = sr as u32;
+                    updated = true;
+                } else {
+                    anyhow::bail!("sample_rate must be a positive integer within u32 range");
+                }
+            } else {
+                anyhow::bail!("sample_rate must be an integer");
+            }
+        }
+
+        // Update order if provided
+        if let Some(order) = parameters.get("order") {
+            if let Some(ord) = order.as_u64() {
+                if ord > 0 && ord % 2 == 0 && ord <= usize::MAX as u64 {
+                    self.order = ord as usize;
+                    updated = true;
+                } else {
+                    anyhow::bail!("order must be a positive even integer");
+                }
+            } else {
+                anyhow::bail!("order must be an integer");
+            }
+        }
+
+        // Recompute coefficients if any parameter was updated
+        if updated {
+            self.compute_coefficients();
+        }
+
+        Ok(updated)
+    }
+
     /// Compute filter coefficients based on current parameters
     ///
     /// This method calculates the filter coefficients for cascaded biquad sections
@@ -554,6 +665,97 @@ impl LowpassFilter {
         self.order = order;
         self
     }
+
+    /// Update the filter configuration with new parameters (hot-reload support)
+    ///
+    /// This method allows dynamic updating of filter parameters without recreating
+    /// the filter instance. Supported parameters:
+    /// - `cutoff_freq`: Cutoff frequency in Hz
+    /// - `sample_rate`: Sample rate in Hz
+    /// - `order`: Filter order (must be positive)
+    ///
+    /// ### Arguments
+    ///
+    /// * `parameters` - JSON object containing the new parameters
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration updated successfully
+    /// * `Ok(false)` - No supported parameters found in input
+    /// * `Err(anyhow::Error)` - Configuration update failed
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::LowpassFilter;
+    /// use serde_json::json;
+    ///
+    /// let mut filter = LowpassFilter::new(1000.0);
+    ///
+    /// // Update cutoff frequency
+    /// let result = filter.update_config(&json!({"cutoff_freq": 1500.0}));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    ///
+    /// // Update multiple parameters
+    /// let result = filter.update_config(&json!({
+    ///     "cutoff_freq": 2000.0,
+    ///     "sample_rate": 44100,
+    ///     "order": 3
+    /// }));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    /// ```
+    pub fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        let mut updated = false;
+
+        // Update cutoff frequency if provided
+        if let Some(cutoff_freq) = parameters.get("cutoff_freq") {
+            if let Some(freq) = cutoff_freq.as_f64() {
+                if freq > 0.0 && freq < (self.sample_rate as f64 / 2.0) {
+                    self.cutoff_freq = freq as f32;
+                    updated = true;
+                } else {
+                    anyhow::bail!(
+                        "cutoff_freq must be positive and less than Nyquist frequency ({})",
+                        self.sample_rate / 2
+                    );
+                }
+            } else {
+                anyhow::bail!("cutoff_freq must be a number");
+            }
+        }
+
+        // Update sample rate if provided
+        if let Some(sample_rate) = parameters.get("sample_rate") {
+            if let Some(sr) = sample_rate.as_u64() {
+                if sr > 0 && sr <= u32::MAX as u64 {
+                    self.sample_rate = sr as u32;
+                    updated = true;
+                } else {
+                    anyhow::bail!("sample_rate must be a positive integer within u32 range");
+                }
+            } else {
+                anyhow::bail!("sample_rate must be an integer");
+            }
+        }
+
+        // Update order if provided
+        if let Some(order) = parameters.get("order") {
+            if let Some(ord) = order.as_u64() {
+                if ord > 0 && ord <= usize::MAX as u64 {
+                    self.order = ord as usize;
+                    updated = true;
+                } else {
+                    anyhow::bail!("order must be a positive integer");
+                }
+            } else {
+                anyhow::bail!("order must be an integer");
+            }
+        }
+
+        Ok(updated)
+    }
 }
 
 impl Filter for LowpassFilter {
@@ -788,6 +990,97 @@ impl HighpassFilter {
         self.order = order;
         self
     }
+
+    /// Update the filter configuration with new parameters (hot-reload support)
+    ///
+    /// This method allows dynamic updating of filter parameters without recreating
+    /// the filter instance. Supported parameters:
+    /// - `cutoff_freq`: Cutoff frequency in Hz
+    /// - `sample_rate`: Sample rate in Hz
+    /// - `order`: Filter order (must be positive)
+    ///
+    /// ### Arguments
+    ///
+    /// * `parameters` - JSON object containing the new parameters
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Configuration updated successfully
+    /// * `Ok(false)` - No supported parameters found in input
+    /// * `Err(anyhow::Error)` - Configuration update failed
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::HighpassFilter;
+    /// use serde_json::json;
+    ///
+    /// let mut filter = HighpassFilter::new(100.0);
+    ///
+    /// // Update cutoff frequency
+    /// let result = filter.update_config(&json!({"cutoff_freq": 150.0}));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    ///
+    /// // Update multiple parameters
+    /// let result = filter.update_config(&json!({
+    ///     "cutoff_freq": 200.0,
+    ///     "sample_rate": 44100,
+    ///     "order": 3
+    /// }));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    /// ```
+    pub fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        let mut updated = false;
+
+        // Update cutoff frequency if provided
+        if let Some(cutoff_freq) = parameters.get("cutoff_freq") {
+            if let Some(freq) = cutoff_freq.as_f64() {
+                if freq > 0.0 && freq < (self.sample_rate as f64 / 2.0) {
+                    self.cutoff_freq = freq as f32;
+                    updated = true;
+                } else {
+                    anyhow::bail!(
+                        "cutoff_freq must be positive and less than Nyquist frequency ({})",
+                        self.sample_rate / 2
+                    );
+                }
+            } else {
+                anyhow::bail!("cutoff_freq must be a number");
+            }
+        }
+
+        // Update sample rate if provided
+        if let Some(sample_rate) = parameters.get("sample_rate") {
+            if let Some(sr) = sample_rate.as_u64() {
+                if sr > 0 && sr <= u32::MAX as u64 {
+                    self.sample_rate = sr as u32;
+                    updated = true;
+                } else {
+                    anyhow::bail!("sample_rate must be a positive integer within u32 range");
+                }
+            } else {
+                anyhow::bail!("sample_rate must be an integer");
+            }
+        }
+
+        // Update order if provided
+        if let Some(order) = parameters.get("order") {
+            if let Some(ord) = order.as_u64() {
+                if ord > 0 && ord <= usize::MAX as u64 {
+                    self.order = ord as usize;
+                    updated = true;
+                } else {
+                    anyhow::bail!("order must be a positive integer");
+                }
+            } else {
+                anyhow::bail!("order must be an integer");
+            }
+        }
+
+        Ok(updated)
+    }
 }
 
 impl Filter for HighpassFilter {
@@ -836,7 +1129,7 @@ impl Filter for HighpassFilter {
     /// ```
     fn apply(&self, signal: &[f32]) -> Vec<f32> {
         // Cascaded first-order RC highpass filter implementation
-        // Each stage: H(z) = (1 - z^-1) / (1 - α*z^-1) where α = e^(-2πfc/fs)
+        // Each stage: H(z) = (1 - z^-1) / (1 - α*z^-1)
 
         let mut filtered = Vec::with_capacity(signal.len());
 
@@ -1354,5 +1647,314 @@ mod tests {
             assert!(sample.is_finite());
             assert!(sample.abs() < 1e6); // Should be clamped
         }
+    }
+
+    // ==================== Hot-reload (update_config) tests ====================
+
+    #[test]
+    fn test_bandpass_filter_update_config_center_freq() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        let params = json!({"center_freq": 1500.0});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.center_freq, 1500.0);
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_bandwidth() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        let params = json!({"bandwidth": 300.0});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.bandwidth, 300.0);
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_sample_rate() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        let params = json!({"sample_rate": 44100});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.sample_rate, 44100);
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_order() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        let params = json!({"order": 6});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.order, 6);
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_multiple_params() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        let params = json!({
+            "center_freq": 2000.0,
+            "bandwidth": 400.0,
+            "sample_rate": 44100,
+            "order": 4
+        });
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.center_freq, 2000.0);
+        assert_eq!(filter.bandwidth, 400.0);
+        assert_eq!(filter.sample_rate, 44100);
+        assert_eq!(filter.order, 4);
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_no_params() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        let params = json!({});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap()); // Should return false for no updates
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_invalid_center_freq() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        // Test negative frequency
+        let params = json!({"center_freq": -100.0});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+
+        // Test frequency above Nyquist
+        let params = json!({"center_freq": 50000.0}); // Above 48000/2 = 24000
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bandpass_filter_update_config_invalid_order() {
+        use serde_json::json;
+
+        let mut filter = BandpassFilter::new(1000.0, 200.0);
+
+        // Test odd order
+        let params = json!({"order": 5});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+
+        // Test zero order
+        let params = json!({"order": 0});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lowpass_filter_update_config_cutoff_freq() {
+        use serde_json::json;
+
+        let mut filter = LowpassFilter::new(1000.0);
+
+        let params = json!({"cutoff_freq": 1500.0});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.cutoff_freq, 1500.0);
+    }
+
+    #[test]
+    fn test_lowpass_filter_update_config_sample_rate() {
+        use serde_json::json;
+
+        let mut filter = LowpassFilter::new(1000.0);
+
+        let params = json!({"sample_rate": 44100});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.sample_rate, 44100);
+    }
+
+    #[test]
+    fn test_lowpass_filter_update_config_order() {
+        use serde_json::json;
+
+        let mut filter = LowpassFilter::new(1000.0);
+
+        let params = json!({"order": 3});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.order, 3);
+    }
+
+    #[test]
+    fn test_lowpass_filter_update_config_multiple_params() {
+        use serde_json::json;
+
+        let mut filter = LowpassFilter::new(1000.0);
+
+        let params = json!({
+            "cutoff_freq": 2000.0,
+            "sample_rate": 44100,
+            "order": 4
+        });
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.cutoff_freq, 2000.0);
+        assert_eq!(filter.sample_rate, 44100);
+        assert_eq!(filter.order, 4);
+    }
+
+    #[test]
+    fn test_lowpass_filter_update_config_invalid_cutoff_freq() {
+        use serde_json::json;
+
+        let mut filter = LowpassFilter::new(1000.0);
+
+        // Test negative frequency
+        let params = json!({"cutoff_freq": -100.0});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+
+        // Test frequency above Nyquist
+        let params = json!({"cutoff_freq": 50000.0}); // Above 48000/2 = 24000
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lowpass_filter_update_config_invalid_order() {
+        use serde_json::json;
+
+        let mut filter = LowpassFilter::new(1000.0);
+
+        // Test zero order
+        let params = json!({"order": 0});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_highpass_filter_update_config_cutoff_freq() {
+        use serde_json::json;
+
+        let mut filter = HighpassFilter::new(100.0);
+
+        let params = json!({"cutoff_freq": 150.0});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.cutoff_freq, 150.0);
+    }
+
+    #[test]
+    fn test_highpass_filter_update_config_sample_rate() {
+        use serde_json::json;
+
+        let mut filter = HighpassFilter::new(100.0);
+
+        let params = json!({"sample_rate": 44100});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.sample_rate, 44100);
+    }
+
+    #[test]
+    fn test_highpass_filter_update_config_order() {
+        use serde_json::json;
+
+        let mut filter = HighpassFilter::new(100.0);
+
+        let params = json!({"order": 2});
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.order, 2);
+    }
+
+    #[test]
+    fn test_highpass_filter_update_config_multiple_params() {
+        use serde_json::json;
+
+        let mut filter = HighpassFilter::new(100.0);
+
+        let params = json!({
+            "cutoff_freq": 200.0,
+            "sample_rate": 44100,
+            "order": 3
+        });
+        let result = filter.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert_eq!(filter.cutoff_freq, 200.0);
+        assert_eq!(filter.sample_rate, 44100);
+        assert_eq!(filter.order, 3);
+    }
+
+    #[test]
+    fn test_highpass_filter_update_config_invalid_cutoff_freq() {
+        use serde_json::json;
+
+        let mut filter = HighpassFilter::new(100.0);
+
+        // Test negative frequency
+        let params = json!({"cutoff_freq": -50.0});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+
+        // Test frequency above Nyquist
+        let params = json!({"cutoff_freq": 50000.0}); // Above 48000/2 = 24000
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_highpass_filter_update_config_invalid_order() {
+        use serde_json::json;
+
+        let mut filter = HighpassFilter::new(100.0);
+
+        // Test zero order
+        let params = json!({"order": 0});
+        let result = filter.update_config(&params);
+        assert!(result.is_err());
     }
 }

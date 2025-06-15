@@ -230,4 +230,142 @@ impl ProcessingNode for FilterNode {
         // TODO: Implement proper cloning when filter cloning is supported
         panic!("FilterNode cloning not yet implemented")
     }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        let mut updated = false;
+
+        // Update target channel if provided
+        if let Some(target) = parameters.get("target_channel") {
+            if let Some(target_str) = target.as_str() {
+                match target_str {
+                    "channel_a" | "ChannelA" => {
+                        self.target_channel = ChannelTarget::ChannelA;
+                        updated = true;
+                    }
+                    "channel_b" | "ChannelB" => {
+                        self.target_channel = ChannelTarget::ChannelB;
+                        updated = true;
+                    }
+                    "both" | "Both" => {
+                        self.target_channel = ChannelTarget::Both;
+                        updated = true;
+                    }
+                    _ => {
+                        anyhow::bail!("Invalid target_channel value. Must be 'channel_a', 'channel_b', or 'both'");
+                    }
+                }
+            } else {
+                anyhow::bail!("target_channel must be a string");
+            }
+        }
+
+        // Check if the underlying filter supports hot-reload
+        // For now, we'll need to handle this based on the filter type
+        // This is a limitation of the current trait object design
+        // In the future, we might want to add update_config to the Filter trait
+
+        // For now, we'll return the channel update result
+        // Individual filter updates would need to be handled differently
+        // or we'd need to modify the Filter trait to include update_config
+
+        Ok(updated)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::preprocessing::filters::LowpassFilter;
+    use crate::processing::nodes::data::ProcessingData;
+    use serde_json::json;
+
+    #[test]
+    fn test_filter_node_creation() {
+        let filter = Box::new(LowpassFilter::new(1000.0));
+        let node = FilterNode::new("test".to_string(), filter, ChannelTarget::Both);
+
+        assert_eq!(node.node_id(), "test");
+        assert_eq!(node.node_type(), "filter");
+    }
+
+    #[test]
+    fn test_filter_node_update_config_target_channel() {
+        let filter = Box::new(LowpassFilter::new(1000.0));
+        let mut node = FilterNode::new("test".to_string(), filter, ChannelTarget::Both);
+
+        // Update to channel A
+        let params = json!({"target_channel": "channel_a"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(matches!(node.target_channel, ChannelTarget::ChannelA));
+
+        // Update to channel B
+        let params = json!({"target_channel": "channel_b"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(matches!(node.target_channel, ChannelTarget::ChannelB));
+
+        // Update to both
+        let params = json!({"target_channel": "both"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(matches!(node.target_channel, ChannelTarget::Both));
+    }
+
+    #[test]
+    fn test_filter_node_update_config_target_channel_case_insensitive() {
+        let filter = Box::new(LowpassFilter::new(1000.0));
+        let mut node = FilterNode::new("test".to_string(), filter, ChannelTarget::Both);
+
+        // Test uppercase variants
+        let params = json!({"target_channel": "ChannelA"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(matches!(node.target_channel, ChannelTarget::ChannelA));
+
+        let params = json!({"target_channel": "ChannelB"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(matches!(node.target_channel, ChannelTarget::ChannelB));
+
+        let params = json!({"target_channel": "Both"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(matches!(node.target_channel, ChannelTarget::Both));
+    }
+
+    #[test]
+    fn test_filter_node_update_config_invalid_target_channel() {
+        let filter = Box::new(LowpassFilter::new(1000.0));
+        let mut node = FilterNode::new("test".to_string(), filter, ChannelTarget::Both);
+
+        let params = json!({"target_channel": "invalid"});
+        let result = node.update_config(&params);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_filter_node_update_config_no_params() {
+        let filter = Box::new(LowpassFilter::new(1000.0));
+        let mut node = FilterNode::new("test".to_string(), filter, ChannelTarget::Both);
+
+        let params = json!({});
+        let result = node.update_config(&params);
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap()); // Should return false for no updates
+    }
 }
