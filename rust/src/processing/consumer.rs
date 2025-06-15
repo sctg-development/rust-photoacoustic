@@ -574,21 +574,29 @@ impl ProcessingConsumer {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn update_node_config(&self, node_id: &str, parameters: &serde_json::Value) -> Result<bool> {
-        debug!("ProcessingConsumer '{}': Updating configuration for node '{}'", 
-               self.consumer_id, node_id);
-        
+    pub async fn update_node_config(
+        &self,
+        node_id: &str,
+        parameters: &serde_json::Value,
+    ) -> Result<bool> {
+        debug!(
+            "ProcessingConsumer '{}': Updating configuration for node '{}'",
+            self.consumer_id, node_id
+        );
+
         let mut graph = self.processing_graph.write().await;
         let result = graph.update_node_config(node_id, parameters)?;
-        
+
         if result {
-            info!("ProcessingConsumer '{}': Node '{}' configuration updated successfully", 
-                  self.consumer_id, node_id);
+            info!(
+                "ProcessingConsumer '{}': Node '{}' configuration updated successfully",
+                self.consumer_id, node_id
+            );
         } else {
             warn!("ProcessingConsumer '{}': Node '{}' requires reconstruction for configuration change", 
                   self.consumer_id, node_id);
         }
-        
+
         Ok(result)
     }
 
@@ -630,10 +638,16 @@ impl ProcessingConsumer {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn update_multiple_node_configs(&self, node_configs: &std::collections::HashMap<String, serde_json::Value>) -> std::collections::HashMap<String, Result<bool>> {
-        debug!("ProcessingConsumer '{}': Updating configuration for {} nodes", 
-               self.consumer_id, node_configs.len());
-        
+    pub async fn update_multiple_node_configs(
+        &self,
+        node_configs: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> std::collections::HashMap<String, Result<bool>> {
+        debug!(
+            "ProcessingConsumer '{}': Updating configuration for {} nodes",
+            self.consumer_id,
+            node_configs.len()
+        );
+
         let mut graph = self.processing_graph.write().await;
         graph.update_multiple_node_configs(node_configs)
     }

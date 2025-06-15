@@ -719,19 +719,19 @@ mod tests {
     #[test]
     fn test_dynamic_config_update_invalid() {
         let mut gain_node = GainNode::new("test".to_string(), 0.0);
-        
+
         // Test invalid parameter type
         let config = serde_json::json!({
             "gain_db": "not_a_number"
         });
-        
+
         let result = gain_node.update_config(&config);
         assert!(result.is_err());
         assert_eq!(gain_node.get_gain_db(), 0.0); // Should remain unchanged
-        
+
         // Test invalid JSON structure
         let config = serde_json::json!("not_an_object");
-        
+
         let result = gain_node.update_config(&config);
         assert!(result.is_err());
         assert_eq!(gain_node.get_gain_db(), 0.0); // Should remain unchanged
@@ -740,18 +740,18 @@ mod tests {
     #[test]
     fn test_gain_node_integration_with_graph() {
         use crate::processing::ProcessingGraph;
-        
+
         let mut graph = ProcessingGraph::new();
         let gain_node = Box::new(GainNode::new("test_gain".to_string(), 0.0));
-        
+
         // Add node to graph and test configuration update
         graph.add_node(gain_node).unwrap();
-        
+
         // Test hot-reload configuration update
         let config = serde_json::json!({
             "gain_db": 12.0
         });
-        
+
         let result = graph.update_node_config("test_gain", &config);
         assert!(result.is_ok());
         assert!(result.unwrap()); // Should return true for successful hot-reload
