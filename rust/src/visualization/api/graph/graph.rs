@@ -135,7 +135,7 @@ pub async fn get_graph(
 
 /// Post new node configuration
 ///
-/// **Endpoint:** `POST /api/graph/config/<node_id>`
+/// **Endpoint:** `POST /api/graph/config`
 ///
 /// This endpoint allows updating the configuration of processing nodes that support hot-reloading.
 /// The configuration changes are applied to the shared configuration state and will be automatically
@@ -205,7 +205,7 @@ pub async fn get_graph(
 /// - `403 Forbidden`: Token lacks required `admin:api` scope
 /// - `500 Internal Server Error`: Server error processing the request or configuration lock failure
 #[openapi_protect_post(
-    "/api/graph/config/<node_id>",
+    "/api/graph/config",
     "admin:api",
     tag = "Processing",
     data = "<new_config>"
@@ -213,9 +213,9 @@ pub async fn get_graph(
 pub async fn post_node_config(
     config: &ConfigState,
     shared_state: &State<SharedVisualizationState>,
-    node_id: String,
     new_config: Json<NodeConfig>,
 ) -> Result<Json<serde_json::Value>, status::BadRequest<String>> {
+    let node_id = new_config.id.clone();
     // Chain all validations using match expressions to avoid early returns
     match shared_state.get_processing_graph().await {
         Some(graph) => {
@@ -236,36 +236,105 @@ pub async fn post_node_config(
                             {
                                 Some(node_config) => {
                                     // Extract the parameters from the new NodeConfig
-                                    let new_node_config = new_config.into_inner();
-                                    let new_params = &new_node_config.parameters;
-
-                                    // Merge the new configuration with the existing parameters
-                                    if let Some(new_params_obj) = new_params.as_object() {
-                                        if let Some(existing_params_obj) =
-                                            node_config.parameters.as_object_mut()
-                                        {
-                                            // Update existing parameters with new values
-                                            for (key, value) in new_params_obj {
-                                                existing_params_obj
-                                                    .insert(key.clone(), value.clone());
-                                            }
-                                        } else {
-                                            // If existing parameters is not an object, replace entirely
-                                            node_config.parameters = new_params.clone();
-                                        }
-                                    } else {
-                                        // If new params is not an object, replace entirely
-                                        node_config.parameters = new_params.clone();
+                                    let new_node_config = new_config.into_inner(); // Validate that id and node_type match the existing node
+                                    if new_node_config.id != node_config.id {
+                                        let err_msg = format!(
+                                            "ID mismatch: request ID '{}' does not match existing node ID '{}'",
+                                            new_node_config.id, node_config.id
+                                        );
+                                        return rocket::Either::Right(Err(status::BadRequest(
+                                            err_msg,
+                                        )));
+                                    }
+                                    if new_node_config.node_type != node_config.node_type {
+                                        let err_msg = format!(
+                                            "Node type mismatch: request node_type '{}' does not match existing node_type '{}'",
+                                            new_node_config.node_type, node_config.node_type
+                                        );
+                                        return rocket::Either::Right(Err(status::BadRequest(
+                                            err_msg,
+                                        )));
                                     }
 
-                                    // Log the configuration update
-                                    info!(
-                                        "Updated configuration for node '{}' via API. Hot-reload will be detected by monitoring thread.",
-                                        node_id
-                                    );
+                                    let new_params = &new_node_config.parameters; // Validate parameter compatibility before merging
+                                    let validation_result = if let Some(new_params_obj) =
+                                        new_params.as_object()
+                                    {
+                                        if let Some(existing_params_obj) =
+                                            node_config.parameters.as_object()
+                                        {
+                                            // Validate each new parameter
+                                            let mut validation_errors = Vec::new();
+                                            for (key, new_value) in new_params_obj {
+                                                match existing_params_obj.get(key) {
+                                                    Some(existing_value) => {
+                                                        // Check type compatibility
+                                                        if !are_json_types_compatible(
+                                                            existing_value,
+                                                            new_value,
+                                                        ) {
+                                                            validation_errors.push(format!(
+                                                                "Parameter '{}' type mismatch. Expected: {}, Got: {}",
+                                                                key,
+                                                                get_json_type_name(existing_value),
+                                                                get_json_type_name(new_value)
+                                                            ));
+                                                        }
+                                                    }
+                                                    None => {
+                                                        validation_errors.push(format!(
+                                                            "Parameter '{}' does not exist in node '{}' configuration",
+                                                            key, node_id
+                                                        ));
+                                                    }
+                                                }
+                                            }
+                                            if validation_errors.is_empty() {
+                                                Ok(())
+                                            } else {
+                                                Err(validation_errors.join("; "))
+                                            }
+                                        } else {
+                                            Ok(()) // If existing params is not an object, allow replacement
+                                        }
+                                    } else {
+                                        Ok(()) // If new params is not an object, allow replacement
+                                    };
 
-                                    // Return the updated parameters
-                                    Ok(Json(node_config.parameters.clone()))
+                                    match validation_result {
+                                        Ok(()) => {
+                                            // Validation passed, proceed with merging
+                                            if let Some(new_params_obj) = new_params.as_object() {
+                                                if let Some(existing_params_obj) =
+                                                    node_config.parameters.as_object_mut()
+                                                {
+                                                    // Update existing parameters with new values (already validated)
+                                                    for (key, value) in new_params_obj {
+                                                        existing_params_obj
+                                                            .insert(key.clone(), value.clone());
+                                                    }
+                                                } else {
+                                                    // If existing parameters is not an object, replace entirely
+                                                    node_config.parameters = new_params.clone();
+                                                }
+                                            } else {
+                                                // If new params is not an object, replace entirely
+                                                node_config.parameters = new_params.clone();
+                                            }
+
+                                            // Log the configuration update
+                                            info!(
+                                                "Updated configuration for node '{}' via API. Hot-reload will be detected by monitoring thread.",
+                                                node_id
+                                            );
+
+                                            // Return the updated parameters
+                                            Ok(Json(node_config.parameters.clone()))
+                                        }
+                                        Err(validation_error) => {
+                                            Err(status::BadRequest(validation_error))
+                                        }
+                                    }
                                 }
                                 None => Err(status::BadRequest(format!(
                                     "Node '{}' not found in configuration",
@@ -290,6 +359,38 @@ pub async fn post_node_config(
         None => Err(status::BadRequest(
             "No processing graph is currently available".to_string(),
         )),
+    }
+}
+
+/// Check if two JSON values have compatible types
+///
+/// Compatible types are:
+/// - Same primitive types (bool, string, number)
+/// - Both objects (for nested parameter structures)
+/// - Both arrays (for array parameters)
+fn are_json_types_compatible(existing: &serde_json::Value, new: &serde_json::Value) -> bool {
+    use serde_json::Value::*;
+    match (existing, new) {
+        (Bool(_), Bool(_)) => true,
+        (Number(_), Number(_)) => true,
+        (String(_), String(_)) => true,
+        (Array(_), Array(_)) => true,
+        (Object(_), Object(_)) => true,
+        (Null, Null) => true,
+        _ => false,
+    }
+}
+
+/// Get a human-readable name for a JSON value type
+fn get_json_type_name(value: &serde_json::Value) -> &'static str {
+    use serde_json::Value::*;
+    match value {
+        Bool(_) => "boolean",
+        Number(_) => "number",
+        String(_) => "string",
+        Array(_) => "array",
+        Object(_) => "object",
+        Null => "null",
     }
 }
 

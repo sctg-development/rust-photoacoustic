@@ -796,7 +796,7 @@ impl ProcessingConsumer {
         last_config_version: &Arc<AtomicU64>,
         consumer_id: &str,
     ) -> Result<bool> {
-        let (current_hash, node_configs) = {
+        let (current_hash, node_configs, graph_config) = {
             let config_read = config.read().unwrap();
             let hash = Self::calculate_config_hash(&config_read.processing);
             let node_configs = config_read
@@ -806,7 +806,8 @@ impl ProcessingConsumer {
                 .iter()
                 .map(|node_config| (node_config.id.clone(), node_config.clone()))
                 .collect::<HashMap<String, _>>();
-            (hash, node_configs)
+            let graph_config = config_read.processing.default_graph.clone();
+            (hash, node_configs, graph_config)
         };
 
         let last_hash = last_config_version.load(Ordering::Relaxed);
@@ -875,6 +876,32 @@ impl ProcessingConsumer {
                     "ProcessingConsumer '{}': {} nodes require processing graph rebuild for full configuration update",
                     consumer_id, needs_rebuild_count
                 );
+
+                // Reconstruct the processing graph from the updated configuration
+                match ProcessingGraph::from_config(&graph_config) {
+                    Ok(new_graph) => {
+                        // Update the processing graph
+                        {
+                            let mut graph_write = processing_graph.write().await;
+                            *graph_write = new_graph;
+                        }
+
+                        info!(
+                            "ProcessingConsumer '{}': Processing graph successfully reconstructed with {} nodes requiring rebuild",
+                            consumer_id, needs_rebuild_count
+                        );
+                    }
+                    Err(e) => {
+                        error!(
+                            "ProcessingConsumer '{}': Failed to reconstruct processing graph: {}",
+                            consumer_id, e
+                        );
+                        return Err(anyhow::anyhow!(
+                            "Failed to reconstruct processing graph: {}",
+                            e
+                        ));
+                    }
+                }
             }
 
             Ok(true)
