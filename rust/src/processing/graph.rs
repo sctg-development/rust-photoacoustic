@@ -1566,6 +1566,7 @@ pub struct SerializableNode {
     pub config: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub statistics: Option<NodeStatistics>,
+    pub supports_hot_reload: bool,
 }
 
 /// Performance summary for the entire processing graph
@@ -1621,6 +1622,7 @@ impl SerializableProcessingGraph {
             ),
             config: None,     // Legacy field for backward compatibility
             statistics: None, // Will be populated from graph statistics if available
+            supports_hot_reload: node.supports_hot_reload(),
         }
     }
 
@@ -1859,6 +1861,19 @@ impl JsonSchema for SerializableNode {
                 ..Default::default()
             }),
         );
+        properties.insert(
+            "supports_hot_reload".to_string(),
+            Schema::Object(SchemaObject {
+                instance_type: Some(InstanceType::Boolean.into()),
+                metadata: Some(Box::new(Metadata {
+                    description: Some(
+                        "Whether the node supports hot-reload configuration updates".to_string(),
+                    ),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }),
+        );
 
         Schema::Object(SchemaObject {
             instance_type: Some(InstanceType::Object.into()),
@@ -1878,6 +1893,7 @@ impl JsonSchema for SerializableNode {
                     "accepts_input_types".to_string(),
                     "output_type".to_string(),
                     "parameters".to_string(),
+                    "supports_hot_reload".to_string(),
                 ]
                 .into_iter()
                 .collect(),

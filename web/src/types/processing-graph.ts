@@ -112,6 +112,9 @@ export interface SerializableNode {
 
   /** Node-specific configuration parameters */
   parameters: Record<string, any>;
+
+  /** Wether the node supports hot reload or not */
+  supports_hot_reload: boolean;
 }
 
 /**
