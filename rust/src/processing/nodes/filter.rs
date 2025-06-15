@@ -11,6 +11,7 @@ use super::data::ProcessingData;
 use super::traits::ProcessingNode;
 use crate::preprocessing::Filter;
 use anyhow::Result;
+use log;
 
 /// Filter node that applies a digital filter to audio channels
 ///
@@ -231,6 +232,10 @@ impl ProcessingNode for FilterNode {
         panic!("FilterNode cloning not yet implemented")
     }
 
+    fn supports_hot_reload(&self) -> bool {
+        true // FilterNode supports hot-reload for target_channel parameter
+    }
+
     fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
         let mut updated = false;
 
@@ -259,14 +264,48 @@ impl ProcessingNode for FilterNode {
             }
         }
 
-        // Check if the underlying filter supports hot-reload
-        // For now, we'll need to handle this based on the filter type
-        // This is a limitation of the current trait object design
-        // In the future, we might want to add update_config to the Filter trait
+        // Update the underlying filter's parameters if provided
+        // Extract filter-specific parameters from the main parameters object
+        let mut filter_params = serde_json::Map::new();
 
-        // For now, we'll return the channel update result
-        // Individual filter updates would need to be handled differently
-        // or we'd need to modify the Filter trait to include update_config
+        // Common filter parameters
+        if let Some(sample_rate) = parameters.get("sample_rate") {
+            filter_params.insert("sample_rate".to_string(), sample_rate.clone());
+        }
+        if let Some(order) = parameters.get("order") {
+            filter_params.insert("order".to_string(), order.clone());
+        }
+
+        // BandpassFilter specific parameters
+        if let Some(center_freq) = parameters.get("center_freq") {
+            filter_params.insert("center_freq".to_string(), center_freq.clone());
+        }
+        if let Some(bandwidth) = parameters.get("bandwidth") {
+            filter_params.insert("bandwidth".to_string(), bandwidth.clone());
+        }
+
+        // LowpassFilter and HighpassFilter specific parameters
+        if let Some(cutoff_freq) = parameters.get("cutoff_freq") {
+            filter_params.insert("cutoff_freq".to_string(), cutoff_freq.clone());
+        }
+
+        // If we have filter parameters to update, try to update the underlying filter
+        if !filter_params.is_empty() {
+            let filter_value = serde_json::Value::Object(filter_params);
+            match self.filter.update_config(&filter_value) {
+                Ok(filter_updated) => {
+                    if filter_updated {
+                        updated = true;
+                    }
+                }
+                Err(e) => {
+                    // Log the error but don't fail the entire update if only filter update failed
+                    log::warn!("Failed to update underlying filter configuration: {}", e);
+                    // Re-throw the error to inform the caller
+                    anyhow::bail!("Filter configuration update failed: {}", e);
+                }
+            }
+        }
 
         Ok(updated)
     }

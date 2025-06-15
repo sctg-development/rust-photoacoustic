@@ -337,6 +337,10 @@ impl ProcessingNode for GainNode {
         Box::new(self.clone())
     }
 
+    fn supports_hot_reload(&self) -> bool {
+        true // GainNode supports hot-reload for gain_db parameter
+    }
+
     fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
         use serde_json::Value;
 

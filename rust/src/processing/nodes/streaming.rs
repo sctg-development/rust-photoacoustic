@@ -282,6 +282,10 @@ impl ProcessingNode for StreamingNode {
             self.registry.clone(),
         ))
     }
+
+    fn supports_hot_reload(&self) -> bool {
+        false // StreamingNode doesn't implement hot-reload yet
+    }
 }
 
 impl Drop for StreamingNode {

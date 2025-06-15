@@ -169,6 +169,10 @@ impl ProcessingNode for ChannelSelectorNode {
         ))
     }
 
+    fn supports_hot_reload(&self) -> bool {
+        true // ChannelSelectorNode supports hot-reload for target_channel parameter
+    }
+
     fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
         use serde_json::Value;
 
@@ -421,6 +425,10 @@ impl ProcessingNode for ChannelMixerNode {
             self.id.clone(),
             self.mix_strategy.clone(),
         ))
+    }
+
+    fn supports_hot_reload(&self) -> bool {
+        true // ChannelMixerNode supports hot-reload for mix_strategy parameter
     }
 
     fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {

@@ -121,4 +121,8 @@ impl ProcessingNode for InputNode {
     fn clone_node(&self) -> Box<dyn ProcessingNode> {
         Box::new(InputNode::new(self.id.clone()))
     }
+
+    fn supports_hot_reload(&self) -> bool {
+        false // InputNode has no configurable parameters
+    }
 }

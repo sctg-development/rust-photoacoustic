@@ -285,4 +285,8 @@ impl ProcessingNode for PhotoacousticOutputNode {
                 .with_analysis_window_size(self.analysis_window_size),
         )
     }
+
+    fn supports_hot_reload(&self) -> bool {
+        false // PhotoacousticOutputNode doesn't implement hot-reload yet
+    }
 }

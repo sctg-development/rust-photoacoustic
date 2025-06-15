@@ -175,6 +175,33 @@ pub trait ProcessingNode: Send + Sync {
     /// A boxed clone of this node with the same configuration
     fn clone_node(&self) -> Box<dyn ProcessingNode>;
 
+    /// Check if this node supports hot-reload configuration updates
+    ///
+    /// Returns true if this node can dynamically update its configuration
+    /// without requiring reconstruction, false if configuration changes
+    /// require node reconstruction.
+    ///
+    /// This method helps the configuration system determine whether to
+    /// attempt hot-reload or schedule node reconstruction.
+    ///
+    /// ### Returns
+    ///
+    /// * `true` - Node supports hot-reload for some or all parameters
+    /// * `false` - Node requires reconstruction for configuration changes
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::nodes::{GainNode, ProcessingNode};
+    ///
+    /// let gain_node = GainNode::new("amp".to_string(), 0.0);
+    /// assert!(gain_node.supports_hot_reload()); // GainNode supports hot-reload
+    /// ```
+    fn supports_hot_reload(&self) -> bool {
+        // Default implementation: no hot-reload support
+        false
+    }
+
     /// Update the node's configuration dynamically
     ///
     /// Attempts to update the node's parameters with new configuration values.

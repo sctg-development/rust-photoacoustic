@@ -119,6 +119,52 @@ pub trait Filter: Send + Sync {
     /// assert_eq!(output.len(), 4);
     /// ```
     fn apply(&self, signal: &[f32]) -> Vec<f32>;
+
+    /// Update filter configuration with new parameters
+    ///
+    /// This method allows dynamic reconfiguration of filter parameters without
+    /// recreating the filter instance. This enables hot-reload capabilities for
+    /// real-time parameter adjustments during audio processing.
+    ///
+    /// ### Arguments
+    ///
+    /// * `parameters` - JSON object containing the parameters to update
+    ///
+    /// ### Returns
+    ///
+    /// * `Ok(true)` - Parameters were successfully updated
+    /// * `Ok(false)` - No updates were made (no matching parameters found)
+    /// * `Err(anyhow::Error)` - Invalid parameter values or update failed
+    ///
+    /// ### Supported Parameters
+    ///
+    /// The specific parameters supported depend on the filter type:
+    /// - **BandpassFilter**: `center_freq`, `bandwidth`, `sample_rate`, `order`
+    /// - **LowpassFilter**: `cutoff_freq`, `sample_rate`, `order`
+    /// - **HighpassFilter**: `cutoff_freq`, `sample_rate`, `order`
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::{Filter, BandpassFilter};
+    /// use serde_json::json;
+    ///
+    /// let mut filter = BandpassFilter::new(1000.0, 200.0);
+    ///
+    /// // Update center frequency
+    /// let result = filter.update_config(&json!({"center_freq": 1500.0}));
+    /// assert!(result.is_ok());
+    /// assert!(result.unwrap());
+    ///
+    /// // Update multiple parameters
+    /// let result = filter.update_config(&json!({
+    ///     "center_freq": 2000.0,
+    ///     "bandwidth": 300.0,
+    ///     "order": 4
+    /// }));
+    /// assert!(result.is_ok());
+    /// ```
+    fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool>;
 }
 
 /// A Butterworth bandpass filter
@@ -517,6 +563,11 @@ impl Filter for BandpassFilter {
 
         filtered
     }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        // Delegate to the concrete implementation's update_config method
+        self.update_config(parameters)
+    }
 }
 
 /// A lowpass filter for removing high frequency noise
@@ -838,6 +889,11 @@ impl Filter for LowpassFilter {
         }
 
         filtered
+    }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        // Delegate to the concrete implementation's update_config method
+        self.update_config(parameters)
     }
 }
 
@@ -1179,6 +1235,11 @@ impl Filter for HighpassFilter {
         }
 
         filtered
+    }
+
+    fn update_config(&mut self, parameters: &serde_json::Value) -> anyhow::Result<bool> {
+        // Delegate to the concrete implementation's update_config method
+        self.update_config(parameters)
     }
 }
 

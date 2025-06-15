@@ -39,7 +39,11 @@ Permettre la mise à jour dynamique de la configuration via un endpoint POST `/a
 1. **GainNode** - Gain en décibels (`gain_db`)
 2. **ChannelSelectorNode** - Sélection de canal (`target_channel`)  
 3. **ChannelMixerNode** - Stratégie de mixage (`mix_strategy`)
-4. **FilterNode** - Canalisation (`target_channel`) + paramètres des filtres sous-jacents
+4. **FilterNode** - **ENTIÈREMENT IMPLÉMENTÉ ✅** 
+   - **Canalisation** : `target_channel` (ChannelA, ChannelB, Both)
+   - **Filtres numériques** : Tous paramètres avec validation complète
+     - **LowpassFilter/HighpassFilter** : `cutoff_freq`, `sample_rate`, `order`
+     - **BandpassFilter** : `center_freq`, `bandwidth`, `sample_rate`, `order`
 
 **Nœuds avec Infrastructure Préparée** :
 5. **DifferentialNode** - Infrastructure `update_config()` en place, en attente de paramètres configurables
@@ -49,18 +53,21 @@ Permettre la mise à jour dynamique de la configuration via un endpoint POST `/a
 - **3 types de filtres numériques hot-reloadables** avec validation complète des paramètres
 - **Validation robuste** : fréquences < Nyquist, ordre > 0, ordre pair pour bandpass
 - **Recalcul automatique des coefficients** pour BandpassFilter après mise à jour
+- **Propagation via trait Filter** : Interface uniforme pour tous les filtres
+- **FilterNode complet** : `target_channel` + propagation aux filtres sous-jacents
 - **Base architecturale solide** pour étendre le hot-reload à d'autres nœuds
 - **Pattern validé** : `update_config()` + validation + gestion d'erreurs + recalcul de coefficients
 
 ### 📈 Impact sur la Configuration Dynamique
 
-1. **Quatre nœuds avec hot-reload dans le ProcessingGraph** (vs 0 précédemment) :
-   - **3 nœuds entièrement hot-reloadables** : GainNode, ChannelSelectorNode, ChannelMixerNode
+1. **Quatre nœuds avec hot-reload complet dans le ProcessingGraph** (vs 0 précédemment) :
+   - **4 nœuds entièrement hot-reloadables** : GainNode, ChannelSelectorNode, ChannelMixerNode, **FilterNode ✅**
    - **3 filtres hot-reloadables** : LowpassFilter, HighpassFilter, BandpassFilter (via FilterNode)
    - **1 nœud avec infrastructure préparée** : DifferentialNode
-2. **Réduction drastique des interruptions de service** pour les ajustements de traitement audio
-3. **Architecture extensible** pour ajouter le hot-reload à d'autres nœuds
-4. **Validation robuste du pattern** `update_config()` pour la configuration dynamique
+2. **FilterNode entièrement implémenté** avec support complet des filtres numériques et propagation via trait Filter
+3. **Réduction drastique des interruptions de service** pour les ajustements de traitement audio
+4. **Architecture extensible** pour ajouter le hot-reload à d'autres nœuds
+5. **Validation robuste du pattern** `update_config()` pour la configuration dynamique
 
 ---
 
@@ -237,6 +244,29 @@ Le `ProcessingGraph` contient différents types de nœuds de traitement, chacun 
             "mix_strategy": "Average"  // ← Modifiable dynamiquement
             // ou: { "a_weight": 0.7, "b_weight": 0.3 } pour Weighted
           }
+        },
+        {
+          "id": "bandpass_filter",
+          "type": "FilterNode",
+          "parameters": {
+            "filter_type": "BandpassFilter",
+            "center_freq": 1000.0,     // ← Modifiable dynamiquement
+            "bandwidth": 100.0,        // ← Modifiable dynamiquement  
+            "order": 4,                // ← Modifiable dynamiquement (doit être pair)
+            "sample_rate": 44100,      // ← Modifiable dynamiquement
+            "target_channel": "Both"   // ← Modifiable dynamiquement (ChannelA/ChannelB/Both)
+          }
+        },
+        {
+          "id": "lowpass_filter", 
+          "type": "FilterNode",
+          "parameters": {
+            "filter_type": "LowpassFilter",
+            "cutoff_freq": 5000.0,     // ← Modifiable dynamiquement
+            "order": 2,                // ← Modifiable dynamiquement
+            "sample_rate": 44100,      // ← Modifiable dynamiquement
+            "target_channel": "ChannelA" // ← Modifiable dynamiquement
+          }
         }
       ]
     }
@@ -253,11 +283,14 @@ Le `ProcessingGraph` contient différents types de nœuds de traitement, chacun 
    - **GainNode** : Met à jour `gain_db` de manière thread-safe
    - **ChannelSelectorNode** : Change `target_channel` instantanément
    - **ChannelMixerNode** : Modifie `mix_strategy` sans interruption
+   - **FilterNode** : ✅ **Met à jour `target_channel` ET propage les paramètres aux filtres sous-jacents**
+     - **BandpassFilter** : `center_freq`, `bandwidth`, `order`, `sample_rate` avec recalcul automatique des coefficients
+     - **LowpassFilter/HighpassFilter** : `cutoff_freq`, `order`, `sample_rate`
 6. Les nouveaux échantillons audio sont traités avec les nouveaux paramètres
 
 #### 2.7.3. Autres Nœuds du ProcessingGraph
 
-- **FilterNode** : **LARGEMENT SUPPORTÉ ✅** - Hot-reload pour tous les paramètres des filtres individuels (`cutoff_freq`, `center_freq`, `bandwidth`, `order`, `sample_rate`) + `target_channel` 
+- **FilterNode** : **ENTIÈREMENT SUPPORTÉ ✅** - Hot-reload complet pour tous les paramètres des filtres individuels (`cutoff_freq`, `center_freq`, `bandwidth`, `order`, `sample_rate`) + `target_channel` avec propagation via trait Filter 
 - **RecordNode, etc.** : Support partiel ou aucun support de hot-reload selon le paramètre modifié
 - **Modifications structurelles** : Ajout/suppression de nœuds ou modification des connexions nécessitent une reconstruction complète du graphe
 

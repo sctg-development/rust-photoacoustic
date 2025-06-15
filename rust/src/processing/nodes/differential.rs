@@ -182,6 +182,10 @@ impl ProcessingNode for DifferentialNode {
         panic!("DifferentialNode cloning not yet implemented")
     }
 
+    fn supports_hot_reload(&self) -> bool {
+        false // DifferentialNode has infrastructure but no configurable parameters yet
+    }
+
     fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
         use serde_json::Value;
 
