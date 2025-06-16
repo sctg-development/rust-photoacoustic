@@ -276,7 +276,7 @@ processing:
     - id: "gain_amplifier"
       node_type: "gain"
       parameters:
-        value: 3.0  # +3 dB gain (approximately 1.41x amplification)
+        gain_db: 3.0  # +3 dB gain (approximately 1.41x amplification)
 
     - id: "streaming_bandpass_filter"
       node_type: "streaming"

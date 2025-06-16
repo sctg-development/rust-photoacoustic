@@ -1096,10 +1096,11 @@ impl ProcessingGraph {
                     .ok_or_else(|| anyhow::anyhow!("Gain node requires parameters"))?;
 
                 let gain_db = params
-                    .get("value")
+                    .get("gain_db")
                     .and_then(|v| v.as_f64())
-                    .ok_or_else(|| anyhow::anyhow!("Gain node requires 'value' parameter in dB"))?
-                    as f32;
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Gain node requires 'gain_db' parameter in dB")
+                    })? as f32;
 
                 Ok(Box::new(GainNode::new(config.id.clone(), gain_db)))
             }

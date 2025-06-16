@@ -672,13 +672,13 @@
                         "parameters": {
                           "type": "object",
                           "properties": {
-                            "value": {
+                            "gain_db": {
                               "type": "number",
                               "description": "Gain value in decibels (dB). Positive values amplify, negative values attenuate."
                             }
                           },
                           "required": [
-                            "value"
+                            "gain_db"
                           ],
                           "additionalProperties": false
                         }
