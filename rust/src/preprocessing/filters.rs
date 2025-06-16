@@ -204,9 +204,26 @@ pub struct BandpassFilter {
     center_freq: f32,
     bandwidth: f32,
     sample_rate: u32,
-    order: usize,       // Filter order (number of biquad sections = order/2)
-    a_coeffs: Vec<f32>, // Feedback coefficients
-    b_coeffs: Vec<f32>, // Feedforward coefficients
+    order: usize,                                       // Filter order (must be even)
+    biquad_coeffs: Vec<BiquadCoeffs>,                   // Coefficients for each biquad section
+    biquad_states: std::sync::RwLock<Vec<BiquadState>>, // State variables for each biquad section
+}
+
+/// Coefficients for a single biquad section
+#[derive(Clone, Debug)]
+struct BiquadCoeffs {
+    b0: f32,
+    b1: f32,
+    b2: f32, // Feedforward coefficients
+    a1: f32,
+    a2: f32, // Feedback coefficients (a0 normalized to 1)
+}
+
+/// State variables for a single biquad section (Direct Form II Transposed)
+#[derive(Clone, Debug)]
+struct BiquadState {
+    z1: f32, // First delay element
+    z2: f32, // Second delay element
 }
 
 impl BandpassFilter {
@@ -238,19 +255,47 @@ impl BandpassFilter {
     /// ```
     pub fn new(center_freq: f32, bandwidth: f32) -> Self {
         let sample_rate = 48000; // Default sample rate
-        let order = 2; // Default 4th order filter (2 biquad sections)
+        let order = 2; // Default 2nd order filter (1 biquad section)
 
         let mut filter = Self {
             center_freq,
             bandwidth,
             sample_rate,
             order,
-            a_coeffs: Vec::new(),
-            b_coeffs: Vec::new(),
+            biquad_coeffs: Vec::new(),
+            biquad_states: std::sync::RwLock::new(Vec::new()),
         };
 
         filter.compute_coefficients();
         filter
+    }
+
+    /// Reset the filter's internal state
+    ///
+    /// Clears all delay elements and state variables, allowing the filter
+    /// to start processing from a clean state. This is useful when processing
+    /// discontinuous signals or when you want to avoid transients from previous processing.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use rust_photoacoustic::preprocessing::filters::{Filter, BandpassFilter};
+    ///
+    /// let filter = BandpassFilter::new(1000.0, 200.0);
+    /// let signal1 = vec![1.0, 0.5, -0.3];
+    /// let _output1 = filter.apply(&signal1);
+    ///
+    /// // Reset state before processing new signal
+    /// filter.reset_state();
+    /// let signal2 = vec![0.8, -0.2, 0.4];
+    /// let _output2 = filter.apply(&signal2);
+    /// ```
+    pub fn reset_state(&self) {
+        let mut states = self.biquad_states.write().unwrap();
+        for state in states.iter_mut() {
+            state.z1 = 0.0;
+            state.z2 = 0.0;
+        }
     }
 
     /// Set the sample rate for the filter
@@ -442,47 +487,71 @@ impl BandpassFilter {
     /// - Multiple sections are cascaded to achieve higher orders
     /// - Coefficients are normalized for optimal numerical precision
     fn compute_coefficients(&mut self) {
-        // Clear existing coefficients
-        self.a_coeffs.clear();
-        self.b_coeffs.clear();
+        // Clear existing coefficients and states
+        self.biquad_coeffs.clear();
+        self.biquad_states.write().unwrap().clear();
 
-        // Convert to angular frequency
         let fs = self.sample_rate as f32;
-        let w0 = 2.0 * std::f32::consts::PI * self.center_freq / fs;
-        // Q factor calculation (relates to bandwidth)
-        let q = self.center_freq / self.bandwidth;
-        let alpha = w0.sin() / (2.0 * q);
+        let fc = self.center_freq;
+        let bw = self.bandwidth;
 
-        // Calculate biquad coefficients for a single second-order section
-        // For a bandpass filter, we have:
-        let b0 = alpha;
-        let b1 = 0.0;
-        let b2 = -alpha;
-        let a0 = 1.0 + alpha;
-        let a1 = -2.0 * w0.cos();
-        let a2 = 1.0 - alpha;
+        // Number of biquad sections
+        let n_sections = self.order / 2;
 
-        // Normalize by a0
-        let b0_norm = b0 / a0;
-        let b1_norm = b1 / a0;
-        let b2_norm = b2 / a0;
-        let a1_norm = a1 / a0;
-        let a2_norm = a2 / a0;
+        // For Butterworth bandpass filter, we'll create cascaded sections
+        // Each section is a 2nd-order bandpass with slightly different Q factors
+        // to achieve the overall Butterworth response
 
-        // For higher order filters, we'd cascade multiple biquad sections
-        // For simplicity, we're implementing just one second-order section
-        // In a real implementation, we'd calculate multiple sections based on the order
+        for k in 0..n_sections {
+            // Calculate Q factor for this section to achieve Butterworth response
+            // For higher order filters, distribute Q values appropriately
+            let section_q = if n_sections == 1 {
+                fc / bw // Standard Q for single section
+            } else {
+                // For multiple sections, use modified Q to maintain overall response
+                let butterworth_q_factor = 1.0
+                    / (2.0
+                        * (std::f32::consts::PI * (2.0 * k as f32 + 1.0)
+                            / (4.0 * n_sections as f32))
+                            .sin());
+                (fc / bw) * butterworth_q_factor
+            };
 
-        // For now, we'll just duplicate the same coefficients for each section
-        for _ in 0..(self.order / 2) {
-            // Each biquad section has 3 b coeffs and 3 a coeffs (with a0 normalized to 1)
-            self.b_coeffs.push(b0_norm);
-            self.b_coeffs.push(b1_norm);
-            self.b_coeffs.push(b2_norm);
+            // Calculate biquad coefficients using the standard bandpass formula
+            let w0 = 2.0 * std::f32::consts::PI * fc / fs;
+            let alpha = w0.sin() / (2.0 * section_q);
 
-            // a0 is always normalized to 1.0, so we don't store it
-            self.a_coeffs.push(a1_norm);
-            self.a_coeffs.push(a2_norm);
+            // Bandpass filter coefficients
+            let b0 = alpha;
+            let b1 = 0.0;
+            let b2 = -alpha;
+            let a0 = 1.0 + alpha;
+            let a1 = -2.0 * w0.cos();
+            let a2 = 1.0 - alpha;
+
+            // Normalize by a0 and store
+            self.biquad_coeffs.push(BiquadCoeffs {
+                b0: b0 / a0,
+                b1: b1 / a0,
+                b2: b2 / a0,
+                a1: a1 / a0,
+                a2: a2 / a0,
+            });
+
+            // Initialize state variables for this section
+            self.biquad_states
+                .write()
+                .unwrap()
+                .push(BiquadState { z1: 0.0, z2: 0.0 });
+        }
+
+        // Apply gain correction for multiple sections
+        if n_sections > 1 {
+            let gain_correction = (n_sections as f32).sqrt();
+            for coeffs in &mut self.biquad_coeffs {
+                coeffs.b0 *= gain_correction;
+                coeffs.b2 *= gain_correction;
+            }
         }
     }
 }
@@ -524,38 +593,32 @@ impl Filter for BandpassFilter {
         let mut filtered = Vec::with_capacity(signal.len());
 
         // Ensure we have calculated coefficients
-        if self.a_coeffs.is_empty() || self.b_coeffs.is_empty() {
+        if self.biquad_coeffs.is_empty() {
             // Return the original signal if no coefficients are available
             return signal.to_vec();
         }
 
-        // Number of biquad sections
-        let n_sections = self.order / 2;
-
-        // Initialize state variables for Direct Form II Transposed structure
-        let mut z1 = vec![0.0f32; n_sections]; // z^-1 state for each section
-        let mut z2 = vec![0.0f32; n_sections]; // z^-2 state for each section
+        // Acquire write lock on states
+        let mut states = self.biquad_states.write().unwrap();
 
         // Process each sample through the cascade of biquad sections
         for &x in signal {
             let mut y = x;
 
             // Apply each biquad section in cascade
-            for section in 0..n_sections {
-                // Get coefficients for this section
-                let b0 = self.b_coeffs[section * 3];
-                let b1 = self.b_coeffs[section * 3 + 1];
-                let b2 = self.b_coeffs[section * 3 + 2];
-                let a1 = self.a_coeffs[section * 2];
-                let a2 = self.a_coeffs[section * 2 + 1];
-
+            for (section, coeffs) in self.biquad_coeffs.iter().enumerate() {
                 // Direct Form II Transposed biquad implementation
-                let y_section = b0 * y + z1[section];
-                z1[section] = b1 * y - a1 * y_section + z2[section];
-                z2[section] = b2 * y - a2 * y_section;
+                let state = &mut states[section];
+
+                // Calculate output
+                let y_out = coeffs.b0 * y + state.z1;
+
+                // Update state variables
+                state.z1 = coeffs.b1 * y - coeffs.a1 * y_out + state.z2;
+                state.z2 = coeffs.b2 * y - coeffs.a2 * y_out;
 
                 // Output of this section becomes input to the next section
-                y = y_section;
+                y = y_out;
             }
 
             filtered.push(y);
@@ -1307,8 +1370,8 @@ mod tests {
         assert_eq!(filter.bandwidth, 200.0);
         assert_eq!(filter.sample_rate, 48000);
         assert_eq!(filter.order, 2);
-        assert!(!filter.a_coeffs.is_empty());
-        assert!(!filter.b_coeffs.is_empty());
+        assert!(!filter.biquad_coeffs.is_empty());
+        assert!(!filter.biquad_states.read().unwrap().is_empty());
     }
 
     #[test]
@@ -1321,9 +1384,9 @@ mod tests {
     fn test_bandpass_filter_with_order() {
         let filter = BandpassFilter::new(1000.0, 200.0).with_order(6);
         assert_eq!(filter.order, 6);
-        // Should have 3 sections (6/2), each with 3 b coeffs and 2 a coeffs
-        assert_eq!(filter.b_coeffs.len(), 9); // 3 sections * 3 coeffs
-        assert_eq!(filter.a_coeffs.len(), 6); // 3 sections * 2 coeffs
+        // Should have 3 sections (6/2)
+        assert_eq!(filter.biquad_coeffs.len(), 3); // 3 biquad sections
+        assert_eq!(filter.biquad_states.read().unwrap().len(), 3); // 3 state variables
     }
 
     #[test]
