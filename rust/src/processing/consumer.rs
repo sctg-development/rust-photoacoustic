@@ -47,6 +47,8 @@ pub struct ProcessingConsumer {
     config: Option<Arc<StdRwLock<crate::config::Config>>>,
     /// Last known configuration version (for change detection)
     last_config_version: Arc<AtomicU64>,
+    /// Last known node parameters for fine-grained change detection
+    last_node_parameters: Arc<RwLock<HashMap<String, serde_json::Value>>>,
 }
 
 /// Processing statistics
@@ -87,6 +89,7 @@ impl ProcessingConsumer {
             visualization_state: None,
             config: None,
             last_config_version: Arc::new(AtomicU64::new(0)),
+            last_node_parameters: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -117,6 +120,7 @@ impl ProcessingConsumer {
             visualization_state: Some(visualization_state),
             config: None,
             last_config_version: Arc::new(AtomicU64::new(0)),
+            last_node_parameters: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -154,6 +158,7 @@ impl ProcessingConsumer {
             visualization_state: Some(visualization_state),
             config: Some(config),
             last_config_version: Arc::new(AtomicU64::new(initial_hash)),
+            last_node_parameters: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -730,12 +735,44 @@ impl ProcessingConsumer {
         let consumer_id = self.consumer_id.clone();
         let running = Arc::clone(&self.running);
         let last_config_version = Arc::clone(&self.last_config_version);
+        let last_node_parameters = Arc::clone(&self.last_node_parameters);
 
         tokio::spawn(async move {
             info!(
                 "ProcessingConsumer '{}': Starting configuration monitoring",
                 consumer_id
             );
+
+            // Initialize last_node_parameters with current configuration
+            {
+                let initial_node_configs = {
+                    let config_read = config.read().unwrap();
+                    config_read
+                        .processing
+                        .default_graph
+                        .nodes
+                        .iter()
+                        .map(|node_config| (node_config.id.clone(), node_config.parameters.clone()))
+                        .collect::<Vec<_>>()
+                };
+
+                let mut last_params = last_node_parameters.write().await;
+
+                for (node_id, node_params) in initial_node_configs {
+                    if let Ok(parameters) = serde_json::to_value(&node_params) {
+                        last_params.insert(node_id.clone(), parameters);
+                        debug!(
+                            "ProcessingConsumer '{}': Initialized parameters for node '{}'",
+                            consumer_id, node_id
+                        );
+                    }
+                }
+
+                info!(
+                    "ProcessingConsumer '{}': Initialized {} node parameter sets for change detection",
+                    consumer_id, last_params.len()
+                );
+            }
 
             while running.load(Ordering::Relaxed) {
                 // Check for configuration changes every 1 second
@@ -745,6 +782,7 @@ impl ProcessingConsumer {
                     &config,
                     &processing_graph,
                     &last_config_version,
+                    &last_node_parameters,
                     &consumer_id,
                 )
                 .await
@@ -794,6 +832,7 @@ impl ProcessingConsumer {
         config: &Arc<StdRwLock<crate::config::Config>>,
         processing_graph: &Arc<RwLock<ProcessingGraph>>,
         last_config_version: &Arc<AtomicU64>,
+        last_node_parameters: &Arc<RwLock<HashMap<String, serde_json::Value>>>,
         consumer_id: &str,
     ) -> Result<bool> {
         let (current_hash, node_configs, graph_config) = {
@@ -818,19 +857,58 @@ impl ProcessingConsumer {
                 consumer_id, last_hash, current_hash
             );
 
-            // Apply hot-reload updates to compatible nodes
-            let mut hot_reload_updates = HashMap::new();
-            let mut graph = processing_graph.write().await;
+            // Detect which specific nodes have changed by comparing individual parameters
+            let changed_nodes = {
+                let mut last_params = last_node_parameters.write().await;
+                let mut changed = HashMap::new();
 
-            for (node_id, node_config) in node_configs {
-                // Convert node configuration to parameters JSON
-                if let Ok(parameters) = serde_json::to_value(&node_config.parameters) {
-                    hot_reload_updates.insert(node_id, parameters);
+                for (node_id, node_config) in &node_configs {
+                    if let Ok(current_params) = serde_json::to_value(&node_config.parameters) {
+                        // Check if this node's parameters have changed
+                        let has_changed = match last_params.get(node_id) {
+                            Some(last_params_for_node) => last_params_for_node != &current_params,
+                            None => true, // New node
+                        };
+
+                        if has_changed {
+                            debug!(
+                                "ProcessingConsumer '{}': Node '{}' parameters changed",
+                                consumer_id, node_id
+                            );
+                            changed.insert(node_id.clone(), current_params.clone());
+                        }
+
+                        // Update the stored parameters
+                        last_params.insert(node_id.clone(), current_params);
+                    }
                 }
+
+                changed
+            };
+
+            if changed_nodes.is_empty() {
+                info!(
+                    "ProcessingConsumer '{}': Configuration hash changed but no individual node parameters changed",
+                    consumer_id
+                );
+                last_config_version.store(current_hash, Ordering::Relaxed);
+                return Ok(true);
             }
 
-            // Apply batch updates to all nodes
-            let results = graph.update_multiple_node_configs(&hot_reload_updates);
+            info!(
+                "ProcessingConsumer '{}': {} nodes have changed parameters: {}",
+                consumer_id,
+                changed_nodes.len(),
+                changed_nodes
+                    .keys()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+
+            // Apply hot-reload updates only to nodes that actually changed
+            let mut graph = processing_graph.write().await;
+            let results = graph.update_multiple_node_configs(&changed_nodes);
 
             // Log results
             let mut updated_count = 0;
