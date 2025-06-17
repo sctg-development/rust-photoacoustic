@@ -187,12 +187,12 @@ thermal_regulation:
         i2c_device: "/dev/i2c-1"
         adc_address: 0x48
         adc_channel: 0
-        heating_gpio_pin: 18
-        cooling_gpio_pin: 19
+        gpio_heating_pin: 18
+        gpio_cooling_pin: 19
         # Pour CP2112
         # usb_vendor_id: 0x10C4
         # usb_product_id: 0xEA90
-        # i2c_address: 0x48
+        # adc_address: 0x48
         # gpio_heating_pin: 0
         # gpio_cooling_pin: 1
       
