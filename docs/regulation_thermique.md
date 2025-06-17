@@ -82,14 +82,14 @@ graph TB
         DRIVER_TRAIT[ThermalControlDriver Trait]
         
         subgraph "Implémentations"
-            RPI_DRIVER[Raspberry Pi Driver<br/>I2C + GPIO]
-            CP2112_DRIVER[CP2112 Driver<br/>USB-HID]
+            RPI_DRIVER[Raspberry Pi Driver<br>I2C + GPIO]
+            CP2112_DRIVER[CP2112 Driver<br>USB-HID]
         end
     end
     
     subgraph "Matériel"
         subgraph "Raspberry Pi"
-            I2C[/dev/i2c-n<br/>ADS1115]
+            I2C["/dev/i2c-n<br/>ADS1115"]
             GPIO[GPIO Pins<br/>Chauffage/Peltier]
         end
         
@@ -139,7 +139,7 @@ graph LR
     end
     
     subgraph "Nouvelle Extension"
-        THERMAL[Thermal Regulation<br/>Daemons (1..N)]
+        THERMAL["Thermal Regulation<br/>Daemons (1..N)"]
     end
     
     subgraph "Infrastructure Partagée"
@@ -370,7 +370,7 @@ flowchart TD
     
     ERROR --> PROP[Terme Proportionnel<br/>P = Kp × e]
     ERROR --> INTEG[Terme Intégral<br/>I += Ki × e × dt]
-    ERROR --> DERIV[Terme Dérivé<br/>D = Kd × (e - e_prev) / dt]
+    ERROR --> DERIV["Terme Dérivé<br/>D = Kd × (e - e_prev) / dt"]
     
     PROP --> SUM[Sortie PID<br/>output = P + I + D]
     INTEG --> SUM
