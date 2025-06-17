@@ -31,7 +31,16 @@
         "openapi_protect_head",
         "openapi_protect_options",
         "openapi_protect_trace",
-        "openapi_protect_connect"
+        "openapi_protect_connect",
+        "protect_get",
+        "protect_post",
+        "protect_put",
+        "protect_delete",
+        "protect_patch",
+        "protect_head",
+        "protect_options",
+        "protect_trace",
+        "protect_connect"
       ]
     }
   }
