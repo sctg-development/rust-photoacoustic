@@ -7,8 +7,8 @@
 //! This module provides a native I2C driver that communicates directly
 //! with Raspberry Pi I2C hardware through /dev/i2c-* devices.
 
-use anyhow::{Result, anyhow};
 use crate::thermal_regulation::I2CBusDriver;
+use anyhow::{anyhow, Result};
 
 /// Native I2C driver for Raspberry Pi
 pub struct NativeI2CDriver {
@@ -32,12 +32,12 @@ impl I2CBusDriver for NativeI2CDriver {
         // TODO: Implement actual I2C read operation
         Err(anyhow!("Native I2C driver not yet implemented"))
     }
-    
+
     async fn write(&mut self, address: u8, register: u8, data: &[u8]) -> Result<()> {
         // TODO: Implement actual I2C write operation
         Err(anyhow!("Native I2C driver not yet implemented"))
     }
-    
+
     async fn device_present(&mut self, address: u8) -> Result<bool> {
         // TODO: Implement device detection
         Err(anyhow!("Native I2C driver not yet implemented"))

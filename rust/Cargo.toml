@@ -98,3 +98,7 @@ rocket_okapi_codegen = { path = "./okapi-patched/rocket-okapi-codegen"}
 
 [profile.release]
 strip = true
+
+[[bin]]
+name = "pid_tuner"
+path = "src/bin/pid_tuner.rs"

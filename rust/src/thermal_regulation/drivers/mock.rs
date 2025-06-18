@@ -8,13 +8,14 @@
 //! of a photoacoustic cell. The simulation includes:
 //! - Physical properties of a 1016g stainless steel 316 cell (110x30x60mm)
 //! - Peltier module thermal dynamics (15x30mm)
-//! - Heating resistor simulation (10W)
+//! - Heating resistor simulation (60W DBK HPG-1/10-60x35-12-24V)
 //! - Temperature sensor behavior
 //! - Realistic thermal time constants and responses
 
 use crate::config::thermal_regulation::I2CBusConfig;
 use crate::thermal_regulation::I2CBusDriver;
 use anyhow::{anyhow, Result};
+use log::{debug, info};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -73,7 +74,7 @@ pub struct ThermalProperties {
     mass_g: f64,
     /// Cell dimensions in mm (length, width, height)
     dimensions_mm: (f64, f64, f64),
-    /// Material specific heat capacity (J/g·K) - Stainless Steel 316
+    /// Material specific heat capacity (J/kg·K) - Stainless Steel 316
     specific_heat: f64,
     /// Thermal conductivity (W/m·K) - Stainless Steel 316
     thermal_conductivity: f64,
@@ -85,7 +86,7 @@ pub struct ThermalProperties {
     peltier_max_power: f64,
     /// Peltier dimensions in mm (length, width)
     peltier_dimensions_mm: (f64, f64),
-    /// Heating resistor maximum power (W)
+    /// Heating resistor maximum power (W) - DBK HPG-1/10-60x35-12-24V
     heater_max_power: f64,
     /// Thermal time constant (seconds)
     thermal_time_constant: f64,
@@ -105,14 +106,14 @@ impl Default for ThermalProperties {
         Self {
             mass_g: 1016.0,
             dimensions_mm: (length_mm, width_mm, height_mm),
-            specific_heat: 0.5,         // J/g·K for stainless steel 316
+            specific_heat: 501.0, // J/kg·K for stainless steel 316 (updated from 0.5 J/g·K)
             thermal_conductivity: 16.2, // W/m·K for stainless steel 316
             surface_area_m2,
-            heat_transfer_coefficient: 10.0, // W/m²·K (typical for natural convection)
+            heat_transfer_coefficient: 25.0, // W/m²·K (increased for better heat dissipation)
             peltier_max_power: 5.0,          // W (typical for 15x30mm Peltier)
             peltier_dimensions_mm: (15.0, 30.0),
-            heater_max_power: 10.0,       // W
-            thermal_time_constant: 180.0, // seconds (estimated for this mass and geometry)
+            heater_max_power: 60.0, // W - DBK HPG-1/10-60x35-12-24V (60W resistor)
+            thermal_time_constant: 90.0, // seconds (reduced for faster response with 60W heater)
         }
     }
 }
@@ -170,7 +171,16 @@ impl MockI2CDriver {
             .lock()
             .map_err(|_| anyhow!("Failed to lock thermal simulation"))?;
 
+        let old_temp = simulation.temperature;
         simulation.update();
+        let new_temp = simulation.temperature;
+
+        // Always show debug output for temperature changes
+        debug!(
+            "Thermal simulation updated: {:.2}°C -> {:.2}°C (heater: {:.1}%, peltier: {:.1}%)",
+            old_temp, new_temp, simulation.heater_power, simulation.peltier_power
+        );
+
         Ok(())
     }
 
@@ -237,6 +247,12 @@ impl I2CBusDriver for MockI2CDriver {
             .get_mut(&address)
             .ok_or_else(|| anyhow!("Device not found at address 0x{:02X}", address))?;
 
+        // Debug output for all writes
+        debug!(
+            "I2C write to address=0x{:02X}, register=0x{:02X}, data={:?}",
+            address, register, data
+        );
+
         match device.device_type {
             MockDeviceType::TemperatureSensor => self.write_temperature_sensor(register, data),
             MockDeviceType::AdcController => self.write_adc_controller(register, data),
@@ -265,9 +281,10 @@ impl MockI2CDriver {
                     .lock()
                     .map_err(|_| anyhow!("Failed to lock thermal simulation"))?;
 
-                // Convert temperature to MCP9808 format
+                // Convert temperature to MCP9808 format (16-bit, 0.0625°C resolution)
                 let temp_c = simulation.temperature;
-                let temp_raw = ((temp_c + 273.15) * 16.0) as u16; // MCP9808 format
+                // MCP9808 uses 16-bit signed format: temp = register_value / 16.0
+                let temp_raw = (temp_c * 16.0) as i16;
 
                 Ok(vec![(temp_raw >> 8) as u8, (temp_raw & 0xFF) as u8])
             }
@@ -306,9 +323,33 @@ impl MockI2CDriver {
         match register {
             0x00 => {
                 // Conversion register
-                // Return a simulated ADC reading
-                let value = 0x7FFF; // Mid-scale reading
-                Ok(vec![(value >> 8) as u8, (value & 0xFF) as u8])
+                let simulation = self
+                    .thermal_simulation
+                    .lock()
+                    .map_err(|_| anyhow!("Failed to lock thermal simulation"))?;
+
+                // Simulate NTC thermistor circuit:
+                // NTC: 10kΩ at 25°C, β=3977
+                // Circuit: 5V --- 10kΩ resistor --- ADC input --- NTC --- GND
+                // ADC voltage = 5V * R_ntc / (10000 + R_ntc)
+
+                let temp_c = simulation.temperature;
+                let temp_k = temp_c + 273.15;
+
+                // NTC resistance using β formula: R = R0 * exp(β * (1/T - 1/T0))
+                let r0 = 10000.0; // 10kΩ at 25°C
+                let beta = 3977.0;
+                let t0 = 298.15; // 25°C in Kelvin
+
+                let r_ntc = r0 * ((beta * (1.0 / temp_k - 1.0 / t0)).exp());
+
+                // Voltage divider: V_adc = 5V * R_ntc / (10000 + R_ntc)
+                let v_adc = 5.0 * r_ntc / (10000.0 + r_ntc);
+
+                // Convert to 16-bit ADC reading (0-65535 for 0-5V)
+                let adc_raw = ((v_adc / 5.0) * 65535.0) as u16;
+
+                Ok(vec![(adc_raw >> 8) as u8, (adc_raw & 0xFF) as u8])
             }
             0x01 => {
                 // Configuration register
@@ -364,8 +405,33 @@ impl MockI2CDriver {
 
     /// Write to PWM controller (PCA9685)
     fn write_pwm_controller(&self, register: u8, data: &[u8]) -> Result<()> {
+        debug!(
+            "PWM controller write - register: 0x{:02X}, data: {:?}",
+            register, data
+        );
+
         match register {
-            0x00 | 0x01 => {
+            0x00 => {
+                // Mode register, but also used for channel 0 in simple addressing
+                if data.len() >= 2 {
+                    // Check if this is PWM data (not a mode command)
+                    let pwm_value = ((data[1] as u16) << 8) | (data[0] as u16);
+                    if pwm_value <= 4095 {
+                        // Looks like PWM data for channel 0
+                        debug!("2-byte PWM write to channel 0 - value: {}", pwm_value);
+                        let duty_cycle = (pwm_value as f64 / 4095.0) * 100.0;
+                        debug!("Calculated duty cycle: {:.1}%", duty_cycle);
+                        let _ = self.set_heater_power(duty_cycle);
+                        debug!("PWM channel 0 set to {:.1}% duty cycle", duty_cycle);
+                        // Force thermal simulation update
+                        let _ = self.update_thermal_simulation();
+                        return Ok(());
+                    }
+                }
+                // If not PWM data, treat as mode register
+                Ok(())
+            }
+            0x01 => {
                 // Mode registers
                 Ok(())
             }
@@ -373,28 +439,43 @@ impl MockI2CDriver {
                 // Prescaler register
                 Ok(())
             }
+            // Handle both direct register writes and channel-based writes
             _ if register >= 0x06 && register <= 0x45 => {
-                // PWM channel registers - extract power information for simulation
-                if data.len() >= 4 {
+                // Direct PWM channel register writes (standard PCA9685 addressing)
+                let duty_cycle = if data.len() >= 4 {
+                    // Full 4-byte PWM register write (on_time + off_time)
                     let on_time = ((data[1] as u16) << 8) | (data[0] as u16);
                     let off_time = ((data[3] as u16) << 8) | (data[2] as u16);
-                    let duty_cycle = if off_time > on_time {
+                    debug!(
+                        "4-byte PWM write - on_time: {}, off_time: {}",
+                        on_time, off_time
+                    );
+                    if off_time > on_time {
                         (off_time - on_time) as f64 / 4096.0 * 100.0
                     } else {
                         0.0
-                    };
-
-                    // Update thermal simulation based on PWM output
-                    // This is a simplified mapping - in reality, you'd need to know
-                    // which channel controls what
-                    if register == 0x06 {
-                        // First channel - assume it's Peltier
-                        let _ = self.set_peltier_power(duty_cycle);
-                    } else if register == 0x0A {
-                        // Second channel - assume it's heater
-                        let _ = self.set_heater_power(duty_cycle);
                     }
+                } else if data.len() >= 2 {
+                    // Simple 2-byte PWM value write
+                    let pwm_value = ((data[1] as u16) << 8) | (data[0] as u16);
+                    debug!("2-byte PWM write - value: {}", pwm_value);
+                    (pwm_value as f64 / 4095.0) * 100.0
+                } else {
+                    debug!("Single byte PWM write - value: {}", data[0]);
+                    (data[0] as f64 / 255.0) * 100.0
+                };
+
+                info!("Calculated duty cycle: {:.1}%", duty_cycle);
+
+                // Channel 0 (register 0x06) controls thermal actuator
+                if register == 0x06 {
+                    // First channel - Peltier/heater control
+                    let _ = self.set_heater_power(duty_cycle);
+                    debug!("PWM channel 0 set to {:.1}% duty cycle", duty_cycle);
+                    // Force thermal simulation update
+                    let _ = self.update_thermal_simulation();
                 }
+
                 Ok(())
             }
             _ => Err(anyhow!(
@@ -508,7 +589,7 @@ impl ThermalCellSimulation {
         let total_heat_rate = peltier_heat + heater_heat - ambient_heat_loss;
 
         // Temperature change using thermal mass
-        let thermal_mass = self.properties.mass_g * self.properties.specific_heat; // J/K
+        let thermal_mass = (self.properties.mass_g / 1000.0) * self.properties.specific_heat; // J/K (mass converted from g to kg)
         let temp_change = total_heat_rate * dt / thermal_mass; // K
 
         // Apply first-order thermal lag using time constant
@@ -629,7 +710,7 @@ mod tests {
         assert_eq!(props.mass_g, 1016.0);
         assert_eq!(props.dimensions_mm, (110.0, 30.0, 60.0));
         assert_eq!(props.peltier_dimensions_mm, (15.0, 30.0));
-        assert_eq!(props.heater_max_power, 10.0);
+        assert_eq!(props.heater_max_power, 60.0); // DBK HPG-1/10-60x35-12-24V
 
         // Verify calculated surface area is reasonable
         assert!(props.surface_area_m2 > 0.0);
@@ -701,8 +782,8 @@ mod tests {
     fn test_thermal_dynamics_realistic() {
         let mut sim = ThermalCellSimulation::new();
 
-        // Test heating with 10W resistor for 60 seconds
-        sim.set_heater_power(100.0); // 100% = 10W
+        // Test heating with 60W resistor for 60 seconds
+        sim.set_heater_power(100.0); // 100% = 60W
 
         let initial_temp = sim.get_temperature();
 

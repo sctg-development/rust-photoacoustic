@@ -8,8 +8,8 @@
 //! USB-to-I2C bridge device, commonly used for I2C communication
 //! from PC to embedded devices.
 
-use anyhow::{Result, anyhow};
 use crate::thermal_regulation::I2CBusDriver;
+use anyhow::{anyhow, Result};
 
 /// CP2112 USB-to-I2C bridge driver
 pub struct Cp2112Driver {
@@ -35,12 +35,12 @@ impl I2CBusDriver for Cp2112Driver {
         // TODO: Implement actual CP2112 I2C read operation
         Err(anyhow!("CP2112 driver not yet implemented"))
     }
-    
+
     async fn write(&mut self, address: u8, register: u8, data: &[u8]) -> Result<()> {
         // TODO: Implement actual CP2112 I2C write operation
         Err(anyhow!("CP2112 driver not yet implemented"))
     }
-    
+
     async fn device_present(&mut self, address: u8) -> Result<bool> {
         // TODO: Implement CP2112 device detection
         Err(anyhow!("CP2112 driver not yet implemented"))

@@ -106,7 +106,7 @@ graph TB
         subgraph "Simulation Mock"
             MOCK_CELL[Cellule SS316 Virtuelle<br/>1016g, Dynamique Thermique]
             MOCK_PELTIER[Peltier 5W Simulé<br/>Refroidissement/Chauffage]
-            MOCK_HEATER[Résistance 10W Simulée<br/>Chauffage]
+            MOCK_HEATER[Résistance 60W Simulée<br/>DBK HPG-1/10-60x35-12-24V<br/>Chauffage]
         end
     end
     
@@ -970,12 +970,12 @@ graph TB
     subgraph "Cellule Photoacoustique Simulée"
         CELL[Cellule SS316<br/>1016g, 110×30×60mm]
         PELTIER[Module Peltier<br/>15×30mm, 5W max]
-        HEATER[Résistance Chauffante<br/>10W max]
+        HEATER[Résistance Chauffante<br/>DBK HPG-1/10-60x35-12-24V<br/>60W max, 12V, 5Ω]
         AMBIENT[Échange Thermique<br/>Ambiant 25°C]
     end
     
     subgraph "Simulation Thermique"
-        THERMAL_MASS[Masse Thermique<br/>C = 508 J/K]
+        THERMAL_MASS[Masse Thermique<br/>C = 509 J/K]
         HEAT_TRANSFER[Transfert Thermique<br/>h = 10 W/m²·K]
         TIME_CONSTANT[Constante Temporelle<br/>τ = 180s]
     end
@@ -1004,12 +1004,12 @@ graph TB
 pub struct ThermalProperties {
     mass_g: 1016.0,                    // Masse en grammes
     dimensions_mm: (110.0, 30.0, 60.0), // L×l×h en millimètres
-    specific_heat: 0.5,                 // Capacité thermique spécifique (J/g·K) - SS316
+    specific_heat: 501.0,               // Capacité thermique spécifique (J/kg·K) - SS316
     thermal_conductivity: 16.2,         // Conductivité thermique (W/m·K) - SS316
     surface_area_m2: 0.0252,           // Surface d'échange thermique (m²)
     heat_transfer_coefficient: 10.0,    // Coefficient d'échange (W/m²·K)
     peltier_max_power: 5.0,            // Puissance Peltier maximale (W)
-    heater_max_power: 10.0,            // Puissance résistance maximale (W)
+    heater_max_power: 60.0,            // Puissance résistance maximale (W) - DBK HPG-1/10-60x35-12-24V
     thermal_time_constant: 180.0,      // Constante de temps thermique (s)
 }
 ```
@@ -1141,7 +1141,7 @@ impl ThermalCellSimulation {
         let total_heat_rate = peltier_heat + heater_heat - ambient_loss;
         
         // Variation de température
-        let thermal_mass = self.properties.mass_g * self.properties.specific_heat;
+        let thermal_mass = (self.properties.mass_g / 1000.0) * self.properties.specific_heat; // J/K (conversion g->kg)
         let temp_change = total_heat_rate * dt / thermal_mass;
         
         // Application du lag thermique (constante de temps)
@@ -1159,7 +1159,7 @@ La simulation a été calibrée pour reproduire des réponses thermiques réalis
 
 | Test | Conditions | Temps de réponse simulé | Temps de réponse attendu |
 |------|------------|-------------------------|--------------------------|
-| **Échelon +10W** | 25°C → setpoint | 3τ ≈ 540s | 480-600s (typique SS316) |
+| **Échelon +60W** | 25°C → setpoint | 3τ ≈ 540s | 480-600s (typique SS316) |
 | **Refroidissement Peltier** | 40°C → 25°C | 2.5τ ≈ 450s | 400-500s (Peltier 5W) |
 | **Stabilisation** | ±0.1°C | τ/5 ≈ 36s | 30-40s (masse thermique) |
 
@@ -1191,7 +1191,7 @@ mod validation_tests {
     #[test]
     fn test_thermal_step_response() {
         let mut sim = ThermalCellSimulation::new();
-        sim.set_heater_power(100.0); // Échelon 10W
+        sim.set_heater_power(100.0); // Échelon 60W (DBK HPG-1/10-60x35-12-24V)
         
         let mut temps = Vec::new();
         for i in 0..1000 {
