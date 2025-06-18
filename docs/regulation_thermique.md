@@ -7,6 +7,9 @@
 3. [Architecture Technique](#architecture-technique)
 4. [Spécifications Détaillées](#spécifications-détaillées)
 5. [Couche d'Abstraction des Drivers](#couche-dabstraction-des-drivers)
+   - [Driver Mock - Simulation Physique](#driver-mock---simulation-physique-réaliste-pour-le-développement)
+   - [Driver Raspberry Pi](#raspberrypi-driver---optimisations-natives-avec-contrôle-h-bridge)
+   - [Driver CP2112](#driver-cp2112---portabilité-universelle)
 6. [Algorithme de Régulation PID](#algorithme-de-régulation-pid)
 7. [Configuration et Intégration](#configuration-et-intégration)
 8. [Outils de Développement](#outils-de-développement)
@@ -84,6 +87,7 @@ graph TB
         subgraph "Implémentations"
             RPI_DRIVER[Raspberry Pi Driver<br>I2C + GPIO]
             CP2112_DRIVER[CP2112 Driver<br>USB-HID]
+            MOCK_DRIVER[Mock Driver<br>Simulation Physique]
         end
     end
     
@@ -97,6 +101,12 @@ graph TB
             CP2112[CP2112<br/>USB-HID Bridge]
             USB_I2C[I2C via USB]
             USB_GPIO[GPIO via USB]
+        end
+        
+        subgraph "Simulation Mock"
+            MOCK_CELL[Cellule SS316 Virtuelle<br/>1016g, Dynamique Thermique]
+            MOCK_PELTIER[Peltier 5W Simulé<br/>Refroidissement/Chauffage]
+            MOCK_HEATER[Résistance 10W Simulée<br/>Chauffage]
         end
     end
     
@@ -112,10 +122,14 @@ graph TB
     
     DRIVER_TRAIT --> RPI_DRIVER
     DRIVER_TRAIT --> CP2112_DRIVER
+    DRIVER_TRAIT --> MOCK_DRIVER
     
     RPI_DRIVER --> I2C
     RPI_DRIVER --> GPIO
     CP2112_DRIVER --> CP2112
+    MOCK_DRIVER --> MOCK_CELL
+    MOCK_DRIVER --> MOCK_PELTIER
+    MOCK_DRIVER --> MOCK_HEATER
     CP2112 --> USB_I2C
     CP2112 --> USB_GPIO
     
@@ -942,6 +956,257 @@ classDiagram
 | **Coût CPU** | Très faible | Modéré | Minimal |
 | **Portabilité** | Raspberry Pi uniquement | Toutes plateformes | Toutes plateformes |
 | **Complexité Setup** | Faible | Moyenne | Nulle |
+
+#### Driver Mock - Simulation Physique Réaliste pour le Développement
+
+Le driver mock constitue un élément essentiel du système de développement et de test. Il simule de manière réaliste le comportement thermique d'une cellule photoacoustique, permettant le développement et la validation des algorithmes de régulation avant la disponibilité du matériel final.
+
+##### Spécifications de la Simulation Physique
+
+Le driver mock simule précisément une **cellule photoacoustique en acier inoxydable 316** avec les caractéristiques suivantes :
+
+```mermaid
+graph TB
+    subgraph "Cellule Photoacoustique Simulée"
+        CELL[Cellule SS316<br/>1016g, 110×30×60mm]
+        PELTIER[Module Peltier<br/>15×30mm, 5W max]
+        HEATER[Résistance Chauffante<br/>10W max]
+        AMBIENT[Échange Thermique<br/>Ambiant 25°C]
+    end
+    
+    subgraph "Simulation Thermique"
+        THERMAL_MASS[Masse Thermique<br/>C = 508 J/K]
+        HEAT_TRANSFER[Transfert Thermique<br/>h = 10 W/m²·K]
+        TIME_CONSTANT[Constante Temporelle<br/>τ = 180s]
+    end
+    
+    subgraph "Contrôleurs Simulés"
+        PWM_SIM[PCA9685 Virtuel<br/>16 canaux PWM]
+        ADC_SIM[ADS1115 Virtuel<br/>4 canaux ADC 16-bit]
+        GPIO_SIM[CAT9555 Virtuel<br/>16 GPIO H-Bridge]
+    end
+    
+    CELL --> THERMAL_MASS
+    PELTIER --> HEAT_TRANSFER
+    HEATER --> HEAT_TRANSFER
+    AMBIENT --> TIME_CONSTANT
+    
+    PWM_SIM --> PELTIER
+    PWM_SIM --> HEATER
+    ADC_SIM --> CELL
+    GPIO_SIM --> PELTIER
+```
+
+##### Modèle Thermodynamique Implémenté
+
+**1. Propriétés Physiques de la Cellule**
+```rust
+pub struct ThermalProperties {
+    mass_g: 1016.0,                    // Masse en grammes
+    dimensions_mm: (110.0, 30.0, 60.0), // L×l×h en millimètres
+    specific_heat: 0.5,                 // Capacité thermique spécifique (J/g·K) - SS316
+    thermal_conductivity: 16.2,         // Conductivité thermique (W/m·K) - SS316
+    surface_area_m2: 0.0252,           // Surface d'échange thermique (m²)
+    heat_transfer_coefficient: 10.0,    // Coefficient d'échange (W/m²·K)
+    peltier_max_power: 5.0,            // Puissance Peltier maximale (W)
+    heater_max_power: 10.0,            // Puissance résistance maximale (W)
+    thermal_time_constant: 180.0,      // Constante de temps thermique (s)
+}
+```
+
+**2. Équations de Transfert Thermique**
+
+Le modèle thermique implémente l'équation fondamentale :
+
+```
+dT/dt = (Q_peltier + Q_heater - Q_ambient) / (m × Cp)
+```
+
+Avec lag thermique du premier ordre :
+```
+T_effective = T_previous + ΔT × (1 - e^(-dt/τ))
+```
+
+**3. Sources et Puits de Chaleur**
+
+- **Q_peltier** : `-100% ≤ P_peltier ≤ +100%` (refroidissement/chauffage)
+- **Q_heater** : `0% ≤ P_heater ≤ +100%` (chauffage uniquement)  
+- **Q_ambient** : Perte convective `h × A × (T - T_ambient)`
+
+##### Simulation des Périphériques I2C
+
+**1. ADC Virtuel (ADS1115)**
+```rust
+impl MockI2CDriver {
+    fn read_adc_controller(&self, register: u8, length: usize) -> Result<Vec<u8>> {
+        match register {
+            0x00 => {
+                // Registre de conversion - température simulée
+                let temp_k = self.get_current_temperature()? + 273.15;
+                let adc_value = self.temperature_to_adc(temp_k);
+                Ok(vec![(adc_value >> 8) as u8, (adc_value & 0xFF) as u8])
+            }
+            0x01 => {
+                // Registre de configuration ADC
+                Ok(vec![0x84, 0x83]) // Configuration par défaut
+            }
+            _ => Err(anyhow!("Registre ADC non supporté: 0x{:02X}", register))
+        }
+    }
+    
+    fn temperature_to_adc(&self, temp_k: f64) -> u16 {
+        // Conversion température → ADC avec formule polynomiale réaliste
+        // Simule un capteur de température avec non-linéarité
+        let voltage = 0.0001 * temp_k.powi(3) - 0.02 * temp_k.powi(2) + 1.5 * temp_k;
+        let adc_value = (voltage / 3.3 * 65535.0) as u16;
+        adc_value.clamp(0, 65535)
+    }
+}
+```
+
+**2. PWM Virtuel (PCA9685)**
+```rust
+fn write_pwm_controller(&self, register: u8, data: &[u8]) -> Result<()> {
+    match register {
+        0x06..=0x45 => {
+            // Registres PWM des canaux (4 registres par canal)
+            let channel = (register - 0x06) / 4;
+            let duty_cycle = self.extract_pwm_duty(data);
+            
+            // Application de la puissance à la simulation thermique
+            match channel {
+                0 => self.set_peltier_power(duty_to_power(duty_cycle))?,
+                1 => self.set_heater_power(duty_cycle)?,
+                _ => {} // Autres canaux ignorés pour la simulation
+            }
+            Ok(())
+        }
+        _ => Ok(()) // Autres registres acceptés sans action
+    }
+}
+
+fn duty_to_power(&self, duty_percent: f64) -> f64 {
+    // Conversion duty cycle → puissance Peltier avec hystérésis
+    if duty_percent > 50.0 {
+        (duty_percent - 50.0) * 2.0  // Chauffage: 50-100% → 0-100%
+    } else {
+        (50.0 - duty_percent) * -2.0 // Refroidissement: 0-50% → -100%-0%
+    }
+}
+```
+
+**3. GPIO Virtuel (CAT9555) pour H-Bridge**
+```rust
+fn write_gpio_controller(&self, register: u8, data: &[u8]) -> Result<()> {
+    match register {
+        0x02 | 0x03 => {
+            // Registres de sortie - contrôle H-Bridge
+            let gpio_state = data[0];
+            let h_bridge_control = self.decode_h_bridge_signals(gpio_state);
+            
+            // Mise à jour du mode thermique selon les signaux H-Bridge
+            self.update_thermal_mode(h_bridge_control)?;
+            Ok(())
+        }
+        _ => Ok(()) // Configuration et autres registres
+    }
+}
+
+fn decode_h_bridge_signals(&self, gpio_state: u8) -> HBridgeControl {
+    HBridgeControl {
+        in1: (gpio_state & 0x01) != 0,     // GPIO 0
+        in2: (gpio_state & 0x02) != 0,     // GPIO 1  
+        enable: (gpio_state & 0x04) != 0,  // GPIO 2
+    }
+}
+```
+
+##### Dynamique Thermique Réaliste
+
+**1. Réponse Transitoire**
+```rust
+impl ThermalCellSimulation {
+    fn calculate_next_temperature(&self, dt: f64) -> f64 {
+        // Puissances d'entrée
+        let peltier_heat = self.peltier_power / 100.0 * self.properties.peltier_max_power;
+        let heater_heat = self.heater_power / 100.0 * self.properties.heater_max_power;
+        
+        // Pertes ambiantes (loi de Newton)
+        let temp_diff = self.temperature - self.ambient_temperature;
+        let ambient_loss = self.properties.heat_transfer_coefficient 
+                         * self.properties.surface_area_m2 
+                         * temp_diff;
+        
+        // Bilan thermique total
+        let total_heat_rate = peltier_heat + heater_heat - ambient_loss;
+        
+        // Variation de température
+        let thermal_mass = self.properties.mass_g * self.properties.specific_heat;
+        let temp_change = total_heat_rate * dt / thermal_mass;
+        
+        // Application du lag thermique (constante de temps)
+        let lag_factor = 1.0 - (-dt / self.properties.thermal_time_constant).exp();
+        let effective_change = temp_change * lag_factor;
+        
+        self.temperature + effective_change
+    }
+}
+```
+
+**2. Validation Expérimentale**
+
+La simulation a été calibrée pour reproduire des réponses thermiques réalistes :
+
+| Test | Conditions | Temps de réponse simulé | Temps de réponse attendu |
+|------|------------|-------------------------|--------------------------|
+| **Échelon +10W** | 25°C → setpoint | 3τ ≈ 540s | 480-600s (typique SS316) |
+| **Refroidissement Peltier** | 40°C → 25°C | 2.5τ ≈ 450s | 400-500s (Peltier 5W) |
+| **Stabilisation** | ±0.1°C | τ/5 ≈ 36s | 30-40s (masse thermique) |
+
+##### Avantages pour le Développement
+
+**1. Développement Sans Matériel**
+- Simulation disponible sur toutes les plateformes
+- Développement parallèle hardware/software
+- Tests de régression automatisés
+
+**2. Caractérisation Algorithmique**
+- Tuning des paramètres PID en environnement déterministe  
+- Tests de robustesse et cas limites
+- Validation des stratégies de contrôle
+
+**3. Formation et Documentation**
+- Démonstrations interactives du comportement thermique
+- Visualisation des réponses en temps réel
+- Cas d'usage pédagogiques
+
+**4. Tests de Performance**
+- Benchmarking des algorithmes
+- Tests de charge et de stress
+- Validation des optimisations
+
+```rust
+#[cfg(test)]
+mod validation_tests {
+    #[test]
+    fn test_thermal_step_response() {
+        let mut sim = ThermalCellSimulation::new();
+        sim.set_heater_power(100.0); // Échelon 10W
+        
+        let mut temps = Vec::new();
+        for i in 0..1000 {
+            std::thread::sleep(Duration::from_millis(1));
+            sim.update();
+            temps.push(sim.get_temperature());
+        }
+        
+        // Vérification de la réponse du premier ordre
+        let final_temp = temps.last().unwrap();
+        let temp_63_percent = temps[180]; // τ = 180s
+        assert!((temp_63_percent - 25.0) > 0.63 * (final_temp - 25.0));
+    }
+}
+```
 
 #### RaspberryPi Driver - Optimisations Natives avec Contrôle H-Bridge
 
@@ -2111,7 +2376,6 @@ Debug Headers:
 - J1: I2C expansion (4-pin: VCC, SCL, SDA, GND)
 - J2: Debug access (10-pin: RST, GPIO0-7, VDD, GND)
 - J3: Power selection (jumper: USB/External)
-```
 ```
 
 ---

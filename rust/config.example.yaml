@@ -324,8 +324,9 @@ thermal_regulation:
   
   # I2C bus configurations
   i2c_buses:
+    # Physical hardware bus (Raspberry Pi native I2C)
     primary:
-      type: "native"  # "mock" or "cp2112"
+      type: "native"  # "native", "cp2112", or "mock"
       device: "/dev/i2c-1"
       # For CP2112:
       # usb_vendor_id: 0x10C4
@@ -380,6 +381,36 @@ thermal_regulation:
           function: "h_bridge_control"
         # ... up to 0x27 for 8 controllers
     
+    # Mock bus for thermal simulation and testing
+    # Use this configuration for development and testing thermal regulation
+    # before hardware is available. The mock driver simulates a 1016g stainless
+    # steel 316 photoacoustic cell (110x30x60mm) with 15x30mm Peltier module
+    # and 10W heating resistor with realistic thermal dynamics.
+    mock_thermal:
+      type: "mock"
+      device: "mock_thermal_cell"  # Identifier for mock device
+      
+      # Mock PWM controllers for thermal simulation
+      pwm_controllers:
+        - address: 0x40  # Simulated PCA9685 for thermal control
+          channels: 16
+          frequency_hz: 1000
+      
+      # Mock ADC controllers for temperature reading simulation
+      adc_controllers:
+        - address: 0x48  # Simulated ADS1115 for temperature sensors
+          channels: 4
+          resolution: 16
+          voltage_ref: 3.3
+          gain: "GAIN_TWO"
+      
+      # Mock GPIO controllers for H-Bridge simulation
+      gpio_controllers:
+        - address: 0x20  # Simulated CAT9555 for H-Bridge control
+          channels: 16
+          type: "CAT9555"
+          function: "h_bridge_control"
+    
     # Optional secondary bus
     secondary:
       type: "native"  # /dev/i2c-0 or additional CP2112
@@ -388,6 +419,7 @@ thermal_regulation:
 
   # Individual regulators configuration
   regulators:
+    # Physical hardware regulator example
     - id: "sample_temperature"
       name: "Sample Temperature"
       enabled: true
@@ -457,6 +489,82 @@ thermal_regulation:
       safety_limits:
         min_temperature_k: 273.15  # 0°C
         max_temperature_k: 373.15  # 100°C
+        max_heating_duty: 80.0     # %
+        max_cooling_duty: 80.0     # %
+    
+    # Mock thermal regulator for testing and development
+    # This regulator uses the mock bus to simulate thermal behavior
+    # of a 1016g stainless steel 316 photoacoustic cell with realistic
+    # thermal dynamics including Peltier cooling/heating and resistive heating
+    - id: "mock_cell_temperature"
+      name: "Mock Photoacoustic Cell Temperature"
+      enabled: true
+      
+      # Use the mock thermal bus for simulation
+      i2c_bus: "mock_thermal"
+      temperature_sensor:
+        adc_address: 0x48    # Simulated ADS1115
+        adc_channel: 0       # Channel 0
+        sensor_type: "generic"
+      
+      actuators:
+        # Simulated bidirectional thermal control
+        thermal_control:
+          pwm_controller:
+            address: 0x40  # Simulated PCA9685
+            channel: 0     # PWM channel for thermal control
+          
+          direction_controller:
+            address: 0x20  # Simulated CAT9555
+            gpio_pins:
+              h_bridge_in1: 0    # GPIO 0 - Direction control
+              h_bridge_in2: 1    # GPIO 1 - Direction control  
+              h_bridge_enable: 2 # GPIO 2 - Enable control
+              
+          # Thermal modes for mock cell simulation
+          thermal_modes:
+            heating_tec:
+              description: "Mock Peltier heating (1016g SS316 cell)"
+              h_bridge_direction: "forward"
+              power_range: "0-80%"
+              max_power_percent: 80.0
+            cooling_tec:
+              description: "Mock Peltier cooling (1016g SS316 cell)"
+              h_bridge_direction: "reverse"
+              power_range: "0-100%"
+              max_power_percent: 100.0
+            heating_resistive:
+              description: "Mock 10W resistive heating"
+              h_bridge_direction: "forward"
+              power_range: "0-100%"
+              max_power_percent: 100.0
+      
+      # Temperature conversion for mock sensor
+      temperature_conversion:
+        formula: "0.0001*x^3 - 0.02*x^2 + 1.5*x + 273.15"  # Kelvin
+        adc_resolution: 16  # bits
+        voltage_reference: 3.3  # V
+        conversion_type: "polynomial"
+      
+      # PID parameters tuned for mock thermal cell simulation
+      pid_parameters:
+        kp: 1.0      # Conservative gains for mock testing
+        ki: 0.05     # Integral
+        kd: 0.02     # Derivative
+        setpoint: 303.15  # K (30°C) - test temperature
+        output_min: -100.0
+        output_max: 100.0
+        integral_max: 30.0  # Anti-windup
+      
+      # Control parameters for mock simulation
+      control_parameters:
+        sampling_frequency_hz: 5.0   # Slower for testing
+        pwm_frequency_hz: 1000.0
+      
+      # Safety limits for mock testing
+      safety_limits:
+        min_temperature_k: 273.15  # 0°C
+        max_temperature_k: 353.15  # 80°C
         max_heating_duty: 80.0     # %
         max_cooling_duty: 80.0     # %
     

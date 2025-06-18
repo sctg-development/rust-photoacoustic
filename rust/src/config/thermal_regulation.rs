@@ -73,6 +73,8 @@ pub enum I2CBusType {
     Native,
     /// Silicon Labs CP2112 USB-to-I2C bridge
     Cp2112,
+    /// Mock driver for thermal simulation testing
+    Mock,
 }
 
 /// PWM controller configuration (PCA9685)
