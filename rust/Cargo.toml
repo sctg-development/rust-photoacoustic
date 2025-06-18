@@ -63,6 +63,7 @@ rocket_async_compression = "0.6.1"
 async-trait = "0.1.88"
 uuid = { version = "1.17.0", features = ["v4"] }
 schemars = "0.8"
+evalexpr = "12.0.2"
 
 [dev-dependencies]
 criterion = "0.6.0"                                   # Benchmarking
@@ -77,6 +78,8 @@ sha2 = "0.10.9"                                       # Pour le hachage SHA-256 
 base64 = "0.22.1"                                     # Pour l'encodage Base64URL utilisé dans PKCE
 serde_json = "1.0.140"                                  # Pour analyser la réponse JSON des tokens
 regex = "1.11.1"                                    # Expressions régulières
+evalexpr = "12.0.2"                                 # Mathematical expression evaluation
+approx = "0.5.1"                                    # Approximate floating-point equality for tests
 
 [build-dependencies]
 serde = { version = "1.0.219", features = ["derive"] }

@@ -1288,7 +1288,7 @@
                   },
                   "conversion_type": {
                     "type": "string",
-                    "enum": ["polynomial", "linear", "lookup_table"],
+                    "enum": ["ntc_thermistor","polynomial", "linear", "lookup_table"],
                     "default": "polynomial",
                     "description": "Conversion algorithm type"
                   }

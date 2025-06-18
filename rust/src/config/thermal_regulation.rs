@@ -454,6 +454,8 @@ pub enum ConversionType {
     Linear,
     /// Lookup table
     LookupTable,
+    /// NTC thermistor conversion using mathematical formula
+    NtcThermistor,
 }
 
 // Additional configuration structures

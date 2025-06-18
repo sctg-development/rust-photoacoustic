@@ -463,12 +463,19 @@ thermal_regulation:
               power_range: "0-100%"
               max_power_percent: 100.0
       
-      # ADC to temperature conversion (polynomial)
+      # ADC to temperature conversion using NTC thermistor (10kΩ, β=3977)
+      # Configuration for 10kΩ/10kΩ voltage divider with 5V supply
       temperature_conversion:
-        formula: "0.0001*x^3 - 0.02*x^2 + 1.5*x + 273.15"  # Kelvin
+        # Mathematical formula to convert ADC voltage to temperature in Kelvin
+        # NTC formula: 1/T = 1/T0 + ln(R/R0)/β where R = R_pullup * voltage / (V_supply - voltage)
+        # Parameters: R_pullup=10kΩ, R0=10kΩ (resistance at 25°C), β=3977, T0=298.15K, V_supply=5V
+        # @see https://docs.rs/evalexpr/latest/evalexpr/index.html#builtin-functions for syntax
+        # Note: Use `math::ln` for neperian logarithm in evalexpr
+        #       Use `math::log` for base-10 logarithm
+        formula: "1.0 / (1.0 / 298.15 + math::ln(10000.0 * voltage / (5.0 - voltage) / 10000.0) / 3977.0)"
         adc_resolution: 16  # bits
-        voltage_reference: 3.3  # V
-        conversion_type: "polynomial"
+        voltage_reference: 5.0  # V (supply voltage for voltage divider)
+        conversion_type: "ntc_thermistor"  # NTC thermistor with β formula
       
       # PID parameters
       pid_parameters:
@@ -539,12 +546,16 @@ thermal_regulation:
               power_range: "0-100%"
               max_power_percent: 100.0
       
-      # Temperature conversion for mock sensor
+      # Temperature conversion for NTC thermistor (10kΩ, β=3977)
+      # Mock sensor simulating 10kΩ/10kΩ voltage divider with 5V supply
       temperature_conversion:
-        formula: "0.0001*x^3 - 0.02*x^2 + 1.5*x + 273.15"  # Kelvin
+        # Mathematical formula to convert ADC voltage to temperature in Kelvin
+        # NTC formula: 1/T = 1/T0 + ln(R/R0)/β where R = R_pullup * voltage / (V_supply - voltage)
+        # Parameters: R_pullup=10kΩ, R0=10kΩ (resistance at 25°C), β=3977, T0=298.15K, V_supply=5V
+        formula: "1.0 / (1.0 / 298.15 + math::ln(10000.0 * voltage / (5.0 - voltage) / 10000.0) / 3977.0)"
         adc_resolution: 16  # bits
-        voltage_reference: 3.3  # V
-        conversion_type: "polynomial"
+        voltage_reference: 5.0  # V (supply voltage for voltage divider)
+        conversion_type: "ntc_thermistor"  # NTC thermistor with β formula
       
       # PID parameters tuned for mock thermal cell simulation
       pid_parameters:
@@ -603,11 +614,16 @@ thermal_regulation:
               h_bridge_direction: "forward"
               power_range: "0-80%"
               max_power_percent: 80.0
+      # Temperature conversion for NTC thermistor (10kΩ, β=3977)
+      # Detector temperature sensor with 10kΩ/10kΩ voltage divider, 5V supply
       temperature_conversion:
-        formula: "0.0001*x^3 - 0.02*x^2 + 1.5*x + 273.15"
-        adc_resolution: 16
-        voltage_reference: 3.3
-        conversion_type: "polynomial"
+        # Mathematical formula to convert ADC voltage to temperature in Kelvin
+        # NTC formula: 1/T = 1/T0 + ln(R/R0)/β where R = R_pullup * voltage / (V_supply - voltage)
+        # Parameters: R_pullup=10kΩ, R0=10kΩ (resistance at 25°C), β=3977, T0=298.15K, V_supply=5V
+        formula: "1.0 / (1.0 / 298.15 + math::ln(10000.0 * voltage / (5.0 - voltage) / 10000.0) / 3977.0)"
+        adc_resolution: 16  # bits
+        voltage_reference: 5.0  # V (supply voltage for voltage divider)
+        conversion_type: "ntc_thermistor"  # NTC thermistor with β formula
       pid_parameters:
         kp: 1.5
         ki: 0.08

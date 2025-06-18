@@ -14,6 +14,7 @@ use log::{debug, info};
 use rust_photoacoustic::config::{thermal_regulation::ThermalRegulatorConfig, Config};
 use rust_photoacoustic::thermal_regulation::drivers::MockI2CDriver;
 use rust_photoacoustic::thermal_regulation::I2CBusDriver;
+use rust_photoacoustic::utility::convert_voltage_to_temperature;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
@@ -285,36 +286,40 @@ fn calculate_step_control_output(step_amplitude: f64) -> f64 {
     base_output.clamp(-80.0, 80.0) // Limit to safe range
 }
 
-/// Convert raw ADC value to temperature using NTC thermistor calculation
+/// Convert raw ADC value to temperature using configurable formula
+///
+/// This function converts a raw ADC reading to temperature using the formula
+/// specified in the thermal regulator configuration. It supports various
+/// conversion types including NTC thermistors with β formula.
 fn convert_adc_to_temperature(
     raw_value: u16,
     regulator_config: &ThermalRegulatorConfig,
 ) -> Result<f64> {
-    // Convert ADC reading to voltage (16-bit ADC, 0-5V range)
-    let v_adc = (raw_value as f64 / 65535.0) * 5.0;
+    // Get conversion parameters from configuration
+    let temp_conversion = &regulator_config.temperature_conversion;
+    let adc_resolution = temp_conversion.adc_resolution;
+    let voltage_reference = temp_conversion.voltage_reference;
+    let formula = &temp_conversion.formula;
 
-    // Calculate NTC resistance from voltage divider
-    // V_adc = 5V * R_ntc / (10000 + R_ntc)
-    // Solving for R_ntc: R_ntc = 10000 * V_adc / (5 - V_adc)
-    if v_adc >= 5.0 {
-        return Err(anyhow!("Invalid ADC voltage: {:.3}V", v_adc));
-    }
+    // Convert ADC reading to voltage based on configuration
+    let max_adc_value = (1_u32 << adc_resolution) - 1; // e.g., 65535 for 16-bit
+    let voltage = (raw_value as f64 / max_adc_value as f64) * voltage_reference as f64;
 
-    let r_ntc = 10000.0 * v_adc / (5.0 - v_adc);
+    debug!(
+        "ADC conversion: raw={}, voltage={:.3}V, formula='{}'",
+        raw_value, voltage, formula
+    );
 
-    // Calculate temperature from NTC resistance using β formula
-    // R = R0 * exp(β * (1/T - 1/T0))
-    // Solving for T: 1/T = 1/T0 + ln(R/R0)/β
-    let r0 = 10000.0; // 10kΩ at 25°C
-    let beta = 3977.0;
-    let t0 = 298.15; // 25°C in Kelvin
+    // Use the utility function to convert voltage to temperature
+    let temperature_k = convert_voltage_to_temperature(formula.clone(), voltage as f32)?;
 
-    if r_ntc <= 0.0 {
-        return Err(anyhow!("Invalid NTC resistance: {:.1}Ω", r_ntc));
-    }
+    // Convert from Kelvin to Celsius for return value
+    let temperature_c = temperature_k - 273.15;
 
-    let temp_k = 1.0 / (1.0 / t0 + (r_ntc / r0).ln() / beta);
-    let temp_c = temp_k - 273.15;
+    debug!(
+        "Temperature conversion: {:.2}K = {:.2}°C",
+        temperature_k, temperature_c
+    );
 
-    Ok(temp_c)
+    Ok(temperature_c)
 }

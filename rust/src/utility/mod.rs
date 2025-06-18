@@ -10,9 +10,11 @@ pub mod data_source;
 pub mod noise_generator;
 #[cfg(test)]
 pub mod noise_generator_test;
+pub mod temperature_conversion;
 
 // Re-exports for use in other modules
 pub use data_source::PhotoacousticDataSource;
+pub use temperature_conversion::convert_voltage_to_temperature;
 
 /// Macro to include a PNG file as a base64-encoded string
 /// This macro reads a PNG file at compile time and encodes it in base64 format.
