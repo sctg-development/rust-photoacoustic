@@ -8,9 +8,10 @@ use evalexpr::{
 ///
 /// This function evaluates a mathematical expression where 'voltage' is available as a variable.
 /// The formula should return temperature in Kelvin.
+/// The formula use [evalexpr syntax](https://docs.rs/evalexpr/12.0.2/evalexpr/index.html) for evaluation.
 ///
 /// # Arguments
-/// * `formula` - Mathematical expression as string (e.g., "1.0 / (1.0 / 298.15 + ln(10000.0 * voltage / (5.0 - voltage) / 10000.0) / 3977.0)")
+/// * `formula` - Mathematical expression as string (e.g., "1.0 / (1.0 / 298.15 + math::ln(10000.0 * voltage / (5.0 - voltage) / 10000.0) / 3977.0)")
 /// * `voltage` - Input voltage in volts
 ///
 /// # Returns
