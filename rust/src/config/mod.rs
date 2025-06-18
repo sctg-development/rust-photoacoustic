@@ -60,6 +60,7 @@ pub mod modbus;
 pub mod photoacoustic;
 pub mod processing;
 pub mod simulated_source;
+pub mod thermal_regulation;
 pub mod utils;
 pub mod visualization;
 
@@ -83,6 +84,7 @@ pub use modbus::ModbusConfig;
 pub use photoacoustic::PhotoacousticConfig;
 pub use processing::ProcessingConfig;
 pub use simulated_source::SimulatedSourceConfig;
+pub use thermal_regulation::ThermalRegulationConfig;
 pub use utils::output_config_schema;
 pub use visualization::VisualizationConfig;
 
@@ -156,6 +158,14 @@ pub struct Config {
     #[serde(default)]
     pub processing: ProcessingConfig,
 
+    /// Thermal regulation settings for the photoacoustic application.
+    ///
+    /// This section controls parameters related to thermal regulation system,
+    /// including I2C controllers, PID regulators, and thermal actuators.
+    /// If not specified, default values will be used.
+    #[serde(default)]
+    pub thermal_regulation: ThermalRegulationConfig,
+
     #[serde(default)]
     pub generix: GenerixConfig,
 }
@@ -169,6 +179,7 @@ impl Default for Config {
             photoacoustic: PhotoacousticConfig::default(),
             access: AccessConfig::default(),
             processing: ProcessingConfig::default(),
+            thermal_regulation: ThermalRegulationConfig::default(),
             generix: GenerixConfig::default(),
         }
     }

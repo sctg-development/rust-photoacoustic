@@ -11,6 +11,7 @@ mod photoacoustic;
 mod preprocessing;
 mod processing;
 mod spectral;
+mod thermal_regulation;
 mod utility;
 mod visualization;
 

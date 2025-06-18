@@ -314,3 +314,224 @@ processing:
     max_processing_time_us: 10000
     enable_stats: true
     stats_interval_ms: 1000
+
+# =========================
+# Thermal regulation configuration
+# =========================
+thermal_regulation:
+  # Enable thermal regulation system
+  enabled: false
+  
+  # I2C bus configurations
+  i2c_buses:
+    primary:
+      type: "native"  # "mock" or "cp2112"
+      device: "/dev/i2c-1"
+      # For CP2112:
+      # usb_vendor_id: 0x10C4
+      # usb_product_id: 0xEA90
+      
+      # PWM controllers (up to 32)
+      pwm_controllers:
+        - address: 0x40  # PCA9685 #1
+          channels: 16
+          frequency_hz: 1000
+        - address: 0x41  # PCA9685 #2
+          channels: 16
+          frequency_hz: 1000
+        # ... up to 0x5F for 32 controllers
+      
+      # ADC converters (up to 4)
+      adc_controllers:
+        - address: 0x48  # ADS1115 #1
+          channels: 4
+          resolution: 16
+          voltage_ref: 3.3
+          gain: "GAIN_TWO"
+        - address: 0x49  # ADS1115 #2
+          channels: 4
+          resolution: 16
+          voltage_ref: 3.3
+          gain: "GAIN_TWO"
+        - address: 0x4A  # ADS1115 #3
+          channels: 4
+          resolution: 16
+          voltage_ref: 3.3
+          gain: "GAIN_TWO"
+        - address: 0x4B  # ADS1115 #4
+          channels: 4
+          resolution: 16
+          voltage_ref: 3.3
+          gain: "GAIN_TWO"
+      
+      # I2C GPIO controllers (up to 8)
+      gpio_controllers:
+        - address: 0x20  # CAT9555 #1
+          channels: 16
+          type: "CAT9555"
+          function: "h_bridge_control"
+        - address: 0x21  # CAT9555 #2
+          channels: 16
+          type: "CAT9555"
+          function: "h_bridge_control"
+        - address: 0x22  # CAT9555 #3
+          channels: 16
+          type: "CAT9555"
+          function: "h_bridge_control"
+        # ... up to 0x27 for 8 controllers
+    
+    # Optional secondary bus
+    secondary:
+      type: "native"  # /dev/i2c-0 or additional CP2112
+      device: "/dev/i2c-0"
+      # Similar configuration with 32 additional PCA9685 + 4 ADS1115 + 8 CAT9555
+
+  # Individual regulators configuration
+  regulators:
+    - id: "sample_temperature"
+      name: "Sample Temperature"
+      enabled: true
+      
+      # I2C resource allocation
+      i2c_bus: "primary"
+      temperature_sensor:
+        adc_address: 0x48    # ADS1115 #1
+        adc_channel: 0       # Channel 0
+        sensor_type: "generic"
+      
+      actuators:
+        # Bidirectional thermal control configuration
+        thermal_control:
+          pwm_controller:
+            address: 0x40  # PCA9685 #1
+            channel: 0     # PWM channel for power
+          
+          direction_controller:
+            address: 0x20  # CAT9555 #1
+            gpio_pins:
+              h_bridge_in1: 0    # GPIO 0 - Direction bit 1
+              h_bridge_in2: 1    # GPIO 1 - Direction bit 2
+              h_bridge_enable: 2 # GPIO 2 - Enable H-Bridge
+              
+          # Operating modes
+          thermal_modes:
+            heating_tec:
+              description: "Heating via Peltier module"
+              h_bridge_direction: "forward"  # IN1=HIGH, IN2=LOW
+              power_range: "0-80%"
+              max_power_percent: 80.0
+            cooling_tec:
+              description: "Cooling via Peltier module"
+              h_bridge_direction: "reverse"  # IN1=LOW, IN2=HIGH
+              power_range: "0-100%"
+              max_power_percent: 100.0
+            heating_resistive:
+              description: "Heating via resistive element (automatic diode selection)"
+              h_bridge_direction: "forward"  # IN1=HIGH, IN2=LOW
+              power_range: "0-100%"
+              max_power_percent: 100.0
+      
+      # ADC to temperature conversion (polynomial)
+      temperature_conversion:
+        formula: "0.0001*x^3 - 0.02*x^2 + 1.5*x + 273.15"  # Kelvin
+        adc_resolution: 16  # bits
+        voltage_reference: 3.3  # V
+        conversion_type: "polynomial"
+      
+      # PID parameters
+      pid_parameters:
+        kp: 2.0      # Proportional
+        ki: 0.1      # Integral
+        kd: 0.05     # Derivative
+        setpoint: 298.15  # K (25°C)
+        output_min: -100.0
+        output_max: 100.0
+        integral_max: 50.0  # Anti-windup
+      
+      # PWM and sampling configuration
+      control_parameters:
+        sampling_frequency_hz: 10.0
+        pwm_frequency_hz: 1000.0
+      
+      # Safety limits
+      safety_limits:
+        min_temperature_k: 273.15  # 0°C
+        max_temperature_k: 373.15  # 100°C
+        max_heating_duty: 80.0     # %
+        max_cooling_duty: 80.0     # %
+    
+    - id: "detector_temperature"
+      name: "Detector Temperature"
+      enabled: true
+      i2c_bus: "primary"
+      temperature_sensor:
+        adc_address: 0x48    # ADS1115 #1
+        adc_channel: 1       # Channel 1
+        sensor_type: "generic"
+      actuators:
+        thermal_control:
+          pwm_controller:
+            address: 0x40  # PCA9685 #1
+            channel: 1     # PWM channel 1
+          direction_controller:
+            address: 0x20  # CAT9555 #1
+            gpio_pins:
+              h_bridge_in1: 3    # GPIO 3
+              h_bridge_in2: 4    # GPIO 4
+              h_bridge_enable: 5 # GPIO 5
+          thermal_modes:
+            heating_tec:
+              description: "Detector TEC heating"
+              h_bridge_direction: "forward"
+              power_range: "0-60%"
+              max_power_percent: 60.0
+            cooling_tec:
+              description: "Detector TEC cooling"
+              h_bridge_direction: "reverse"
+              power_range: "0-100%"
+              max_power_percent: 100.0
+            heating_resistive:
+              description: "Detector resistive heating"
+              h_bridge_direction: "forward"
+              power_range: "0-80%"
+              max_power_percent: 80.0
+      temperature_conversion:
+        formula: "0.0001*x^3 - 0.02*x^2 + 1.5*x + 273.15"
+        adc_resolution: 16
+        voltage_reference: 3.3
+        conversion_type: "polynomial"
+      pid_parameters:
+        kp: 1.5
+        ki: 0.08
+        kd: 0.03
+        setpoint: 288.15  # K (15°C)
+        output_min: -100.0
+        output_max: 100.0
+        integral_max: 40.0
+      control_parameters:
+        sampling_frequency_hz: 10.0
+        pwm_frequency_hz: 1000.0
+      safety_limits:
+        min_temperature_k: 263.15  # -10°C
+        max_temperature_k: 323.15  # 50°C
+        max_heating_duty: 60.0
+        max_cooling_duty: 100.0
+    
+    # Possibility to add up to N regulators according to available resources
+    # With 32 PCA9685 × 16 channels = 512 PWM outputs
+    # With 4 ADS1115 × 4 channels = 16 analog inputs
+    # With 8 CAT9555 × 16 GPIO = 128 GPIO control signals
+
+  # Global thermal regulation system parameters
+  global_settings:
+    global_sampling_rate_hz: 10.0
+    max_concurrent_regulators: 32
+    resource_sharing:
+      i2c_arbitration_timeout_ms: 100
+      max_operation_queue_size: 100
+      priority_scheduling: false
+    monitoring:
+      enable_performance_monitoring: true
+      metrics_interval_s: 1.0
+      enable_thermal_history: false
+      history_buffer_size: 1000

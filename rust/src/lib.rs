@@ -92,6 +92,10 @@ pub mod modbus;
 /// This module contains the core computations and algorithms used in photoacoustic analysis.
 pub mod photoacoustic;
 
+/// Thermal regulation module.
+/// This module handles thermal regulation tasks, ensuring that the system operates within safe temperature limits.
+pub mod thermal_regulation;
+
 use serde::{Deserialize, Serialize};
 
 /// Result of a photoacoustic analysis operation.

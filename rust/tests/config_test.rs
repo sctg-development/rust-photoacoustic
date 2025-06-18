@@ -43,6 +43,7 @@ fn test_config_load_and_save() -> Result<()> {
         access: AccessConfig::default(),
         generix: GenerixConfig::default(),
         processing: rust_photoacoustic::config::ProcessingConfig::default(),
+        thermal_regulation: rust_photoacoustic::config::ThermalRegulationConfig::default(),
     };
 
     // Save config to file

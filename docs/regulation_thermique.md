@@ -1204,6 +1204,424 @@ impl MockDriver {
 }
 ```
 
+### Driver de Simulation - Philosophie de Test Approfondie
+
+#### Architecture du Simulateur Thermique
+
+Le driver de simulation est conçu comme un **jumeau numérique** complet du système thermique réel, permettant un développement et des tests exhaustifs sans matériel physique.
+
+```mermaid
+graph TB
+    subgraph "Simulation Engine Architecture"
+        SIM_CORE[Simulation Core<br/>Real-time Physics Engine]
+        
+        subgraph "Physical Models"
+            THERMAL_MODEL[Thermal Dynamics Model<br/>Heat Transfer Equations<br/>Thermal Mass & Resistance]
+            PELTIER_MODEL[Peltier TEC Model<br/>Thermoelectric Effects<br/>Seebeck, Peltier, Thomson]
+            RESISTOR_MODEL[Resistive Heating Model<br/>Joule Heating<br/>Power Dissipation]
+            AMBIENT_MODEL[Environmental Model<br/>Ambient Temperature<br/>Heat Sinks, Convection]
+        end
+        
+        subgraph "Hardware Simulation"
+            I2C_SIM[I2C Bus Simulation<br/>Timing, Addressing<br/>Error Injection]
+            ADC_SIM[ADC Simulation<br/>Quantization, Noise<br/>Calibration Drift]
+            PWM_SIM[PWM Simulation<br/>Duty Cycle to Power<br/>Switching Artifacts]
+            GPIO_SIM[GPIO Simulation<br/>H-Bridge Control<br/>Direction Logic]
+        end
+        
+        subgraph "Fault Injection System"
+            FAULT_ENGINE[Fault Injection Engine<br/>Probabilistic Failures<br/>Scenario-based Testing]
+            ERROR_MODELS[Error Models<br/>I2C Timeouts<br/>ADC Drift<br/>PWM Faults]
+            RECOVERY_SIM[Recovery Simulation<br/>Error Handling<br/>Graceful Degradation]
+        end
+        
+        subgraph "Test Orchestration"
+            SCENARIO_ENGINE[Test Scenario Engine<br/>Automated Test Sequences<br/>Parameter Sweeps]
+            VALIDATION_ENGINE[Validation Engine<br/>Golden Reference<br/>Regression Testing]
+            METRICS_COLLECTOR[Metrics Collection<br/>Performance Analysis<br/>Statistical Validation]
+        end
+    end
+    
+    SIM_CORE --> THERMAL_MODEL
+    SIM_CORE --> PELTIER_MODEL
+    SIM_CORE --> RESISTOR_MODEL
+    SIM_CORE --> AMBIENT_MODEL
+    
+    THERMAL_MODEL --> I2C_SIM
+    THERMAL_MODEL --> ADC_SIM
+    THERMAL_MODEL --> PWM_SIM
+    THERMAL_MODEL --> GPIO_SIM
+    
+    FAULT_ENGINE --> ERROR_MODELS
+    ERROR_MODELS --> RECOVERY_SIM
+    
+    SCENARIO_ENGINE --> VALIDATION_ENGINE
+    VALIDATION_ENGINE --> METRICS_COLLECTOR
+```
+
+#### Implémentation du Simulateur Thermique Avancé
+
+```rust
+#[derive(Debug, Clone)]
+pub struct ThermalSimulationConfig {
+    // Paramètres physiques
+    pub thermal_mass: f32,              // J/K - Capacité thermique
+    pub thermal_resistance: f32,        // K/W - Résistance thermique
+    pub ambient_temperature: f32,       // K - Température ambiante
+    pub initial_temperature: f32,       // K - Température initiale
+    
+    // Paramètres de simulation
+    pub time_step: f32,                 // s - Pas de temps
+    pub noise_amplitude: f32,           // K - Amplitude du bruit
+    pub drift_rate: f32,                // K/s - Dérive thermique
+    
+    // Modèles de composants
+    pub peltier_efficiency: f32,        // Coefficient de performance
+    pub heating_efficiency: f32,        // Efficacité chauffage résistif
+    pub adc_resolution: u16,            // bits - Résolution ADC
+    pub adc_noise_level: f32,           // LSB - Niveau de bruit ADC
+    
+    // Injection de fautes
+    pub fault_injection_enabled: bool,
+    pub mean_time_between_failures: f32, // s - MTBF
+}
+
+pub struct MockThermalDriver {
+    config: ThermalSimulationConfig,
+    
+    // État thermique
+    current_temperature: f32,
+    target_temperature: f32,
+    thermal_history: VecDeque<ThermalReading>,
+    
+    // État des actionneurs
+    current_heating_power: f32,
+    current_cooling_power: f32,
+    h_bridge_state: HBridgeState,
+    
+    // Générateurs de bruit et d'erreurs
+    noise_generator: Box<dyn NoiseGenerator>,
+    fault_injector: FaultInjector,
+    
+    // Métriques et validation
+    simulation_metrics: SimulationMetrics,
+    reference_model: Option<Box<dyn ReferenceModel>>,
+    
+    // Threading et temps réel
+    simulation_thread: Option<JoinHandle<()>>,
+    real_time_factor: f32,              // 1.0 = temps réel
+}
+
+impl MockThermalDriver {
+    pub fn new(config: ThermalSimulationConfig) -> Self {
+        Self {
+            current_temperature: config.initial_temperature,
+            target_temperature: config.initial_temperature,
+            thermal_history: VecDeque::with_capacity(1000),
+            
+            current_heating_power: 0.0,
+            current_cooling_power: 0.0,
+            h_bridge_state: HBridgeState::Disabled,
+            
+            noise_generator: Box::new(GaussianNoiseGenerator::new(config.noise_amplitude)),
+            fault_injector: FaultInjector::new(config.mean_time_between_failures),
+            
+            simulation_metrics: SimulationMetrics::new(),
+            reference_model: None,
+            
+            simulation_thread: None,
+            real_time_factor: 1.0,
+            config,
+        }
+    }
+    
+    // Modèle thermodynamique complet avec tous les effets physiques
+    fn simulate_thermal_dynamics(&mut self, dt: f32) -> f32 {
+        // 1. Calcul de la puissance nette selon le mode de fonctionnement
+        let net_power = match self.h_bridge_state {
+            HBridgeState::HeatingTEC => {
+                self.current_heating_power * self.config.peltier_efficiency
+            },
+            HBridgeState::CoolingTEC => {
+                -self.current_cooling_power * self.config.peltier_efficiency
+            },
+            HBridgeState::HeatingResistive => {
+                self.current_heating_power * self.config.heating_efficiency
+            },
+            HBridgeState::Disabled => 0.0,
+        };
+        
+        // 2. Pertes thermiques vers l'environnement (loi de Newton)
+        let heat_loss = (self.current_temperature - self.config.ambient_temperature) 
+                        / self.config.thermal_resistance;
+        
+        // 3. Équation de la chaleur avec inertie thermique
+        let temperature_rate = (net_power - heat_loss) / self.config.thermal_mass;
+        
+        // 4. Intégration numérique (Runge-Kutta 4ème ordre pour la précision)
+        let k1 = temperature_rate;
+        let k2 = self.compute_temperature_rate(self.current_temperature + k1 * dt / 2.0);
+        let k3 = self.compute_temperature_rate(self.current_temperature + k2 * dt / 2.0);
+        let k4 = self.compute_temperature_rate(self.current_temperature + k3 * dt);
+        
+        self.current_temperature += dt * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0;
+        
+        // 5. Ajout des effets non-linéaires et du bruit
+        let thermal_noise = self.noise_generator.generate();
+        let drift = self.config.drift_rate * dt;
+        
+        self.current_temperature + thermal_noise + drift
+    }
+    
+    // Simulation ADC avec quantification et bruit réalistes
+    fn simulate_adc_reading(&self, temperature: f32) -> Result<ThermalReading, ThermalError> {
+        // Injection de fautes si activée
+        if let Some(fault) = self.fault_injector.check_for_fault() {
+            return Err(fault);
+        }
+        
+        // Conversion température vers tension (modèle de capteur)
+        let voltage = self.temperature_to_voltage(temperature);
+        
+        // Quantification ADC
+        let adc_range = (1 << self.config.adc_resolution) as f32;
+        let voltage_per_lsb = 3.3 / adc_range;
+        
+        // Ajout du bruit ADC
+        let adc_noise = self.noise_generator.generate() * self.config.adc_noise_level;
+        let noisy_voltage = voltage + adc_noise * voltage_per_lsb;
+        
+        // Quantification finale
+        let raw_adc = ((noisy_voltage / voltage_per_lsb).round() as u16)
+                      .clamp(0, adc_range as u16 - 1);
+        
+        Ok(ThermalReading {
+            temperature_k: temperature,
+            timestamp: std::time::SystemTime::now(),
+            raw_adc_value: raw_adc,
+        })
+    }
+    
+    // Simulation PWM avec effets non-linéaires
+    fn simulate_pwm_output(&mut self, thermal_mode: ThermalMode) -> Result<(), ThermalError> {
+        let h_bridge_control = thermal_mode.to_h_bridge_signals();
+        
+        // Simulation des délais de commutation H-Bridge
+        tokio::time::sleep(Duration::from_micros(200)).await;
+        
+        // Conversion duty cycle vers puissance avec non-linéarités
+        let power = self.duty_cycle_to_power(h_bridge_control.pwm_duty);
+        
+        match thermal_mode {
+            ThermalMode::Cooling { .. } => {
+                self.current_cooling_power = power;
+                self.current_heating_power = 0.0;
+                self.h_bridge_state = HBridgeState::CoolingTEC;
+            },
+            ThermalMode::HeatingTEC { .. } => {
+                self.current_heating_power = power;
+                self.current_cooling_power = 0.0;
+                self.h_bridge_state = HBridgeState::HeatingTEC;
+            },
+            ThermalMode::HeatingResistive { .. } => {
+                self.current_heating_power = power;
+                self.current_cooling_power = 0.0;
+                self.h_bridge_state = HBridgeState::HeatingResistive;
+            },
+            ThermalMode::Standby => {
+                self.current_heating_power = 0.0;
+                self.current_cooling_power = 0.0;
+                self.h_bridge_state = HBridgeState::Disabled;
+            },
+        }
+        
+        // Mise à jour des métriques de simulation
+        self.simulation_metrics.update_actuation(thermal_mode);
+        
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ThermalControlDriver for MockThermalDriver {
+    async fn initialize(&mut self, config: &DriverConfig) -> Result<(), ThermalError> {
+        info!("Initializing thermal simulation driver");
+        
+        // Démarrage du thread de simulation en temps réel
+        self.start_simulation_thread().await?;
+        
+        // Initialisation des générateurs de bruit
+        self.noise_generator.initialize()?;
+        
+        // Configuration du modèle de référence si disponible
+        if let Some(ref_model) = &config.reference_model {
+            self.reference_model = Some(load_reference_model(ref_model)?);
+        }
+        
+        Ok(())
+    }
+    
+    async fn read_temperature(&self) -> Result<ThermalReading, ThermalError> {
+        let reading = self.simulate_adc_reading(self.current_temperature)?;
+        
+        // Validation contre le modèle de référence
+        if let Some(ref_model) = &self.reference_model {
+            ref_model.validate_reading(&reading)?;
+        }
+        
+        Ok(reading)
+    }
+    
+    async fn set_thermal_output(&mut self, thermal_mode: ThermalMode) -> Result<(), ThermalError> {
+        self.simulate_pwm_output(thermal_mode).await
+    }
+    
+    async fn health_check(&self) -> Result<bool, ThermalError> {
+        // Vérification de la cohérence du modèle
+        let is_healthy = self.current_temperature > 0.0 
+                        && self.current_temperature < 1000.0  // Limites physiques
+                        && self.simulation_metrics.is_consistent();
+        
+        Ok(is_healthy)
+    }
+    
+    async fn shutdown(&mut self) -> Result<(), ThermalError> {
+        // Arrêt propre du thread de simulation
+        if let Some(handle) = self.simulation_thread.take() {
+            handle.abort();
+        }
+        
+        // Génération du rapport de simulation
+        self.generate_simulation_report().await?;
+        
+        Ok(())
+    }
+}
+```
+
+#### Framework de Tests Automatisés
+
+```rust
+pub struct ThermalTestFramework {
+    mock_driver: MockThermalDriver,
+    test_scenarios: Vec<TestScenario>,
+    validation_engine: ValidationEngine,
+    report_generator: ReportGenerator,
+}
+
+impl ThermalTestFramework {
+    // Test de réponse indicielle pour validation PID
+    pub async fn step_response_test(&mut self, step_amplitude: f32) -> TestResult {
+        info!("Running step response test with amplitude: {:.2}K", step_amplitude);
+        
+        let initial_temp = self.mock_driver.current_temperature;
+        let target_temp = initial_temp + step_amplitude;
+        
+        let mut pid_controller = PIDController::new(PIDConfig::default());
+        let mut response_data = Vec::new();
+        
+        for i in 0..1000 {  // 100 seconds at 10Hz
+            let current_temp = self.mock_driver.read_temperature().await?.temperature_k;
+            
+            let pid_output = pid_controller.compute(target_temp, current_temp);
+            let thermal_mode = ThermalMode::from_pid_output(pid_output, &Default::default());
+            
+            self.mock_driver.set_thermal_output(thermal_mode).await?;
+            
+            response_data.push(ThermalDataPoint {
+                time: i as f32 * 0.1,
+                temperature: current_temp,
+                setpoint: target_temp,
+                pid_output,
+            });
+            
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        
+        // Analyse de la réponse
+        let analysis = self.analyze_step_response(&response_data);
+        
+        TestResult {
+            test_type: "step_response".to_string(),
+            passed: analysis.overshoot < 10.0 && analysis.settling_time < 50.0,
+            metrics: analysis.into(),
+            raw_data: response_data,
+        }
+    }
+    
+    // Test d'injection de fautes
+    pub async fn fault_injection_test(&mut self) -> TestResult {
+        info!("Running fault injection test");
+        
+        self.mock_driver.fault_injector.enable();
+        
+        let mut fault_recovery_times = Vec::new();
+        let mut successful_recoveries = 0;
+        let total_faults = 100;
+        
+        for fault_type in [ThermalError::I2CTimeout, ThermalError::ADCCalibrationDrift, ThermalError::PWMOvercurrent] {
+            for _ in 0..total_faults/3 {
+                // Injection de la faute
+                let fault_time = Instant::now();
+                self.mock_driver.fault_injector.inject_fault(fault_type.clone());
+                
+                // Attente de la détection et récupération
+                let recovery_result = self.wait_for_recovery().await;
+                
+                if recovery_result.is_ok() {
+                    successful_recoveries += 1;
+                    fault_recovery_times.push(fault_time.elapsed());
+                }
+            }
+        }
+        
+        let recovery_rate = successful_recoveries as f32 / total_faults as f32;
+        let avg_recovery_time = fault_recovery_times.iter().sum::<Duration>() / fault_recovery_times.len() as u32;
+        
+        TestResult {
+            test_type: "fault_injection".to_string(),
+            passed: recovery_rate > 0.95 && avg_recovery_time < Duration::from_secs(5),
+            metrics: json!({
+                "recovery_rate": recovery_rate,
+                "avg_recovery_time_ms": avg_recovery_time.as_millis(),
+                "max_recovery_time_ms": fault_recovery_times.iter().max().unwrap().as_millis()
+            }),
+            raw_data: fault_recovery_times,
+        }
+    }
+    
+    // Test de performance et stress
+    pub async fn performance_stress_test(&mut self, duration_seconds: u32) -> TestResult {
+        info!("Running performance stress test for {} seconds", duration_seconds);
+        
+        let mut performance_metrics = PerformanceMetrics::new();
+        let start_time = Instant::now();
+        
+        while start_time.elapsed().as_secs() < duration_seconds as u64 {
+            let operation_start = Instant::now();
+            
+            // Simulation d'une charge de travail intensive
+            let temp_reading = self.mock_driver.read_temperature().await?;
+            let thermal_mode = ThermalMode::HeatingTEC { power_percent: 50.0 };
+            self.mock_driver.set_thermal_output(thermal_mode).await?;
+            
+            let operation_time = operation_start.elapsed();
+            performance_metrics.add_sample(operation_time);
+            
+            // Fréquence élevée pour stress test
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        
+        TestResult {
+            test_type: "performance_stress".to_string(),
+            passed: performance_metrics.avg_latency() < Duration::from_millis(5),
+            metrics: performance_metrics.into(),
+            raw_data: performance_metrics.samples,
+        }
+    }
+}
+```
+
 #### Factory Pattern et Sélection Automatique
 
 ```rust

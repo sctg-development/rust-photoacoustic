@@ -879,6 +879,596 @@
           }
         }
       }
+    },
+    "thermal_regulation": {
+      "type": "object",
+      "description": "Thermal regulation system configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable or disable thermal regulation system"
+        },
+        "i2c_buses": {
+          "type": "object",
+          "description": "I2C bus configurations",
+          "patternProperties": {
+            "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["native", "cp2112","mock"],
+                  "description": "I2C bus type"
+                },
+                "device": {
+                  "type": "string",
+                  "description": "Device path or USB identifier"
+                },
+                "usb_vendor_id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "USB vendor ID for CP2112"
+                },
+                "usb_product_id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "USB product ID for CP2112"
+                },
+                "pwm_controllers": {
+                  "type": "array",
+                  "maxItems": 32,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "address": {
+                        "type": "integer",
+                        "minimum": 64,
+                        "maximum": 127,
+                        "description": "I2C address (0x40-0x7F)"
+                      },
+                      "channels": {
+                        "type": "integer",
+                        "const": 16,
+                        "description": "Number of PWM channels"
+                      },
+                      "frequency_hz": {
+                        "type": "integer",
+                        "minimum": 24,
+                        "maximum": 1526,
+                        "default": 1000,
+                        "description": "PWM frequency in Hz"
+                      }
+                    },
+                    "required": ["address"],
+                    "additionalProperties": false
+                  }
+                },
+                "adc_controllers": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "address": {
+                        "type": "integer",
+                        "minimum": 72,
+                        "maximum": 75,
+                        "description": "I2C address (0x48-0x4B)"
+                      },
+                      "channels": {
+                        "type": "integer",
+                        "const": 4,
+                        "description": "Number of ADC channels"
+                      },
+                      "resolution": {
+                        "type": "integer",
+                        "const": 16,
+                        "description": "ADC resolution in bits"
+                      },
+                      "voltage_ref": {
+                        "type": "number",
+                        "minimum": 0.1,
+                        "maximum": 6.144,
+                        "default": 3.3,
+                        "description": "Voltage reference in volts"
+                      },
+                      "gain": {
+                        "type": "string",
+                        "enum": ["GAIN_TWOTHIRDS", "GAIN_ONE", "GAIN_TWO", "GAIN_FOUR", "GAIN_EIGHT", "GAIN_SIXTEEN"],
+                        "default": "GAIN_TWO",
+                        "description": "ADC gain setting"
+                      }
+                    },
+                    "required": ["address"],
+                    "additionalProperties": false
+                  }
+                },
+                "gpio_controllers": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "address": {
+                        "type": "integer",
+                        "minimum": 32,
+                        "maximum": 39,
+                        "description": "I2C address (0x20-0x27)"
+                      },
+                      "channels": {
+                        "type": "integer",
+                        "const": 16,
+                        "description": "Number of GPIO channels"
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "CAT9555",
+                        "description": "GPIO controller type"
+                      },
+                      "function": {
+                        "type": "string",
+                        "enum": ["h_bridge_control", "general_purpose", "status_indication"],
+                        "default": "h_bridge_control",
+                        "description": "Primary function of GPIO controller"
+                      }
+                    },
+                    "required": ["address"],
+                    "additionalProperties": false
+                  }
+                },
+                "bus_settings": {
+                  "type": "object",
+                  "properties": {
+                    "frequency_hz": {
+                      "type": "integer",
+                      "minimum": 10000,
+                      "maximum": 400000,
+                      "default": 100000,
+                      "description": "I2C clock frequency in Hz"
+                    },
+                    "timeout_ms": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 10000,
+                      "default": 1000,
+                      "description": "Bus timeout in milliseconds"
+                    },
+                    "max_retries": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10,
+                      "default": 3,
+                      "description": "Maximum retry attempts"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": ["type", "device"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "regulators": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+                "description": "Unique regulator identifier"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "Human-readable name"
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true,
+                "description": "Enable this regulator"
+              },
+              "i2c_bus": {
+                "type": "string",
+                "description": "Reference to I2C bus configuration"
+              },
+              "temperature_sensor": {
+                "type": "object",
+                "properties": {
+                  "adc_address": {
+                    "type": "integer",
+                    "minimum": 72,
+                    "maximum": 75,
+                    "description": "ADC I2C address"
+                  },
+                  "adc_channel": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "description": "ADC channel number"
+                  },
+                  "sensor_type": {
+                    "type": "string",
+                    "enum": ["thermocouple_k", "thermocouple_j", "rtd_pt100", "rtd_pt1000", "thermistor_ntc", "generic"],
+                    "default": "generic",
+                    "description": "Temperature sensor type"
+                  }
+                },
+                "required": ["adc_address", "adc_channel"],
+                "additionalProperties": false
+              },
+              "actuators": {
+                "type": "object",
+                "properties": {
+                  "thermal_control": {
+                    "type": "object",
+                    "properties": {
+                      "pwm_controller": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 127,
+                            "description": "PWM controller I2C address"
+                          },
+                          "channel": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 15,
+                            "description": "PWM channel number"
+                          }
+                        },
+                        "required": ["address", "channel"],
+                        "additionalProperties": false
+                      },
+                      "direction_controller": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "integer",
+                            "minimum": 32,
+                            "maximum": 39,
+                            "description": "GPIO controller I2C address"
+                          },
+                          "gpio_pins": {
+                            "type": "object",
+                            "properties": {
+                              "h_bridge_in1": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 15,
+                                "description": "H-Bridge IN1 GPIO pin"
+                              },
+                              "h_bridge_in2": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 15,
+                                "description": "H-Bridge IN2 GPIO pin"
+                              },
+                              "h_bridge_enable": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 15,
+                                "description": "H-Bridge enable GPIO pin"
+                              }
+                            },
+                            "required": ["h_bridge_in1", "h_bridge_in2", "h_bridge_enable"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["address", "gpio_pins"],
+                        "additionalProperties": false
+                      },
+                      "thermal_modes": {
+                        "type": "object",
+                        "properties": {
+                          "heating_tec": {
+                            "type": "object",
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                                "description": "Mode description"
+                              },
+                              "h_bridge_direction": {
+                                "type": "string",
+                                "enum": ["forward", "reverse"],
+                                "description": "H-Bridge direction"
+                              },
+                              "power_range": {
+                                "type": "string",
+                                "pattern": "^\\d+(-\\d+)?%$",
+                                "description": "Power range specification"
+                              },
+                              "max_power_percent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 100,
+                                "description": "Maximum power percentage"
+                              }
+                            },
+                            "required": ["description", "h_bridge_direction", "power_range"],
+                            "additionalProperties": false
+                          },
+                          "cooling_tec": {
+                            "type": "object",
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                                "description": "Mode description"
+                              },
+                              "h_bridge_direction": {
+                                "type": "string",
+                                "enum": ["forward", "reverse"],
+                                "description": "H-Bridge direction"
+                              },
+                              "power_range": {
+                                "type": "string",
+                                "pattern": "^\\d+(-\\d+)?%$",
+                                "description": "Power range specification"
+                              },
+                              "max_power_percent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 100,
+                                "description": "Maximum power percentage"
+                              }
+                            },
+                            "required": ["description", "h_bridge_direction", "power_range"],
+                            "additionalProperties": false
+                          },
+                          "heating_resistive": {
+                            "type": "object",
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                                "description": "Mode description"
+                              },
+                              "h_bridge_direction": {
+                                "type": "string",
+                                "enum": ["forward", "reverse"],
+                                "description": "H-Bridge direction"
+                              },
+                              "power_range": {
+                                "type": "string",
+                                "pattern": "^\\d+(-\\d+)?%$",
+                                "description": "Power range specification"
+                              },
+                              "max_power_percent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 100,
+                                "description": "Maximum power percentage"
+                              }
+                            },
+                            "required": ["description", "h_bridge_direction", "power_range"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["heating_tec", "cooling_tec", "heating_resistive"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["pwm_controller", "direction_controller", "thermal_modes"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["thermal_control"],
+                "additionalProperties": false
+              },
+              "temperature_conversion": {
+                "type": "object",
+                "properties": {
+                  "formula": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Temperature conversion formula"
+                  },
+                  "adc_resolution": {
+                    "type": "integer",
+                    "minimum": 8,
+                    "maximum": 24,
+                    "description": "ADC resolution in bits"
+                  },
+                  "voltage_reference": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 10.0,
+                    "description": "Voltage reference in volts"
+                  },
+                  "conversion_type": {
+                    "type": "string",
+                    "enum": ["polynomial", "linear", "lookup_table"],
+                    "default": "polynomial",
+                    "description": "Conversion algorithm type"
+                  }
+                },
+                "required": ["formula", "adc_resolution", "voltage_reference"],
+                "additionalProperties": false
+              },
+              "pid_parameters": {
+                "type": "object",
+                "properties": {
+                  "kp": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Proportional gain"
+                  },
+                  "ki": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Integral gain"
+                  },
+                  "kd": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Derivative gain"
+                  },
+                  "setpoint": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Target temperature setpoint in Kelvin"
+                  },
+                  "output_min": {
+                    "type": "number",
+                    "description": "Minimum output value"
+                  },
+                  "output_max": {
+                    "type": "number",
+                    "description": "Maximum output value"
+                  },
+                  "integral_max": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Maximum integral value (anti-windup)"
+                  }
+                },
+                "required": ["kp", "ki", "kd", "setpoint", "output_min", "output_max", "integral_max"],
+                "additionalProperties": false
+              },
+              "control_parameters": {
+                "type": "object",
+                "properties": {
+                  "sampling_frequency_hz": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 1000,
+                    "description": "Sampling frequency in Hz"
+                  },
+                  "pwm_frequency_hz": {
+                    "type": "number",
+                    "minimum": 24,
+                    "maximum": 1526,
+                    "description": "PWM frequency in Hz"
+                  }
+                },
+                "required": ["sampling_frequency_hz", "pwm_frequency_hz"],
+                "additionalProperties": false
+              },
+              "safety_limits": {
+                "type": "object",
+                "properties": {
+                  "min_temperature_k": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Minimum allowed temperature in Kelvin"
+                  },
+                  "max_temperature_k": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Maximum allowed temperature in Kelvin"
+                  },
+                  "max_heating_duty": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Maximum heating duty cycle percentage"
+                  },
+                  "max_cooling_duty": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Maximum cooling duty cycle percentage"
+                  }
+                },
+                "required": ["min_temperature_k", "max_temperature_k", "max_heating_duty", "max_cooling_duty"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["id", "name", "i2c_bus", "temperature_sensor", "actuators", "temperature_conversion", "pid_parameters", "control_parameters", "safety_limits"],
+            "additionalProperties": false
+          }
+        },
+        "global_settings": {
+          "type": "object",
+          "properties": {
+            "global_sampling_rate_hz": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 1000,
+              "default": 10.0,
+              "description": "Global sampling rate for all regulators"
+            },
+            "max_concurrent_regulators": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64,
+              "default": 32,
+              "description": "Maximum number of concurrent regulators"
+            },
+            "resource_sharing": {
+              "type": "object",
+              "properties": {
+                "i2c_arbitration_timeout_ms": {
+                  "type": "integer",
+                  "minimum": 10,
+                  "maximum": 10000,
+                  "default": 100,
+                  "description": "I2C bus arbitration timeout"
+                },
+                "max_operation_queue_size": {
+                  "type": "integer",
+                  "minimum": 10,
+                  "maximum": 10000,
+                  "default": 100,
+                  "description": "Maximum operation queue size"
+                },
+                "priority_scheduling": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Enable priority-based scheduling"
+                }
+              },
+              "additionalProperties": false
+            },
+            "monitoring": {
+              "type": "object",
+              "properties": {
+                "enable_performance_monitoring": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Enable performance monitoring"
+                },
+                "metrics_interval_s": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 3600,
+                  "default": 1.0,
+                  "description": "Metrics collection interval"
+                },
+                "enable_thermal_history": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Enable thermal history logging"
+                },
+                "history_buffer_size": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 100000,
+                  "default": 1000,
+                  "description": "History buffer size"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [
