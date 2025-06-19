@@ -13,8 +13,8 @@ use std::collections::{HashMap, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
-/// Maximum number of historical data points per regulator (1 hour at 1Hz)
-pub const MAX_HISTORY_SIZE: usize = 3600;
+/// Maximum number of historical data points per regulator (1 day at 1Hz)
+pub const MAX_HISTORY_SIZE: usize = 86400;
 
 /// Single data point in thermal regulation history
 #[derive(Debug, Clone, Serialize, Deserialize)]
