@@ -149,7 +149,7 @@ mod tests {
     use super::*;
     use crate::acquisition::{get_default_audio_source, AudioStreamConsumer};
     use std::time::Duration;
-    use tokio::time::timeout;
+    use tokio::time::{sleep, timeout};
 
     #[tokio::test]
     async fn test_acquisition_daemon() {

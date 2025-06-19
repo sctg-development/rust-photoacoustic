@@ -23,6 +23,9 @@ use crate::acquisition::{
 };
 use crate::processing::nodes::StreamingNodeRegistry;
 use crate::processing::{ProcessingConsumer, ProcessingGraph};
+use crate::thermal_regulation::{
+    create_shared_thermal_state, SharedThermalState, ThermalRegulationSystemDaemon,
+};
 use crate::utility::PhotoacousticDataSource;
 use crate::visualization::server::build_rocket;
 use crate::visualization::shared_state::SharedVisualizationState;
@@ -80,6 +83,10 @@ pub struct Daemon {
     /// Shared configuration for dynamic configuration support
     /// This is the single source of truth for all configuration across the application
     config: Arc<RwLock<crate::config::Config>>,
+    /// Thermal regulation system daemon for PID temperature control
+    thermal_regulation_daemon: Option<ThermalRegulationSystemDaemon>,
+    /// Shared thermal regulation state for historical data and monitoring
+    thermal_regulation_state: SharedThermalState,
 }
 
 impl Default for Daemon {
@@ -120,6 +127,8 @@ impl Daemon {
             visualization_state: Arc::new(SharedVisualizationState::new()),
             streaming_registry: Arc::new(StreamingNodeRegistry::new()),
             config: Arc::new(RwLock::new(crate::config::Config::default())),
+            thermal_regulation_daemon: None,
+            thermal_regulation_state: create_shared_thermal_state(),
         }
     }
 
@@ -200,6 +209,11 @@ impl Daemon {
         // Start modbus server if enabled
         if self.config.read().unwrap().modbus.enabled {
             self.start_modbus_server().await?;
+        }
+
+        // Start thermal regulation system if enabled
+        if self.config.read().unwrap().thermal_regulation.enabled {
+            self.start_thermal_regulation_system().await?;
         }
 
         // Start computation task if enabled
@@ -863,6 +877,167 @@ impl Daemon {
         Ok(())
     }
 
+    /// Start the thermal regulation system daemon
+    ///
+    /// Initializes and starts the thermal regulation system with multiple independent
+    /// PID controllers, each running in its own thread with individual sampling frequencies.
+    /// The system provides precise temperature control for photoacoustic applications.
+    ///
+    /// This method creates a thermal regulation daemon that manages all configured
+    /// thermal regulators according to the shared configuration. Each regulator
+    /// operates independently with its own:
+    /// - PID controller parameters (Kp, Ki, Kd)
+    /// - Sampling frequency (sampling_frequency_hz)
+    /// - Target temperature setpoint
+    /// - Hardware driver (mock, native, or CP2112)
+    ///
+    /// The thermal regulation system maintains a shared state with historical data
+    /// (up to 3600 data points per regulator) that can be accessed by the web interface
+    /// and other system components.
+    ///
+    /// ### Returns
+    ///
+    /// * `Result<()>` - Success if the thermal regulation system started successfully
+    ///
+    /// ### Errors
+    ///
+    /// This function can fail if:
+    /// * Hardware initialization fails
+    /// * Configuration is invalid
+    /// * Thread spawning fails
+    /// * Driver creation fails
+    async fn start_thermal_regulation_system(&mut self) -> Result<()> {
+        info!("Starting thermal regulation system");
+
+        // Extract thermal regulation configuration
+        let thermal_config = {
+            let config = self.config.read().unwrap();
+            config.thermal_regulation.clone()
+        };
+
+        if !thermal_config.enabled {
+            info!("Thermal regulation system is disabled in configuration");
+            return Ok(());
+        }
+
+        if thermal_config.regulators.is_empty() {
+            warn!("No thermal regulators configured");
+            return Ok(());
+        }
+
+        // Create thermal regulation system daemon
+        let mut thermal_daemon = ThermalRegulationSystemDaemon::new(
+            thermal_config,
+            self.thermal_regulation_state.clone(),
+            self.running.clone(),
+        );
+
+        // Start the thermal regulation system
+        thermal_daemon.start().await?;
+
+        info!(
+            "Thermal regulation system started successfully with {} regulators",
+            thermal_daemon
+                .get_shared_state()
+                .read()
+                .await
+                .get_regulator_ids()
+                .len()
+        );
+
+        // Store the daemon for later management
+        self.thermal_regulation_daemon = Some(thermal_daemon);
+
+        Ok(())
+    }
+
+    /// Get thermal regulation shared state for external access
+    ///
+    /// Returns a reference to the shared thermal regulation state that contains
+    /// historical data, current status, and PID parameters for all thermal regulators.
+    /// This can be used by the web interface and API endpoints to provide
+    /// real-time monitoring and control capabilities.
+    ///
+    /// ### Returns
+    ///
+    /// Reference to the shared thermal regulation state
+    pub fn get_thermal_regulation_state(&self) -> &SharedThermalState {
+        &self.thermal_regulation_state
+    }
+
+    /// Update PID parameters for a specific thermal regulator
+    ///
+    /// Allows dynamic updating of PID controller parameters for a specific regulator
+    /// without requiring a system restart. This enables real-time tuning and
+    /// optimization of thermal control performance.
+    ///
+    /// ### Arguments
+    ///
+    /// * `regulator_id` - Unique identifier of the thermal regulator
+    /// * `kp` - Proportional gain
+    /// * `ki` - Integral gain  
+    /// * `kd` - Derivative gain
+    ///
+    /// ### Returns
+    ///
+    /// * `Result<()>` - Success if parameters were updated successfully
+    ///
+    /// ### Errors
+    ///
+    /// This function can fail if:
+    /// * The specified regulator is not found
+    /// * The thermal regulation system is not running
+    pub async fn update_thermal_regulator_pid_parameters(
+        &mut self,
+        regulator_id: &str,
+        kp: f64,
+        ki: f64,
+        kd: f64,
+    ) -> Result<()> {
+        if let Some(ref mut thermal_daemon) = self.thermal_regulation_daemon {
+            thermal_daemon
+                .update_regulator_pid_parameters(regulator_id, kp, ki, kd)
+                .await
+        } else {
+            Err(anyhow::anyhow!("Thermal regulation system is not running"))
+        }
+    }
+
+    /// Update setpoint temperature for a specific thermal regulator
+    ///
+    /// Allows dynamic updating of the target temperature setpoint for a specific
+    /// regulator without requiring a system restart. This enables real-time control
+    /// of thermal regulation targets.
+    ///
+    /// ### Arguments
+    ///
+    /// * `regulator_id` - Unique identifier of the thermal regulator
+    /// * `setpoint_celsius` - New target temperature in degrees Celsius
+    ///
+    /// ### Returns
+    ///
+    /// * `Result<()>` - Success if setpoint was updated successfully
+    ///
+    /// ### Errors
+    ///
+    /// This function can fail if:
+    /// * The specified regulator is not found
+    /// * The thermal regulation system is not running
+    /// * The setpoint is outside safety limits
+    pub async fn update_thermal_regulator_setpoint(
+        &mut self,
+        regulator_id: &str,
+        setpoint_celsius: f64,
+    ) -> Result<()> {
+        if let Some(ref mut thermal_daemon) = self.thermal_regulation_daemon {
+            thermal_daemon
+                .update_regulator_setpoint(regulator_id, setpoint_celsius)
+                .await
+        } else {
+            Err(anyhow::anyhow!("Thermal regulation system is not running"))
+        }
+    }
+
     /// Get the shared data source
     ///
     /// ### Returns
@@ -959,7 +1134,27 @@ impl Daemon {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn join(self) -> Result<()> {
+    pub async fn join(mut self) -> Result<()> {
+        // Stop thermal regulation system if running
+        if let Some(ref mut thermal_daemon) = self.thermal_regulation_daemon {
+            info!("Stopping thermal regulation system");
+            if let Err(e) = thermal_daemon.stop().await {
+                error!("Failed to stop thermal regulation system: {}", e);
+            }
+        }
+
+        // Stop other daemons
+        if let Some(ref record_consumer) = self.record_consumer_daemon {
+            info!("Stopping record consumer");
+            record_consumer.stop();
+        }
+
+        if let Some(ref processing_consumer) = self.processing_consumer_daemon {
+            info!("Stopping processing consumer");
+            processing_consumer.stop().await;
+        }
+
+        // Wait for all tasks to complete
         for task in self.tasks {
             match tokio::time::timeout(Duration::from_secs(5), task).await {
                 Ok(result) => {

@@ -11,8 +11,14 @@
 //! - Hardware abstraction for different thermal control systems
 
 pub mod controller;
+pub mod daemon;
 pub mod drivers;
+pub mod shared_state;
 pub mod simulation;
+
+// Re-export main types for easier access
+pub use daemon::ThermalRegulationSystemDaemon;
+pub use shared_state::{create_shared_thermal_state, SharedThermalState};
 
 use anyhow::Result;
 use std::collections::HashMap;
@@ -47,7 +53,7 @@ pub trait I2CBusDriver {
 /// encapsulating temperature reading, control output, and thermal direction control.
 /// It allows the PID tuner to be completely hardware-independent.
 #[async_trait::async_trait]
-pub trait ThermalRegulationDriver {
+pub trait ThermalRegulationDriver: Send + Sync {
     /// Read the current temperature from the thermal sensor
     ///
     /// Returns the temperature in degrees Celsius.
