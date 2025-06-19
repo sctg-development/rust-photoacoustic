@@ -67,6 +67,10 @@ pub struct Args {
     #[arg(short, long)]
     pub interactive: bool,
 
+    /// Enable tuning real driver (default is mock driver only)
+    #[arg(long, default_value = "false")]
+    pub real_regulator: bool,
+
     /// Enable verbose logging
     #[arg(short, long)]
     pub verbose: bool,
@@ -124,10 +128,17 @@ async fn main() -> Result<()> {
     // Find the specified regulator
     let regulator_config = find_regulator_config(&config, &args.regulator_id)?;
 
-    // Verify it's using a mock driver for safety
-    verify_mock_driver(&config, regulator_config)?;
+    if !args.real_regulator {
+        // Verify it's using a mock driver for safety
+        verify_mock_driver(&config, regulator_config)?;
+    } else {
+        info!("Real regulator tuning enabled - ensure safety precautions are followed");
+    }
 
-    info!("Found regulator '{}' with mock driver", args.regulator_id);
+    info!(
+        "Found regulator '{}' with driver {}",
+        args.regulator_id, regulator_config.i2c_bus
+    );
 
     // Perform the tuning
     let tuning_result = match args.method {
