@@ -9,15 +9,15 @@
 
 use anyhow::Result;
 use rocket::serde::{Deserialize, Serialize};
+use rocket_okapi::JsonSchema;
 use std::collections::{HashMap, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
-
 /// Maximum number of historical data points per regulator (1 day at 1Hz)
 pub const MAX_HISTORY_SIZE: usize = 86400;
 
 /// Single data point in thermal regulation history
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ThermalDataPoint {
     /// Timestamp in Unix seconds
     pub timestamp: u64,
@@ -32,7 +32,7 @@ pub struct ThermalDataPoint {
 }
 
 /// PID controller components for analysis
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PidComponents {
     /// Proportional term value
     pub proportional: f64,
@@ -45,7 +45,7 @@ pub struct PidComponents {
 }
 
 /// Historical data for a single thermal regulator
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ThermalRegulatorHistory {
     /// Regulator unique identifier
     pub id: String,
@@ -64,7 +64,7 @@ pub struct ThermalRegulatorHistory {
 }
 
 /// Current status of a thermal regulator
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum RegulatorStatus {
     /// Regulator is not initialized
     Uninitialized,
@@ -79,7 +79,7 @@ pub enum RegulatorStatus {
 }
 
 /// Current PID parameters for a regulator
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CurrentPidParams {
     /// Proportional gain
     pub kp: f64,
@@ -95,7 +95,7 @@ pub struct CurrentPidParams {
 }
 
 /// Shared thermal regulation state across the entire system
-#[derive(Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct SharedThermalRegulationState {
     /// Map of regulator ID to its historical data
     regulators: HashMap<String, ThermalRegulatorHistory>,
@@ -106,7 +106,7 @@ pub struct SharedThermalRegulationState {
 }
 
 /// Global thermal regulation system status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ThermalSystemStatus {
     /// Total number of configured regulators
     pub total_regulators: usize,

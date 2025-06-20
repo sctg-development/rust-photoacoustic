@@ -206,9 +206,12 @@ pub async fn build_rocket(
         .manage(config.clone()); // Add config as managed state for future dynamic configuration
 
     // Add thermal regulation state if available
+    let (openapi_routes_thermal, openapi_spec_thermal) = get_thermal_routes();
     let rocket_builder = if let Some(thermal_state) = thermal_state {
         debug!("Adding SharedThermalState to Rocket state management");
-        rocket_builder.manage(thermal_state)
+        rocket_builder
+            .manage(thermal_state)
+            .mount("/", openapi_routes_thermal)
     } else {
         debug!("No thermal state provided, thermal regulation API will return 404");
         rocket_builder
@@ -248,7 +251,11 @@ pub async fn build_rocket(
         (openapi_routes_audio, openapi_spec_audio) = get_audio_streaming_routes();
 
         // Merge the audio OpenAPI spec with the base spec
-        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), ("/".to_string(),openapi_spec_audio), ("/".to_string(),openapi_spec_graph), ("/".to_string(),openapi_spec_config)]).unwrap();
+        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), 
+                                                    ("/".to_string(),openapi_spec_audio), 
+                                                    ("/".to_string(),openapi_spec_graph), 
+                                                    ("/".to_string(),openapi_spec_config),
+                                                    ( "/".to_string(), openapi_spec_thermal)]).unwrap();
         let openapi_settings = OpenApiSettings::default();
         rocket_builder
             .mount(
