@@ -98,7 +98,7 @@ pub struct CurrentPidParams {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct SharedThermalRegulationState {
     /// Map of regulator ID to its historical data
-    regulators: HashMap<String, ThermalRegulatorHistory>,
+    pub regulators: HashMap<String, ThermalRegulatorHistory>,
     /// Global system status
     system_status: ThermalSystemStatus,
     /// Last global update timestamp
