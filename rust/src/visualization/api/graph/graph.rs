@@ -221,7 +221,8 @@ pub async fn post_node_config(
         Some(graph) => {
             match graph.nodes.iter().find(|node| node.id == node_id) {
                 Some(serializable_node) => {
-                    if serializable_node.supports_hot_reload {                        // Update the configuration in the shared config
+                    if serializable_node.supports_hot_reload {
+                        // Update the configuration in the shared config
                         let updated_params = {
                             let mut config_write = config.inner().write().await;
 
