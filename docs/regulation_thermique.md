@@ -182,7 +182,7 @@ graph TB
     subgraph "Matériel et Simulation"
         subgraph "Simulation Mock"
             MOCK_CELL[Cellule SS316 Virtuelle<br/>1016g, Dynamique Thermique Réaliste]
-            MOCK_PELTIER[Peltier 5W Simulé<br/>Refroidissement/Chauffage]
+            MOCK_PELTIER[Peltier 32W Simulé<br/>Refroidissement/Chauffage]
             MOCK_HEATER[Résistance 60W Simulée<br/>DBK HPG-1/10-60x35-12-24V]
             MOCK_TEMP[Capteur Température Simulé<br/>Formule NTC Configurable]
         end
@@ -1157,7 +1157,7 @@ Le driver mock simule précisément une **cellule photoacoustique en acier inoxy
 graph TB
     subgraph "Cellule Photoacoustique Simulée"
         CELL[Cellule SS316<br/>1016g, 110×30×60mm]
-        PELTIER[Module Peltier<br/>15×30mm, 5W max]
+        PELTIER[Module Peltier<br/>15×30mm, 32W max]
         HEATER[Résistance Chauffante<br/>DBK HPG-1/10-60x35-12-24V<br/>60W max, 12V, 5Ω]
         AMBIENT[Échange Thermique<br/>Ambiant 25°C]
     end
@@ -1348,7 +1348,7 @@ La simulation a été calibrée pour reproduire des réponses thermiques réalis
 | Test | Conditions | Temps de réponse simulé | Temps de réponse attendu |
 |------|------------|-------------------------|--------------------------|
 | **Échelon +60W** | 25°C → setpoint | 3τ ≈ 540s | 480-600s (typique SS316) |
-| **Refroidissement Peltier** | 40°C → 25°C | 2.5τ ≈ 450s | 400-500s (Peltier 5W) |
+| **Refroidissement Peltier** | 40°C → 25°C | 2.5τ ≈ 450s | 400-500s (Peltier 32W) |
 | **Stabilisation** | ±0.1°C | τ/5 ≈ 36s | 30-40s (masse thermique) |
 
 ##### Avantages pour le Développement
@@ -2718,20 +2718,20 @@ flowchart LR
     subgraph "PID Tuner Générique (Hardware Agnostic)"
         START[Démarrage] --> CONFIG_LOAD[Chargement Config]
         CONFIG_LOAD --> DRIVER_FACTORY[Factory Driver<br/>create_thermal_regulation_driver]
-        DRIVER_FACTORY --> DRIVER_INIT[driver.initialize()]
+        DRIVER_FACTORY --> DRIVER_INIT["driver.initialize()"]
         
         DRIVER_INIT --> METHOD[Sélection Méthode<br/>- Ziegler-Nichols<br/>- Cohen-Coon<br/>- Manuel]
         
         METHOD --> |Auto| AUTO_TUNE[Tuning Automatique]
         METHOD --> |Manuel| MANUAL_TUNE[Interface Interactive]
         
-        AUTO_TUNE --> STEP_RESPONSE[Test Réponse Échelon<br/>driver.apply_control_output()]
-        STEP_RESPONSE --> READ_TEMP[Mesure Température<br/>driver.read_temperature()]
+        AUTO_TUNE --> STEP_RESPONSE["Test Réponse Échelon<br/>driver.apply_control_output()"]
+        STEP_RESPONSE --> READ_TEMP["Mesure Température<br/>driver.read_temperature()"]
         READ_TEMP --> ANALYZE[Analyse Réponse]
         ANALYZE --> CALC_PARAMS[Calcul Kp, Ki, Kd]
         
         MANUAL_TUNE --> USER_INPUT[Saisie Paramètres]
-        USER_INPUT --> TEST_RESPONSE[Test Réponse<br/>driver.apply_control_output()]
+        USER_INPUT --> TEST_RESPONSE["Test Réponse<br/>driver.apply_control_output()"]
         TEST_RESPONSE --> |Ajuster| USER_INPUT
         
         CALC_PARAMS --> OUTPUT[Génération Config]
@@ -2844,7 +2844,7 @@ Le driver mock inclut une **simulation physique avancée** de la cellule photoac
 graph TB
     subgraph "Modèle Physique Complet"
         CELL[Cellule SS316 1016g<br/>110×30×60mm<br/>Cp=500 J/kg·K<br/>ρ=7900 kg/m³]
-        PELTIER[Module Peltier 15×30mm<br/>±5W Bidirectionnel<br/>COP variable]
+        PELTIER[Module Peltier 15×30mm<br/>±32W Bidirectionnel<br/>COP variable]
         HEATER[Résistance DBK HPG-1/10<br/>60W Max, 35mm²<br/>Efficacité 95%]
         AMBIENT[Environnement Ambiant<br/>25°C ±2°C<br/>Convection naturelle]
         
@@ -2863,7 +2863,7 @@ graph TB
         MASS["Masse Cellule<br/>1016g (mesurée)"]
         HEAT_CAP[Capacité Thermique<br/>Cp = 500 J/kg·K]
         THERMAL_RESIST[Résistance Thermique<br/>Rth = 0.12 K/W]
-        POWER_LIMITS[Limites Puissance<br/>Peltier: ±5W<br/>Heater: 0-60W]
+        POWER_LIMITS[Limites Puissance<br/>Peltier: ±32W<br/>Heater: 0-60W]
     end
     
     THERMAL_MODEL --> MASS
