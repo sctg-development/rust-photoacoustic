@@ -33,7 +33,7 @@ graph LR
     
     BROWSER -->|/client/*| ROCKET
     
-    ROCKET -->|Dev Mode<br/>VITE_DEVELOPMENT=true| VITE
+    ROCKET -->|Dev Mode<br/>EXTERNAL_WEB_CLIENT=true| VITE
     ROCKET -->|Production Mode<br/>Static Assets| ASSETS
     
     VITE -->|HMR + Fast Builds| ROCKET
@@ -50,7 +50,7 @@ graph LR
 ### Development Mode Flow
 
 1. **Request arrives** at Rocket server (`/client/*`)
-2. **Environment check** for `VITE_DEVELOPMENT` variable
+2. **Environment check** for `EXTERNAL_WEB_CLIENT` variable
 3. **Proxy decision**: If set, proxy to Vite; otherwise, serve embedded assets
 4. **Request forwarding** to Vite development server
 5. **Response processing** and content type handling
@@ -81,7 +81,7 @@ src/visualization/
 ```rust,ignore
 /// Check if Vite development mode is enabled
 pub fn is_vite_development_enabled() -> bool {
-    env::var("VITE_DEVELOPMENT").is_ok()
+    env::var("EXTERNAL_WEB_CLIENT").is_ok()
 }
 ```
 
@@ -165,10 +165,10 @@ The system includes specialized route handlers for different Vite request patter
 
 ```bash
 # Required for development mode
-export VITE_DEVELOPMENT=http://localhost:5173
+export EXTERNAL_WEB_CLIENT=http://localhost:5173
 
 # For HTTPS development (if backend uses TLS)
-export VITE_DEVELOPMENT=https://localhost:5173
+export EXTERNAL_WEB_CLIENT=https://localhost:5173
 ```
 
 ### Vite Configuration
@@ -201,7 +201,7 @@ npm run dev
 
 # Terminal 2: Start Rust server with proxy enabled
 cd ..
-VITE_DEVELOPMENT=http://localhost:5173 cargo run
+EXTERNAL_WEB_CLIENT=http://localhost:5173 cargo run
 ```
 
 ### 2. Development Process
@@ -266,7 +266,7 @@ let content_type = response
 
 ```bash
 # For HTTPS backends, Vite must also use HTTPS
-export VITE_DEVELOPMENT=https://localhost:5173
+export EXTERNAL_WEB_CLIENT=https://localhost:5173
 ```
 
 #### 3. Missing Assets
@@ -276,7 +276,7 @@ export VITE_DEVELOPMENT=https://localhost:5173
 curl http://localhost:5173/client/
 
 # Verify environment variable
-echo $VITE_DEVELOPMENT
+echo $EXTERNAL_WEB_CLIENT
 ```
 
 ### Logging
@@ -284,7 +284,7 @@ echo $VITE_DEVELOPMENT
 Enable debug logging to trace proxy requests:
 
 ```bash
-RUST_LOG=debug VITE_DEVELOPMENT=http://localhost:5173 cargo run
+RUST_LOG=debug EXTERNAL_WEB_CLIENT=http://localhost:5173 cargo run
 ```
 
 Look for log messages like:
@@ -312,7 +312,7 @@ DEBUG rust_photoacoustic::visualization::vite_dev_proxy] Returning web client co
 
 ### For DevOps
 
-1. **Environment separation**: Never set `VITE_DEVELOPMENT` in production
+1. **Environment separation**: Never set `EXTERNAL_WEB_CLIENT` in production
 2. **Asset embedding**: Ensure `web/dist/` is built before Rust compilation
 3. **HTTPS consistency**: If backend uses TLS, Vite should too
 4. **Port management**: Ensure development ports don't conflict

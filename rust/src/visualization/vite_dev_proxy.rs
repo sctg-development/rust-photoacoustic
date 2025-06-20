@@ -5,7 +5,7 @@
 //! Vite Development Proxy Module
 //!
 //! This module provides proxy functionality for Vite development server integration.
-//! When the `VITE_DEVELOPMENT` environment variable is set, all web client requests
+//! When the `EXTERNAL_WEB_CLIENT` environment variable is set, all web client requests
 //! are proxied to the running Vite development server for hot reloading and
 //! development features.
 //!
@@ -22,7 +22,7 @@
 //!
 //! ## Environment Configuration
 //!
-//! - `VITE_DEVELOPMENT`: Base URL of the Vite development server (default: `http://localhost:5173`)
+//! - `EXTERNAL_WEB_CLIENT`: Base URL of the Vite development server (default: `http://localhost:5173`)
 //! - Note: that vite must use https if the main server is running with TLS (needed for WebSocket connections)
 //!
 //! ## Example
@@ -32,7 +32,7 @@
 //! cd web && npm run dev
 //!
 //! # Start Rust server with Vite proxy enabled
-//! VITE_DEVELOPMENT=http://localhost:5173 cargo run
+//! EXTERNAL_WEB_CLIENT=http://localhost:5173 cargo run
 //! ```
 #![doc = include_str!("../../../docs/vite_dev_with_rocket.md")]
 
@@ -45,17 +45,17 @@ use std::path::PathBuf;
 
 /// Get the Vite development server base URL from environment
 ///
-/// Returns the URL from the `VITE_DEVELOPMENT` environment variable,
+/// Returns the URL from the `EXTERNAL_WEB_CLIENT` environment variable,
 /// or defaults to `http://localhost:5173` if not set.
 fn get_vite_base_url() -> String {
-    env::var("VITE_DEVELOPMENT").unwrap_or_else(|_| "http://localhost:5173".to_string())
+    env::var("EXTERNAL_WEB_CLIENT").unwrap_or_else(|_| "http://localhost:5173".to_string())
 }
 
 /// Check if Vite development mode is enabled
 ///
-/// Returns `true` if the `VITE_DEVELOPMENT` environment variable is set.
+/// Returns `true` if the `EXTERNAL_WEB_CLIENT` environment variable is set.
 pub fn is_vite_development_enabled() -> bool {
-    env::var("VITE_DEVELOPMENT").is_ok()
+    env::var("EXTERNAL_WEB_CLIENT").is_ok()
 }
 
 /// Build URL for proxying to Vite development server

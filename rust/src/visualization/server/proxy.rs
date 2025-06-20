@@ -19,7 +19,7 @@ pub async fn proxy_to_vite_dev_server(
     path: PathBuf,
     raw_query: RawQueryString,
 ) -> Option<StaticFileResponse> {
-    let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+    let vite_base = env::var("EXTERNAL_WEB_CLIENT").unwrap_or("http://localhost:5173".to_string());
     let path_str = path.to_str().unwrap_or("");
     let raw_query = if raw_query.0.is_empty() {
         String::new()
@@ -65,11 +65,11 @@ pub async fn proxy_to_vite_special_path(
     path: PathBuf,
     raw_query: RawQueryString,
 ) -> Option<StaticFileResponse> {
-    if !env::var("VITE_DEVELOPMENT").is_ok() {
+    if !env::var("EXTERNAL_WEB_CLIENT").is_ok() {
         return None;
     }
 
-    let vite_base = env::var("VITE_DEVELOPMENT").unwrap_or("http://localhost:5173".to_string());
+    let vite_base = env::var("EXTERNAL_WEB_CLIENT").unwrap_or("http://localhost:5173".to_string());
     let path_str = path.to_str().unwrap_or("");
     let raw_query = if raw_query.0.is_empty() {
         String::new()

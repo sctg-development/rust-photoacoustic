@@ -20,6 +20,7 @@ use clap::Parser;
 use config::Config;
 use log::info;
 
+use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
@@ -104,12 +105,30 @@ pub struct Args {
     /// List all available audio input devices
     #[arg(long = "list-devices", default_value_t = false)]
     list_devices: bool,
+
+    /// Use an external web client URL instead of the built-in client interface.
+    /// When specified, the internal server will proxy all /client/* requests to this external server.
+    /// This is useful for development or when using a custom web interface.
+    /// Must be a valid HTTP or HTTPS URL (e.g., http://localhost:3000 or https://example.com)
+    #[arg(long = "external-web-client", value_name = "URL")]
+    external_web_client: Option<String>,
 }
 
 #[rocket::main]
 async fn main() -> Result<()> {
     // Initialize logger with appropriate level based on verbose and quiet flags
     let args = Args::parse();
+
+    // If --external-web-client is set, validate the URL
+    if let Some(external_client) = &args.external_web_client {
+        if !external_client.starts_with("http://") && !external_client.starts_with("https://") {
+            return Err(anyhow::anyhow!(
+                "Invalid external web client URL: must start with http:// or https://"
+            ));
+        }
+        info!("Using external web client: {}", external_client);
+        env::set_var("EXTERNAL_WEB_CLIENT", external_client);
+    }
 
     if args.list_devices {
         // List available audio input devices

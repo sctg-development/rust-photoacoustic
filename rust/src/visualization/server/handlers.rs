@@ -48,7 +48,7 @@ pub async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 /// This route handler serves static files for the web client interface.
 /// It has two modes of operation:
 ///
-/// 1. **Development Mode**: When the `VITE_DEVELOPMENT` environment variable is set,
+/// 1. **Development Mode**: When the `EXTERNAL_WEB_CLIENT` environment variable is set,
 ///    it proxies requests to a running Vite development server
 /// 2. **Production Mode**: Otherwise, it serves the embedded static files from
 ///    the binary
@@ -67,7 +67,7 @@ pub async fn options(_path: PathBuf) -> Result<(), std::io::Error> {
 ///
 /// ### Development Mode
 ///
-/// When the `VITE_DEVELOPMENT` environment variable is set, requests are proxied
+/// When the `EXTERNAL_WEB_CLIENT` environment variable is set, requests are proxied
 /// to the URL specified in that variable (defaulting to `http://localhost:5173`).
 /// This allows for hot-reloading and other development features.
 #[get("/client/<path..>", rank = 2)]
