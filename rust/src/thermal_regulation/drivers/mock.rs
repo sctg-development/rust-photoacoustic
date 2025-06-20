@@ -20,6 +20,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+const AMBIENT_ROOM_TEMP_C: f64 = 25.0; // Ambient room temperature in Celsius
+
 /// Mock I2C driver for thermal regulation simulation
 pub struct MockI2CDriver {
     devices: Arc<Mutex<HashMap<u8, MockDevice>>>,
@@ -561,11 +563,11 @@ impl ThermalCellSimulation {
     pub fn new() -> Self {
         let now = Instant::now();
         Self {
-            temperature: 25.0, // Start at room temperature
+            temperature: AMBIENT_ROOM_TEMP_C, // Start at room temperature
             target_temperature: 41.0,
             peltier_power: 0.0,
             heater_power: 0.0,
-            ambient_temperature: 25.0,
+            ambient_temperature: AMBIENT_ROOM_TEMP_C,
             last_update: now,
             last_log_time: now,
             properties: ThermalProperties::default(),
@@ -689,7 +691,7 @@ mod tests {
         let mut sim = ThermalCellSimulation::new();
 
         // Test initial conditions
-        assert_eq!(sim.get_temperature(), 25.0);
+        assert_eq!(sim.get_temperature(), AMBIENT_ROOM_TEMP_C);
 
         // Test heating
         sim.set_heater_power(50.0);
@@ -697,7 +699,7 @@ mod tests {
 
         // Temperature should increase (though the change might be small)
         // This test verifies the simulation logic runs without error
-        assert!(sim.get_temperature() >= 25.0);
+        assert!(sim.get_temperature() >= AMBIENT_ROOM_TEMP_C);
 
         // Test cooling
         sim.set_peltier_power(-50.0);
@@ -775,7 +777,7 @@ mod tests {
 
         // Test step response
         let setpoint = 30.0;
-        let mut process_value = 25.0;
+        let mut process_value = AMBIENT_ROOM_TEMP_C;
         let dt = 0.1;
 
         for _ in 0..10 {
@@ -787,7 +789,7 @@ mod tests {
         }
 
         // PID should drive process value towards setpoint
-        assert!(process_value > 25.0); // Should have increased
+        assert!(process_value > AMBIENT_ROOM_TEMP_C); // Should have increased
     }
 
     #[test]
