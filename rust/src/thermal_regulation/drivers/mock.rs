@@ -22,10 +22,69 @@ use std::time::{Duration, Instant};
 
 const AMBIENT_ROOM_TEMP_C: f64 = 25.0; // Ambient room temperature in Celsius
 
-/// Mock I2C driver for thermal regulation simulation
-pub struct MockI2CDriver {
+// Physical dimensions and properties of the photoacoustic cell
+/// Cell mass in grams (stainless steel 316, 110x30x60mm)
+const CELL_MASS_G: f64 = 1016.0;
+/// Cell length in mm
+const CELL_LENGTH_MM: f64 = 110.0;
+/// Cell width in mm  
+const CELL_WIDTH_MM: f64 = 30.0;
+/// Cell height in mm
+const CELL_HEIGHT_MM: f64 = 60.0;
+/// Peltier module length in mm
+const PELTIER_LENGTH_MM: f64 = 15.0;
+/// Peltier module width in mm
+const PELTIER_WIDTH_MM: f64 = 30.0;
+/// Peltier module maximum power in Watts (typical for 15x30mm Peltier)
+const PELTIER_MAX_POWER_W: f64 = 32.0;
+/// Heating resistor maximum power in Watts (DBK HPG-1/10-60x35-12-24V)
+const HEATER_MAX_POWER_W: f64 = 60.0;
+
+/// Mock I2C driver for thermal regulation simulation with L298N H-Bridge control
+///
+/// # Reference Implementation for Real Hardware Drivers
+///
+/// This mock driver serves as a comprehensive reference implementation for developing
+/// real hardware drivers for thermal regulation systems using L298N H-Bridge motor
+/// drivers for Peltier module control. The architecture demonstrates:
+///
+/// ## Key Design Patterns:
+/// - **Multi-device management**: Handles multiple I2C devices (ADC, PWM, GPIO controllers)
+/// - **Hardware abstraction**: Separates logical operations from physical I2C transactions
+/// - **State tracking**: Maintains H-Bridge direction and PWM state for proper thermal control
+/// - **Thread-safe operations**: Uses Arc<Mutex<>> for concurrent access to shared state
+///
+/// ## Real Hardware Mapping:
+/// - **Temperature Sensor**: MCP9808 or ADS1115 ADC with NTC thermistor
+/// - **PWM Controller**: PCA9685 for H-Bridge enable (ENA/ENB) power control
+/// - **GPIO Controller**: CAT9555 for H-Bridge direction (IN1/IN2/IN3/IN4) control
+/// - **Thermal Actuator**: L298N H-Bridge driving Peltier modules and heating resistors
+///
+/// ## For Real Hardware Implementation:
+/// 1. Replace `ThermalCellSimulation` with actual temperature readings
+/// 2. Replace mock I2C transactions with real hardware communication
+/// 3. Keep the H-Bridge state management logic intact
+/// 4. Maintain the separation between direction control (GPIO) and power control (PWM)
+///
+/// ## Critical Implementation Notes:
+/// - **Direction before Power**: Always set H-Bridge direction via GPIO before applying PWM
+/// - **State Consistency**: Track H-Bridge state to ensure proper heating/cooling operation
+/// - **Error Handling**: Implement robust error handling for I2C communication failures
+/// - **Thread Safety**: Maintain thread-safe access patterns for concurrent thermal control
+pub struct MockI2CL298NDriver {
+    /// Collection of emulated I2C devices mapped by their bus addresses
+    /// In real hardware: Replace with actual I2C bus communication handles
     devices: Arc<Mutex<HashMap<u8, MockDevice>>>,
+
+    /// Thermal physics simulation replacing real temperature sensor readings
+    /// In real hardware: Remove this and implement actual sensor reading logic
     thermal_simulation: Arc<Mutex<ThermalCellSimulation>>,
+
+    /// Current H-Bridge direction and PWM state tracking
+    /// In real hardware: KEEP THIS - essential for proper L298N control coordination
+    h_bridge_state: Arc<Mutex<HBridgeState>>,
+
+    /// Driver initialization timestamp for debugging and diagnostics
     start_time: Instant,
 }
 
@@ -98,36 +157,73 @@ pub struct ThermalProperties {
 
 impl Default for ThermalProperties {
     fn default() -> Self {
-        let length_mm = 110.0;
-        let width_mm = 30.0;
-        let height_mm = 60.0;
-
         // Calculate surface area in m²
         let surface_area_m2 = 2.0
-            * ((length_mm * width_mm) + (length_mm * height_mm) + (width_mm * height_mm))
+            * ((CELL_LENGTH_MM * CELL_WIDTH_MM)
+                + (CELL_LENGTH_MM * CELL_HEIGHT_MM)
+                + (CELL_WIDTH_MM * CELL_HEIGHT_MM))
             / 1_000_000.0; // Convert mm² to m²
 
         Self {
-            mass_g: 1016.0,
-            dimensions_mm: (length_mm, width_mm, height_mm),
+            mass_g: CELL_MASS_G,
+            dimensions_mm: (CELL_LENGTH_MM, CELL_WIDTH_MM, CELL_HEIGHT_MM),
             specific_heat: 501.0, // J/kg·K for stainless steel 316 (updated from 0.5 J/g·K)
             thermal_conductivity: 16.2, // W/m·K for stainless steel 316
             surface_area_m2,
             heat_transfer_coefficient: 25.0, // W/m²·K (increased for better heat dissipation)
-            peltier_max_power: 5.0,          // W (typical for 15x30mm Peltier)
-            peltier_dimensions_mm: (15.0, 30.0),
-            heater_max_power: 60.0, // W - DBK HPG-1/10-60x35-12-24V (60W resistor)
+            peltier_max_power: PELTIER_MAX_POWER_W,
+            peltier_dimensions_mm: (PELTIER_LENGTH_MM, PELTIER_WIDTH_MM),
+            heater_max_power: HEATER_MAX_POWER_W,
             thermal_time_constant: 90.0, // seconds (reduced for faster response with 60W heater)
         }
     }
 }
 
-impl MockI2CDriver {
-    /// Create a new mock I2C driver
+impl MockI2CL298NDriver {
+    /// Create a new mock I2C driver for L298N thermal regulation simulation
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This constructor demonstrates the complete initialization pattern for
+    /// thermal regulation drivers using L298N H-Bridge controllers. The same
+    /// structure and initialization sequence should be used for real hardware.
+    ///
+    /// ## Initialization Sequence:
+    /// 1. **Device Discovery**: Scan configured I2C addresses for hardware devices
+    /// 2. **Device Registration**: Create device handles for each detected controller
+    /// 3. **State Initialization**: Initialize H-Bridge state to safe defaults
+    /// 4. **Thermal Simulation**: Initialize thermal physics simulation (mock only)
+    ///
+    /// ## Hardware Device Types:
+    /// - **Temperature Sensors (MCP9808)**: Direct temperature reading devices
+    /// - **ADC Controllers (ADS1115)**: For thermistor-based temperature sensors
+    /// - **PWM Controllers (PCA9685)**: For H-Bridge ENA/ENB power control
+    /// - **GPIO Controllers (CAT9555)**: For H-Bridge IN1/IN2/IN3/IN4 direction control
+    ///
+    /// ## Real Hardware Adaptation:
+    /// 1. **Replace MockDevice**: Use actual hardware device handles
+    /// 2. **Add Device Detection**: Implement I2C device presence verification
+    /// 3. **Hardware Initialization**: Add device-specific initialization sequences
+    /// 4. **Remove Thermal Simulation**: Replace with actual sensor reading logic
+    /// 5. **Add Safety Systems**: Implement emergency shutdown and fault detection
+    ///
+    /// ## Critical Implementation Notes:
+    /// - **Thread Safety**: All shared state uses Arc<Mutex<>> for concurrent access
+    /// - **Configuration Driven**: All hardware addresses from configuration file
+    /// - **State Tracking**: H-Bridge state initialized to safe defaults (disabled)
+    /// - **Error Handling**: Propagate initialization errors to caller
+    ///
+    /// ## Safety Considerations for Real Hardware:
+    /// - Verify all configured devices are present before enabling thermal control
+    /// - Initialize all H-Bridge outputs to safe state (disabled) before operations
+    /// - Implement hardware watchdog for thermal runaway protection
+    /// - Add power supply monitoring and undervoltage protection
+    /// - Validate thermal actuator specifications against control parameters
     pub fn new(config: &I2CBusConfig) -> Result<Self> {
         let mut devices = HashMap::new();
 
-        // Add configured temperature sensors (MCP9808) - using ADC addresses as temperature sensors
+        // Add configured temperature sensors (MCP9808) - Direct temperature reading
+        // Real hardware: Initialize actual MCP9808 devices with proper configuration
         for controller in &config.adc_controllers {
             devices.insert(
                 controller.address,
@@ -135,7 +231,8 @@ impl MockI2CDriver {
             );
         }
 
-        // Add configured ADC controllers (ADS1115)
+        // Add configured ADC controllers (ADS1115) - For NTC thermistor temperature sensing
+        // Real hardware: Configure ADC resolution, sampling rate, and reference voltage
         for controller in &config.adc_controllers {
             devices.insert(
                 controller.address,
@@ -143,7 +240,8 @@ impl MockI2CDriver {
             );
         }
 
-        // Add configured PWM controllers (PCA9685)
+        // Add configured PWM controllers (PCA9685) - For H-Bridge ENA/ENB power control
+        // Real hardware: Set PWM frequency to match thermal actuator specifications
         for controller in &config.pwm_controllers {
             devices.insert(
                 controller.address,
@@ -151,7 +249,8 @@ impl MockI2CDriver {
             );
         }
 
-        // Add configured GPIO controllers (CAT9555)
+        // Add configured GPIO controllers (CAT9555) - For H-Bridge IN1/IN2/IN3/IN4 direction control
+        // Real hardware: Configure GPIO pins as outputs with proper drive strength
         for controller in &config.gpio_controllers {
             devices.insert(
                 controller.address,
@@ -159,11 +258,13 @@ impl MockI2CDriver {
             );
         }
 
+        // Initialize thermal simulation (mock only - remove for real hardware)
         let thermal_simulation = ThermalCellSimulation::new();
 
         Ok(Self {
             devices: Arc::new(Mutex::new(devices)),
             thermal_simulation: Arc::new(Mutex::new(thermal_simulation)),
+            h_bridge_state: Arc::new(Mutex::new(HBridgeState::default())), // Safe initial state
             start_time: Instant::now(),
         })
     }
@@ -227,9 +328,40 @@ impl MockI2CDriver {
 }
 
 #[async_trait::async_trait]
-impl I2CBusDriver for MockI2CDriver {
+impl I2CBusDriver for MockI2CL298NDriver {
+    /// Read data from I2C device with thermal simulation integration
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates the complete I2C read pattern for thermal regulation
+    /// systems. The pre-read thermal simulation update ensures temperature readings
+    /// reflect current thermal actuator state.
+    ///
+    /// ## Read Sequence:
+    /// 1. **Update Thermal State**: Ensure thermal simulation reflects current actuator state
+    /// 2. **Device Lookup**: Verify device exists at specified I2C address
+    /// 3. **Device-Specific Read**: Route to appropriate device handler
+    /// 4. **Return Data**: Provide formatted data matching real hardware behavior
+    ///
+    /// ## Device-Specific Handlers:
+    /// - **Temperature Sensor**: Direct temperature reading from MCP9808
+    /// - **ADC Controller**: Thermistor voltage conversion for temperature
+    /// - **PWM Controller**: PWM configuration and status registers
+    /// - **GPIO Controller**: H-Bridge direction control status
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace thermal simulation update with actual sensor reading
+    /// - Replace device lookup with real I2C device communication
+    /// - Keep device-specific read logic for different controller types
+    /// - Add I2C communication error handling and retry logic
+    ///
+    /// ## Critical Implementation Notes:
+    /// - **Thermal Consistency**: Update thermal state before temperature readings
+    /// - **Device Abstraction**: Maintain device-specific read behavior
+    /// - **Error Propagation**: Propagate I2C errors to caller for proper handling
+    /// - **Data Format**: Match real hardware data formats and endianness
     async fn read(&mut self, address: u8, register: u8, length: usize) -> Result<Vec<u8>> {
-        // Update thermal simulation before reading
+        // Update thermal simulation before reading (remove for real hardware)
         self.update_thermal_simulation()?;
 
         let devices = self
@@ -249,6 +381,43 @@ impl I2CBusDriver for MockI2CDriver {
         }
     }
 
+    /// Write data to I2C device with thermal control integration
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates the complete I2C write pattern for thermal regulation
+    /// systems. All writes are logged for debugging and routed to device-specific
+    /// handlers that coordinate H-Bridge state and thermal control.
+    ///
+    /// ## Write Sequence:
+    /// 1. **Device Lookup**: Verify device exists at specified I2C address
+    /// 2. **Write Logging**: Log all I2C transactions for debugging and verification
+    /// 3. **Device-Specific Write**: Route to appropriate device write handler
+    /// 4. **State Coordination**: Update H-Bridge state and apply thermal effects
+    ///
+    /// ## Device-Specific Handlers:
+    /// - **Temperature Sensor**: Configuration and calibration writes
+    /// - **ADC Controller**: ADC configuration and channel selection
+    /// - **PWM Controller**: H-Bridge ENA/ENB power control (CRITICAL)
+    /// - **GPIO Controller**: H-Bridge IN1/IN2/IN3/IN4 direction control (CRITICAL)
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace device lookup with real I2C device communication
+    /// - Keep comprehensive write logging for thermal system debugging
+    /// - Maintain device-specific write handlers and state coordination
+    /// - Add I2C write verification and retry logic
+    ///
+    /// ## Critical Implementation Notes:
+    /// - **Write Logging**: All thermal control writes must be logged for debugging
+    /// - **Device Routing**: Maintain strict device-type-specific write routing
+    /// - **State Coordination**: GPIO and PWM writes must update H-Bridge state
+    /// - **Error Handling**: Propagate write failures to caller for safety
+    ///
+    /// ## Safety Considerations for Real Hardware:
+    /// - Verify all thermal control writes complete successfully
+    /// - Implement write verification readback for critical control registers
+    /// - Add thermal actuator monitoring after control writes
+    /// - Implement emergency shutdown on repeated write failures
     async fn write(&mut self, address: u8, register: u8, data: &[u8]) -> Result<()> {
         let mut devices = self
             .devices
@@ -259,7 +428,7 @@ impl I2CBusDriver for MockI2CDriver {
             .get_mut(&address)
             .ok_or_else(|| anyhow!("Device not found at address 0x{:02X}", address))?;
 
-        // Debug output for all writes
+        // Debug output for all writes - ESSENTIAL for thermal system debugging
         debug!(
             "I2C write to address=0x{:02X}, register=0x{:02X}, data={:?}",
             address, register, data
@@ -273,6 +442,36 @@ impl I2CBusDriver for MockI2CDriver {
         }
     }
 
+    /// Check if I2C device is present on the bus
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates device presence detection for thermal regulation
+    /// systems. Proper device detection is critical for safe thermal control
+    /// initialization and fault detection.
+    ///
+    /// ## Device Detection Strategy:
+    /// 1. **Address Verification**: Check if device responds at specified I2C address
+    /// 2. **Configuration Validation**: Verify device is properly configured
+    /// 3. **Capability Check**: Ensure device supports required thermal control features
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace device lookup with actual I2C device ping/detection
+    /// - Add device identification register reading for verification
+    /// - Implement device-specific initialization status checking
+    /// - Add retry logic for intermittent device communication issues
+    ///
+    /// ## Critical Implementation Notes:
+    /// - **Initialization Safety**: Never initialize thermal control with missing devices
+    /// - **Fault Detection**: Use for ongoing device health monitoring
+    /// - **Error Recovery**: Implement device re-initialization on detection failure
+    /// - **Configuration Validation**: Verify device configuration matches expectations
+    ///
+    /// ## Safety Considerations for Real Hardware:
+    /// - Disable thermal control immediately if critical devices are missing
+    /// - Implement device watchdog monitoring during thermal operations
+    /// - Add device redundancy checking for safety-critical thermal systems
+    /// - Log all device presence changes for thermal system diagnostics
     async fn device_present(&mut self, address: u8) -> Result<bool> {
         let devices = self
             .devices
@@ -282,12 +481,42 @@ impl I2CBusDriver for MockI2CDriver {
     }
 }
 
-impl MockI2CDriver {
-    /// Read from temperature sensor (MCP9808)
+impl MockI2CL298NDriver {
+    /// Read from temperature sensor (MCP9808) - Direct Temperature Reading
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates reading from MCP9808 digital temperature sensors
+    /// commonly used in precision thermal regulation systems. The MCP9808 provides
+    /// high-accuracy temperature readings with 0.0625°C resolution.
+    ///
+    /// ## MCP9808 Register Map:
+    /// - **0x05**: Temperature register (16-bit, signed, 0.0625°C resolution)
+    /// - **0x06**: Configuration register (operating mode, alert settings)
+    /// - **0x07**: Alert temperature upper boundary register
+    /// - **0x08**: Alert temperature lower boundary register
+    ///
+    /// ## Temperature Data Format:
+    /// - **16-bit signed integer**: Temperature × 16 (0.0625°C resolution)
+    /// - **Endianness**: Big-endian (MSB first)
+    /// - **Range**: -40°C to +125°C
+    /// - **Accuracy**: ±0.25°C (typical)
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace thermal simulation with actual MCP9808 I2C communication
+    /// - Keep exact same register mapping and data format conversion
+    /// - Add temperature sensor fault detection and error handling
+    /// - Implement sensor calibration offset correction if needed
+    ///
+    /// ## Critical Implementation Notes:
+    /// - **Data Format**: Maintain exact MCP9808 16-bit signed format
+    /// - **Resolution**: 0.0625°C resolution must be preserved for PID accuracy
+    /// - **Error Handling**: Invalid register access must return proper errors
+    /// - **Thread Safety**: Temperature reading must be atomic for PID stability
     fn read_temperature_sensor(&self, register: u8, length: usize) -> Result<Vec<u8>> {
         match register {
             0x05 => {
-                // Temperature register
+                // Temperature register - PRIMARY temperature reading for thermal control
                 let simulation = self
                     .thermal_simulation
                     .lock()
@@ -298,15 +527,16 @@ impl MockI2CDriver {
                 // MCP9808 uses 16-bit signed format: temp = register_value / 16.0
                 let temp_raw = (temp_c * 16.0) as i16;
 
+                // Return as big-endian bytes (MSB first)
                 Ok(vec![(temp_raw >> 8) as u8, (temp_raw & 0xFF) as u8])
             }
             0x06 => {
-                // Configuration register
-                Ok(vec![0x00, 0x00]) // Default configuration
+                // Configuration register - Sensor operating mode and alert settings
+                Ok(vec![0x00, 0x00]) // Default configuration (continuous conversion)
             }
             0x07 => {
-                // Alert temperature upper boundary
-                Ok(vec![0x00, 0x00])
+                // Alert temperature upper boundary - For thermal runaway protection
+                Ok(vec![0x00, 0x00]) // Default: no alert threshold set
             }
             _ => Err(anyhow!(
                 "Unsupported register 0x{:02X} for temperature sensor",
@@ -315,12 +545,44 @@ impl MockI2CDriver {
         }
     }
 
-    /// Write to temperature sensor (MCP9808)
+    /// Write to temperature sensor (MCP9808) - Configuration and Calibration
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates writing configuration data to MCP9808 temperature
+    /// sensors for thermal regulation applications. Configuration writes are used
+    /// to set operating mode, alert thresholds, and calibration parameters.
+    ///
+    /// ## MCP9808 Writable Registers:
+    /// - **0x01**: Configuration register (operating mode, shutdown, alerts)
+    /// - **0x02**: Alert temperature upper boundary register
+    /// - **0x03**: Alert temperature lower boundary register
+    /// - **0x04**: Critical temperature register
+    ///
+    /// ## Configuration Register (0x01) Bits:
+    /// - **Bit 8**: Shutdown mode (0 = continuous conversion, 1 = shutdown)
+    /// - **Bit 7**: Critical temperature lock
+    /// - **Bit 6**: Temperature upper/lower boundary lock
+    /// - **Bit 5-3**: Alert output configuration
+    /// - **Bit 2-0**: Alert temperature hysteresis
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace mock implementation with actual MCP9808 register writes
+    /// - Add configuration validation and readback verification
+    /// - Implement alert threshold configuration for thermal protection
+    /// - Add sensor calibration offset writing if supported
+    ///
+    /// ## Critical Implementation Notes:
+    /// - **Configuration Validation**: Validate configuration parameters before writing
+    /// - **Write Verification**: Read back configuration to ensure proper setting
+    /// - **Alert Configuration**: Set appropriate thermal alert thresholds
+    /// - **Error Handling**: Report configuration write failures to caller
     fn write_temperature_sensor(&self, register: u8, data: &[u8]) -> Result<()> {
         match register {
             0x01 => {
-                // Configuration register
-                // Accept configuration writes but don't do anything
+                // Configuration register - Operating mode and alert configuration
+                // Accept configuration writes but don't do anything in mock
+                // Real hardware: Validate configuration data and write to MCP9808
                 Ok(())
             }
             _ => Err(anyhow!(
@@ -415,7 +677,40 @@ impl MockI2CDriver {
         }
     }
 
-    /// Write to PWM controller (PCA9685)
+    /// Write to PWM controller (PCA9685) - H-Bridge Power Control
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method implements the critical PWM control pattern for L298N H-Bridge
+    /// power management in thermal regulation systems. The PWM duty cycle controls
+    /// the effective power delivered to thermal actuators (Peltier modules, heating resistors).
+    ///
+    /// ## Hardware Mapping (PCA9685 PWM to L298N H-Bridge):
+    /// ```text
+    /// PWM Channel 0 (register 0x06) -> H-Bridge #1 ENA (primary thermal control)
+    /// PWM Channel 1 (register 0x0A) -> H-Bridge #2 ENB (secondary thermal control)
+    /// ```
+    ///
+    /// ## PWM Control Logic:
+    /// - **0% Duty Cycle**: No power, thermal actuator disabled
+    /// - **1-100% Duty Cycle**: Proportional power control for thermal actuator
+    /// - **Direction**: Power level only, direction controlled separately via GPIO
+    ///
+    /// ## Critical Implementation Notes:
+    /// 1. **Power After Direction**: Only apply PWM after GPIO direction is set
+    /// 2. **State Coordination**: Update H-Bridge state and apply thermal effects immediately
+    /// 3. **Multiple Formats**: Support different PWM data formats (2-byte, 4-byte)
+    /// 4. **Channel Mapping**: Channel 0 for primary, Channel 1 for secondary control
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace thermal simulation with actual actuator control verification
+    /// - Keep the exact same PWM calculation and channel mapping logic
+    /// - Maintain the state update and thermal power application sequence
+    /// - Add power level validation and safety limits
+    ///
+    /// ## PCA9685 Register Format:
+    /// - **2-byte mode**: Direct PWM value (0-4095)
+    /// - **4-byte mode**: ON_time + OFF_time for precise timing control
     fn write_pwm_controller(&self, register: u8, data: &[u8]) -> Result<()> {
         debug!(
             "PWM controller write - register: 0x{:02X}, data: {:?}",
@@ -479,13 +774,38 @@ impl MockI2CDriver {
 
                 info!("Calculated duty cycle: {:.1}%", duty_cycle);
 
-                // Channel 0 (register 0x06) controls thermal actuator
+                // Channel 0 (register 0x06) controls H-Bridge 1 ENA (primary thermal control)
                 if register == 0x06 {
-                    // First channel - Peltier/heater control
-                    let _ = self.set_heater_power(duty_cycle);
-                    debug!("PWM channel 0 set to {:.1}% duty cycle", duty_cycle);
+                    // Channel 0 - H-Bridge 1 ENA (primary thermal actuator)
+                    debug!(
+                        "PWM channel 0 (H-Bridge 1 ENA) set to {:.1}% duty cycle",
+                        duty_cycle
+                    );
+
+                    // Update H-Bridge state with new duty cycle and apply thermal power
+                    if let Ok(mut state) = self.h_bridge_state.lock() {
+                        state.h1_duty_cycle = duty_cycle;
+                        // Apply thermal power based on direction and duty cycle
+                        let _ = self.apply_thermal_power_based_on_state(&state);
+                    }
+
                     // Force thermal simulation update
                     let _ = self.update_thermal_simulation();
+                }
+                // Channel 1 (register 0x0A) controls H-Bridge 2 ENB (secondary thermal control)
+                else if register == 0x0A {
+                    // Channel 1 - H-Bridge 2 ENB (secondary thermal actuator for future expansion)
+                    debug!(
+                        "PWM channel 1 (H-Bridge 2 ENB) set to {:.1}% duty cycle",
+                        duty_cycle
+                    );
+
+                    // Update H-Bridge 2 state (future expansion)
+                    if let Ok(mut state) = self.h_bridge_state.lock() {
+                        state.h2_duty_cycle = duty_cycle;
+                        // Note: Secondary thermal control not yet implemented in simulation
+                        // Future: apply_h2_thermal_power_based_on_state(&state);
+                    }
                 }
 
                 Ok(())
@@ -523,12 +843,97 @@ impl MockI2CDriver {
         }
     }
 
-    /// Write to GPIO controller (CAT9555)
+    /// Write to GPIO controller (CAT9555) - H-Bridge Direction Control
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates the critical GPIO control pattern for L298N H-Bridge
+    /// direction management in thermal regulation systems. This logic should be
+    /// preserved exactly in real hardware implementations.
+    ///
+    /// ## Hardware Mapping (CAT9555 GPIO to L298N H-Bridge):
+    /// ```text
+    /// GPIO 0 (bit 0) -> H-Bridge #1 IN1 (primary thermal control)
+    /// GPIO 1 (bit 1) -> H-Bridge #1 IN2 (primary thermal control)  
+    /// GPIO 2 (bit 2) -> H-Bridge #2 IN3 (secondary thermal control)
+    /// GPIO 3 (bit 3) -> H-Bridge #2 IN4 (secondary thermal control)
+    /// ```
+    ///
+    /// ## L298N Control Logic:
+    /// - **Heating Mode**: IN1=HIGH, IN2=LOW (Forward direction)
+    /// - **Cooling Mode**: IN1=LOW, IN2=HIGH (Reverse direction)
+    /// - **Coast Mode**: IN1=LOW, IN2=LOW (Disabled, high impedance)
+    /// - **Brake Mode**: IN1=HIGH, IN2=HIGH (Disabled, active braking)
+    ///
+    /// ## Critical Implementation Notes:
+    /// 1. **Direction First**: Always set direction before applying PWM power
+    /// 2. **State Tracking**: Update H-Bridge state immediately after GPIO changes
+    /// 3. **Safety**: Never leave direction in undefined state during transitions
+    /// 4. **Error Handling**: Validate GPIO operations complete successfully
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace mock thermal simulation with actual hardware verification
+    /// - Keep the exact same GPIO bit mapping and direction logic
+    /// - Maintain the state update and thermal power application sequence
+    /// - Add hardware-specific error recovery mechanisms
     fn write_gpio_controller(&self, register: u8, data: &[u8]) -> Result<()> {
         match register {
             0x02 | 0x03 => {
-                // Output port registers
-                // Accept GPIO writes (could be used for H-Bridge control)
+                // Output port registers - H-Bridge control
+                if data.len() > 0 {
+                    let gpio_value = data[0];
+                    debug!(
+                        "GPIO controller write - register: 0x{:02X}, value: 0x{:02X}",
+                        register, gpio_value
+                    );
+
+                    // Decode H-Bridge signals based on GPIO pin assignment:
+                    // GPIO 0 (bit 0) = H-Bridge 1 IN1
+                    // GPIO 1 (bit 1) = H-Bridge 1 IN2
+                    // GPIO 2 (bit 2) = H-Bridge 2 IN3
+                    // GPIO 3 (bit 3) = H-Bridge 2 IN4
+                    // Note: ENA (H-Bridge 1) controlled by PWM Channel 0 (PCA9685)
+                    // Note: ENB (H-Bridge 2) controlled by PWM Channel 1 (PCA9685)
+
+                    let h1_in1 = (gpio_value & 0x01) != 0; // GPIO 0 - H-Bridge #1 IN1
+                    let h1_in2 = (gpio_value & 0x02) != 0; // GPIO 1 - H-Bridge #1 IN2
+                    let h2_in3 = (gpio_value & 0x04) != 0; // GPIO 2 - H-Bridge #2 IN3
+                    let h2_in4 = (gpio_value & 0x08) != 0; // GPIO 3 - H-Bridge #2 IN4
+                                                           // Note: ENA (PWM0) and ENB (PWM1) are controlled by PCA9685, not GPIO
+
+                    debug!(
+                        "H-Bridge 1: IN1={}, IN2={} | H-Bridge 2: IN3={}, IN4={} (ENA/ENB controlled by PWM)",
+                        h1_in1, h1_in2, h2_in3, h2_in4
+                    );
+
+                    // Update thermal simulation based on H-Bridge 1 direction (primary thermal control)
+                    // Note: ENA power level is controlled by PWM channel 0
+                    let h1_direction = if h1_in1 && !h1_in2 {
+                        debug!("H-Bridge 1: Forward direction (heating mode) - power controlled by PWM ENA");
+                        HBridgeDirection::Forward
+                    } else if !h1_in1 && h1_in2 {
+                        debug!("H-Bridge 1: Reverse direction (cooling mode) - power controlled by PWM ENA");
+                        HBridgeDirection::Reverse
+                    } else if h1_in1 && h1_in2 {
+                        debug!("H-Bridge 1: Brake state - both inputs high");
+                        HBridgeDirection::Disabled
+                    } else {
+                        debug!("H-Bridge 1: Coast state - both inputs low");
+                        HBridgeDirection::Disabled
+                    };
+
+                    // Update H-Bridge state
+                    if let Ok(mut state) = self.h_bridge_state.lock() {
+                        state.h1_direction = h1_direction;
+                        // Apply current thermal power based on direction and duty cycle
+                        self.apply_thermal_power_based_on_state(&mut state)?;
+                    }
+
+                    // H-Bridge 2 control for future expansion (secondary thermal control)
+                    if h2_in3 || h2_in4 {
+                        debug!("H-Bridge 2: Direction signals detected (future expansion)");
+                    }
+                }
                 Ok(())
             }
             0x04 | 0x05 => {
@@ -639,6 +1044,190 @@ impl ThermalCellSimulation {
     }
 }
 
+/// H-Bridge direction control for L298N thermal regulation systems
+///
+/// # Real Hardware Implementation Reference
+///
+/// This enum provides the essential control logic for L298N H-Bridge direction
+/// control in thermal regulation applications. Each direction maps directly to
+/// specific GPIO pin combinations and thermal control modes.
+///
+/// ## L298N H-Bridge Control Logic:
+/// The L298N H-Bridge requires two direction inputs (IN1/IN2) and one enable input (ENA)
+/// for each motor channel. In thermal regulation applications:
+/// - **Direction**: Controlled by GPIO pins (CAT9555 controller)
+/// - **Power**: Controlled by PWM duty cycle (PCA9685 controller)
+///
+/// ## Direction to Thermal Mode Mapping:
+///
+/// ### Forward Direction (Heating Mode):
+/// - **GPIO Control**: IN1=HIGH, IN2=LOW
+/// - **Thermal Effect**: Resistive heating or Peltier heating
+/// - **Use Case**: Raising temperature above ambient
+/// - **Power Source**: Heating resistor (DBK HPG-1/10) or Peltier forward bias
+///
+/// ### Reverse Direction (Cooling Mode):
+/// - **GPIO Control**: IN1=LOW, IN2=HIGH  
+/// - **Thermal Effect**: Peltier cooling (heat pump mode)
+/// - **Use Case**: Lowering temperature below ambient
+/// - **Power Source**: Peltier reverse bias for thermoelectric cooling
+///
+/// ### Disabled State (Coast Mode):
+/// - **GPIO Control**: IN1=LOW, IN2=LOW
+/// - **Thermal Effect**: No active thermal control
+/// - **Use Case**: Thermal system idle, natural equilibrium
+/// - **Power Source**: All thermal actuators disabled
+///
+/// ## Critical Safety Considerations:
+///
+/// ### NEVER USE BRAKE MODE (IN1=HIGH, IN2=HIGH):
+/// - **Hardware Risk**: Creates short circuit in L298N H-Bridge
+/// - **Thermal Risk**: Can damage thermal actuators and power supply
+/// - **Safety Rule**: Always use coast mode (both LOW) for disable state
+///
+/// ## Real Hardware Implementation Notes:
+/// - **Direction Before Power**: Always set direction before applying PWM
+/// - **State Consistency**: Keep this enum synchronized with actual GPIO state
+/// - **Error Recovery**: Use Disabled state for safe error recovery
+/// - **Thread Safety**: Direction changes must be atomic with power changes
+///
+/// ## Thermal Control Strategy:
+/// - **Heating**: Use Forward direction with appropriate PWM duty cycle
+/// - **Cooling**: Use Reverse direction with appropriate PWM duty cycle
+/// - **Hold**: Use previous direction with minimal PWM to maintain temperature
+/// - **Emergency**: Use Disabled state to immediately stop all thermal control
+#[derive(Debug, Clone, Copy)]
+pub enum HBridgeDirection {
+    /// Forward direction (heating mode for Peltier, or resistive heating)
+    /// L298N Control: IN1=HIGH, IN2=LOW
+    Forward,
+    /// Reverse direction (cooling mode for Peltier)
+    /// L298N Control: IN1=LOW, IN2=HIGH
+    Reverse,
+    /// Disabled (no thermal control)
+    /// L298N Control: IN1=LOW, IN2=LOW (coast mode)
+    Disabled,
+}
+
+/// H-Bridge state tracking for L298N thermal control coordination
+///
+/// # Real Hardware Implementation Guide:
+/// This structure is ESSENTIAL for real hardware implementations as it ensures
+/// proper coordination between GPIO direction control and PWM power control.
+///
+/// ## Hardware Control Sequence:
+/// 1. **Set Direction First**: Configure H-Bridge direction via GPIO (IN1/IN2)
+/// 2. **Apply Power Second**: Set PWM duty cycle for enable pins (ENA/ENB)
+/// 3. **Update State**: Keep this structure synchronized with hardware state
+///
+/// ## Threading Safety:
+/// This structure is accessed via Arc<Mutex<>> to ensure thread-safe operations
+/// when multiple thermal regulation threads are controlling different H-Bridges.
+///
+/// ## Dual H-Bridge Support:
+/// Designed to support two independent L298N H-Bridges for complex thermal systems:
+/// - **H-Bridge 1**: Primary thermal control (Peltier + heating resistor)
+/// - **H-Bridge 2**: Secondary thermal control (future expansion)
+#[derive(Debug)]
+pub struct HBridgeState {
+    /// H-Bridge 1 direction (primary thermal control)
+    /// Controls: GPIO 0 (IN1) and GPIO 1 (IN2) on CAT9555
+    h1_direction: HBridgeDirection,
+
+    /// H-Bridge 2 direction (secondary thermal control)
+    /// Controls: GPIO 2 (IN3) and GPIO 3 (IN4) on CAT9555
+    h2_direction: HBridgeDirection,
+
+    /// Current PWM duty cycle for H-Bridge 1 ENA (0.0 to 100.0%)
+    /// Controls: PWM Channel 0 on PCA9685 (register 0x06)
+    h1_duty_cycle: f64,
+
+    /// Current PWM duty cycle for H-Bridge 2 ENB (0.0 to 100.0%)
+    /// Controls: PWM Channel 1 on PCA9685 (register 0x0A)
+    h2_duty_cycle: f64,
+}
+
+impl Default for HBridgeState {
+    fn default() -> Self {
+        Self {
+            h1_direction: HBridgeDirection::Disabled,
+            h2_direction: HBridgeDirection::Disabled,
+            h1_duty_cycle: 0.0,
+            h2_duty_cycle: 0.0,
+        }
+    }
+}
+
+impl MockI2CL298NDriver {
+    /// Apply thermal power based on H-Bridge state and PWM duty cycle
+    ///
+    /// # Real Hardware Implementation Reference
+    ///
+    /// This method demonstrates the critical coordination between H-Bridge direction
+    /// control (GPIO) and power control (PWM) for thermal regulation systems.
+    /// This logic is ESSENTIAL for real hardware implementations.
+    ///
+    /// ## Thermal Control Strategy:
+    ///
+    /// ### Forward Direction (Heating Mode):
+    /// - **Resistive Heating**: Apply PWM duty cycle to heating resistor
+    /// - **Peltier Disabled**: Ensure Peltier is not fighting resistive heating
+    /// - **Use Case**: Rapid heating, high power thermal input
+    ///
+    /// ### Reverse Direction (Cooling Mode):
+    /// - **Peltier Cooling**: Apply PWM duty cycle as negative Peltier power
+    /// - **Resistive Heating Disabled**: Ensure no conflicting thermal input
+    /// - **Use Case**: Active cooling below ambient temperature
+    ///
+    /// ### Disabled State (Coast/Brake):
+    /// - **All Thermal Disabled**: Both Peltier and resistive heating off
+    /// - **Use Case**: Thermal system idle, natural thermal equilibrium
+    ///
+    /// ## Critical Implementation Notes:
+    /// 1. **Mutual Exclusion**: Never enable both heating and cooling simultaneously
+    /// 2. **Power Scaling**: PWM duty cycle (0-100%) maps directly to thermal power
+    /// 3. **Immediate Effect**: Apply thermal changes immediately after state update
+    /// 4. **Error Handling**: Validate thermal actuator responses in real hardware
+    ///
+    /// ## Real Hardware Adaptation:
+    /// - Replace `set_heater_power()` with actual heating resistor control
+    /// - Replace `set_peltier_power()` with actual Peltier module control  
+    /// - Add thermal feedback verification (current sensing, temperature monitoring)
+    /// - Implement safety limits and thermal runaway protection
+    /// - Add power supply monitoring and overcurrent protection
+    ///
+    /// ## Safety Considerations for Real Hardware:
+    /// - Monitor thermal actuator current draw
+    /// - Implement thermal runaway detection
+    /// - Add emergency thermal shutdown capabilities
+    /// - Validate power supply capacity before high-power operations
+    fn apply_thermal_power_based_on_state(&self, state: &HBridgeState) -> Result<()> {
+        match state.h1_direction {
+            HBridgeDirection::Forward => {
+                // Forward direction: Heating mode (resistive heating or Peltier heating)
+                // Use duty cycle as heating power
+                let _ = self.set_heater_power(state.h1_duty_cycle);
+                let _ = self.set_peltier_power(0.0); // Disable Peltier in resistive heating mode
+                debug!("Applied heating power: {:.1}%", state.h1_duty_cycle);
+            }
+            HBridgeDirection::Reverse => {
+                // Reverse direction: Cooling mode (Peltier cooling)
+                // Use duty cycle as cooling power (negative for Peltier)
+                let _ = self.set_heater_power(0.0); // Disable resistive heating in cooling mode
+                let _ = self.set_peltier_power(-state.h1_duty_cycle); // Negative for cooling
+                debug!("Applied cooling power: -{:.1}%", state.h1_duty_cycle);
+            }
+            HBridgeDirection::Disabled => {
+                // Disabled: No thermal control
+                let _ = self.set_heater_power(0.0);
+                let _ = self.set_peltier_power(0.0);
+                debug!("Thermal control disabled");
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -657,7 +1246,7 @@ mod tests {
             bus_settings: Default::default(),
         };
 
-        let driver = MockI2CDriver::new(&config);
+        let driver = MockI2CL298NDriver::new(&config);
         assert!(driver.is_ok());
     }
 
@@ -679,7 +1268,7 @@ mod tests {
             bus_settings: Default::default(),
         };
 
-        let mut driver = MockI2CDriver::new(&config).unwrap();
+        let mut driver = MockI2CL298NDriver::new(&config).unwrap();
 
         // Test device presence
         assert!(driver.device_present(0x40).await.unwrap());
@@ -721,10 +1310,17 @@ mod tests {
         let props = ThermalProperties::default();
 
         // Verify physical properties match specifications
-        assert_eq!(props.mass_g, 1016.0);
-        assert_eq!(props.dimensions_mm, (110.0, 30.0, 60.0));
-        assert_eq!(props.peltier_dimensions_mm, (15.0, 30.0));
-        assert_eq!(props.heater_max_power, 60.0); // DBK HPG-1/10-60x35-12-24V
+        assert_eq!(props.mass_g, CELL_MASS_G);
+        assert_eq!(
+            props.dimensions_mm,
+            (CELL_LENGTH_MM, CELL_WIDTH_MM, CELL_HEIGHT_MM)
+        );
+        assert_eq!(
+            props.peltier_dimensions_mm,
+            (PELTIER_LENGTH_MM, PELTIER_WIDTH_MM)
+        );
+        assert_eq!(props.heater_max_power, HEATER_MAX_POWER_W);
+        assert_eq!(props.peltier_max_power, PELTIER_MAX_POWER_W);
 
         // Verify calculated surface area is reasonable
         assert!(props.surface_area_m2 > 0.0);
@@ -756,7 +1352,7 @@ mod tests {
             bus_settings: Default::default(),
         };
 
-        let mut driver = MockI2CDriver::new(&config).unwrap();
+        let mut driver = MockI2CL298NDriver::new(&config).unwrap();
 
         // Test ADC read
         let adc_data = driver.read(0x48, 0x00, 2).await.unwrap();

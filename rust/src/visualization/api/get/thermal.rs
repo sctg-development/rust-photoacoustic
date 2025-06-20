@@ -308,18 +308,18 @@ pub async fn get_last_temperatures(
 /// ### Examples
 ///
 /// Get last hour of data with 5-minute intervals:
-/// ```
+/// ```text
 /// GET /api/thermal?steps=300&from=1672531200&to=1672534800
 /// ```
 ///
 /// Get specific regulator data with pagination:
-/// ```
+/// ```text
 /// GET /api/thermal?regulators=main_heater&page=2&limit=500
 /// ```
 ///
 /// Get all available data for analysis:
-/// ```
-/// GET /api/thermal?steps=0&limit=10000
+/// ```text
+/// GET /api/thermal?steps=0
 /// ```
 #[openapi_protect_get(
     "/api/thermal?<steps>&<regulators>&<from>&<to>&<page>&<limit>",

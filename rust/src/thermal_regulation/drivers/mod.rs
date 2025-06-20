@@ -14,5 +14,5 @@ pub mod mock;
 pub mod native;
 
 pub use cp2112::Cp2112Driver;
-pub use mock::MockI2CDriver;
+pub use mock::MockI2CL298NDriver;
 pub use native::NativeI2CDriver;

@@ -173,7 +173,7 @@ graph TB
         FACTORY[create_thermal_regulation_driver<br/>Factory Function]
         
         subgraph "Implémentations Driver"
-            MOCK_DRIVER[MockThermalRegulationDriver<br/>Simulation Physique Réaliste]
+            MOCK_DRIVER[MockL298NThermalRegulationDriver<br/>Simulation Physique Réaliste]
             NATIVE_DRIVER[NativeThermalRegulationDriver<br/>Raspberry Pi I2C + GPIO]
             CP2112_DRIVER[Cp2112ThermalRegulationDriver<br/>USB-HID Bridge]
         end
@@ -261,7 +261,7 @@ L'architecture introduit une **séparation totale** entre la logique de régulat
 - **Async/Await** : Support natif pour les opérations asynchrones
 
 #### Couche Implémentation (Drivers)
-- **MockThermalRegulationDriver** : Simulation physique réaliste avec modèle thermique avancé
+- **MockL298NThermalRegulationDriver** : Simulation physique réaliste avec modèle thermique avancé
 - **NativeThermalRegulationDriver** : Accès direct Raspberry Pi avec optimisations I2C/GPIO
 - **Cp2112ThermalRegulationDriver** : Pont USB-HID universel pour tout système
     GPIO --> ACTUATORS_RPI[Actuateurs natifs]
@@ -343,6 +343,66 @@ Le système utilise une architecture I2C extensible pour gérer un grand nombre 
 
 #### Gestion Partagée des Ressources
 L'accès aux composants physiques est partagé entre tous les démons de régulation connectés à un même bus I2C (natif ou CP2112). Un système de mutex et de pool de connexions assure la cohérence des accès concurrents aux contrôleurs PWM, ADC et GPIO.
+
+#### Affectation des Broches H-Bridge
+
+Le système utilise une affectation standardisée des broches GPIO et PWM pour le contrôle des H-Bridge :
+
+##### Configuration H-Bridge #1 (Contrôle Thermique Primaire)
+- **IN1** : GPIO 0 du CAT9555 (bit 0 du registre de sortie 0x02)
+- **IN2** : GPIO 1 du CAT9555 (bit 1 du registre de sortie 0x02)
+- **ENA** : Canal 0 du PCA9685 (registre PWM 0x06) - Contrôle de puissance PWM
+
+##### Configuration H-Bridge #2 (Extension Future)
+- **IN3** : GPIO 2 du CAT9555 (bit 2 du registre de sortie 0x02)
+- **IN4** : GPIO 3 du CAT9555 (bit 3 du registre de sortie 0x02)
+- **ENB** : Canal 1 du PCA9685 (registre PWM 0x0A) - Contrôle de puissance PWM
+
+##### Logique de Contrôle H-Bridge
+
+| Mode Thermique | IN1 | IN2 | ENA (PWM) | Direction | Effet |
+|----------------|-----|-----|-----------|-----------|-------|
+| **Chauffage** | HIGH | LOW | 0-100% | Forward | Peltier heating ou résistance |
+| **Refroidissement** | LOW | HIGH | 0-100% | Reverse | Peltier cooling |
+| **Arrêt** | LOW | LOW | 0% | Brake/Disable | Aucun effet thermique |
+| **Frein** | HIGH | HIGH | 0% | Brake | Freinage électrique |
+
+##### Avantages de cette Affectation
+- **Standardisation** : Même mapping sur tous les drivers (Mock, Native, CP2112)
+- **Extensibilité** : Support de multiples H-Bridge sur un même CAT9555
+- **Sécurité** : Contrôle séparé direction/puissance pour éviter les courts-circuits
+- **Flexibilité** : Permet le contrôle indépendant de multiples actuateurs thermiques
+
+```mermaid
+graph LR
+    subgraph "CAT9555 GPIO Controller"
+        GPIO0[GPIO 0<br/>H-Bridge 1 IN1]
+        GPIO1[GPIO 1<br/>H-Bridge 1 IN2]
+        GPIO2[GPIO 2<br/>H-Bridge 2 IN3]
+        GPIO3[GPIO 3<br/>H-Bridge 2 IN4]
+    end
+    
+    subgraph "PCA9685 PWM Controller"
+        PWM0[Channel 0<br/>H-Bridge 1 ENA]
+        PWM1[Channel 1<br/>H-Bridge 2 ENB]
+    end
+    
+    subgraph "H-Bridge Controllers"
+        HBRIDGE1[H-Bridge 1<br/>L298N #1]
+        HBRIDGE2[H-Bridge 2<br/>L298N #2]
+    end
+    
+    GPIO0 --> HBRIDGE1
+    GPIO1 --> HBRIDGE1
+    PWM0 --> HBRIDGE1
+    
+    GPIO2 --> HBRIDGE2
+    GPIO3 --> HBRIDGE2
+    PWM1 --> HBRIDGE2
+    
+    HBRIDGE1 --> |±12V| THERMAL1[Actuateur Thermique 1<br/>Peltier + Résistance]
+    HBRIDGE2 --> |±12V| THERMAL2[Actuateur Thermique 2<br/>Extension Future]
+```
 
 #### Architecture de Contrôle Thermique Bidirectionnel
 
@@ -1165,7 +1225,7 @@ T_effective = T_previous + ΔT × (1 - e^(-dt/τ))
 
 **1. ADC Virtuel (ADS1115)**
 ```rust
-impl MockI2CDriver {
+impl MockI2CL298NDriver {
     fn read_adc_controller(&self, register: u8, length: usize) -> Result<Vec<u8>> {
         match register {
             0x00 => {
@@ -2947,7 +3007,7 @@ graph LR
         TRAIT[ThermalRegulationDriver<br/>✅ Trait Complet]
         FACTORY[create_thermal_regulation_driver<br/>✅ Factory Pattern]
         
-        MOCK[MockThermalRegulationDriver<br/>✅ Simulation Physique]
+        MOCK[MockL298NThermalRegulationDriver<br/>✅ Simulation Physique]
         NATIVE[NativeThermalRegulationDriver<br/>✅ Raspberry Pi]
         CP2112[Cp2112ThermalRegulationDriver<br/>✅ Portabilité USB]
         
