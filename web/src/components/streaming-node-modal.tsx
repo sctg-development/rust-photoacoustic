@@ -3,6 +3,7 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 import { useTranslation } from "react-i18next";
+import { Accordion, AccordionItem } from "@heroui/accordion";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -149,51 +150,57 @@ export function StreamingNodeModal({
               <h3 className="text-lg font-semibold mb-3">
                 {t("streaming-modal-node-information")}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {t("streaming-modal-node-id")}
-                  </p>
-                  <p className="font-medium">{nodeData.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {nodeData.nodeType === "input"
-                      ? t("streaming-modal-input-name")
-                      : t("streaming-modal-stream-name")}
-                  </p>
-                  <p className="font-medium">{streamName}</p>
-                </div>
-                {nodeData.nodeType === "streaming" && (
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {t("streaming-modal-stream-id")}
-                    </p>
-                    <p className="font-medium">{streamId}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {t("streaming-modal-output-type")}
-                  </p>
-                  <p className="font-medium">
-                    {nodeData.outputType || t("streaming-modal-dynamic")}
-                  </p>
-                </div>
-              </div>
+              <Accordion>
+                <AccordionItem>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-              <div className="mt-4">
-                <p className="text-sm text-gray-600">
-                  {t("streaming-modal-input-types")}
-                </p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {nodeData.acceptsInputTypes.map((type) => (
-                    <Chip key={type} size="sm" variant="flat">
-                      {type}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {t("streaming-modal-node-id")}
+                      </p>
+                      <p className="font-medium">{nodeData.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {nodeData.nodeType === "input"
+                          ? t("streaming-modal-input-name")
+                          : t("streaming-modal-stream-name")}
+                      </p>
+                      <p className="font-medium">{streamName}</p>
+                    </div>
+                    {nodeData.nodeType === "streaming" && (
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          {t("streaming-modal-stream-id")}
+                        </p>
+                        <p className="font-medium">{streamId}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {t("streaming-modal-output-type")}
+                      </p>
+                      <p className="font-medium">
+                        {nodeData.outputType || t("streaming-modal-dynamic")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">
+                      {t("streaming-modal-input-types")}
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {nodeData.acceptsInputTypes.map((type) => (
+                        <Chip key={type} size="sm" variant="flat">
+                          {type}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                </AccordionItem>
+              </Accordion>
             </CardBody>
           </Card>
 
@@ -261,29 +268,33 @@ export function StreamingNodeModal({
                 <h3 className="text-lg font-semibold mb-3">
                   {t("streaming-modal-connection-details")}
                 </h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <p className="text-gray-600">
-                      {nodeData.nodeType === "input"
-                        ? t("streaming-modal-stream-url")
-                        : t("streaming-modal-websocket-url")}
-                      :
-                    </p>
-                    <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
-                      {streamUrl}
-                    </p>
-                  </div>
-                  {statsUrl && (
-                    <div>
-                      <p className="text-gray-600">
-                        {t("streaming-modal-stats-url")}:
-                      </p>
-                      <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
-                        {statsUrl}
-                      </p>
+                <Accordion>
+                  <AccordionItem>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <p className="text-gray-600">
+                          {nodeData.nodeType === "input"
+                            ? t("streaming-modal-stream-url")
+                            : t("streaming-modal-websocket-url")}
+                          :
+                        </p>
+                        <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
+                          {streamUrl}
+                        </p>
+                      </div>
+                      {statsUrl && (
+                        <div>
+                          <p className="text-gray-600">
+                            {t("streaming-modal-stats-url")}:
+                          </p>
+                          <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
+                            {statsUrl}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </AccordionItem>
+                </Accordion>
               </CardBody>
             </Card>
           )}

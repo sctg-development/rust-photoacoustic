@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.3.0",
+    "@heroui/accordion": "^2.2.19-beta.1",
     "@heroui/alert": "^2.2.21-beta.0",
     "@heroui/button": "^2.2.21-beta.0",
     "@heroui/card": "^2.2.20-beta.0",
