@@ -772,8 +772,6 @@ impl MockI2CL298NDriver {
                     (data[0] as f64 / 255.0) * 100.0
                 };
 
-                info!("Calculated duty cycle: {:.1}%", duty_cycle);
-
                 // Channel 0 (register 0x06) controls H-Bridge 1 ENA (primary thermal control)
                 if register == 0x06 {
                     // Channel 0 - H-Bridge 1 ENA (primary thermal actuator)
