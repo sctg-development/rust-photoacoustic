@@ -122,6 +122,7 @@ async fn test_oauth2_pkce_flow() {
         None,
         None,
         None,
+        None,
     )
     .await;
     let client = Client::tracked(rocket)
@@ -387,6 +388,7 @@ async fn test_oauth2_invalid_credentials() {
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         figment,
         Arc::new(RwLock::new(config)),
+        None,
         None,
         None,
         None,

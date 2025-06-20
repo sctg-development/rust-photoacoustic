@@ -328,6 +328,7 @@ impl Daemon {
             self.audio_stream.clone(),
             Some(Arc::clone(&self.visualization_state)),
             Some(Arc::clone(&self.streaming_registry)),
+            Some(self.thermal_regulation_state.clone()),
         )
         .await;
 

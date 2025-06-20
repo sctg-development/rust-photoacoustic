@@ -52,6 +52,7 @@ async fn test_protected_api_with_jwt() {
         None,
         Some(visualization_state),
         None,
+        None,
     )
     .await;
     let client = rocket::local::asynchronous::Client::tracked(rocket)

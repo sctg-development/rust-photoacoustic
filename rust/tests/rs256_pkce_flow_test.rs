@@ -480,6 +480,7 @@ async fn test_rs256_pkce_flow_s256() {
         None,
         None,
         None,
+        None,
     )
     .await;
 
@@ -552,6 +553,7 @@ async fn test_rs256_pkce_flow_plain() {
     let rocket = server::build_rocket(
         figment,
         Arc::new(RwLock::new(config.clone())),
+        None,
         None,
         None,
         None,
@@ -636,6 +638,7 @@ async fn test_rs256_pkce_flow() {
             None,
             None,
             None,
+            None,
         )
         .await;
 
@@ -679,6 +682,7 @@ async fn test_rs256_jwks_endpoint() {
     let rocket = server::build_rocket(
         figment,
         Arc::new(RwLock::new(config.clone())),
+        None,
         None,
         None,
         None,
@@ -765,6 +769,7 @@ async fn test_rs256_pkce_invalid_challenge_method() {
     let rocket = server::build_rocket(
         figment,
         Arc::new(RwLock::new(config.clone())),
+        None,
         None,
         None,
         None,

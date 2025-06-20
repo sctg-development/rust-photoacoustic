@@ -13,6 +13,7 @@ use crate::acquisition::SharedAudioStream;
 use crate::config::{Config, GenerixConfig};
 use crate::include_png_as_base64;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
+use crate::thermal_regulation::SharedThermalState;
 use crate::visualization::api::graph::graph::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
@@ -51,6 +52,7 @@ use tokio::sync::RwLock;
 /// * `audio_stream` - Optional shared audio stream for real-time audio endpoints
 /// * `visualization_state` - Optional shared visualization state for statistics
 /// * `streaming_registry` - Optional streaming node registry for audio processing
+/// * `thermal_state` - Optional shared thermal regulation state for temperature control
 ///
 /// ### Returns
 ///
@@ -72,7 +74,7 @@ use tokio::sync::RwLock;
 /// async fn example() {
 ///     let figment = Figment::from(rocket::Config::default());
 ///     let config = Arc::new(RwLock::new(Config::default()));
-///     let rocket = server::build_rocket(figment, config, None, None, None).await;
+///     let rocket = server::build_rocket(figment, config, None, None, None, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }
@@ -83,6 +85,7 @@ pub async fn build_rocket(
     audio_stream: Option<Arc<SharedAudioStream>>,
     visualization_state: Option<Arc<SharedVisualizationState>>,
     streaming_registry: Option<Arc<StreamingNodeRegistry>>,
+    thermal_state: Option<SharedThermalState>,
 ) -> Rocket<Build> {
     // Load hmac secret from config
     let config_read = config.read().await;
@@ -201,6 +204,15 @@ pub async fn build_rocket(
         .manage(oxide_state)
         .manage(jwt_validator)
         .manage(config.clone()); // Add config as managed state for future dynamic configuration
+
+    // Add thermal regulation state if available
+    let rocket_builder = if let Some(thermal_state) = thermal_state {
+        debug!("Adding SharedThermalState to Rocket state management");
+        rocket_builder.manage(thermal_state)
+    } else {
+        debug!("No thermal state provided, thermal regulation API will return 404");
+        rocket_builder
+    };
 
     // Attach compression fairing if enabled in config and not using VITE_DEVELOPMENT
     // VITE_DEVELOPMENT is an environment variable for proxying Vite dev server
