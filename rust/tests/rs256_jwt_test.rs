@@ -16,8 +16,8 @@ use rust_photoacoustic::visualization::api::get::test;
 use rust_photoacoustic::visualization::auth::jwt::JwkKeySet;
 use rust_photoacoustic::visualization::auth::jwt::JwtIssuer;
 use serde_json::Value;
-use std::sync::Once;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Once};
+use tokio::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static INIT: Once = Once::new();

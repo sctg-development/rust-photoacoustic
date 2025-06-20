@@ -16,7 +16,7 @@ use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, RwLock as StdRwLock,
+    Arc,
 };
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, RwLock};
@@ -44,7 +44,7 @@ pub struct ProcessingConsumer {
     /// Shared visualization state for API access
     visualization_state: Option<Arc<SharedVisualizationState>>,
     /// Shared configuration for dynamic updates
-    config: Option<Arc<StdRwLock<crate::config::Config>>>,
+    config: Option<Arc<RwLock<crate::config::Config>>>,
     /// Last known configuration version (for change detection)
     last_config_version: Arc<AtomicU64>,
     /// Last known node parameters for fine-grained change detection
@@ -129,7 +129,7 @@ impl ProcessingConsumer {
         audio_stream: Arc<SharedAudioStream>,
         processing_graph: ProcessingGraph,
         visualization_state: Arc<SharedVisualizationState>,
-        config: Arc<StdRwLock<crate::config::Config>>,
+        config: Arc<RwLock<crate::config::Config>>,
     ) -> Self {
         let consumer_id = format!(
             "processing_consumer_{}",
@@ -139,11 +139,8 @@ impl ProcessingConsumer {
                 .as_nanos()
         );
 
-        // Calculate initial configuration hash for change detection
-        let initial_hash = {
-            let config_read = config.read().unwrap();
-            Self::calculate_config_hash(&config_read.processing)
-        };
+        // Initialize with 0 hash - will be calculated on first start
+        let initial_hash = 0;
 
         Self {
             audio_stream,
@@ -730,7 +727,7 @@ impl ProcessingConsumer {
     /// ### Arguments
     ///
     /// * `config` - Shared configuration to monitor for changes
-    async fn start_config_monitoring(&self, config: Arc<StdRwLock<crate::config::Config>>) {
+    async fn start_config_monitoring(&self, config: Arc<RwLock<crate::config::Config>>) {
         let processing_graph = Arc::clone(&self.processing_graph);
         let consumer_id = self.consumer_id.clone();
         let running = Arc::clone(&self.running);
@@ -746,7 +743,7 @@ impl ProcessingConsumer {
             // Initialize last_node_parameters with current configuration
             {
                 let initial_node_configs = {
-                    let config_read = config.read().unwrap();
+                    let config_read = config.read().await;
                     config_read
                         .processing
                         .default_graph
@@ -829,14 +826,14 @@ impl ProcessingConsumer {
     /// * `Ok(false)` - No configuration changes detected
     /// * `Err(anyhow::Error)` - Error during configuration update
     async fn check_and_apply_config_changes(
-        config: &Arc<StdRwLock<crate::config::Config>>,
+        config: &Arc<RwLock<crate::config::Config>>,
         processing_graph: &Arc<RwLock<ProcessingGraph>>,
         last_config_version: &Arc<AtomicU64>,
         last_node_parameters: &Arc<RwLock<HashMap<String, serde_json::Value>>>,
         consumer_id: &str,
     ) -> Result<bool> {
         let (current_hash, node_configs, graph_config) = {
-            let config_read = config.read().unwrap();
+            let config_read = config.read().await;
             let hash = Self::calculate_config_hash(&config_read.processing);
             let node_configs = config_read
                 .processing

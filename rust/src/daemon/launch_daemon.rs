@@ -9,9 +9,10 @@ use std::{
     net::SocketAddr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, RwLock,
+        Arc,
     },
 };
+use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time;
 
@@ -169,7 +170,8 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-    /// use std::sync::{Arc, RwLock};
+    /// use std::sync::Arc;
+    /// use tokio::sync::RwLock;
     ///
     /// async fn start_daemon() -> anyhow::Result<Daemon> {
     ///     let config = Config::from_file("config.yaml")?;
@@ -187,38 +189,38 @@ impl Daemon {
         self.start_audio_acquisition().await?;
 
         // Start record consumer if enabled
-        if self.config.read().unwrap().photoacoustic.record_consumer {
+        if self.config.read().await.photoacoustic.record_consumer {
             self.start_record_consumer().await?;
         }
 
         // Start processing consumer if enabled
-        if self.config.read().unwrap().processing.enabled {
+        if self.config.read().await.processing.enabled {
             self.start_processing_consumer().await?;
         }
 
         // Start web server if enabled
-        if self.config.read().unwrap().visualization.enabled {
+        if self.config.read().await.visualization.enabled {
             self.start_visualization_server().await?;
         }
 
         // Start data acquisition task if enabled
-        if self.config.read().unwrap().acquisition.enabled {
-            self.start_auxiliary_data_acquisition()?;
+        if self.config.read().await.acquisition.enabled {
+            self.start_auxiliary_data_acquisition().await?;
         }
 
         // Start modbus server if enabled
-        if self.config.read().unwrap().modbus.enabled {
+        if self.config.read().await.modbus.enabled {
             self.start_modbus_server().await?;
         }
 
         // Start thermal regulation system if enabled
-        if self.config.read().unwrap().thermal_regulation.enabled {
+        if self.config.read().await.thermal_regulation.enabled {
             self.start_thermal_regulation_system().await?;
         }
 
         // Start computation task if enabled
         if true {
-            self.start_photoacoustic_computation()?;
+            self.start_photoacoustic_computation().await?;
         }
         // Add additional tasks here as needed
 
@@ -265,7 +267,7 @@ impl Daemon {
             hmac_secret,
             enable_compression,
         ) = {
-            let config_read = config.read().unwrap();
+            let config_read = config.read().await;
             (
                 config_read.visualization.address.clone(),
                 config_read.visualization.port,
@@ -360,7 +362,7 @@ impl Daemon {
     /// * The acquisition hardware is not available
     /// * Sensor initialization fails
     /// * Task spawning fails
-    fn start_auxiliary_data_acquisition(&mut self) -> Result<()> {
+    async fn start_auxiliary_data_acquisition(&mut self) -> Result<()> {
         info!("Starting auxliary data acquisition task");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
@@ -381,11 +383,11 @@ impl Daemon {
         Ok(())
     }
 
-    fn start_photoacoustic_computation(&mut self) -> Result<()> {
+    async fn start_photoacoustic_computation(&mut self) -> Result<()> {
         info!("Starting photoacoustic computation task");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
-        let interval_ms = config.read().unwrap().acquisition.interval_ms;
+        let interval_ms = config.read().await.acquisition.interval_ms;
 
         let running = self.running.clone();
         let data_source_clone = self.data_source.clone();
@@ -476,7 +478,7 @@ impl Daemon {
     async fn start_modbus_server(&mut self) -> Result<()> {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
-        let config_read = config.read().unwrap();
+        let config_read = config.read().await;
 
         info!(
             "Starting modbus server on {}:{}",
@@ -606,7 +608,7 @@ impl Daemon {
     async fn start_audio_acquisition(&mut self) -> Result<()> {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
-        let config_read = config.read().unwrap();
+        let config_read = config.read().await;
 
         // Early return if acquisition is disabled in configuration
         if !config_read.acquisition.enabled {
@@ -751,7 +753,7 @@ impl Daemon {
         info!("Starting record consumer daemon for validation");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
-        let record_file = config.read().unwrap().photoacoustic.record_file.clone();
+        let record_file = config.read().await.photoacoustic.record_file.clone();
 
         // Ensure audio stream is available
         let audio_stream = self.audio_stream.as_ref().ok_or_else(|| {
@@ -814,7 +816,7 @@ impl Daemon {
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
         let (processing_config, default_graph) = {
-            let config_read = config.read().unwrap();
+            let config_read = config.read().await;
             (
                 config_read.processing.clone(),
                 config_read.processing.default_graph.clone(),
@@ -911,7 +913,7 @@ impl Daemon {
 
         // Extract thermal regulation configuration
         let thermal_config = {
-            let config = self.config.read().unwrap();
+            let config = self.config.read().await;
             config.thermal_regulation.clone()
         };
 
@@ -1117,7 +1119,8 @@ impl Daemon {
     ///
     /// ```no_run
     /// use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-    /// use std::sync::{Arc, RwLock};
+    /// use std::sync::Arc;
+    /// use tokio::sync::RwLock;
     ///
     /// async fn example() -> anyhow::Result<()> {
     ///     let config = Config::from_file("config.yaml")?;

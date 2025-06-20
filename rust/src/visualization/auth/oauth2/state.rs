@@ -8,7 +8,8 @@
 //! which manages the OAuth 2.0 server state including client registrations,
 //! authorization storage, and token issuance.
 
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
+use tokio::sync::RwLock;
 
 use log::debug;
 use oxide_auth::frontends::simple::endpoint::{Generic, Vacant};
@@ -225,15 +226,18 @@ impl OxideState {
     /// ### Example
     ///
     /// ```no_run
-    /// use std::sync::{Arc, RwLock};
+    /// use std::sync::Arc;
+    /// use tokio::sync::RwLock;
     /// use rust_photoacoustic::{config::Config, visualization::auth::OxideState};
     ///
-    /// // Create the OAuth state from config
-    /// let config = Arc::new(RwLock::new(Config::default()));
-    /// let state = OxideState::from_config(&config);
+    /// async fn example() {
+    ///     // Create the OAuth state from config
+    ///     let config = Arc::new(RwLock::new(Config::default()));
+    ///     let state = OxideState::from_config(&config).await;
+    /// }
     /// ```
-    pub fn from_config(config: &Arc<RwLock<crate::config::Config>>) -> Self {
-        let config_read = config.read().unwrap();
+    pub async fn from_config(config: &Arc<RwLock<crate::config::Config>>) -> Self {
+        let config_read = config.read().await;
         // Use the HMAC secret from configuration
         let hmac_secret = config_read.visualization.hmac_secret.clone();
         let jwt_secret = hmac_secret.as_bytes();

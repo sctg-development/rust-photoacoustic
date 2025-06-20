@@ -9,10 +9,8 @@ use rocket::{
 use rust_photoacoustic::config::AccessConfig;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::RwLock;
 use url::Url;
 
 fn get_figment() -> rocket::figment::Figment {

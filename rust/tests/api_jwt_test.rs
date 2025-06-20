@@ -6,7 +6,8 @@ use rocket::http::Header;
 use rocket::{config::LogLevel, http::Status};
 use rust_photoacoustic::config::{AccessConfig, VisualizationConfig};
 use serde_json::Value;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 fn get_figment() -> rocket::figment::Figment {
     rocket::Config::figment()

@@ -8,8 +8,9 @@
 //! and apply hot-reload updates to compatible nodes without requiring a full restart.
 
 use anyhow::Result;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::time;
 
 use rust_photoacoustic::{
@@ -72,7 +73,7 @@ async fn test_config_hot_reload_integration() -> Result<()> {
 
     // Simulate a configuration change
     {
-        let mut config_guard = shared_config.write().unwrap();
+        let mut config_guard = shared_config.write().await;
         // Modify something in the processing config to trigger a change
         config_guard.processing.enabled = true;
         // You could modify specific node parameters here if needed

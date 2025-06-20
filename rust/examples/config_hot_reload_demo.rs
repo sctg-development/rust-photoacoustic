@@ -9,8 +9,9 @@
 
 use anyhow::Result;
 use log::{info, warn};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::time;
 
 use rust_photoacoustic::{
@@ -62,7 +63,7 @@ async fn main() -> Result<()> {
 
     // Create processing graph from config
     let processing_graph = ProcessingGraph::from_config_with_registry(
-        &shared_config.read().unwrap().processing.default_graph,
+        &shared_config.read().await.processing.default_graph,
         None,
     )?;
 
@@ -103,7 +104,7 @@ async fn main() -> Result<()> {
         info!("🔄 Simulating configuration change #{}", i);
 
         {
-            let mut config_guard = shared_config.write().unwrap();
+            let mut config_guard = shared_config.write().await;
 
             // Modify gain parameter to trigger hot-reload
             if let Some(node) = config_guard

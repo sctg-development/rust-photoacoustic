@@ -39,7 +39,8 @@ use rocket_okapi::{
     gen::OpenApiGenerator,
     request::{OpenApiFromRequest, RequestHeaderInput},
 };
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Request guard for extracting and validating a Bearer JWT from the Authorization header
 ///
@@ -121,7 +122,7 @@ impl<'r> FromRequest<'r> for OAuthBearer {
                 ))
             }
         };
-        let access_config = config_state.read().unwrap().access.clone();
+        let access_config = config_state.read().await.access.clone();
 
         if let Some(header) = auth_header {
             if let Some(token) = header.strip_prefix("Bearer ") {

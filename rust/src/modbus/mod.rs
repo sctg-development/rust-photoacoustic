@@ -20,7 +20,8 @@
 //! ```no_run
 //! use rust_photoacoustic::config::Config;
 //! use rust_photoacoustic::daemon::launch_daemon::Daemon;
-//! use std::sync::{Arc, RwLock};
+//! use std::sync::Arc;
+//! use tokio::sync::RwLock;
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let config = Config::default();

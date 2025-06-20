@@ -181,6 +181,13 @@ impl MockI2CDriver {
             old_temp, new_temp, simulation.heater_power, simulation.peltier_power
         );
 
+        // Each minute, log the current temperature, peltier power, and heater power
+        if simulation.last_update.elapsed() >= Duration::from_secs(60) {
+            info!(
+                "Thermal simulation status: {:.2}°C, Peltier power: {:.1}%, Heater power: {:.1}%",
+                simulation.temperature, simulation.peltier_power, simulation.heater_power
+            );
+        }
         Ok(())
     }
 

@@ -20,7 +20,8 @@ use rust_photoacoustic::{config::AccessConfig, visualization::auth::jwt::JwkKeyS
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Generate a test configuration for Rocket
 fn get_test_figment() -> rocket::figment::Figment {

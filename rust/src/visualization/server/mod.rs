@@ -37,7 +37,8 @@
 //!
 //! ```
 //! use rocket::figment::Figment;
-//! use std::sync::{Arc, RwLock};
+//! use std::sync::Arc;
+//! use tokio::sync::RwLock;
 //! use rust_photoacoustic::visualization::server;
 //! use rust_photoacoustic::config::Config;
 //!

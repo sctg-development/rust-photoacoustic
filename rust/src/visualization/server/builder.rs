@@ -35,7 +35,8 @@ use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::settings::OpenApiSettings;
 use rocket_okapi::{get_openapi_route, openapi_get_routes_spec};
 use rocket_okapi::{rapidoc::*, settings::UrlObject};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Build a configured Rocket server instance
 ///
@@ -64,7 +65,8 @@ use std::sync::{Arc, RwLock};
 ///
 /// ```
 /// use rocket::figment::Figment;
-/// use std::sync::{Arc, RwLock};
+/// use std::sync::Arc;
+/// use tokio::sync::RwLock;
 /// use rust_photoacoustic::{config::Config, visualization::server};
 ///
 /// async fn example() {
@@ -83,7 +85,7 @@ pub async fn build_rocket(
     streaming_registry: Option<Arc<StreamingNodeRegistry>>,
 ) -> Rocket<Build> {
     // Load hmac secret from config
-    let config_read = config.read().unwrap();
+    let config_read = config.read().await;
     let hmac_secret = config_read.visualization.hmac_secret.clone();
 
     // Load access configuration from config
@@ -92,7 +94,7 @@ pub async fn build_rocket(
     drop(config_read);
 
     // Create OAuth2 state from config (improved dynamic configuration approach)
-    let mut oxide_state = OxideState::from_config(&config);
+    let mut oxide_state = OxideState::from_config(&config).await;
 
     // If we have RS256 keys, update the JWT issuer
     if !oxide_state.rs256_public_key.is_empty() && !oxide_state.rs256_private_key.is_empty() {
@@ -372,5 +374,5 @@ pub async fn get_generix_config(
     config: &State<Arc<RwLock<Config>>>,
 ) -> Result<Json<GenerixConfig>, Status> {
     // Access the generix config through the managed Config state
-    Ok(Json(config.read().unwrap().generix.clone()))
+    Ok(Json(config.read().await.generix.clone()))
 }

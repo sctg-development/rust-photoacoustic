@@ -13,7 +13,8 @@
 //!
 //! ```no_run
 //! use rust_photoacoustic::{config::Config, daemon::launch_daemon::Daemon};
-//! use std::sync::{Arc, RwLock};
+//! use std::sync::Arc;
+//! use tokio::sync::RwLock;
 //!
 //! async fn run() -> anyhow::Result<()> {
 //!     let config = Config::from_file("config.yaml")?;
