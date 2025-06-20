@@ -60,6 +60,8 @@ pub enum ThermalRegulatorResponse {
 pub struct ThermalRegulatorDaemon {
     /// Regulator configuration
     config: ThermalRegulatorConfig,
+    /// I2C bus configuration
+    bus_config: crate::config::thermal_regulation::I2CBusConfig,
     /// Shared state for data exchange
     shared_state: SharedThermalState,
     /// Running flag shared across the system
@@ -239,9 +241,20 @@ impl ThermalRegulatorDaemon {
     /// Create a new thermal regulator daemon
     pub async fn new(
         config: ThermalRegulatorConfig,
+        bus_config: crate::config::thermal_regulation::I2CBusConfig,
         shared_state: SharedThermalState,
         running: Arc<AtomicBool>,
     ) -> Result<Self> {
+        // Debug: Print the bus config being used
+        debug!(
+            "Creating ThermalRegulatorDaemon with bus_config: {:?}",
+            bus_config
+        );
+        debug!(
+            "Bus type: {:?}, ADC address: 0x{:02X}",
+            bus_config.bus_type, config.temperature_sensor.adc_address
+        );
+
         // Initialize regulator in shared state
         let pid_controller = PidController::new(
             config.pid_parameters.kp as f64,
@@ -264,6 +277,7 @@ impl ThermalRegulatorDaemon {
 
         Ok(Self {
             config,
+            bus_config,
             shared_state,
             running,
             thread_handle: None,
@@ -288,27 +302,14 @@ impl ThermalRegulatorDaemon {
 
         // Clone necessary data for the async task
         let config = self.config.clone();
+        let bus_config = self.bus_config.clone();
         let shared_state = self.shared_state.clone();
         let running = self.running.clone();
 
         let handle = tokio::spawn(async move {
             info!("Thermal regulator '{}' thread started", regulator_id);
 
-            // Create appropriate driver based on configuration - moved into the async task for Send
-            let bus_config = {
-                use crate::config::thermal_regulation::{I2CBusConfig, I2CBusType};
-                I2CBusConfig {
-                    bus_type: I2CBusType::Mock,
-                    device: "mock".to_string(),
-                    usb_vendor_id: None,
-                    usb_product_id: None,
-                    pwm_controllers: vec![],
-                    adc_controllers: vec![],
-                    gpio_controllers: vec![],
-                    bus_settings: Default::default(),
-                }
-            };
-
+            // Use the provided bus configuration instead of hardcoded mock
             let mut driver = match create_thermal_regulation_driver(&bus_config, &config) {
                 Ok(driver) => driver,
                 Err(e) => {
@@ -546,8 +547,24 @@ impl ThermalRegulationSystemDaemon {
                 continue;
             }
 
+            // Find the corresponding I2C bus configuration
+            let bus_config = self
+                .config
+                .i2c_buses
+                .iter()
+                .find(|(bus_name, _)| *bus_name == &regulator_config.i2c_bus)
+                .map(|(_, bus_config)| bus_config.clone())
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "I2C bus '{}' not found for regulator '{}'",
+                        regulator_config.i2c_bus,
+                        regulator_config.id
+                    )
+                })?;
+
             let mut regulator_daemon = ThermalRegulatorDaemon::new(
                 regulator_config.clone(),
+                bus_config,
                 self.shared_state.clone(),
                 self.running.clone(),
             )

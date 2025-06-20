@@ -63,6 +63,8 @@ pub struct ThermalCellSimulation {
     ambient_temperature: f64,
     /// Last simulation update time
     last_update: Instant,
+    /// Last logging time for periodic status messages
+    last_log_time: Instant,
     /// Physical properties
     properties: ThermalProperties,
 }
@@ -182,11 +184,12 @@ impl MockI2CDriver {
         );
 
         // Each minute, log the current temperature, peltier power, and heater power
-        if simulation.last_update.elapsed() >= Duration::from_secs(60) {
+        if simulation.last_log_time.elapsed() >= Duration::from_secs(60) {
             info!(
                 "Thermal simulation status: {:.2}°C, Peltier power: {:.1}%, Heater power: {:.1}%",
                 simulation.temperature, simulation.peltier_power, simulation.heater_power
             );
+            simulation.last_log_time = Instant::now();
         }
         Ok(())
     }
@@ -556,13 +559,15 @@ impl MockDevice {
 impl ThermalCellSimulation {
     /// Create a new thermal cell simulation
     pub fn new() -> Self {
+        let now = Instant::now();
         Self {
             temperature: 25.0, // Start at room temperature
             target_temperature: 41.0,
             peltier_power: 0.0,
             heater_power: 0.0,
             ambient_temperature: 25.0,
-            last_update: Instant::now(),
+            last_update: now,
+            last_log_time: now,
             properties: ThermalProperties::default(),
         }
     }

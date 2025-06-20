@@ -715,18 +715,34 @@ pub fn create_thermal_regulation_driver(
     bus_config: &I2CBusConfig,
     regulator_config: &crate::config::thermal_regulation::ThermalRegulatorConfig,
 ) -> Result<Box<dyn ThermalRegulationDriver + Send + Sync>> {
+    // Add debug logging to see what driver type we're creating
+    log::info!(
+        "Creating thermal regulation driver with bus type: {:?}, ADC address: 0x{:02x}",
+        bus_config.bus_type,
+        regulator_config.temperature_sensor.adc_address
+    );
+
     match bus_config.bus_type {
-        I2CBusType::Native => Ok(Box::new(NativeThermalRegulationDriver::new(
-            bus_config,
-            regulator_config,
-        )?)),
-        I2CBusType::Cp2112 => Ok(Box::new(Cp2112ThermalRegulationDriver::new(
-            bus_config,
-            regulator_config,
-        )?)),
-        I2CBusType::Mock => Ok(Box::new(MockThermalRegulationDriver::new(
-            bus_config,
-            regulator_config,
-        )?)),
+        I2CBusType::Native => {
+            log::info!("Using native thermal regulation driver");
+            Ok(Box::new(NativeThermalRegulationDriver::new(
+                bus_config,
+                regulator_config,
+            )?))
+        }
+        I2CBusType::Cp2112 => {
+            log::info!("Using CP2112 thermal regulation driver");
+            Ok(Box::new(Cp2112ThermalRegulationDriver::new(
+                bus_config,
+                regulator_config,
+            )?))
+        }
+        I2CBusType::Mock => {
+            log::info!("Using mock thermal regulation driver");
+            Ok(Box::new(MockThermalRegulationDriver::new(
+                bus_config,
+                regulator_config,
+            )?))
+        }
     }
 }
