@@ -243,5 +243,6 @@
   "user-not-authenticated-or-config-not-loaded": "用户未经过身份验证或Generix配置未加载。",
   "error-loading-processing-graph": "加载处理图时出错：",
   "config-is": "配置是：",
-  "ms": "ms"
+  "ms": "ms",
+  "audio": "声音的"
 }

@@ -13,12 +13,12 @@ export const siteConfig = () => ({
       href: "/",
     },
     {
-      label: i18next.t("api"),
-      href: "/api",
+      label: i18next.t("audio"),
+      href: "/audio",
     },
     {
-      label: i18next.t("pricing"),
-      href: "/pricing",
+      label: i18next.t("thermal"),
+      href: "/thermal",
     },
     {
       label: i18next.t("blog"),
@@ -35,12 +35,12 @@ export const siteConfig = () => ({
       href: "/",
     },
     {
-      label: i18next.t("api"),
-      href: "/api",
+      label: i18next.t("audio"),
+      href: "/audio",
     },
     {
-      label: i18next.t("pricing"),
-      href: "/pricing",
+      label: i18next.t("thermal"),
+      href: "/thermal",
     },
     {
       label: i18next.t("blog"),

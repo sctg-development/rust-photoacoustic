@@ -153,7 +153,6 @@ export function StreamingNodeModal({
               <Accordion>
                 <AccordionItem>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                     <div>
                       <p className="text-sm text-gray-600">
                         {t("streaming-modal-node-id")}

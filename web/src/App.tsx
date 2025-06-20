@@ -9,8 +9,8 @@ import { PageNotFound } from "./pages/404";
 import { AuthenticationGuard, LogoutButton, useAuth } from "./authentication";
 
 import IndexPage from "@/pages/index";
-import ApiPage from "@/pages/api";
-import PricingPage from "@/pages/pricing";
+import AudioPage from "@/pages/audio";
+import ThermalPage from "@/pages/thermal";
 import BlogPage from "@/pages/blog";
 import GraphPage from "@/pages/graph";
 
@@ -55,12 +55,12 @@ function App() {
       <Routes>
         <Route element={<IndexPage />} path="/" />
         <Route
-          element={<AuthenticationGuard component={ApiPage} />}
-          path="/api"
+          element={<AuthenticationGuard component={AudioPage} />}
+          path="/audio"
         />
         <Route
-          element={<AuthenticationGuard component={PricingPage} />}
-          path="/pricing"
+          element={<AuthenticationGuard component={ThermalPage} />}
+          path="/thermal"
         />
         <Route
           element={<AuthenticationGuard component={BlogPage} />}
