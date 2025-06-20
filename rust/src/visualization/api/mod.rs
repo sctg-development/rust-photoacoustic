@@ -4,7 +4,9 @@
 pub mod get;
 pub mod graph;
 pub mod post;
+pub mod system;
 pub use get::config::*;
 pub use get::test::*;
 pub use get::thermal::*;
 pub use post::test::*;
+pub use system::*;

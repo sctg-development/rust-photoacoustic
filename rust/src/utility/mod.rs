@@ -10,6 +10,10 @@ pub mod data_source;
 pub mod noise_generator;
 #[cfg(test)]
 pub mod noise_generator_test;
+/// System statistics collection module.
+/// This module provides cross-platform monitoring of CPU usage, memory consumption,
+/// and thread count for performance analysis and system health monitoring.
+pub mod system_stats;
 pub mod temperature_conversion;
 
 // Re-exports for use in other modules

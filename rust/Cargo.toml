@@ -6,6 +6,9 @@ authors = ["Ronan Le Meillat"]
 description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 
 [dependencies]
+# System monitoring
+sysinfo = "0.35.2"         # Cross-platform system information
+
 # Audio processing
 cpal = "0.16.0"           # Audio input
 hound = "3.5.1"             # WAV file handling
