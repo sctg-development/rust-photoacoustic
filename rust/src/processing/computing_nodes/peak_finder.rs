@@ -68,7 +68,7 @@
 //! }
 //! ```
 
-use crate::processing::computing_nodes::{ComputingSharedData, SharedComputingState};
+use crate::processing::computing_nodes::{ComputingSharedData, PeakResult, SharedComputingState};
 use crate::processing::nodes::ProcessingMetadata;
 use crate::processing::{ProcessingData, ProcessingNode};
 use anyhow::{anyhow, Result};
@@ -173,13 +173,7 @@ impl PeakFinderNode {
             sample_rate: 48000,
             smoothing_factor: 0.7,
             coherence_threshold: 3,
-            shared_state: Arc::new(RwLock::new(ComputingSharedData {
-                peak_frequency: None,
-                peak_amplitude: None,
-                concentration_ppm: None,
-                polynomial_coefficients: [0.0; 5],
-                last_update: SystemTime::now(),
-            })),
+            shared_state: Arc::new(RwLock::new(ComputingSharedData::default())),
             fft_planner,
             fft,
             sample_buffer: VecDeque::with_capacity(fft_size * 2),
@@ -209,15 +203,8 @@ impl PeakFinderNode {
         let mut fft_planner = RealFftPlanner::<f32>::new();
         let fft = Some(fft_planner.plan_fft_forward(fft_size));
 
-        let shared_state = shared_state.unwrap_or_else(|| {
-            Arc::new(RwLock::new(ComputingSharedData {
-                peak_frequency: None,
-                peak_amplitude: None,
-                concentration_ppm: None,
-                polynomial_coefficients: [0.0; 5],
-                last_update: SystemTime::now(),
-            }))
-        });
+        let shared_state =
+            shared_state.unwrap_or_else(|| Arc::new(RwLock::new(ComputingSharedData::default())));
 
         Self {
             id,
@@ -513,9 +500,16 @@ impl PeakFinderNode {
 
         match self.shared_state.try_write() {
             Ok(mut state) => {
-                state.peak_frequency = Some(frequency);
-                state.peak_amplitude = Some(amplitude);
-                state.last_update = SystemTime::now();
+                // Create new peak result
+                let peak_result = PeakResult {
+                    frequency,
+                    amplitude,
+                    concentration_ppm: None, // Will be calculated if needed
+                    timestamp: SystemTime::now(),
+                };
+
+                // Update using the new method that handles both HashMap and legacy fields
+                state.update_peak_result(self.id.clone(), peak_result);
             }
             Err(_) => {
                 warn!("Peak finder '{}': Failed to acquire write lock for shared state - frequency={:.2} Hz, amplitude={:.4}", 

@@ -306,7 +306,7 @@ impl PhotoacousticModbusServer {
         input_regs.insert(4, ((now >> 16) & 0xFFFF) as u16); // High word
 
         // Add status register - 0 means normal operation
-        if (frequency.is_nan() || amplitude.is_nan() || concentration.is_nan()) {
+        if frequency.is_nan() || amplitude.is_nan() || concentration.is_nan() {
             input_regs.insert(5, 2); // Error status if any value is NaN
         } else {
             input_regs.insert(5, 0); // Normal operation
@@ -321,7 +321,86 @@ impl PhotoacousticModbusServer {
     /// Update measurement data from a computing state
     ///
     /// This method reads the latest values from the shared computing state and
-    /// updates the Modbus input registers accordingly.
+    /// updates the Modbus input registers accordingly. It supports both the legacy
+    /// single peak finder mode and the new multi-peak finder mode.
+    ///
+    /// ### Parameters
+    ///
+    /// * `computing_state` - The shared computing state to read from
+    /// * `node_id` - Optional node ID to get data from a specific peak finder.
+    ///   If None, uses the most recent result across all nodes.
+    ///
+    /// ### Returns
+    ///
+    /// * `true` if the data was successfully updated
+    /// * `false` if the computing state could not be read or contained no data
+    pub fn update_from_computing_state(&self, computing_state: &SharedComputingState) -> bool {
+        self.update_from_computing_state_with_node(computing_state, None)
+    }
+
+    /// Update measurement data from a computing state with specific node selection
+    ///
+    /// This method allows updating from a specific peak finder node or the most recent one.
+    ///
+    /// ### Parameters
+    ///
+    /// * `computing_state` - The shared computing state to read from
+    /// * `node_id` - Optional node ID to get data from a specific peak finder.
+    ///   If None, uses the most recent result across all nodes.
+    ///
+    /// ### Returns
+    ///
+    /// * `true` if the data was successfully updated
+    /// * `false` if the computing state could not be read or contained no data
+    pub fn update_from_computing_state_with_node(
+        &self,
+        computing_state: &SharedComputingState,
+        node_id: Option<&str>,
+    ) -> bool {
+        if let Ok(state) = computing_state.try_read() {
+            // Try to get data from specific node or most recent
+            if let Some(node_id) = node_id {
+                if let Some(result) = state.get_peak_result(node_id) {
+                    let concentration = result.concentration_ppm.unwrap_or(f32::NAN);
+                    self.update_measurement_data(result.frequency, result.amplitude, concentration);
+                    debug!(
+                        "Updated Modbus registers from computing state (node: {}): freq={:.2} Hz, amp={:.2} dB, conc={:.2} ppm",
+                        node_id, result.frequency, result.amplitude, concentration
+                    );
+                    return true;
+                }
+            } else {
+                // First try the most recent result from HashMap
+                if let Some(result) = state.get_latest_peak_result() {
+                    let concentration = result.concentration_ppm.unwrap_or(f32::NAN);
+                    self.update_measurement_data(result.frequency, result.amplitude, concentration);
+                    debug!(
+                        "Updated Modbus registers from computing state (latest): freq={:.2} Hz, amp={:.2} dB, conc={:.2} ppm",
+                        result.frequency, result.amplitude, concentration
+                    );
+                    return true;
+                } else if let (Some(frequency), Some(amplitude)) =
+                    (state.peak_frequency, state.peak_amplitude)
+                {
+                    // Fallback to legacy fields for backward compatibility
+                    let concentration = state.concentration_ppm.unwrap_or(f32::NAN);
+                    self.update_measurement_data(frequency, amplitude, concentration);
+                    debug!(
+                        "Updated Modbus registers from computing state (legacy): freq={:.2} Hz, amp={:.2} dB, conc={:.2} ppm",
+                        frequency, amplitude, concentration
+                    );
+                    return true;
+                }
+            }
+
+            debug!("Computing state does not contain sufficient measurement data (no peak results found)");
+        } else {
+            debug!("Could not read computing state for Modbus update");
+        }
+        false
+    }
+
+    /// Get available peak finder node IDs
     ///
     /// ### Parameters
     ///
@@ -329,29 +408,13 @@ impl PhotoacousticModbusServer {
     ///
     /// ### Returns
     ///
-    /// * `true` if the data was successfully updated
-    /// * `false` if the computing state could not be read or contained no data
-    pub fn update_from_computing_state(&self, computing_state: &SharedComputingState) -> bool {
+    /// A vector of node IDs that have peak results available
+    pub fn get_available_node_ids(&self, computing_state: &SharedComputingState) -> Vec<String> {
         if let Ok(state) = computing_state.try_read() {
-            // We need at least frequency and amplitude from the peak finder
-            if let (Some(frequency), Some(amplitude)) = (state.peak_frequency, state.peak_amplitude)
-            {
-                // Use concentration if available, otherwise return f32::NAN
-                let concentration = state.concentration_ppm.unwrap_or_else(|| f32::NAN);
-
-                self.update_measurement_data(frequency, amplitude, concentration);
-                debug!(
-                    "Updated Modbus registers from computing state: freq={:.2} Hz, amp={:.2} dB, conc={:.2} ppm",
-                    frequency, amplitude, concentration
-                );
-                return true;
-            } else {
-                debug!("Computing state does not contain sufficient measurement data (missing frequency or amplitude)");
-            }
+            state.get_peak_finder_node_ids()
         } else {
-            debug!("Could not read computing state for Modbus update");
+            Vec::new()
         }
-        false
     }
 
     /// Refresh input registers from the stored computing state
