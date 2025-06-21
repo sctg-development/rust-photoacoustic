@@ -506,6 +506,8 @@ impl PeakFinderNode {
                     amplitude,
                     concentration_ppm: None, // Will be calculated if needed
                     timestamp: SystemTime::now(),
+                    coherence_score: 1.0, // Default coherence score
+                    processing_metadata: std::collections::HashMap::new(),
                 };
 
                 // Update using the new method that handles both HashMap and legacy fields

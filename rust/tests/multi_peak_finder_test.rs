@@ -40,6 +40,8 @@ async fn test_multi_peak_finder_shared_data() -> Result<()> {
             amplitude: 0.8,
             concentration_ppm: Some(42.5),
             timestamp: SystemTime::now(),
+            coherence_score: 0.95,
+            processing_metadata: std::collections::HashMap::new(),
         };
         state.update_peak_result("peak_finder_1".to_string(), result_1);
 
@@ -52,6 +54,8 @@ async fn test_multi_peak_finder_shared_data() -> Result<()> {
             amplitude: 0.9,
             concentration_ppm: Some(38.2),
             timestamp: SystemTime::now(),
+            coherence_score: 0.92,
+            processing_metadata: std::collections::HashMap::new(),
         };
         state.update_peak_result("peak_finder_2".to_string(), result_2);
     }
@@ -142,6 +146,8 @@ async fn test_mixed_mode_operation() -> Result<()> {
             amplitude: 0.85,
             concentration_ppm: Some(40.0),
             timestamp: SystemTime::now(),
+            coherence_score: 0.88,
+            processing_metadata: std::collections::HashMap::new(),
         };
         state.update_peak_result("new_node".to_string(), result);
     }
