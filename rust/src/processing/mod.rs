@@ -160,6 +160,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+pub mod computing_nodes;
 pub mod consumer;
 pub mod graph;
 pub mod nodes;
