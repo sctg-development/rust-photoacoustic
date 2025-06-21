@@ -46,6 +46,7 @@ async fn test_openapi_endpoint() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 

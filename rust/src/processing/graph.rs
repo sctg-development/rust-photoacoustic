@@ -10,6 +10,7 @@
 use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
+use crate::processing::computing_nodes::{PeakFinderNode, SharedComputingState};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
     InputNode, MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
@@ -513,6 +514,8 @@ pub struct ProcessingGraph {
     statistics: ProcessingGraphStatistics,
     /// Original node configuration parameters (for serialization)
     node_parameters: HashMap<NodeId, HashMap<String, serde_json::Value>>,
+    /// Shared computing state for all nodes
+    shared_computing_state: Option<SharedComputingState>,
 }
 
 impl ProcessingGraph {
@@ -526,7 +529,30 @@ impl ProcessingGraph {
             output_nodes: Vec::new(),
             statistics: ProcessingGraphStatistics::new(),
             node_parameters: HashMap::new(),
+            shared_computing_state: None,
         }
+    }
+
+    /// Set the shared computing state for the graph
+    ///
+    /// This method sets the shared computing state that will be propagated to all nodes
+    /// in the graph. Computing nodes like PeakFinderNode will use this state to share
+    /// their analytical results.
+    pub fn set_shared_computing_state(&mut self, shared_state: Option<SharedComputingState>) {
+        self.shared_computing_state = shared_state.clone();
+
+        // Propagate the shared state to all existing nodes
+        for node in self.nodes.values_mut() {
+            node.set_shared_computing_state(shared_state.clone());
+        }
+    }
+
+    /// Get the shared computing state for the graph
+    ///
+    /// Returns the current shared computing state that contains analytical results
+    /// from computing nodes in the graph.
+    pub fn get_shared_computing_state(&self) -> Option<SharedComputingState> {
+        self.shared_computing_state.clone()
     }
 
     /// Add a processing node to the graph
@@ -537,7 +563,7 @@ impl ProcessingGraph {
     /// Add a processing node to the graph with configuration parameters
     pub fn add_node_with_params(
         &mut self,
-        node: Box<dyn ProcessingNode>,
+        mut node: Box<dyn ProcessingNode>,
         parameters: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
         let node_id = node.node_id().to_string();
@@ -545,6 +571,11 @@ impl ProcessingGraph {
 
         if self.nodes.contains_key(&node_id) {
             anyhow::bail!("Node '{}' already exists", node_id);
+        }
+
+        // Set the shared computing state on the node if available
+        if let Some(shared_state) = &self.shared_computing_state {
+            node.set_shared_computing_state(Some(shared_state.clone()));
         }
 
         // If this is an input node, set it as the input
@@ -767,10 +798,54 @@ impl ProcessingGraph {
         Self::from_config_with_registry(config, None)
     }
 
+    /// Create a new processing graph from configuration with photoacoustic parameters
+    pub fn from_config_with_photoacoustic(
+        config: &ProcessingGraphConfig,
+        photoacoustic_config: &crate::config::PhotoacousticConfig,
+    ) -> Result<Self> {
+        Self::from_config_with_registry_and_photoacoustic(config, None, photoacoustic_config)
+    }
+
+    /// Create a new processing graph from configuration with shared computing state
+    pub fn from_config_with_computing_state(
+        config: &ProcessingGraphConfig,
+        computing_state: Option<SharedComputingState>,
+    ) -> Result<Self> {
+        Self::from_config_with_all_params(
+            config,
+            None,
+            &crate::config::PhotoacousticConfig::default(),
+            computing_state,
+        )
+    }
+
     /// Create a new processing graph from configuration with optional streaming registry
     pub fn from_config_with_registry(
         config: &ProcessingGraphConfig,
         streaming_registry: Option<StreamingNodeRegistry>,
+    ) -> Result<Self> {
+        Self::from_config_with_registry_and_photoacoustic(
+            config,
+            streaming_registry,
+            &crate::config::PhotoacousticConfig::default(),
+        )
+    }
+
+    /// Create a new processing graph from configuration with optional streaming registry and photoacoustic parameters
+    pub fn from_config_with_registry_and_photoacoustic(
+        config: &ProcessingGraphConfig,
+        streaming_registry: Option<StreamingNodeRegistry>,
+        photoacoustic_config: &crate::config::PhotoacousticConfig,
+    ) -> Result<Self> {
+        Self::from_config_with_all_params(config, streaming_registry, photoacoustic_config, None)
+    }
+
+    /// Create a new processing graph from configuration with all optional parameters
+    pub fn from_config_with_all_params(
+        config: &ProcessingGraphConfig,
+        streaming_registry: Option<StreamingNodeRegistry>,
+        photoacoustic_config: &crate::config::PhotoacousticConfig,
+        computing_state: Option<SharedComputingState>,
     ) -> Result<Self> {
         let mut graph = Self::new();
 
@@ -791,7 +866,12 @@ impl ProcessingGraph {
                 "Creating node: {} of type: {}",
                 node_config.id, node_config.node_type
             );
-            let node = Self::create_node_from_config(node_config, &streaming_registry)?;
+            let node = Self::create_node_from_config(
+                node_config,
+                &streaming_registry,
+                photoacoustic_config,
+                &computing_state,
+            )?;
 
             // Convert node_config.parameters to HashMap<String, serde_json::Value>
             let parameters = if let Some(params_object) = node_config.parameters.as_object() {
@@ -837,6 +917,8 @@ impl ProcessingGraph {
     fn create_node_from_config(
         config: &NodeConfig,
         streaming_registry: &Option<StreamingNodeRegistry>,
+        photoacoustic_config: &crate::config::PhotoacousticConfig,
+        computing_state: &Option<SharedComputingState>,
     ) -> Result<Box<dyn ProcessingNode>> {
         match config.node_type.as_str() {
             "input" => Ok(Box::new(InputNode::new(config.id.clone()))),
@@ -1087,6 +1169,56 @@ impl ProcessingGraph {
                 Ok(Box::new(StreamingNode::new_with_string_id(
                     &config.id, &name, registry,
                 )))
+            }
+            "computing_peak_finder" => {
+                // Extract peak finder parameters
+                let mut peak_finder = PeakFinderNode::new_with_shared_state(
+                    config.id.clone(),
+                    computing_state.clone(),
+                );
+
+                // Use global photoacoustic parameters for sample_rate and fft_size (frame_size)
+                peak_finder = peak_finder.with_sample_rate(photoacoustic_config.sample_rate as u32);
+                peak_finder = peak_finder.with_fft_size(photoacoustic_config.frame_size as usize);
+
+                if let Some(params) = config.parameters.as_object() {
+                    if let Some(threshold_value) = params.get("detection_threshold") {
+                        if let Some(threshold) = threshold_value.as_f64() {
+                            peak_finder = peak_finder.with_detection_threshold(threshold as f32);
+                        }
+                    }
+
+                    if let Some(freq_min_value) = params.get("frequency_min") {
+                        if let Some(freq_min) = freq_min_value.as_f64() {
+                            let freq_max = params
+                                .get("frequency_max")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(20000.0)
+                                as f32;
+                            peak_finder =
+                                peak_finder.with_frequency_range(freq_min as f32, freq_max);
+                        }
+                    }
+
+                    if let Some(freq_max_value) = params.get("frequency_max") {
+                        if let Some(freq_max) = freq_max_value.as_f64() {
+                            let freq_min = params
+                                .get("frequency_min")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(20.0) as f32;
+                            peak_finder =
+                                peak_finder.with_frequency_range(freq_min, freq_max as f32);
+                        }
+                    }
+
+                    if let Some(smoothing_value) = params.get("smoothing_factor") {
+                        if let Some(smoothing) = smoothing_value.as_f64() {
+                            peak_finder = peak_finder.with_smoothing_factor(smoothing as f32);
+                        }
+                    }
+                }
+
+                Ok(Box::new(peak_finder))
             }
             "gain" => {
                 // Extract gain parameters

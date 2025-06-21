@@ -7,6 +7,7 @@
 pub mod certificate_utilities;
 pub mod cpal;
 pub mod data_source;
+pub mod jwt_token;
 pub mod noise_generator;
 #[cfg(test)]
 pub mod noise_generator_test;

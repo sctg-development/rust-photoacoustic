@@ -12,6 +12,7 @@ use super::handlers::*;
 use crate::acquisition::SharedAudioStream;
 use crate::config::{Config, GenerixConfig};
 use crate::include_png_as_base64;
+use crate::processing::computing_nodes::SharedComputingState;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
 use crate::thermal_regulation::SharedThermalState;
 use crate::visualization::api::graph::graph::*;
@@ -53,6 +54,7 @@ use tokio::sync::RwLock;
 /// * `visualization_state` - Optional shared visualization state for statistics
 /// * `streaming_registry` - Optional streaming node registry for audio processing
 /// * `thermal_state` - Optional shared thermal regulation state for temperature control
+/// * `computing_state` - Optional shared computing state for analytical results from computing nodes
 ///
 /// ### Returns
 ///
@@ -74,7 +76,7 @@ use tokio::sync::RwLock;
 /// async fn example() {
 ///     let figment = Figment::from(rocket::Config::default());
 ///     let config = Arc::new(RwLock::new(Config::default()));
-///     let rocket = server::build_rocket(figment, config, None, None, None, None).await;
+///     let rocket = server::build_rocket(figment, config, None, None, None, None, None).await;
 ///     // Launch the server
 ///     // rocket.launch().await.expect("Failed to launch");
 /// }
@@ -86,6 +88,7 @@ pub async fn build_rocket(
     visualization_state: Option<Arc<SharedVisualizationState>>,
     streaming_registry: Option<Arc<StreamingNodeRegistry>>,
     thermal_state: Option<SharedThermalState>,
+    computing_state: Option<SharedComputingState>,
 ) -> Rocket<Build> {
     // Load hmac secret from config
     let config_read = config.read().await;
@@ -214,6 +217,10 @@ pub async fn build_rocket(
         .manage(oxide_state)
         .manage(jwt_validator)
         .manage(config.clone()); // Add config as managed state for future dynamic configuration
+
+    // Add computing routes and state if available
+    let rocket_builder =
+        add_computing_routes(rocket_builder, computing_state.clone(), &mut openapi_spec);
 
     // Add thermal regulation state if available
     let rocket_builder = add_thermal_routes(rocket_builder, thermal_state, &mut openapi_spec);
@@ -347,6 +354,36 @@ fn add_audio_routes(
             .manage(audio_state)
     } else {
         debug!("No audio stream provided, skipping audio routes");
+        rocket_builder
+    }
+}
+
+/// Add Computing routes if computing state is available
+///
+/// This function mounts the computing routes and merges their OpenAPI specification
+fn add_computing_routes(
+    rocket_builder: Rocket<Build>,
+    computing_state: Option<SharedComputingState>,
+    openapi_spec: &mut OpenApi,
+) -> Rocket<Build> {
+    if let Some(computing_state) = computing_state {
+        debug!("Adding SharedComputingState to Rocket state management");
+        let (openapi_routes_computing, openapi_spec_computing) = get_computing_routes();
+
+        // Merge computing OpenAPI spec
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_computing,
+        ) {
+            warn!("Failed to merge computing OpenAPI spec: {}", e);
+        }
+
+        rocket_builder
+            .mount("/", openapi_routes_computing)
+            .manage(computing_state)
+    } else {
+        debug!("No computing state provided, skipping computing routes");
         rocket_builder
     }
 }

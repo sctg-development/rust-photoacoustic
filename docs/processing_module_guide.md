@@ -36,6 +36,8 @@ The **processing module** (`src/processing/`) is the heart of the rust-photoacou
 - **Real-time Audio Analysis**: General-purpose audio processing and analysis
 - **Signal Filtering**: Digital filter chains for noise reduction and signal enhancement
 - **Multi-channel Processing**: Dual-channel audio operations and differential analysis
+- **Analytical Computing**: Real-time spectral analysis and peak detection for frequency tracking
+- **Concentration Calculation**: Polynomial-based gas concentration computation from photoacoustic signals
 
 ---
 
@@ -61,10 +63,11 @@ graph TD
 ```rust,ignore
 // Main processing module structure
 pub mod processing {
-    pub mod consumer;     // ProcessingConsumer - main processing orchestrator
-    pub mod graph;        // ProcessingGraph - node container and execution engine
-    pub mod nodes;        // ProcessingNode trait and implementations
-    pub mod result;       // ProcessingResult and analysis structures
+    pub mod consumer;         // ProcessingConsumer - main processing orchestrator
+    pub mod graph;           // ProcessingGraph - node container and execution engine
+    pub mod nodes;           // ProcessingNode trait and implementations
+    pub mod result;          // ProcessingResult and analysis structures
+    pub mod computing_nodes; // ComputingNode - specialized analytical processing nodes
 }
 ```
 
@@ -74,6 +77,8 @@ pub mod processing {
 use crate::acquisition::AudioFrame;        // Input audio data
 use crate::preprocessing::{Filter, DifferentialCalculator}; // Processing algorithms
 use crate::config::processing::*;          // Configuration structures
+use realfft::{RealFftPlanner, RealToComplex}; // FFT processing for ComputingNodes
+use num_complex;                           // Complex number arithmetic for spectral analysis
 ```
 
 ---
@@ -280,6 +285,118 @@ pub enum MixStrategy {
 
 ---
 
+### Computing Nodes (Analytical Processing)
+
+Computing Nodes are specialized ProcessingNodes that implement the **pass-through pattern** while performing analytical computations on the data. They allow the original signal to flow unchanged to the next node while extracting analytical information and publishing it to a shared state for use by other nodes.
+
+#### Key Features:
+- **Pass-through Processing**: Data flows unchanged, maintaining pipeline integrity
+- **Parallel Analysis**: Performs computations without affecting data latency
+- **Shared State**: Results are published to thread-safe shared state (`Arc<RwLock<ComputingSharedData>>`)
+- **Real-time Analytics**: Enables real-time frequency tracking and concentration calculation
+
+#### PeakFinderNode (Spectral Analysis)
+**Purpose**: Performs real-time FFT-based spectral analysis to detect frequency peaks while passing data through unchanged.
+
+```rust,ignore
+use rust_photoacoustic::processing::computing_nodes::PeakFinderNode;
+
+// Create peak finder with custom configuration
+let peak_finder = PeakFinderNode::new("peak_detector".to_string())
+    .with_detection_threshold(0.1)         // 10% amplitude threshold
+    .with_frequency_range(900.0, 1100.0)   // Focus on 1kHz range
+    .with_fft_size(2048)                   // FFT window size
+    .with_smoothing_factor(0.7)            // Temporal smoothing
+    .with_sample_rate(48000);
+
+// Add to processing graph
+graph.add_node(Box::new(peak_finder))?;
+```
+
+**Configuration Options**:
+```rust,ignore
+// Builder pattern configuration
+let peak_finder = PeakFinderNode::new("peak_detector".to_string())
+    .with_detection_threshold(0.15)        // Minimum peak amplitude (0.0-1.0)
+    .with_frequency_range(800.0, 1200.0)   // Analysis frequency range (Hz)
+    .with_fft_size(4096)                   // FFT window size (power of 2)
+    .with_sample_rate(44100)               // Sample rate adaptation
+    .with_smoothing_factor(0.8);           // Moving average smoothing (0.0-1.0)
+```
+
+**Algorithmic Features**:
+- **FFT Spectral Analysis**: Uses `realfft` for efficient real-valued FFT
+- **Hann Windowing**: Reduces spectral leakage for better frequency resolution
+- **Coherence Filtering**: Requires multiple consecutive detections for validation
+- **Adaptive Thresholding**: Configurable amplitude threshold for peak detection
+- **Frequency Range Limiting**: Focus analysis on specific frequency bands
+
+**Input/Output**:
+- **Input**: `AudioFrame`, `SingleChannel`, or `DualChannel` (pass-through)
+- **Output**: Same as input (unchanged)
+- **Shared State**: Publishes `peak_frequency` and `peak_amplitude` to `ComputingSharedData`
+
+**Accessing Results**:
+```rust,ignore
+// Get shared state for reading results
+let shared_state = peak_finder.get_shared_state();
+if let Ok(state) = shared_state.read() {
+    if let Some(freq) = state.peak_frequency {
+        println!("Detected peak at {} Hz", freq);
+    }
+    if let Some(amp) = state.peak_amplitude {
+        println!("Peak amplitude: {}", amp);
+    }
+}
+```
+
+#### ComputingSharedData Structure
+**Purpose**: Thread-safe shared data structure for communicating analytical results between computing nodes and other processing nodes.
+
+```rust,ignore
+use rust_photoacoustic::processing::computing_nodes::{ComputingSharedData, SharedComputingState};
+
+// Shared data structure
+pub struct ComputingSharedData {
+    pub peak_frequency: Option<f32>,           // Detected resonance frequency (Hz)
+    pub peak_amplitude: Option<f32>,           // Normalized peak amplitude (0.0-1.0)
+    pub concentration_ppm: Option<f32>,        // Calculated gas concentration (ppm)
+    pub polynomial_coefficients: [f64; 5],    // 4th-degree polynomial coefficients
+    pub last_update: SystemTime,              // Timestamp for data validation
+}
+
+// Type alias for easy access
+pub type SharedComputingState = Arc<RwLock<ComputingSharedData>>;
+```
+
+**Integration with Other Nodes**:
+```rust,ignore
+// Example: Dynamic filter that adapts based on detected peak frequency
+impl ProcessingNode for DynamicFilterNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Read current peak frequency from shared state
+        if let Ok(state) = self.computing_state.read() {
+            if let Some(peak_freq) = state.peak_frequency {
+                // Adapt filter center frequency
+                self.update_center_frequency(peak_freq)?;
+            }
+        }
+        
+        // Apply adaptive filtering
+        self.apply_filter(input)
+    }
+}
+```
+
+**Use Cases for Computing Nodes**:
+1. **Frequency Tracking**: Real-time adaptation of filter parameters based on detected resonance
+2. **Signal Quality Assessment**: Continuous monitoring of signal characteristics
+3. **Concentration Calculation**: Polynomial-based gas concentration from peak amplitudes
+4. **Performance Monitoring**: Real-time analysis of signal processing effectiveness
+5. **Adaptive Processing**: Dynamic parameter adjustment based on signal conditions
+
+---
+
 ### Output Nodes
 
 #### StreamingNode (Real-Time Streaming Output)
@@ -374,13 +491,21 @@ GET /api/stream/audio/fast/123e4567-e89b-12d3-a456-426614174000
 graph LR
     A[AudioFrame] --> B[InputNode]
     B --> C[DualChannel]
-    C --> D[FilterNode]
-    D --> E[DualChannel Filtered]
-    E --> F[DifferentialNode]  
-    F --> G[SingleChannel Diff]
-    G --> H[PhotoacousticOutputNode]
-    H --> I[PhotoacousticResult]
+    C --> D[PeakFinderNode]
+    D --> E[DualChannel + Analytics]
+    E --> F[FilterNode]
+    F --> G[DualChannel Filtered]
+    G --> H[DifferentialNode]  
+    H --> I[SingleChannel Diff]
+    I --> J[PhotoacousticOutputNode]
+    J --> K[PhotoacousticResult]
+    
+    D -.-> L[ComputingSharedData]
+    L -.-> M[Peak Frequency]
+    L -.-> N[Peak Amplitude]
 ```
+
+**Note**: The PeakFinderNode demonstrates the pass-through pattern - data flows unchanged while analytical results are published to shared state.
 
 ### Data Transformation Chain
 
@@ -460,8 +585,21 @@ processing:
           detection_threshold: 0.05
           analysis_window_size: 2048
           
+      # Computing nodes for analytical processing
+      - id: "peak_detector"
+        node_type: "computing_peak_finder"
+        parameters:
+          detection_threshold: 0.1
+          frequency_min: 800.0
+          frequency_max: 1200.0
+          fft_size: 2048
+          smoothing_factor: 0.7
+          coherence_threshold: 3
+          
     connections:
       - from: "input"
+        to: "peak_detector"
+      - from: "peak_detector"
         to: "bandpass_filter"
       - from: "bandpass_filter"  
         to: "differential"
@@ -611,6 +749,85 @@ fn create_parallel_processing_chain() -> Result<ProcessingGraph> {
     
     graph.set_output_node("output")?;
     Ok(graph)
+}
+```
+
+### Computing Node Integration
+
+```rust,ignore
+use rust_photoacoustic::processing::computing_nodes::PeakFinderNode;
+
+fn create_analytical_processing_chain() -> Result<ProcessingGraph> {
+    let mut graph = ProcessingGraph::new();
+    
+    // 1. Input node
+    graph.add_node(Box::new(InputNode::new("input".to_string())))?;
+    
+    // 2. Peak finder for real-time frequency analysis (pass-through)
+    let peak_finder = Box::new(
+        PeakFinderNode::new("peak_detector".to_string())
+            .with_detection_threshold(0.1)
+            .with_frequency_range(800.0, 1200.0)
+            .with_fft_size(2048)
+            .with_smoothing_factor(0.7)
+    );
+    graph.add_node(peak_finder)?;
+    
+    // 3. Adaptive bandpass filter (could use peak frequency from shared state)
+    let filter = Box::new(BandpassFilter::new(1000.0, 100.0));
+    let filter_node = Box::new(FilterNode::new(
+        "adaptive_bandpass".to_string(),
+        filter,
+        ChannelTarget::Both
+    ));
+    graph.add_node(filter_node)?;
+    
+    // 4. Differential calculation
+    let diff_calc = Box::new(SimpleDifferential::new());
+    let diff_node = Box::new(DifferentialNode::new(
+        "differential".to_string(),
+        diff_calc
+    ));
+    graph.add_node(diff_node)?;
+    
+    // 5. Final analysis
+    let output = Box::new(
+        PhotoacousticOutputNode::new("output".to_string())
+            .with_detection_threshold(0.05)
+    );
+    graph.add_node(output)?;
+    
+    // Connect nodes - peak finder in pass-through mode
+    graph.connect("input", "peak_detector")?;
+    graph.connect("peak_detector", "adaptive_bandpass")?;
+    graph.connect("adaptive_bandpass", "differential")?;
+    graph.connect("differential", "output")?;
+    
+    graph.set_output_node("output")?;
+    
+    Ok(graph)
+}
+
+// Example of accessing computing results
+fn monitor_peak_detection(peak_finder: &PeakFinderNode) {
+    let shared_state = peak_finder.get_shared_state();
+    
+    if let Ok(state) = shared_state.read() {
+        match (state.peak_frequency, state.peak_amplitude) {
+            (Some(freq), Some(amp)) => {
+                println!("Peak detected: {} Hz at {:.2}% amplitude", freq, amp * 100.0);
+                
+                // Check data freshness
+                let age = state.last_update.elapsed().unwrap_or_default();
+                if age.as_millis() < 100 {
+                    println!("Data is fresh ({}ms old)", age.as_millis());
+                } else {
+                    println!("Warning: Stale data ({}ms old)", age.as_millis());
+                }
+            }
+            _ => println!("No peak detected"),
+        }
+    }
 }
 ```
 
@@ -776,6 +993,58 @@ impl ProcessingGraph {
         }
         
         Ok(())
+    }
+}
+```
+
+### 5. Computing Node Best Practices
+
+```rust,ignore
+// ✅ Good: Pass-through behavior with analytical computation
+impl ProcessingNode for PeakFinderNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Perform analysis on input data
+        self.analyze_spectrum(&input)?;
+        
+        // ✅ Return input unchanged (pass-through)
+        Ok(input)
+    }
+}
+
+// ✅ Efficient shared state access
+impl ProcessingNode for AdaptiveFilterNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // ✅ Non-blocking read attempt
+        if let Ok(state) = self.computing_state.try_read() {
+            if let Some(peak_freq) = state.peak_frequency {
+                // Adapt parameters based on fresh data
+                if state.last_update.elapsed().unwrap_or_default().as_millis() < 100 {
+                    self.update_center_frequency(peak_freq)?;
+                }
+            }
+        }
+        
+        // Process with current parameters
+        self.apply_filter(input)
+    }
+}
+
+// ✅ Robust error handling in computing nodes
+impl ProcessingNode for PeakFinderNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // ✅ Graceful handling of analysis failures
+        match self.analyze_spectrum(&input) {
+            Ok(peak_data) => {
+                self.update_shared_state(peak_data);
+            }
+            Err(e) => {
+                // Log error but don't fail the pipeline
+                log::warn!("Peak analysis failed: {}, continuing with pass-through", e);
+            }
+        }
+        
+        // Always return input unchanged
+        Ok(input)
     }
 }
 ```

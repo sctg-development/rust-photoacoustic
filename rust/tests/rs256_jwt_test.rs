@@ -195,6 +195,7 @@ async fn test_oidc_endpoints_with_rs256() {
         None,
         None,
         None,
+        None,
     )
     .await;
 
@@ -285,6 +286,7 @@ async fn test_token_endpoint_with_rs256() {
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         figment,
         Arc::new(RwLock::new(test_config)),
+        None,
         None,
         None,
         None,

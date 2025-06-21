@@ -552,7 +552,8 @@
                       "gain",
                       "photoacoustic_output",
                       "record",
-                      "streaming"
+                      "streaming",
+                      "computing_peak_finder"
                     ],
                     "description": "Type of processing node"
                   },
@@ -797,6 +798,53 @@
                       "required": [
                         "parameters"
                       ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "computing_peak_finder"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "detection_threshold": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0,
+                              "default": 0.1,
+                              "description": "Minimum relative amplitude (0.0 to 1.0) for peak detection"
+                            },
+                            "frequency_min": {
+                              "type": "number",
+                              "minimum": 1.0,
+                              "maximum": 50000.0,
+                              "default": 20.0,
+                              "description": "Lower bound of frequency range to analyze (Hz)"
+                            },
+                            "frequency_max": {
+                              "type": "number",
+                              "minimum": 1.0,
+                              "maximum": 50000.0,
+                              "default": 20000.0,
+                              "description": "Upper bound of frequency range to analyze (Hz)"
+                            },
+                            "smoothing_factor": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 1.0,
+                              "default": 0.7,
+                              "description": "Smoothing factor for moving average (0.0 = no smoothing, 1.0 = maximum smoothing)"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
                     }
                   },
                   {

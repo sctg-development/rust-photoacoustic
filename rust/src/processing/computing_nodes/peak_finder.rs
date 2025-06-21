@@ -17,37 +17,67 @@
 //! - **Shared state updates**: Peak detection results are stored in global shared state
 //! - **Temporal coherence filtering**: Eliminates spurious peaks through temporal consistency
 //! - **Moving average smoothing**: Provides stability in peak frequency tracking
+//! - **Global parameter integration**: Uses photoacoustic.sample_rate and photoacoustic.frame_size
+//!
+//! # Configuration
+//!
+//! The PeakFinderNode uses a restrictive configuration approach:
+//! - `sample_rate` is automatically set from `photoacoustic.sample_rate` (global config)
+//! - `fft_size` is automatically set from `photoacoustic.frame_size` (global config)
+//! - Only node-specific parameters can be configured directly:
+//!   - `detection_threshold`: Minimum relative amplitude for peak detection (0.0-1.0)
+//!   - `frequency_min`: Lower bound of frequency range to analyze (Hz)
+//!   - `frequency_max`: Upper bound of frequency range to analyze (Hz)
+//!   - `smoothing_factor`: Moving average smoothing factor (0.0-1.0)
+//!
+//! This design ensures consistency with the global photoacoustic system configuration
+//! and prevents configuration mismatches that could lead to incorrect analysis.
 //!
 //! # Usage
 //!
 //! ```rust
 //! use rust_photoacoustic::processing::computing_nodes::peak_finder::PeakFinderNode;
 //! use rust_photoacoustic::processing::{ProcessingNode, ProcessingData};
+//! use rust_photoacoustic::acquisition::AudioFrame;
 //!
 //! let mut peak_finder = PeakFinderNode::new("peak_detector".to_string())
 //!     .with_detection_threshold(0.1)
 //!     .with_frequency_range(800.0, 1200.0)
 //!     .with_smoothing_factor(0.8);
 //!
+//! // Create some test audio data
+//! let audio_frame = AudioFrame {
+//!     channel_a: vec![0.1, 0.2, 0.3, 0.4],
+//!     channel_b: vec![0.05, 0.15, 0.25, 0.35],
+//!     sample_rate: 48000,
+//!     timestamp: 1000,
+//!     frame_number: 1,
+//! };
+//! let input_data = ProcessingData::AudioFrame(audio_frame);
+//!
 //! // Process audio data (data passes through unchanged)
-//! let output = peak_finder.process(input_data)?;
+//! let output = peak_finder.process(input_data).unwrap();
 //!
 //! // Peak results are available in shared state
 //! let shared_state = peak_finder.get_shared_state();
-//! if let Some(peak_freq) = shared_state.read().unwrap().peak_frequency {
-//!     println!("Detected peak at {} Hz", peak_freq);
+//! {
+//!     let state = shared_state.try_read().unwrap();
+//!     if let Some(peak_freq) = state.peak_frequency {
+//!         println!("Detected peak at {} Hz", peak_freq);
+//!     }
 //! }
 //! ```
 
-use crate::processing::computing_nodes::ComputingSharedData;
+use crate::processing::computing_nodes::{ComputingSharedData, SharedComputingState};
 use crate::processing::nodes::ProcessingMetadata;
 use crate::processing::{ProcessingData, ProcessingNode};
 use anyhow::{anyhow, Result};
 use num_complex;
 use realfft::{RealFftPlanner, RealToComplex};
 use std::collections::VecDeque;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::SystemTime;
+use tokio::sync::RwLock;
 
 /// A computing node that performs real-time peak detection in the frequency domain
 ///
@@ -148,6 +178,55 @@ impl PeakFinderNode {
                 polynomial_coefficients: [0.0; 5],
                 last_update: SystemTime::now(),
             })),
+            fft_planner,
+            fft,
+            sample_buffer: VecDeque::with_capacity(fft_size * 2),
+            peak_history: VecDeque::with_capacity(10),
+            smoothed_frequency: None,
+            processing_count: 0,
+            last_detection_time: None,
+        }
+    }
+
+    /// Create a new PeakFinder node with an external shared computing state
+    ///
+    /// This constructor allows sharing the computing state between multiple nodes,
+    /// enabling centralized management of analytical results. If no shared state
+    /// is provided, creates a new one.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for this node
+    /// * `shared_state` - Optional external shared computing state
+    ///
+    /// # Returns
+    ///
+    /// A new PeakFinderNode instance with the provided or new shared state
+    pub fn new_with_shared_state(id: String, shared_state: Option<SharedComputingState>) -> Self {
+        let fft_size = 2048;
+        let mut fft_planner = RealFftPlanner::<f32>::new();
+        let fft = Some(fft_planner.plan_fft_forward(fft_size));
+
+        let shared_state = shared_state.unwrap_or_else(|| {
+            Arc::new(RwLock::new(ComputingSharedData {
+                peak_frequency: None,
+                peak_amplitude: None,
+                concentration_ppm: None,
+                polynomial_coefficients: [0.0; 5],
+                last_update: SystemTime::now(),
+            }))
+        });
+
+        Self {
+            id,
+            detection_threshold: 0.1,
+            frequency_min: 20.0,
+            frequency_max: 20000.0,
+            fft_size,
+            sample_rate: 48000,
+            smoothing_factor: 0.7,
+            coherence_threshold: 3,
+            shared_state,
             fft_planner,
             fft,
             sample_buffer: VecDeque::with_capacity(fft_size * 2),
@@ -412,7 +491,7 @@ impl PeakFinderNode {
     /// * `frequency` - Detected peak frequency
     /// * `amplitude` - Peak amplitude (normalized)
     fn update_shared_state(&mut self, frequency: f32, amplitude: f32) {
-        if let Ok(mut state) = self.shared_state.write() {
+        if let Ok(mut state) = self.shared_state.try_write() {
             state.peak_frequency = Some(frequency);
             state.peak_amplitude = Some(amplitude);
             state.last_update = SystemTime::now();
@@ -558,7 +637,7 @@ impl ProcessingNode for PeakFinderNode {
         self.last_detection_time = None;
 
         // Reset shared state
-        if let Ok(mut state) = self.shared_state.write() {
+        if let Ok(mut state) = self.shared_state.try_write() {
             state.peak_frequency = None;
             state.peak_amplitude = None;
             state.last_update = SystemTime::now();
@@ -665,6 +744,23 @@ impl ProcessingNode for PeakFinderNode {
         }
 
         Ok(updated)
+    }
+
+    /// Set the shared computing state for this node
+    ///
+    /// For PeakFinderNode, this replaces the internal shared state with the provided one,
+    /// allowing the node to write its results to a graph-wide shared state.
+    fn set_shared_computing_state(&mut self, shared_state: Option<SharedComputingState>) {
+        if let Some(state) = shared_state {
+            self.shared_state = state;
+        }
+    }
+
+    /// Get the shared computing state for this node
+    ///
+    /// Returns the current shared computing state that contains peak detection results
+    fn get_shared_computing_state(&self) -> Option<SharedComputingState> {
+        Some(self.shared_state.clone())
     }
 }
 
@@ -835,7 +931,7 @@ mod tests {
 
         // Check if peak was detected in shared state
         let shared_state = peak_finder.get_shared_state();
-        let state = shared_state.read().unwrap();
+        let state = shared_state.try_read().unwrap();
 
         if let Some(detected_freq) = state.peak_frequency {
             // Allow some tolerance due to FFT bin resolution
@@ -878,7 +974,7 @@ mod tests {
 
         // Should not detect anything due to high threshold
         let shared_state = peak_finder.get_shared_state();
-        let state = shared_state.read().unwrap();
+        let state = shared_state.try_read().unwrap();
 
         // Peak might be None or very different from input frequency due to noise
         // Main thing is that processing doesn't crash
@@ -913,7 +1009,7 @@ mod tests {
 
         // Should not detect 1kHz peak as it's outside the allowed range
         let shared_state = peak_finder.get_shared_state();
-        let state = shared_state.read().unwrap();
+        let state = shared_state.try_read().unwrap();
 
         if let Some(detected_freq) = state.peak_frequency {
             // If anything is detected, it should be in the allowed range
@@ -954,7 +1050,7 @@ mod tests {
         }
 
         let shared_state = peak_finder.get_shared_state();
-        let state = shared_state.read().unwrap();
+        let state = shared_state.try_read().unwrap();
 
         if let Some(detected_freq) = state.peak_frequency {
             // Should detect the 1kHz component (strongest in allowed range)

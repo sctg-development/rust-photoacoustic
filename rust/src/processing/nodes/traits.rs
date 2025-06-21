@@ -8,6 +8,7 @@
 //! to participate in the audio processing graph.
 
 use super::data::ProcessingData;
+use crate::processing::computing_nodes::SharedComputingState;
 use anyhow::Result;
 
 /// Trait for processing nodes in the audio graph
@@ -238,5 +239,62 @@ pub trait ProcessingNode: Send + Sync {
         // Default implementation: no dynamic configuration support
         let _ = parameters;
         Ok(false)
+    }
+
+    /// Set the shared computing state for this node
+    ///
+    /// This method allows the processing graph to provide access to shared computing data
+    /// that can be read and written by computing nodes (like PeakFinderNode).
+    /// Regular processing nodes can ignore this or use it for read-only access.
+    ///
+    /// ### Arguments
+    ///
+    /// * `shared_state` - Optional shared computing state to attach to this node
+    ///
+    /// ### Examples
+    ///
+    /// ```no_run
+    /// use rust_photoacoustic::processing::computing_nodes::{ComputingSharedData, SharedComputingState};
+    /// use rust_photoacoustic::processing::nodes::{GainNode, ProcessingNode};
+    /// use std::sync::Arc;
+    /// use tokio::sync::RwLock;
+    ///
+    /// let mut gain_node = GainNode::new("amp".to_string(), 0.0);
+    /// let shared_state = Arc::new(RwLock::new(ComputingSharedData::default()));
+    ///
+    /// gain_node.set_shared_computing_state(Some(shared_state));
+    /// ```
+    fn set_shared_computing_state(&mut self, _shared_state: Option<SharedComputingState>) {
+        // Default implementation: no-op for nodes that don't need shared computing state
+    }
+
+    /// Get the shared computing state for this node
+    ///
+    /// Returns the shared computing state if available, allowing nodes to read
+    /// analytical results computed by other nodes in the graph.
+    ///
+    /// ### Returns
+    ///
+    /// * `Some(SharedComputingState)` - The shared computing state if available
+    /// * `None` - No shared computing state is available
+    ///
+    /// ### Examples
+    ///
+    /// ```ignore
+    /// use rust_photoacoustic::processing::computing_nodes::PeakFinderNode;
+    /// use rust_photoacoustic::processing::nodes::ProcessingNode;
+    ///
+    /// let peak_finder = PeakFinderNode::new("peak".to_string());
+    /// if let Some(shared_state) = peak_finder.get_shared_computing_state() {
+    ///     // In an async context:
+    ///     // let state = shared_state.read().await;
+    ///     // if let Some(freq) = state.peak_frequency {
+    ///     //     println!("Peak frequency: {} Hz", freq);
+    ///     // }
+    /// }
+    /// ```
+    fn get_shared_computing_state(&self) -> Option<SharedComputingState> {
+        // Default implementation: no shared computing state available
+        None
     }
 }

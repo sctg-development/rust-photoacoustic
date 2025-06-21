@@ -272,6 +272,16 @@ processing:
         order: 2                  # optional order second-order (-12dB/octave)  (must be even)
                                   # for first-order use a combination of lowpass and highpass filters
 
+    # Peak finder for real-time frequency analysis (pass-through)
+    # Note: fft_size uses photoacoustic.frame_size and sample_rate uses photoacoustic.sample_rate
+    - id: "peak_detector"
+      node_type: "computing_peak_finder"
+      parameters:
+        detection_threshold: 0.1      # 10% amplitude threshold
+        frequency_min: 1800.0         # Lower bound (Hz)
+        frequency_max: 2200.0         # Upper bound (Hz)
+        smoothing_factor: 0.7        # Moving average smoothing
+
     # Apply gain adjustment (+3 dB amplification)
     - id: "gain_amplifier"
       node_type: "gain"
@@ -302,6 +312,8 @@ processing:
     - from: streaming_post_differential
       to: bandpass_filter
     - from: bandpass_filter
+      to: peak_detector
+    - from: peak_detector
       to: streaming_bandpass_filter
     - from: streaming_bandpass_filter
       to: processed_recorder

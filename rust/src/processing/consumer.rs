@@ -832,7 +832,7 @@ impl ProcessingConsumer {
         last_node_parameters: &Arc<RwLock<HashMap<String, serde_json::Value>>>,
         consumer_id: &str,
     ) -> Result<bool> {
-        let (current_hash, node_configs, graph_config) = {
+        let (current_hash, node_configs, graph_config, photoacoustic_config) = {
             let config_read = config.read().await;
             let hash = Self::calculate_config_hash(&config_read.processing);
             let node_configs = config_read
@@ -843,7 +843,8 @@ impl ProcessingConsumer {
                 .map(|node_config| (node_config.id.clone(), node_config.clone()))
                 .collect::<HashMap<String, _>>();
             let graph_config = config_read.processing.default_graph.clone();
-            (hash, node_configs, graph_config)
+            let photoacoustic_config = config_read.photoacoustic.clone();
+            (hash, node_configs, graph_config, photoacoustic_config)
         };
 
         let last_hash = last_config_version.load(Ordering::Relaxed);
@@ -953,7 +954,10 @@ impl ProcessingConsumer {
                 );
 
                 // Reconstruct the processing graph from the updated configuration
-                match ProcessingGraph::from_config(&graph_config) {
+                match ProcessingGraph::from_config_with_photoacoustic(
+                    &graph_config,
+                    &photoacoustic_config,
+                ) {
                     Ok(new_graph) => {
                         // Update the processing graph
                         {

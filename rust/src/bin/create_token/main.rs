@@ -3,49 +3,51 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 mod cli;
-mod config_loader;
-mod error;
-mod token_creator;
 
 use cli::CliArgs;
-use config_loader::ConfigLoader;
-use error::TokenCreationError;
+use rust_photoacoustic::config::Config;
+use rust_photoacoustic::utility::jwt_token::{
+    ConfigLoader, JwtAlgorithm, TokenCreationError, TokenCreationParams, TokenCreator,
+};
 use std::process;
 use std::str::FromStr;
-use token_creator::{JwtAlgorithm, TokenCreationParams, TokenCreator};
 
 #[tokio::main]
 async fn main() {
-    if let Err(e) = run().await {
+    if let Err(e) = run() {
         eprintln!("Error: {}", e);
-        process::exit(e.exit_code());
+        process::exit(1);
     }
 }
 
-async fn run() -> Result<(), TokenCreationError> {
+fn run() -> Result<(), TokenCreationError> {
     // Parse CLI arguments
     let args = CliArgs::parse();
 
     // Load and validate configuration
-    let config_loader = ConfigLoader::load(&args.config_path)?;
+    let config = Config::from_file(&args.config_path)
+        .map_err(|e| TokenCreationError::ConfigError { source: e.into() })?;
+
+    let config_loader = ConfigLoader::from_config(&config)?;
+
     // Validate user and client
     let _user = config_loader.find_user(&args.user)?;
     let _client = config_loader.find_client(&args.client)?;
 
     // Prepare creation parameters
     let algorithm = JwtAlgorithm::from_str(&args.algorithm)?;
-    let duration = config_loader.get_token_duration(args.duration_override);
+    let duration = args.duration_override.unwrap_or(86400); // Default 24 hours
 
     let params = TokenCreationParams {
-        username: args.user.clone(),
+        user_id: args.user.clone(),
         client_id: args.client.clone(),
         algorithm,
-        duration,
+        duration_seconds: duration,
     };
 
     // Create the token
-    let token_creator = TokenCreator::new(config_loader);
-    let result = token_creator.create_token(params).await?;
+    let token_creator = TokenCreator::new(&config_loader)?;
+    let result = token_creator.create_token(&params)?;
 
     // Display results
     if args.quiet {
@@ -57,15 +59,15 @@ async fn run() -> Result<(), TokenCreationError> {
     Ok(())
 }
 
-fn print_full_results(result: &token_creator::TokenCreationResult) {
+fn print_full_results(result: &rust_photoacoustic::utility::jwt_token::TokenCreationResult) {
     println!("✅ Token created successfully!");
-    println!("👤 User: {}", result.username);
+    println!("👤 User: {}", result.user_id);
     println!("🔐 Algorithm: {}", result.algorithm);
-    println!("⏱️  Duration: {} seconds", result.duration);
+    println!("⏱️  Duration: {} seconds", result.duration_seconds);
     println!("🔑 Permissions: {}", result.permissions.join(", "));
     println!("🎫 Token: {}", result.token);
 }
 
-fn print_short_results(result: &token_creator::TokenCreationResult) {
+fn print_short_results(result: &rust_photoacoustic::utility::jwt_token::TokenCreationResult) {
     print!("{}", result.token);
 }

@@ -49,7 +49,7 @@
 //!         .merge(("hmac_secret", "your-secret-key".to_string()));
 //!     
 //!     let config = Arc::new(RwLock::new(Config::default()));
-//!     let rocket = server::build_rocket(figment, config, None, None, None, None).await;
+//!     let rocket = server::build_rocket(figment, config, None, None, None, None, None).await;
 //!     rocket.launch().await.expect("Failed to launch server");
 //! }
 //! ```

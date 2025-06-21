@@ -54,6 +54,7 @@ async fn test_compression_enabled() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -114,6 +115,7 @@ async fn test_compression_disabled() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -164,6 +166,7 @@ async fn test_compression_disabled_with_external_web_client() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -222,6 +225,7 @@ async fn test_compression_static_files() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -280,6 +284,7 @@ async fn test_brotli_compression_enabled() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -346,6 +351,7 @@ async fn test_brotli_compression_support() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -403,6 +409,7 @@ async fn test_compression_algorithm_preference() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -466,6 +473,7 @@ async fn test_brotli_compression_on_different_content_types() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 
@@ -536,6 +544,7 @@ async fn test_compression_performance_comparison() {
         Some(visualization_state), // visualization state
         None,                      // No streaming registry
         None,                      // No thermal state
+        None,                      // No shared computing state
     )
     .await;
 

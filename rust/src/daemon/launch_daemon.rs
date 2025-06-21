@@ -22,6 +22,7 @@ use crate::acquisition::{
     get_realtime_audio_source_from_file, get_realtime_simulated_photoacoustic_source,
     RealTimeAcquisitionDaemon, SharedAudioStream,
 };
+use crate::processing::computing_nodes::SharedComputingState;
 use crate::processing::nodes::StreamingNodeRegistry;
 use crate::processing::{ProcessingConsumer, ProcessingGraph};
 use crate::thermal_regulation::{
@@ -88,6 +89,8 @@ pub struct Daemon {
     thermal_regulation_daemon: Option<ThermalRegulationSystemDaemon>,
     /// Shared thermal regulation state for historical data and monitoring
     thermal_regulation_state: SharedThermalState,
+    /// Shared computing state for analytical results from computing nodes
+    computing_state: SharedComputingState,
 }
 
 impl Default for Daemon {
@@ -130,6 +133,9 @@ impl Daemon {
             config: Arc::new(RwLock::new(crate::config::Config::default())),
             thermal_regulation_daemon: None,
             thermal_regulation_state: create_shared_thermal_state(),
+            computing_state: Arc::new(RwLock::new(
+                crate::processing::computing_nodes::ComputingSharedData::default(),
+            )),
         }
     }
 
@@ -329,6 +335,7 @@ impl Daemon {
             Some(Arc::clone(&self.visualization_state)),
             Some(Arc::clone(&self.streaming_registry)),
             Some(self.thermal_regulation_state.clone()),
+            Some(self.computing_state.clone()),
         )
         .await;
 
@@ -816,11 +823,12 @@ impl Daemon {
         info!("Starting processing consumer daemon");
         // Use the shared config from the daemon
         let config = Arc::clone(&self.config);
-        let (processing_config, default_graph) = {
+        let (processing_config, default_graph, photoacoustic_config) = {
             let config_read = config.read().await;
             (
                 config_read.processing.clone(),
                 config_read.processing.default_graph.clone(),
+                config_read.photoacoustic.clone(),
             )
         };
 
@@ -834,10 +842,11 @@ impl Daemon {
             .validate()
             .map_err(|e| anyhow::anyhow!("Invalid processing configuration: {}", e))?;
 
-        // Create processing graph from configuration with streaming registry
-        let processing_graph = ProcessingGraph::from_config_with_registry(
+        // Create processing graph from configuration with streaming registry and photoacoustic parameters
+        let processing_graph = ProcessingGraph::from_config_with_registry_and_photoacoustic(
             &default_graph,
             Some((*self.streaming_registry).clone()),
+            &photoacoustic_config,
         )
         .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
 
