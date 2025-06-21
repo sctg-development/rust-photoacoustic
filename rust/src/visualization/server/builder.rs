@@ -218,31 +218,8 @@ pub async fn build_rocket(
     // Add thermal regulation state if available
     let rocket_builder = add_thermal_routes(rocket_builder, thermal_state, &mut openapi_spec);
 
-    // Attach compression fairing if enabled in config and not using EXTERNAL_WEB_CLIENT
-    // EXTERNAL_WEB_CLIENT is an environment variable for proxying Vite dev server
-    let rocket_builder = if compression_config && !std::env::var("EXTERNAL_WEB_CLIENT").is_ok() {
-        info!("Compression is enabled in configuration");
-        if cfg!(debug_assertions) {
-            warn!("Compression is enabled in debug mode, this may affect performance");
-        }
-        rocket_builder.attach(CachedCompression {
-            cached_path_prefixes: vec!["/api/doc/".to_owned(), "/client/".to_owned()],
-            cached_path_suffixes: vec![
-                ".otf".to_owned(),
-                ".js".to_owned(),
-                ".css".to_owned(),
-                ".html".to_owned(),
-                ".json".to_owned(),
-                ".wasm".to_owned(),
-                ".svg".to_owned(),
-                ".map".to_owned(),
-            ],
-            ..Default::default()
-        })
-    } else {
-        debug!("Compression is disabled in configuration");
-        rocket_builder
-    };
+    // Add compression fairing if enabled in configuration
+    let rocket_builder = add_compression(rocket_builder, compression_config);
 
     // Add audio streaming routes and state if audio stream is available
     let rocket_builder = add_audio_routes(
@@ -254,93 +231,6 @@ pub async fn build_rocket(
 
     // Add OpenAPI documentation routes
     add_openapi_documentation(rocket_builder, openapi_spec)
-}
-
-#[cfg(test)]
-/// Build a Rocket instance configured specifically for testing
-///
-/// This function creates a Rocket instance with settings optimized for
-/// automated testing. It uses a random port to avoid conflicts with
-/// other running services and disables logging for cleaner test output.
-///
-/// ### Returns
-///
-/// A configured Rocket instance ready for testing
-///
-/// ### Panics
-///
-/// This function will exit the process if:
-/// * The JWT validator cannot be initialized with the test secret
-///
-/// ### Note
-///
-/// This function is only available when compiled with the `test` configuration
-/// and is primarily intended for internal unit and integration tests.
-pub fn build_rocket_test_instance() -> Rocket<Build> {
-    use rocket::Config;
-    use std::sync::Arc;
-
-    use crate::visualization::introspection::introspect;
-
-    // Create a test configuration
-    let rocket_config = Config::figment()
-        .merge(("address", "localhost"))
-        .merge(("port", 0)) // Random port for tests
-        .merge(("log_level", rocket::config::LogLevel::Off));
-
-    let access_config = crate::config::AccessConfig::default();
-
-    // Use a test HMAC secret
-    let test_hmac_secret = "test-hmac-secret-key-for-testing";
-    // Add the test HMAC secret to the configuration
-    let rocket_config = rocket_config.merge(("hmac_secret", test_hmac_secret.to_string()));
-
-    // Create OAuth2 state with the test secret
-    let oxide_state = OxideState::preconfigured(rocket_config.clone());
-
-    // Initialize JWT validator with the test secret
-    let jwt_validator = match crate::visualization::api_auth::init_jwt_validator(
-        test_hmac_secret,
-        None,
-        access_config,
-    ) {
-        Ok(validator) => std::sync::Arc::new(validator),
-        Err(e) => {
-            eprintln!("Failed to initialize JWT validator: {}", e);
-            std::process::exit(1);
-        }
-    };
-
-    // Create a test application config
-    let app_config = Arc::new(crate::config::Config::default());
-
-    // Build Rocket instance for tests
-    rocket::custom(rocket_config)
-        .attach(CORS)
-        .mount(
-            "/",
-            routes![
-                // Routes for OAuth tests
-                authorize,
-                authorize_consent,
-                token,
-                refresh,
-                openid_configuration, // Add OIDC configuration endpoint
-                jwks,                 // Add JWKS endpoint
-                introspect,           //Add introspection endpoint once fixed
-                get_generix_config,   // Add generix.json endpoint
-            ],
-        )
-        .mount(
-            "/api",
-            routes![
-                crate::visualization::api_auth::get_profile,
-                crate::visualization::api_auth::get_data,
-            ],
-        )
-        .manage(oxide_state)
-        .manage(jwt_validator)
-        .manage(app_config) // Add config as managed state
 }
 
 use rocket::{get, http::Status, serde::json::Json, State};
@@ -498,4 +388,124 @@ fn add_openapi_documentation(
                 ..Default::default()
             }),
         )
+}
+
+/// Add compression fairing if enabled in configuration
+///
+/// This function attaches the CachedCompression fairing to the Rocket instance
+/// if compression is enabled in the configuration and the EXTERNAL_WEB_CLIENT
+/// environment variable is not set (which is used for Vite dev server proxying).
+fn add_compression(rocket_builder: Rocket<Build>, compression_enabled: bool) -> Rocket<Build> {
+    // Attach compression fairing if enabled in config and not using EXTERNAL_WEB_CLIENT
+    // EXTERNAL_WEB_CLIENT is an environment variable for proxying Vite dev server
+    if compression_enabled && !std::env::var("EXTERNAL_WEB_CLIENT").is_ok() {
+        info!("Compression is enabled in configuration");
+        if cfg!(debug_assertions) {
+            warn!("Compression is enabled in debug mode, this may affect performance");
+        }
+        rocket_builder.attach(CachedCompression {
+            cached_path_prefixes: vec!["/api/doc/".to_owned(), "/client/".to_owned()],
+            cached_path_suffixes: vec![
+                ".otf".to_owned(),
+                ".js".to_owned(),
+                ".css".to_owned(),
+                ".html".to_owned(),
+                ".json".to_owned(),
+                ".wasm".to_owned(),
+                ".svg".to_owned(),
+                ".map".to_owned(),
+            ],
+            ..Default::default()
+        })
+    } else {
+        debug!("Compression is disabled in configuration");
+        rocket_builder
+    }
+}
+
+#[cfg(test)]
+/// Build a Rocket instance configured specifically for testing
+///
+/// This function creates a Rocket instance with settings optimized for
+/// automated testing. It uses a random port to avoid conflicts with
+/// other running services and disables logging for cleaner test output.
+///
+/// ### Returns
+///
+/// A configured Rocket instance ready for testing
+///
+/// ### Panics
+///
+/// This function will exit the process if:
+/// * The JWT validator cannot be initialized with the test secret
+///
+/// ### Note
+///
+/// This function is only available when compiled with the `test` configuration
+/// and is primarily intended for internal unit and integration tests.
+pub fn build_rocket_test_instance() -> Rocket<Build> {
+    use rocket::Config;
+    use std::sync::Arc;
+
+    use crate::visualization::introspection::introspect;
+
+    // Create a test configuration
+    let rocket_config = Config::figment()
+        .merge(("address", "localhost"))
+        .merge(("port", 0)) // Random port for tests
+        .merge(("log_level", rocket::config::LogLevel::Off));
+
+    let access_config = crate::config::AccessConfig::default();
+
+    // Use a test HMAC secret
+    let test_hmac_secret = "test-hmac-secret-key-for-testing";
+    // Add the test HMAC secret to the configuration
+    let rocket_config = rocket_config.merge(("hmac_secret", test_hmac_secret.to_string()));
+
+    // Create OAuth2 state with the test secret
+    let oxide_state = OxideState::preconfigured(rocket_config.clone());
+
+    // Initialize JWT validator with the test secret
+    let jwt_validator = match crate::visualization::api_auth::init_jwt_validator(
+        test_hmac_secret,
+        None,
+        access_config,
+    ) {
+        Ok(validator) => std::sync::Arc::new(validator),
+        Err(e) => {
+            eprintln!("Failed to initialize JWT validator: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Create a test application config
+    let app_config = Arc::new(crate::config::Config::default());
+
+    // Build Rocket instance for tests
+    rocket::custom(rocket_config)
+        .attach(CORS)
+        .mount(
+            "/",
+            routes![
+                // Routes for OAuth tests
+                authorize,
+                authorize_consent,
+                token,
+                refresh,
+                openid_configuration, // Add OIDC configuration endpoint
+                jwks,                 // Add JWKS endpoint
+                introspect,           //Add introspection endpoint once fixed
+                get_generix_config,   // Add generix.json endpoint
+            ],
+        )
+        .mount(
+            "/api",
+            routes![
+                crate::visualization::api_auth::get_profile,
+                crate::visualization::api_auth::get_data,
+            ],
+        )
+        .manage(oxide_state)
+        .manage(jwt_validator)
+        .manage(app_config) // Add config as managed state
 }
