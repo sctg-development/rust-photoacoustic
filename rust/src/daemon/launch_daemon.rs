@@ -842,11 +842,12 @@ impl Daemon {
             .validate()
             .map_err(|e| anyhow::anyhow!("Invalid processing configuration: {}", e))?;
 
-        // Create processing graph from configuration with streaming registry and photoacoustic parameters
-        let processing_graph = ProcessingGraph::from_config_with_registry_and_photoacoustic(
+        // Create processing graph from configuration with streaming registry, photoacoustic parameters, and computing state
+        let processing_graph = ProcessingGraph::from_config_with_all_params(
             &default_graph,
             Some((*self.streaming_registry).clone()),
             &photoacoustic_config,
+            Some(self.computing_state.clone()),
         )
         .map_err(|e| anyhow::anyhow!("Failed to create processing graph: {}", e))?;
 

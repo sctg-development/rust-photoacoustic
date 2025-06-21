@@ -72,8 +72,10 @@ use crate::processing::computing_nodes::{ComputingSharedData, SharedComputingSta
 use crate::processing::nodes::ProcessingMetadata;
 use crate::processing::{ProcessingData, ProcessingNode};
 use anyhow::{anyhow, Result};
+use log::{debug, info, warn};
 use num_complex;
 use realfft::{RealFftPlanner, RealToComplex};
+use rustfft::{num_complex::Complex, FftPlanner};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -388,7 +390,16 @@ impl PeakFinderNode {
             }
         }
 
-        // Calculate normalized amplitude (relative to maximum in analyzed range)
+        // Calculate amplitude in dB (20 * log10(magnitude))
+        // Use a reference value to avoid log(0) and provide meaningful dB scale
+        let reference_magnitude = 1e-6f32; // Small reference to avoid numerical issues
+        let peak_amplitude_db = if peak_magnitude > reference_magnitude {
+            20.0 * peak_magnitude.log10()
+        } else {
+            -120.0 // Very small signal, set to -120dB
+        };
+
+        // For threshold checking, still use normalized amplitude (relative to max in range)
         let max_magnitude = magnitudes[min_bin..=max_bin]
             .iter()
             .cloned()
@@ -399,10 +410,11 @@ impl PeakFinderNode {
             0.0
         };
 
-        // Check if peak meets threshold
+        // Check if peak meets threshold (using normalized amplitude)
         if normalized_amplitude >= self.detection_threshold {
             let peak_frequency = peak_bin as f32 * freq_resolution;
-            Ok(Some((peak_frequency, normalized_amplitude)))
+            // Return frequency and dB amplitude
+            Ok(Some((peak_frequency, peak_amplitude_db)))
         } else {
             Ok(None)
         }
@@ -489,12 +501,26 @@ impl PeakFinderNode {
     /// # Arguments
     ///
     /// * `frequency` - Detected peak frequency
-    /// * `amplitude` - Peak amplitude (normalized)
+    /// * `amplitude` - Peak amplitude in dB (20 * log10(magnitude))
     fn update_shared_state(&mut self, frequency: f32, amplitude: f32) {
-        if let Ok(mut state) = self.shared_state.try_write() {
-            state.peak_frequency = Some(frequency);
-            state.peak_amplitude = Some(amplitude);
-            state.last_update = SystemTime::now();
+        // Limit debug display to avoid flooding logs
+        if self.processing_count % 100 == 0 {
+            info!(
+                "Peak finder '{}': Detected peak at {:.2} Hz with amplitude {:.2} dB",
+                self.id, frequency, amplitude
+            );
+        }
+
+        match self.shared_state.try_write() {
+            Ok(mut state) => {
+                state.peak_frequency = Some(frequency);
+                state.peak_amplitude = Some(amplitude);
+                state.last_update = SystemTime::now();
+            }
+            Err(_) => {
+                warn!("Peak finder '{}': Failed to acquire write lock for shared state - frequency={:.2} Hz, amplitude={:.4}", 
+                      self.id, frequency, amplitude);
+            }
         }
         self.last_detection_time = Some(SystemTime::now());
     }
@@ -569,22 +595,76 @@ impl ProcessingNode for PeakFinderNode {
 
         // Perform spectral analysis if we have enough samples
         if self.sample_buffer.len() >= self.fft_size {
+            // Debug logs every 50 processing cycles to avoid log flooding
+            let should_debug = self.processing_count % 50 == 0;
+
+            if should_debug {
+                debug!(
+                    "Peak finder '{}': Performing spectral analysis with {} samples (cycle {})",
+                    self.id,
+                    self.sample_buffer.len(),
+                    self.processing_count
+                );
+            }
+
             if let Ok(detected_peak) = self.analyze_spectrum() {
                 // Apply coherence filtering
                 if let Some((raw_frequency, amplitude)) = detected_peak {
+                    if should_debug {
+                        debug!(
+                            "Peak finder '{}': Raw peak detected at {:.2} Hz with amplitude {:.4}",
+                            self.id, raw_frequency, amplitude
+                        );
+                    }
+
                     if let Some(validated_frequency) =
                         self.apply_coherence_filter(Some((raw_frequency, amplitude)))
                     {
                         // Apply smoothing
                         let smoothed_frequency = self.apply_smoothing(validated_frequency);
 
-                        // Update shared state
+                        if should_debug {
+                            debug!(
+                                "Peak finder '{}': Validated and smoothed peak at {:.2} Hz",
+                                self.id, smoothed_frequency
+                            );
+                        }
+
+                        // Update shared state - always log state updates but less verbosely
                         self.update_shared_state(smoothed_frequency, amplitude);
+                    } else {
+                        if should_debug {
+                            debug!(
+                                "Peak finder '{}': Peak at {:.2} Hz failed coherence filtering",
+                                self.id, raw_frequency
+                            );
+                        }
                     }
                 } else {
+                    if should_debug {
+                        debug!(
+                            "Peak finder '{}': No peak detected in current frame",
+                            self.id
+                        );
+                    }
                     // No peak detected, still update coherence filter
                     self.apply_coherence_filter(None);
                 }
+            } else {
+                if should_debug {
+                    debug!("Peak finder '{}': Spectral analysis failed", self.id);
+                }
+            }
+        } else {
+            // Only log insufficient samples occasionally as it's expected during startup
+            if self.processing_count % 100 == 0 {
+                debug!(
+                    "Peak finder '{}': Insufficient samples for analysis ({}/{}) - cycle {}",
+                    self.id,
+                    self.sample_buffer.len(),
+                    self.fft_size,
+                    self.processing_count
+                );
             }
         }
 
