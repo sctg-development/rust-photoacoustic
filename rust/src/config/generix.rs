@@ -80,7 +80,7 @@ impl Default for GenerixConfig {
             authority: "https://localhost:8080".to_string(),
             client_id: "LaserSmartClient".to_string(),
             scope: "openid email profile read:api write:api".to_string(),
-            redirect_uri: "https://localhostAD:8080/client/".to_string(),
+            redirect_uri: "https://localhost:8080/client/".to_string(),
             audience: "LaserSmartClient".to_string(),
             token_issuer: "https://localhost:8080".to_string(),
             jwks_endpoint: "https://localhost:8080/.well-known/jwks.json".to_string(),

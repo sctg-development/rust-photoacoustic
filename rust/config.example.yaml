@@ -49,8 +49,8 @@
 visualization:
   # TCP port for the web server (default: 8080)
   port: 8080
-  # IP address to bind the server (use 0.0.0.0 for all interfaces)
-  address: 127.0.0.1
+  # IP address to bind the server (use 0.0.0.0 or ::0 for all interfaces)
+  address: "::0"
   # Server name/version string (for HTTP headers and logs)
   name: LaserSmartApiServer/0.1.0
 
@@ -63,8 +63,8 @@ visualization:
   # Generate and encode with:
   #   cat rust-photoacoustic.local.pem | base64 -w0 > cert.txt
   #   cat rust-photoacoustic.local.key | base64 -w0 > key.txt
-  cert: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZ3d0RRWUpLb1pJaHZjTkFRRUJCUUFEU3dBd1NBSkJBS3FZcWszcVAwTkQrelJDeTdIMjZrUHVuQmpMTEpFNQp4Z0p5VzBQZm8wb3pUelV0Tk1DZFRHZzB5a3hFSjA5NXVEUXpGYWZxME5FcTBWeG40MjJZWXRzQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=
-  key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUJWUUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQVQ4d2dnRTdBZ0VBQWtFQXFwaXFUZW8vUTBQN05FTEwKc2ZicVErNmNHTXNza1RuR0FuSmJROStqU2pOUE5TMDB3SjFNYURUS1RFUW5UM200TkRNVnArclEwU3JSWEdmagpiWmhpMndJREFRQUJBa0JzVWlXSTlaMFh5L21jZEhFOFhnamYrNGs0SVFINmNKR3ZDZ2V6TURSUnJ2cHRjM0YwCnVETEN5K21kQnBPOCs2b2FvcE9wN3hIa053OU42U2FPMGZhWkFpRUE0cjArbEpOQ3FZaGdSdTNIb2xKT0dRMkUKcnVTdHUrZStRM2pxVnN3U29zVUNJUURBbktLalFJdEZONnpxdHpPK1lnanNudFNOeG1iKzdlSnRsY2JLa0FMSgpId0loQUlRL1h3M25xbjBaaHhZM3dEWGtEWnM5TUVPV0srTXFjdVlGMDZEV25KUUZBaUJUb3pDVVJ6Q3lxOHh3ClY0RW1pSmRyZUVUQUU0a2g1ZFpPMDV6dzFMd0E3UUloQU1maU5ULzVXYzY1YzhGNWR6MFRvQjQ1aTVZYVRNYnoKbkNwQWpGQm5kN0E0Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+  cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJmRENDQVNPZ0F3SUJBZ0lVTkdJT2hsWStuTGk2Zld4UDFTcWU1eVZ4S0Ywd0NnWUlLb1pJemowRUF3SXcKRmpFVU1CSUdBMVVFQXd3TFpYaGhiWEJzWlM1amIyMHdIaGNOTWpVd05qSXhNVFF4TURRNVdoY05Nall3TmpJeApNVFF4TURRNVdqQVdNUlF3RWdZRFZRUUREQXRsZUdGdGNHeGxMbU52YlRCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJPODN5akVBcmtNVUgrV3FuTUpCSngvcVNWK2FuQTRUSTRQdzJlYWhYQUJ2dVMya2NxUzAKU1l6QjMya1JWSDBkdXR3WStwL0QxSUNURkdHcjgvRW5jbzJqVHpCTk1Eb0dBMVVkRVFRek1ER0NDMlY0WVcxdwpiR1V1WTI5dGdndGxlR0Z0Y0d4bExtTnZiWUlQZDNkM0xtVjRZVzF3YkdVdVkyOXRod1RBcUFFQk1BOEdBMVVkCkR3RUIvd1FGQXdNSG9BQXdDZ1lJS29aSXpqMEVBd0lEUndBd1JBSWdlMmYyUjgwT1BVMjNoc0FieFhabVJiaTQKVklaeXdmbzBKVzNQUTJENndrTUNJRktmT0JTR3hFc2JrK1pXZlcwSlU2OHRmSGh1eGhvY3BabS80MnViYkdlVwotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3M5V3Y0UjdRYXY5ZTFVZkQKbnJINUhMR3JvemFDdzRzOXRNbmw2THNJbWptaFJBTkNBQVR2TjhveEFLNURGQi9scXB6Q1FTY2Y2a2xmbXB3TwpFeU9EOE5ubW9Wd0FiN2t0cEhLa3RFbU13ZDlwRVZSOUhicmNHUHFmdzlTQWt4UmhxL1B4SjNLTgotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
 
   # JWT authentication secrets:
   # HMAC secret for HS256 JWT signing (used for API authentication)
@@ -73,8 +73,8 @@ visualization:
   # RSA keys for RS256 JWT signing (Base64-encoded PEM, used for API authentication)
   # Generate with the `rs256keygen` utility or OpenSSL.
   # These are optional unless you want RS256 support.
-  rs256_private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUdyQWdFQUFpRUFyd0FZcXAvdGVvaUE4N2FWQStJTjQ1U1RvMTdMUVZPbGRUT3FJeHhQeElNQ0F3RUFBUUlnCldRVlpodUpYOGE4aXVkYzFNb1o1dldYcmxwdFlEUTQ3RXUwa2pNVVA2T0VDRVFEUjEyN0RsZWNKNU80V3B2VEcKdnQ1YkFoRUExWDZ4ZVVzUXpISkZTYlV4eXZEYStRSVJBS2Z1b05ZbHdTQko5Y0JySExseFJzRUNFUURCcTBOZApqNTMyaUxhWURablV5amNwQWhCSG9CU1JSTS9ESVA5dWE1MDhYMEtOCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
-  rs256_public_key: LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2QUJpcW4rMTZpSUR6dHBVRDRnM2psSk9qWHN0QlU2VjFNNm9qSEUvRWd3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0K
+  rs256_private_key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlKS2dJQkFBS0NBZ0VBMVpHelhZOVo4aHJCcUN2NmtlRktHQ2RpSCtRano3L2J4TEFneHl0MmYxREtQcElNCnRsZnFhQmIxWFV1TnZadlFJRWdPUEdwN1ZoU1psYmlEOElzam53STJCR3M5Wk1sUzRMZHFJdU50OG53cnh5Q2MKN1QveWtuVDhlVnlkaXdOZlZJekdva0Q4OExvbEtnT3NCUm5qY1dlY0gwRHl4ZmV2dGIxSWdOMzZrOElRVGMwYgpla0hhMGJjeHhhWjNBaE9UeHJIcE96MmJLaHNQbDVBbkc3MFNlODZuRThtV0dRTEx3SnBJR2J1cXhnemE2VzZ3Cm4ycFVOWnNUNlhKb3NFdGZwMnlZRlFFUFdJSmt5a0FPY3MrcXpxSm9uMGxIc3htQ3pYS290bUtPT05IWmZsaysKZStzSTlhUldFT3ErQW9ZcEZlUVBteWdaLzBsMkR2MkxscXJKWWZXTTBJTEFnZFk5eGZrMmVTTnA2TDJnNzhCWgpqRWZ0ODV1aTlTb3VzNzAvQjBkL2U4S3BOU1ppT25LWTJ4bk1kQ2VoazZZaC9KbFA3bmIra1FMV2xlbm9pYlJmClJBMUJ3cng2SU9BR280Zis1M2JPL1RrSTJxdHB0TFpIcUZzNTJqLy91ZzNVaFc1dXVlbkVlSzRuTVBNTEhkekcKR0lTZUliVE5ia1dVY0o1NnhLcTFzTnZiWXdHdTROYzB5T1dhOExLNmdxdEhkcm1INlF6M3dGdHVaYzVxaER5SAo1eUVpTk5takZpNWZCY015TUZpanhYd1cvcnJkWDNiMFllK1ROMjQ5a2loajJXT2MzNnJML0NHWDNsNXhXR01ECk1UVW0wcGk3VDhETkU2dTMxaDkrQjJ4VVJVZlZkT093Rkk1WUM0QkYwWVNGOXVtMUJUc1BvNXNQTmVrQ0F3RUEKQVFLQ0FnQkI3WXRvTzJOeHlHNjF3blhFYUw2ZHZES2ZVNmIyYit5Z3lCb21RYlYvMGVuTTdQcjlveUFhWjlQdwpxKzBpZGlJR2hSZlg4S3NJUksyd3VWZ0pmbnBOa0xvcUhRekR1eDVaZm1WR1JkemYrUkx1a3BPKzdYbXRXbTNCCjdTUTVFSjV5RkU4Uk1XeWp4MkxIbUlDV3hvb2VyUFJWOVkrOEt4elR4bzNHTWtBek1yb2p1a2hjTWs0aFpTTDUKTjgwUEdBb0xVVXFGWGh3eklFMXM1VFFkYlAxeXVMVjg5MExkajY1a1Uzd2tiWGxuVC9xWUN2SjlFNjdSS1lFNQpGSGRhekxuSGprOVlWSTV2TFRsOThjNUVCUFZlZW1ZL25iaURna0dOdUhKNmN1d2lnQzFhd3FQMlR2VGlGNHYyCkJ2RUhDSEZRYjZtZHBRQjVmU3p6cmJOVW5INHpyY3F3b0NmSlVoWlo4dEVkYnZnRXU2anRGMVJTV1BOT2RJaEsKQjIrOHlOWWNRSDFoa0JZMjdTdnhUdldQKzlBQVVrVmRBcFhyUXdGZDN6dEYwbnNmVmJFM0hrZVJ0ZjNKNmRTaApXTFNIYUVvNlpsYzNuQ0hmMVFYQUxmT3ZzRVJEeHN0UU5NVS9QUmNwZDk0RDhJK2FaQmY2U0RweGswZ0FrNGRxCkQ4VlZjVkdPYXBKK3dVOEFwSndUcmlBcFlaMXU3ZHZmMVFVNE9EN2wrTXhHai9Od2lWTHBhWjlXQ1NxMFNlRlYKbkQ1bWc2L1UyZ3JUeGxRS1ZidGs0eUtmOXRxZm9TdHJsWmNOenI5QzludkRKdFNVWkF1WkJibFN4bDNTblhpdwpTQzFQT0c3YW5pTmdCU1VzK1lQTGhGeXdJa0JQZXdvMmg1eGZjTWNDeXFQZElNdk9NUUtDQVFFQTRXbURMK3ZDCjQrTjhYclBXdXF4eUJ3Zks2NjVvOTlMNGZNS1k0ZyswOVZTNGpsM09XTFJ5c1FkbXQzZE94ZENnUkNmQ1Nkbk0KNmlDNFdlQkxQVGRXK2pPaVdzWFViamRJeGNjL1pOejIyaXhWVkxLS29TT3FHNUhXUTViNmtuVlc0RlhTb0ozbQp0aWxna0NyWXFPR2hDMXJab1NpYlpXeDR6MFgzRkMrUFIxNXQ2WTNLZzZFZHpPQmJJK0JvZU5lT0JYRWt6TUFSCkJJUkNFWHBGc0xVREgzMEErTk9XTThwaFhPTWtVSmpmNEl4VGpMaEFCWjR6bHllaUEveHc3MklqZTV1d2RUbm0KQW1jdWVjWlFxcyt3MWhoRjkvWnFaUnhTQ2JDZDBpMmxaU1hlS3U4OU9PeXZ0NlR5V3BwMUo0TVFKRGJWMTFPYwp0Q3dHRWU1a085aVVkUUtDQVFFQThvekhmRnNTdDMyN0FWV3NFQjZWOWE2Vko5ekIvUno1b1Nhb2ZKWStCNzRiClE5a0JkRyt4Q3JXMnJkSWlJZGx1em1MSXhPZW02T3A5YVIyTTgvWU50eGxhTStVVXNqNCttTHl2Yms3YzNmeloKN0lvaHZsVGZmVy9xUHNLdFdzZnQzaU5FWGptNFZ1NnplR2YyRHprekxuVDBCSHhnU1liRmRsY0U2ZWhRSkVyNAp2MWowWVZkcHFydENhdHp1T2dsS2hGcVhyR0dMN2JCNXpLRThBSTRnNHVRM0s0MGs1ZVNybTQzVVQrL1ljVlFNCmJWL2dNNWsrQTVYUnRyK3JJZjdQaXkrL1BranNHelV3amtKWmYxMVo3Vk5tOUZiOE1NV3FYUVJyL3ZvS09aWWUKVHlqUGU4ZzdtU242Nk5pZjlZL09nb3J5RmxBOWVHZXZRWXNqVEI2ZEpRS0NBUUVBaEpJWnBjVnpDYlJ4SVFHRAorS1lUS2k5YkdPR3F1cFpKcnBhRWMrL283YUMyS29UaEp5cDVpY1JnbE9hR1hiRWxrUEFSUkgza0ZvN0gzWlFjCnJCUXdBMWI2MVlna04rNHJ6cVl3a3BHaVhRNVY0VXBnWGdVcnRxcys2T0dTM1RCRnVBckJwZFU0SzBxS2tEK2kKelRCbUZ0ZUh4MUNxbEN3SG9WLzB3TnAzMmZHZmt3emhYaWtUN2JyRjM0UEw3Y1pZc0xxcWVnRThBUHdJSDE5YQpQV000UXZ5eDVhWUxZTXBXR05zK01HaTR3c2ZGRzY0QmVVeGg2elJVQlNRakI2Y2dWMEpwdFlnbnpxSUFvMzRQClUyWnpDbmVjTHdtdDZXbU9sa1JaalpOckF1SVNtQTI4WkE1UUNpSG9wNERRQmp6KzhVMk8xdVZGOUhFdjRMdmsKRjQ1NVFRS0NBUUVBNXgwcnJCdmZyc1g0SGVKemJIeW9hWXlzQldxOTBaLzlZUWZEL2NydldsTlVDWWRLY3BkRwp2Q3kvMzhyZHlTRTFDeVZucHZBUXc5bEVISmdTeWhlSHBCTmROeHV1WjlVVnNsWUFWM3gveW1wM2dJTnllYmpICnArK3U1WlI4dUliTzZoN3lzMUlPaTQ4eHBhWngrTG1KUWxnZ2QvSEhrZWdBV2EyN09lS3FFcHI1Z09LVElmbTMKN3Y0MTREdWFKK1RZZzFzTE1TOVZ0T3UyY3p5alB1Z3UvK056aW1VWVpwSkl6cFVMWEF2dlVyVkNqaW1RS2JwNApNOVJiR3VaeGU1Z2dUTUQzV3JNRGZ6MWtnZmxJN0NxWVdLSmk5S201N2dNN1BSek1odzNjRmxrcmtrUVJ5Q0hZCllDNTNMYzNVUlpsOHJqa1ZTaHUxSnZpdEx5Z1VQeURnblFLQ0FRRUFzb1I3RGx6aWI1d2JheEZUaC9pR1JXN08KNlFWelJiem5sVmo4VU40TU5wQUdaQ3BOSjZCQksyalViN1AzZEhQR1Vld3hGODh1ZlQwbG5rcDdReElDU2ZZNQpYQWNPeCtaV1NQWWpCOGpKMkh4N2lqd3dxK2F1UGgvelpQWnBoK0NpR2Q1Tmc1dnNCU2tyOGRxV1Q1VU9pRVVpClFtMUFSUldvMEJEQnM3bHgrVVRLRy9zRjdMMG1seTJyTzhlMUR6S2JEVzNzNFNqdUFGdWhqSjhLZnR0R2RvaU0KeS9EU2dHT2U4aDl6WEZWbTUwV1JwdkR4bnQyYlVBbHl4cTF2cjFuNnRQTWl1SFBMbWZaVHJZT2pTb3g2YVk4SwpBUTZKNm42RXl4YU9ydCtVeTd0ZFJiWWV5WDF4bHAwSzN3SmpMM3BqM01qU2NlMElzVGloT3F2ZVlrT0Rrdz09Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+  rs256_public_key: LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1JSUNDZ0tDQWdFQTFaR3pYWTlaOGhyQnFDdjZrZUZLR0NkaUgrUWp6Ny9ieExBZ3h5dDJmMURLUHBJTXRsZnEKYUJiMVhVdU52WnZRSUVnT1BHcDdWaFNabGJpRDhJc2pud0kyQkdzOVpNbFM0TGRxSXVOdDhud3J4eUNjN1QveQprblQ4ZVZ5ZGl3TmZWSXpHb2tEODhMb2xLZ09zQlJuamNXZWNIMER5eGZldnRiMUlnTjM2azhJUVRjMGJla0hhCjBiY3h4YVozQWhPVHhySHBPejJiS2hzUGw1QW5HNzBTZTg2bkU4bVdHUUxMd0pwSUdidXF4Z3phNlc2d24ycFUKTlpzVDZYSm9zRXRmcDJ5WUZRRVBXSUpreWtBT2NzK3F6cUpvbjBsSHN4bUN6WEtvdG1LT09OSFpmbGsrZStzSQo5YVJXRU9xK0FvWXBGZVFQbXlnWi8wbDJEdjJMbHFySllmV00wSUxBZ2RZOXhmazJlU05wNkwyZzc4QlpqRWZ0Cjg1dWk5U291czcwL0IwZC9lOEtwTlNaaU9uS1kyeG5NZENlaGs2WWgvSmxQN25iK2tRTFdsZW5vaWJSZlJBMUIKd3J4NklPQUdvNGYrNTNiTy9Ua0kycXRwdExaSHFGczUyai8vdWczVWhXNXV1ZW5FZUs0bk1QTUxIZHpHR0lTZQpJYlROYmtXVWNKNTZ4S3Exc052Yll3R3U0TmMweU9XYThMSzZncXRIZHJtSDZRejN3RnR1WmM1cWhEeUg1eUVpCk5ObWpGaTVmQmNNeU1GaWp4WHdXL3JyZFgzYjBZZStUTjI0OWtpaGoyV09jMzZyTC9DR1gzbDV4V0dNRE1UVW0KMHBpN1Q4RE5FNnUzMWg5K0IyeFVSVWZWZE9Pd0ZJNVlDNEJGMFlTRjl1bTFCVHNQbzVzUE5la0NBd0VBQVE9PQotLS0tLUVORCBSU0EgUFVCTElDIEtFWS0tLS0tCg==
 
   # Compression
   # Enable or disable compression at the rocket server level.
@@ -126,65 +126,66 @@ photoacoustic:
     # Source type: 'mock' for simple MockSource or 'universal' for full physics simulation
     # - mock: Lightweight simulation with correlation-based signal generation
     # - universal: Complete physics simulation with Helmholtz resonance, gas flow, thermal drift
-    source_type: "mock"
+    # source_type: "mock"
     
-    # Inter-channel correlation coefficient [-1.0, 1.0] for dual-microphone configuration
-    # Used by 'mock' source type for simple correlation-based generation
-    correlation: 0.8
+    # # Inter-channel correlation coefficient [-1.0, 1.0] for dual-microphone configuration
+    # # Used by 'mock' source type for simple correlation-based generation
+    # correlation: 0.8
     
-    # Background noise amplitude [0.0, 1.0] - thermal and electronic noise
-    background_noise_amplitude: 0.1
+    # # Background noise amplitude [0.0, 1.0] - thermal and electronic noise
+    # background_noise_amplitude: 0.1
     
-    # Helmholtz resonance frequency [Hz] - cell acoustic resonance
-    resonance_frequency: 2100.0
+    # # Helmholtz resonance frequency [Hz] - cell acoustic resonance
+    # resonance_frequency: 2100.0
     
-    # Laser modulation depth [0.0, 1.0] - photoacoustic signal strength
-    laser_modulation_depth: 0.8
+    # # Laser modulation depth [0.0, 1.0] - photoacoustic signal strength
+    # laser_modulation_depth: 0.8
     
-    # Base photoacoustic signal amplitude [0.0, 1.0]
-    signal_amplitude: 0.5
+    # # Base photoacoustic signal amplitude [0.0, 1.0]
+    # signal_amplitude: 0.5
     
-    # Phase opposition between microphones [degrees] - differential configuration
-    phase_opposition_degrees: 180.0
+    # # Phase opposition between microphones [degrees] - differential configuration
+    # phase_opposition_degrees: 180.0
     
-    # Temperature drift effect factor [0.0, 0.1] - thermal stability
-    temperature_drift_factor: 0.01
+    # # Temperature drift effect factor [0.0, 0.1] - thermal stability
+    # temperature_drift_factor: 0.01
     
-    # Gas flow noise factor [0.0, 1.0] - turbulent flow effects
-    gas_flow_noise_factor: 0.05
+    # # Gas flow noise factor [0.0, 1.0] - turbulent flow effects
+    # gas_flow_noise_factor: 0.05
     
-    # Signal-to-noise ratio factor [0.1, 100.0] - measurement quality
-    snr_factor: 10.0
+    # # Signal-to-noise ratio factor [0.1, 100.0] - measurement quality
+    # snr_factor: 10.0
     
-    # Laser modulation mode: 'amplitude' (continuous) or 'pulsed' (discrete)
-    modulation_mode: "amplitude"
+    # # Laser modulation mode: 'amplitude' (continuous) or 'pulsed' (discrete)
+    # modulation_mode: "amplitude"
     
-    # Pulse width [seconds] - for pulsed modulation mode
-    pulse_width_seconds: 0.05
+    # # Pulse width [seconds] - for pulsed modulation mode
+    # pulse_width_seconds: 0.05
     
-    # Pulse frequency [Hz] - for pulsed modulation mode
-    pulse_frequency_hz: 20.0
+    # # Pulse frequency [Hz] - for pulsed modulation mode
+    # pulse_frequency_hz: 20.0
 
   # Alternative: Universal physics simulation configuration
   # Uncomment and modify the source_type to "universal" to use comprehensive physics modeling
   # simulated_source:
-  #   source_type: "universal"
-  #   correlation: 0.8
-  #   background_noise_amplitude: 0.1
-  #   resonance_frequency: 2100.0
-  #   laser_modulation_depth: 0.9
-  #   signal_amplitude: 0.7
-  #   phase_opposition_degrees: 175.0
-  #   temperature_drift_factor: 0.02
-  #   gas_flow_noise_factor: 0.3
-  #   snr_factor: 25.0
-  #   modulation_mode: "amplitude"
-  #   pulse_width_seconds: 0.005
-  #   pulse_frequency_hz: 100.0
+    source_type: "universal"
+    correlation: 0.8
+    background_noise_amplitude: 0.1
+    resonance_frequency: 2100.0
+    laser_modulation_depth: 0.9
+    signal_amplitude: 0.7
+    phase_opposition_degrees: 175.0
+    temperature_drift_factor: 0.02
+    gas_flow_noise_factor: 0.3
+    snr_factor: 25.0
+    modulation_mode: "amplitude"
+    pulse_width_seconds: 0.005
+    pulse_frequency_hz: 100.0
 
   # Record consumer settings
   # If enabled, the stream data will be consumed by the record consumer
-  record_consumer: true
+  record_consumer: false
+  record_file: "recording.wav"
 
 # =========================
 # Access control and user management
@@ -204,34 +205,36 @@ access:
       # Optional user metadata
       email: administrator@example.org
       name: Administrator User
-    - user: reader
-      pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # password: '123445678'
-      permissions:
-        - "read:api"
-      email: reader@example.org
+    # - user: reader
+    #   pass: JDUkRmp3NUJRLlM1alZkOXVkciRma0E3eG9PYnhiL1Uxam1UeU05VjhzcDVPb1F3VzBSN1gzRW9pMjN0ZVVBCg== # password: '123445678'
+    #   permissions:
+    #     - "read:api"
+    #   email: reader@example.org
   clients:
-    # OAuth2/OpenID Connect clients allowed to use the API
+  # OAuth2/OpenID Connect clients allowed to use the API
     - client_id: LaserSmartClient
-      default_scope: "openid profile email read:api write:api"
+      default_scope: "openid profile email"
       allowed_callbacks:
-        - "http://localhost:8080/client/"
         - "https://localhost:8080/client/"
+        - "http://localhost:8080/client/"
+        - "https://127.0.0.1:8080/client/"
+        - "http://127.0.0.1:8080/client/"
 
-  # =========================
-  # OAuth2/OpenID Connect client configuration (for web client)
-  # =========================
-  generix:
-    issuer: LaserSmartServer # Issuer for the OAuth2/OpenID Connect server, must match the access.iss value
-    provider: generix # Only 'generix' is supported
-    api_base_url: https://localhost:8080 # Base URL of the API server
-    authority: https://localhost:8080 # Authority URL for OAuth2/OpenID Connect
-    client_id: LaserSmartClient # OAuth2/OpenID Connect client ID
-    scope: "openid email profile read:api write:api" # Scopes requested by the client
-    redirect_uri: https://localhost:8080/client/ # Redirect URI after authentication
-    audience: Client # Audience claim in JWT tokens
-    token_issuer: https://localhost:8080 # Token issuer base URL
-    jwks_endpoint: https://localhost:8080/.well-known/jwks.json # JWKS endpoint for public keys
-    domain: localhost # Domain for the client application
+# =========================
+# OAuth2/OpenID Connect client configuration (for web client)
+# =========================
+generix:
+  issuer: LaserSmartServer # Issuer for the OAuth2/OpenID Connect server, must match the access.iss value
+  provider: generix # Only 'generix' is supported
+  api_base_url: https://localhost:8080/api # Base URL of the API server
+  authority: https://localhost:8080 # Authority URL for OAuth2/OpenID Connect
+  client_id: LaserSmartClient # OAuth2/OpenID Connect client ID
+  scope: openid email profile read:api write:api # Scopes requested by the client
+  redirect_uri: https://localhost:8080/client/ # Redirect URI after authentication
+  audience: LaserSmartClient # Audience claim in JWT tokens
+  token_issuer: https://localhost:8080 # Token issuer base URL
+  jwks_endpoint: https://localhost:8080/.well-known/jwks.json # JWKS endpoint for public keys
+  domain: localhost # Domain for the client application
 
 # =========================
 # Signal processing configuration
@@ -256,8 +259,9 @@ processing:
     
     # Apply differential processing
     - id: "differential_detection"
-      node_type: "differential"
-      parameters: null
+      node_type: "channel_mixer"
+      parameters:
+        strategy: add # Use 'add' for differential detection (adding the two channels at 180 degrees phase opposition)
 
     - id: "streaming_post_differential"
       node_type: "streaming"
