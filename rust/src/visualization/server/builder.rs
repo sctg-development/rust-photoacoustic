@@ -154,21 +154,26 @@ pub async fn build_rocket(
     let rocket_builder = rocket_builder.mount("/", openapi_routes_config); // Add config as managed state
                                                                            // Add visualization state if available (before mounting routes that need it)
 
-    let (rocket_builder, openapi_spec_graph) = if let Some(vis_state) = visualization_state {
-        debug!("Adding SharedVisualizationState to Rocket state management");
-        // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
-        let shared_state = (*vis_state).clone();
-        let (openapi_routes_graph, openapi_spec_graph) = get_graph_routes(); // Get graph routes and OpenAPI spec
-        (
-            rocket_builder
-                .manage(shared_state)
-                .mount("/", openapi_routes_graph),
-            openapi_spec_graph,
-        )
-    } else {
-        debug!("No visualization state provided, API will return 404 for statistics");
-        (rocket_builder, OpenApi::default())
-    };
+    // Add graph routes and system routes if visualization_state if provided
+    // system routes are used for statistics they have a dependency on visualization state
+    let (rocket_builder, openapi_spec_graph, openapi_spec_system) =
+        if let Some(vis_state) = visualization_state {
+            debug!("Adding SharedVisualizationState to Rocket state management");
+            // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
+            let shared_state = (*vis_state).clone();
+            let (openapi_routes_graph, openapi_spec_graph) = get_graph_routes(); // Get graph routes and OpenAPI spec
+            let (openapi_routes_system, openapi_spec_system) = get_system_routes(); // Get system routes and OpenAPI spec
+            (
+                rocket_builder
+                    .manage(shared_state)
+                    .mount("/", openapi_routes_graph),
+                openapi_spec_graph,
+                openapi_spec_system,
+            )
+        } else {
+            debug!("No visualization state provided, API will return 404 for statistics");
+            (rocket_builder, OpenApi::default(), OpenApi::default())
+        };
 
     let openapi_spec_audio: OpenApi;
     let (openapi_routes_base, openapi_spec_base) = openapi_get_routes_spec![
@@ -255,7 +260,8 @@ pub async fn build_rocket(
                                                     ("/".to_string(),openapi_spec_audio), 
                                                     ("/".to_string(),openapi_spec_graph), 
                                                     ("/".to_string(),openapi_spec_config),
-                                                    ( "/".to_string(), openapi_spec_thermal)]).unwrap();
+                                                    ( "/".to_string(), openapi_spec_thermal),
+                                                    ( "/".to_string(),openapi_spec_system)]).unwrap();
         let openapi_settings = OpenApiSettings::default();
         rocket_builder
             .mount(
