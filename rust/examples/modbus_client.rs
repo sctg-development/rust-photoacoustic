@@ -77,7 +77,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Decode frequency (register 0)
             let freq_raw = data[0];
             let frequency = freq_raw as f32 / 10.0;
-            println!("🌊 Resonance Frequency: {} Hz (raw: {})", frequency, freq_raw);
+            println!(
+                "🌊 Resonance Frequency: {} Hz (raw: {})",
+                frequency, freq_raw
+            );
 
             // Decode amplitude (register 1)
             let amp_raw = data[1];
@@ -87,25 +90,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Decode concentration (register 2)
             let conc_raw = data[2];
             let concentration = conc_raw as f32 / 10.0;
-            println!("💧 Water Vapor Concentration: {} ppm (raw: {})", concentration, conc_raw);
+            println!(
+                "💧 Water Vapor Concentration: {} ppm (raw: {})",
+                concentration, conc_raw
+            );
 
             // Decode timestamp (registers 3-4)
             let timestamp_low = data[3] as u32;
             let timestamp_high = data[4] as u32;
             let timestamp = timestamp_low | (timestamp_high << 16);
-            
+
             let current_time = std::time::SystemTime::now()
                 .duration_since(UNIX_EPOCH)?
                 .as_secs() as u32;
             let age_seconds = current_time.saturating_sub(timestamp);
-            
-            println!("⏰ Measurement Timestamp: {} (age: {} seconds)", timestamp, age_seconds);
+
+            println!(
+                "⏰ Measurement Timestamp: {} (age: {} seconds)",
+                timestamp, age_seconds
+            );
 
             // Decode status (register 5)
             let status = data[5];
             let status_text = match status {
                 0 => "Normal",
-                1 => "Warning", 
+                1 => "Warning",
                 2 => "Error",
                 _ => "Unknown",
             };
@@ -131,7 +140,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("🎛️  Filter Strength: {}", data[3]);
         }
         Ok(Err(e)) => {
-            eprintln!("❌ Modbus exception when reading holding registers: {:?}", e);
+            eprintln!(
+                "❌ Modbus exception when reading holding registers: {:?}",
+                e
+            );
         }
         Err(e) => {
             eprintln!("❌ Failed to read holding registers: {}", e);
@@ -145,14 +157,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match ctx.write_single_register(0, 15).await {
         Ok(_) => {
             println!("✅ Successfully set measurement interval to 15 seconds");
-            
+
             // Read back to confirm
             match ctx.read_holding_registers(0, 1).await {
                 Ok(Ok(data)) => {
-                    println!("✅ Confirmed: Measurement interval is now {} seconds", data[0]);
+                    println!(
+                        "✅ Confirmed: Measurement interval is now {} seconds",
+                        data[0]
+                    );
                 }
                 Ok(Err(e)) => {
-                    eprintln!("❌ Modbus exception when reading back configuration: {:?}", e);
+                    eprintln!(
+                        "❌ Modbus exception when reading back configuration: {:?}",
+                        e
+                    );
                 }
                 Err(e) => {
                     eprintln!("❌ Failed to read back configuration: {}", e);
@@ -169,8 +187,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match ctx.write_multiple_registers(0, &new_config).await {
         Ok(_) => {
             println!("✅ Successfully updated multiple configuration values");
-            println!("   Interval: {} sec, Averaging: {} samples, Gain: {}, Filter: {}", 
-                new_config[0], new_config[1], new_config[2], new_config[3]);
+            println!(
+                "   Interval: {} sec, Averaging: {} samples, Gain: {}, Filter: {}",
+                new_config[0], new_config[1], new_config[2], new_config[3]
+            );
         }
         Err(e) => {
             eprintln!("❌ Failed to write multiple registers: {}", e);
@@ -183,15 +203,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Continuous monitoring loop
     for i in 1..=5 {
         println!("\n📊 Reading #{}", i);
-        
+
         match ctx.read_input_registers(0, 3).await {
             Ok(Ok(data)) => {
                 let frequency = data[0] as f32 / 10.0;
                 let amplitude = data[1] as f32 / 1000.0;
                 let concentration = data[2] as f32 / 10.0;
-                
-                println!("  Freq: {} Hz | Amp: {} dB | Conc: {} ppm", 
-                    frequency, amplitude, concentration);
+
+                println!(
+                    "  Freq: {} Hz | Amp: {} dB | Conc: {} ppm",
+                    frequency, amplitude, concentration
+                );
             }
             Ok(Err(e)) => {
                 eprintln!("❌ Modbus exception when reading measurement data: {:?}", e);
@@ -200,7 +222,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("❌ Failed to read measurement data: {}", e);
             }
         }
-        
+
         time::sleep(Duration::from_secs(2)).await;
     }
 

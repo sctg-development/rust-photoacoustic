@@ -306,7 +306,11 @@ impl PhotoacousticModbusServer {
         input_regs.insert(4, ((now >> 16) & 0xFFFF) as u16); // High word
 
         // Add status register - 0 means normal operation
-        input_regs.insert(5, 0);
+        if (frequency.is_nan() || amplitude.is_nan() || concentration.is_nan()) {
+            input_regs.insert(5, 2); // Error status if any value is NaN
+        } else {
+            input_regs.insert(5, 0); // Normal operation
+        }
 
         debug!(
             "Updated Modbus input registers with new measurement data: freq={}, amp={}, conc={}",
@@ -329,14 +333,23 @@ impl PhotoacousticModbusServer {
     /// * `false` if the computing state could not be read or contained no data
     pub fn update_from_computing_state(&self, computing_state: &SharedComputingState) -> bool {
         if let Ok(state) = computing_state.try_read() {
-            if let (Some(frequency), Some(amplitude), Some(concentration)) = (
-                state.peak_frequency,
-                state.peak_amplitude,
-                state.concentration_ppm,
-            ) {
+            // We need at least frequency and amplitude from the peak finder
+            if let (Some(frequency), Some(amplitude)) = (state.peak_frequency, state.peak_amplitude)
+            {
+                // Use concentration if available, otherwise return f32::NAN
+                let concentration = state.concentration_ppm.unwrap_or_else(|| f32::NAN);
+
                 self.update_measurement_data(frequency, amplitude, concentration);
+                debug!(
+                    "Updated Modbus registers from computing state: freq={:.2} Hz, amp={:.2} dB, conc={:.2} ppm",
+                    frequency, amplitude, concentration
+                );
                 return true;
+            } else {
+                debug!("Computing state does not contain sufficient measurement data (missing frequency or amplitude)");
             }
+        } else {
+            debug!("Could not read computing state for Modbus update");
         }
         false
     }

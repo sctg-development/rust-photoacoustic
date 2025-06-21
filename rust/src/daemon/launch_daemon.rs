@@ -224,10 +224,6 @@ impl Daemon {
             self.start_thermal_regulation_system().await?;
         }
 
-        // Start computation task if enabled
-        if true {
-            self.start_photoacoustic_computation().await?;
-        }
         // Add additional tasks here as needed
 
         // Start heartbeat task for monitoring
@@ -391,6 +387,15 @@ impl Daemon {
         Ok(())
     }
 
+    /// **DEPRECATED**: Start photoacoustic computation task
+    ///
+    /// This method is obsolete and should not be used. The photoacoustic computation
+    /// is now handled by the ProcessingConsumer and computing nodes (like peak_finder)
+    /// which provide real-time data processing and update the SharedComputingState.
+    ///
+    /// This old implementation was writing fake data to PhotoacousticDataSource
+    /// which was interfering with the real data from the processing graph.
+    #[allow(dead_code)]
     async fn start_photoacoustic_computation(&mut self) -> Result<()> {
         info!("Starting photoacoustic computation task");
         // Use the shared config from the daemon
