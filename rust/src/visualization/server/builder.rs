@@ -149,33 +149,27 @@ pub async fn build_rocket(
 
     let rocket_builder = rocket::custom(figment).attach(CORS);
 
+    // Initialize OpenAPI specification accumulator
+    let mut openapi_spec = OpenApi::default();
+
     // Add config routes
     let (openapi_routes_config, openapi_spec_config) = get_config_routes();
-    let rocket_builder = rocket_builder.mount("/", openapi_routes_config); // Add config as managed state
-                                                                           // Add visualization state if available (before mounting routes that need it)
 
-    // Add graph routes and system routes if visualization_state if provided
-    // system routes are used for statistics they have a dependency on visualization state
-    let (rocket_builder, openapi_spec_graph, openapi_spec_system) =
-        if let Some(vis_state) = visualization_state {
-            debug!("Adding SharedVisualizationState to Rocket state management");
-            // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
-            let shared_state = (*vis_state).clone();
-            let (openapi_routes_graph, openapi_spec_graph) = get_graph_routes(); // Get graph routes and OpenAPI spec
-            let (openapi_routes_system, openapi_spec_system) = get_system_routes(); // Get system routes and OpenAPI spec
-            (
-                rocket_builder
-                    .manage(shared_state)
-                    .mount("/", openapi_routes_graph),
-                openapi_spec_graph,
-                openapi_spec_system,
-            )
-        } else {
-            debug!("No visualization state provided, API will return 404 for statistics");
-            (rocket_builder, OpenApi::default(), OpenApi::default())
-        };
+    // Merge config OpenAPI spec
+    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+        &mut openapi_spec,
+        &"/".to_string(),
+        &openapi_spec_config,
+    ) {
+        warn!("Failed to merge config OpenAPI spec: {}", e);
+    }
 
-    let openapi_spec_audio: OpenApi;
+    let rocket_builder = rocket_builder.mount("/", openapi_routes_config);
+
+    // Add visualization routes if state is available
+    let rocket_builder =
+        add_visualization_routes(rocket_builder, visualization_state, &mut openapi_spec);
+
     let (openapi_routes_base, openapi_spec_base) = openapi_get_routes_spec![
         webclient_index,
         webclient_index_html,
@@ -183,6 +177,16 @@ pub async fn build_rocket(
         test_api,
         test_post_api
     ];
+
+    // Merge base routes OpenAPI spec
+    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+        &mut openapi_spec,
+        &"/".to_string(),
+        &openapi_spec_base,
+    ) {
+        warn!("Failed to merge base routes OpenAPI spec: {}", e);
+    }
+
     let rocket_builder = rocket_builder
         .mount("/", openapi_routes_base)
         .mount(
@@ -211,16 +215,7 @@ pub async fn build_rocket(
         .manage(config.clone()); // Add config as managed state for future dynamic configuration
 
     // Add thermal regulation state if available
-    let (openapi_routes_thermal, openapi_spec_thermal) = get_thermal_routes();
-    let rocket_builder = if let Some(thermal_state) = thermal_state {
-        debug!("Adding SharedThermalState to Rocket state management");
-        rocket_builder
-            .manage(thermal_state)
-            .mount("/", openapi_routes_thermal)
-    } else {
-        debug!("No thermal state provided, thermal regulation API will return 404");
-        rocket_builder
-    };
+    let rocket_builder = add_thermal_routes(rocket_builder, thermal_state, &mut openapi_spec);
 
     // Attach compression fairing if enabled in config and not using EXTERNAL_WEB_CLIENT
     // EXTERNAL_WEB_CLIENT is an environment variable for proxying Vite dev server
@@ -249,31 +244,21 @@ pub async fn build_rocket(
     };
 
     // Add audio streaming routes and state if audio stream is available
-    if let Some(stream) = audio_stream {
-        let registry = streaming_registry.unwrap_or_else(|| Arc::new(StreamingNodeRegistry::new()));
-        let audio_state = AudioStreamState { stream, registry };
-        let openapi_routes_audio: Vec<Route>;
-        (openapi_routes_audio, openapi_spec_audio) = get_audio_streaming_routes();
+    let rocket_builder = add_audio_routes(
+        rocket_builder,
+        audio_stream,
+        streaming_registry,
+        &mut openapi_spec,
+    );
 
-        // Merge the audio OpenAPI spec with the base spec
-        let merged_spec = marge_spec_list(&[("/".to_string(), openapi_spec_base), 
-                                                    ("/".to_string(),openapi_spec_audio), 
-                                                    ("/".to_string(),openapi_spec_graph), 
-                                                    ("/".to_string(),openapi_spec_config),
-                                                    ( "/".to_string(), openapi_spec_thermal),
-                                                    ( "/".to_string(),openapi_spec_system)]).unwrap();
-        let openapi_settings = OpenApiSettings::default();
-        rocket_builder
-            .mount(
-                "/",
-                openapi_routes_audio,
-            )
-            .mount("/", vec!(get_openapi_route(merged_spec, &openapi_settings)))
-            .manage(audio_state)
-    } else {
-        debug!("No audio stream provided, skipping audio routes");
-        rocket_builder
-    }
+    // Add OpenAPI openapi.json route
+    let openapi_settings = OpenApiSettings::default();
+    let rocket_builder = rocket_builder.mount(
+        "/",
+        vec![get_openapi_route(openapi_spec, &openapi_settings)],
+    );
+
+    rocket_builder
         .mount(
             "/api/doc/",
             make_rapidoc(&RapiDocConfig {
@@ -400,4 +385,106 @@ pub async fn get_generix_config(
 ) -> Result<Json<GenerixConfig>, Status> {
     // Access the generix config through the managed Config state
     Ok(Json(config.read().await.generix.clone()))
+}
+
+/// Add visualization and graph routes if state is available
+///
+/// Updates the OpenAPI specification with graph and system routes
+fn add_visualization_routes(
+    rocket_builder: Rocket<Build>,
+    visualization_state: Option<Arc<SharedVisualizationState>>,
+    openapi_spec: &mut OpenApi,
+) -> Rocket<Build> {
+    if let Some(vis_state) = visualization_state {
+        debug!("Adding SharedVisualizationState to Rocket state management");
+        // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
+        let shared_state = (*vis_state).clone();
+        let (openapi_routes_graph, openapi_spec_graph) = get_graph_routes();
+        let (openapi_routes_system, openapi_spec_system) = get_system_routes();
+
+        // Merge OpenAPI specs into the main spec
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_graph,
+        ) {
+            warn!("Failed to merge graph OpenAPI spec: {}", e);
+        }
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_system,
+        ) {
+            warn!("Failed to merge system OpenAPI spec: {}", e);
+        }
+
+        rocket_builder
+            .manage(shared_state)
+            .mount("/", openapi_routes_graph)
+    } else {
+        debug!("No visualization state provided, API will return 404 for statistics");
+        rocket_builder
+    }
+}
+
+/// Add thermal regulation routes if state is available
+///
+/// Updates the OpenAPI specification with thermal routes
+fn add_thermal_routes(
+    rocket_builder: Rocket<Build>,
+    thermal_state: Option<SharedThermalState>,
+    openapi_spec: &mut OpenApi,
+) -> Rocket<Build> {
+    if let Some(thermal_state) = thermal_state {
+        debug!("Adding SharedThermalState to Rocket state management");
+        let (openapi_routes_thermal, openapi_spec_thermal) = get_thermal_routes();
+
+        // Merge the thermal spec only when thermal state is available
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_thermal,
+        ) {
+            warn!("Failed to merge thermal OpenAPI spec: {}", e);
+        }
+
+        rocket_builder
+            .manage(thermal_state)
+            .mount("/", openapi_routes_thermal)
+    } else {
+        debug!("No thermal state provided, skipping thermal routes");
+        rocket_builder
+    }
+}
+
+/// Add audio streaming routes if stream is available
+///
+/// Updates the OpenAPI specification with audio routes
+fn add_audio_routes(
+    rocket_builder: Rocket<Build>,
+    audio_stream: Option<Arc<SharedAudioStream>>,
+    streaming_registry: Option<Arc<StreamingNodeRegistry>>,
+    openapi_spec: &mut OpenApi,
+) -> Rocket<Build> {
+    if let Some(stream) = audio_stream {
+        let registry = streaming_registry.unwrap_or_else(|| Arc::new(StreamingNodeRegistry::new()));
+        let audio_state = AudioStreamState { stream, registry };
+        let (openapi_routes_audio, openapi_spec_audio) = get_audio_streaming_routes();
+
+        // Merge audio OpenAPI spec
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_audio,
+        ) {
+            warn!("Failed to merge audio OpenAPI spec: {}", e);
+        }
+
+        rocket_builder
+            .mount("/", openapi_routes_audio)
+            .manage(audio_state)
+    } else {
+        debug!("No audio stream provided, skipping audio routes");
+        rocket_builder
+    }
 }
