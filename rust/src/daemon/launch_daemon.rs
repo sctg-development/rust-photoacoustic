@@ -497,9 +497,8 @@ impl Daemon {
         drop(config_read); // Release the read lock
 
         let running = self.running.clone();
-        // Create a clone of the data source to share with the server
-        let data_source = self.get_data_source();
-        // Create another clone for the server task
+        // Get a reference to the shared computing state
+        let computing_state = Arc::clone(&self.computing_state);
 
         let task = tokio::spawn(async move {
             let socket_addr: SocketAddr = socket_addr_str.parse().expect("Invalid socket address");
@@ -514,20 +513,31 @@ impl Daemon {
             // Create a new Modbus server instance
             let on_connected = move |stream, socket_addr| {
                 // Clone the Arc to avoid moving the original
-                let data_source_clone = data_source.clone();
-                let current_data_clone = data_source_clone.get_latest_data().unwrap();
-                debug!(
-                    "Data are now frequency:{} amplitude:{} concentration:{}",
-                    current_data_clone.frequency,
-                    current_data_clone.amplitude,
-                    current_data_clone.concentration
-                );
+                let computing_state_clone = computing_state.clone();
+
+                // Log current data from computing state
+                if let Ok(state) = computing_state_clone.try_read() {
+                    if let (Some(freq), Some(amp), Some(conc)) = (
+                        state.peak_frequency,
+                        state.peak_amplitude,
+                        state.concentration_ppm,
+                    ) {
+                        debug!(
+                            "Computing state contains - frequency:{} amplitude:{} concentration:{}",
+                            freq, amp, conc
+                        );
+                    } else {
+                        debug!("Computing state contains no measurement data yet");
+                    }
+                } else {
+                    debug!("Could not read computing state");
+                }
 
                 async move {
                     accept_tcp_connection(stream, socket_addr, move |_socket_addr| {
                         // Use the cloned Arc in this inner closure
-                        Ok(Some(PhotoacousticModbusServer::with_data_source(
-                            &data_source_clone,
+                        Ok(Some(PhotoacousticModbusServer::with_computing_state(
+                            &computing_state_clone,
                         )))
                     })
                 }
@@ -544,10 +554,7 @@ impl Daemon {
                 }
             });
 
-            // Create a cancellation token for the server task
-            let _running_clone = running.clone();
-
-            // Periodically update the modbus server with latest measurement data
+            // Monitor the running flag and shutdown when requested
             while running.load(Ordering::SeqCst) {
                 // Check every second if we should continue running
                 time::sleep(Duration::from_secs(1)).await;
@@ -1058,6 +1065,18 @@ impl Daemon {
     /// A reference to the shared data source that can be used by other components
     pub fn get_data_source(&self) -> Arc<PhotoacousticDataSource> {
         self.data_source.clone()
+    }
+
+    /// Get the shared computing state
+    ///
+    /// Returns a clone of the `Arc<RwLock<ComputingSharedData>>` for sharing the
+    /// computing state with other components that need access to real-time measurement data.
+    ///
+    /// ### Returns
+    ///
+    /// A cloned `Arc` pointing to the shared computing state
+    pub fn get_computing_state(&self) -> SharedComputingState {
+        Arc::clone(&self.computing_state)
     }
 
     /// Get a reference to the shared audio stream

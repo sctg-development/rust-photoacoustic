@@ -51,6 +51,7 @@ use log::{debug, error};
 
 use tokio_modbus::prelude::*;
 
+use crate::processing::computing_nodes::SharedComputingState;
 use crate::utility::PhotoacousticDataSource;
 
 /// A Modbus TCP server implementation specific to the photoacoustic water vapor analyzer.
@@ -93,6 +94,9 @@ pub struct PhotoacousticModbusServer {
 
     /// Holding registers (read-write configuration values)
     pub holding_registers: Arc<Mutex<HashMap<u16, u16>>>,
+
+    /// Reference to shared computing state for real-time data updates
+    computing_state: Option<SharedComputingState>,
 }
 
 impl tokio_modbus::server::Service for PhotoacousticModbusServer {
@@ -112,6 +116,11 @@ impl tokio_modbus::server::Service for PhotoacousticModbusServer {
     /// Any other function code will return an IllegalFunction exception.
     fn call(&self, req: Self::Request) -> Self::Future {
         debug!("Received Modbus request: {:?}", req);
+
+        // Refresh input registers from computing state before processing read requests
+        if matches!(req, Request::ReadInputRegisters(_, _)) {
+            self.refresh_from_computing_state();
+        }
 
         let res = match req {
             Request::ReadInputRegisters(addr, cnt) => {
@@ -220,32 +229,30 @@ impl PhotoacousticModbusServer {
         Self {
             input_registers: Arc::new(Mutex::new(input_registers)),
             holding_registers: Arc::new(Mutex::new(holding_registers)),
+            computing_state: None,
         }
     }
 
-    /// Create a new Modbus server instance with a data source
+    /// Create a new Modbus server instance with a computing state
     ///
     /// Similar to `new()`, but initializes the server with data from the provided
-    /// data source instead of static test values.
+    /// computing state instead of static test values.
     ///
     /// ### Parameters
     ///
-    /// * `data_source` - A shared data source containing photoacoustic measurements
+    /// * `computing_state` - A shared computing state containing photoacoustic measurements
     ///
     /// ### Returns
     ///
     /// A new `PhotoacousticModbusServer` instance ready to be used with a TCP server.
-    pub fn with_data_source(data_source: &Arc<PhotoacousticDataSource>) -> Self {
-        let server = Self::new();
+    pub fn with_computing_state(computing_state: &SharedComputingState) -> Self {
+        let mut server = Self::new();
 
-        // Initialize with data from the data source if available
-        if let Some(measurement) = data_source.get_latest_data() {
-            server.update_measurement_data(
-                measurement.frequency,
-                measurement.amplitude,
-                measurement.concentration,
-            );
-        }
+        // Store reference to computing state for live updates
+        server.computing_state = Some(Arc::clone(computing_state));
+
+        // Initialize with data from the computing state if available
+        server.refresh_from_computing_state();
 
         server
     }
@@ -305,6 +312,43 @@ impl PhotoacousticModbusServer {
             "Updated Modbus input registers with new measurement data: freq={}, amp={}, conc={}",
             frequency, amplitude, concentration
         );
+    }
+
+    /// Update measurement data from a computing state
+    ///
+    /// This method reads the latest values from the shared computing state and
+    /// updates the Modbus input registers accordingly.
+    ///
+    /// ### Parameters
+    ///
+    /// * `computing_state` - The shared computing state to read from
+    ///
+    /// ### Returns
+    ///
+    /// * `true` if the data was successfully updated
+    /// * `false` if the computing state could not be read or contained no data
+    pub fn update_from_computing_state(&self, computing_state: &SharedComputingState) -> bool {
+        if let Ok(state) = computing_state.try_read() {
+            if let (Some(frequency), Some(amplitude), Some(concentration)) = (
+                state.peak_frequency,
+                state.peak_amplitude,
+                state.concentration_ppm,
+            ) {
+                self.update_measurement_data(frequency, amplitude, concentration);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Refresh input registers from the stored computing state
+    ///
+    /// This method is called automatically before processing read requests
+    /// to ensure the most up-to-date data is served.
+    fn refresh_from_computing_state(&self) {
+        if let Some(ref computing_state) = self.computing_state {
+            self.update_from_computing_state(computing_state);
+        }
     }
 
     /// Get the current configuration from holding registers
