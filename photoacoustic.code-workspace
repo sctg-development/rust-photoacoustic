@@ -42,6 +42,7 @@
         "protect_trace",
         "protect_connect"
       ]
-    }
+    },
+    "rust-analyzer.check.allTargets": false,
   }
 }
