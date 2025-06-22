@@ -536,7 +536,7 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
                   strokeWidth: 3, // Thicker line
                   filter: "drop-shadow(0 0 3px rgba(245, 158, 11, 0.5))" // Glow effect
                 },
-                label: "data flow + dependency",
+                label: "🧮",
                 labelStyle: {
                   fontSize: "10px",
                   fill: "#f59e0b",
