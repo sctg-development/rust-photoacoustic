@@ -286,6 +286,26 @@ processing:
         frequency_max: 2200.0         # Upper bound (Hz)
         smoothing_factor: 0.7        # Moving average smoothing
 
+    # Concentration calculation based on peak detection
+    # This node calculates the concentration based on the detected peak frequency
+    - id: "concentration_calculator"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "peak_detector"  # Reference to the peak detector node
+        polynomial_coefficients:  # Polynomial coefficients for concentration calculation 
+          # Array of 5 coefficients [a₀, a₁, a₂, a₃, a₄]
+          # Polynomial coefficients for concentration calculation a₀, a₁, a₂, a₃, a₄ 
+          # Concentration(ppm) = a₀ + a₁A + a₂A² + a₃A³ + a₄A⁴ where A is the peak amplitude
+          - 0.0   # a₀ constant term
+          - 25.0  # a₁ linear term
+          - -0.3  # a₂ quadratic term
+          - 0.0   # a₃ cubic term
+          - 0.0   # a₄ quartic term
+        temperature_compensation: false  # Controle temperature compensation
+        spectral_line_id: CO₂_4.26μm  # Optional line identifier for concentration calculation
+        min_amplitude_threshold: 0.001 # Minimum amplitude threshold for valid concentration calculation
+        max_concentration_ppm: 100.0  # Maximum concentration limit for safety/validation
+
     # Apply gain adjustment (+3 dB amplification)
     - id: "gain_amplifier"
       node_type: "gain"
@@ -318,6 +338,8 @@ processing:
     - from: bandpass_filter
       to: peak_detector
     - from: peak_detector
+      to: concentration_calculator
+    - from: concentration_calculator
       to: streaming_bandpass_filter
     - from: streaming_bandpass_filter
       to: processed_recorder

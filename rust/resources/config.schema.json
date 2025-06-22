@@ -553,7 +553,8 @@
                       "photoacoustic_output",
                       "record",
                       "streaming",
-                      "computing_peak_finder"
+                      "computing_peak_finder",
+                      "computing_concentration"
                     ],
                     "description": "Type of processing node"
                   },
@@ -842,6 +843,64 @@
                               "description": "Smoothing factor for moving average (0.0 = no smoothing, 1.0 = maximum smoothing)"
                             }
                           },
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "node_type": {
+                          "const": "computing_concentration"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "computing_peak_finder_id": {
+                              "type": "string",
+                              "description": "ID of the PeakFinderNode to use as data source. If not specified, uses the most recent peak data available."
+                            },
+                            "polynomial_coefficients": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 5,
+                              "maxItems": 5,
+                              "description": "Array of 5 coefficients [a₀, a₁, a₂, a₃, a₄] for polynomial concentration calculation: Concentration(ppm) = a₀ + a₁*A + a₂*A² + a₃*A³ + a₄*A⁴ where A is the peak amplitude"
+                            },
+                            "temperature_compensation": {
+                              "type": "boolean",
+                              "default": false,
+                              "description": "Enable temperature compensation for improved accuracy"
+                            },
+                            "spectral_line_id": {
+                              "type": "string",
+                              "description": "Optional identifier for the spectral line being analyzed (e.g., 'CO₂_4.26μm', 'CH₄_3.39μm')"
+                            },
+                            "min_amplitude_threshold": {
+                              "type": "number",
+                              "minimum": 0.0,
+                              "maximum": 10.0,
+                              "default": 0.001,
+                              "description": "Minimum amplitude threshold for valid concentration calculation"
+                            },
+                            "max_concentration_ppm": {
+                              "type": "number",
+                              "minimum": 0.1,
+                              "maximum": 1000000.0,
+                              "default": 10000.0,
+                              "description": "Maximum concentration limit for safety/validation (ppm)"
+                            }
+                          },
+                          "required": [
+                            "polynomial_coefficients"
+                          ],
                           "additionalProperties": false
                         }
                       }

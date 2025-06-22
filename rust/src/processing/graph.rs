@@ -10,7 +10,7 @@
 use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
-use crate::processing::computing_nodes::{PeakFinderNode, SharedComputingState};
+use crate::processing::computing_nodes::{ConcentrationNode, PeakFinderNode, SharedComputingState};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
     InputNode, MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
@@ -1219,6 +1219,90 @@ impl ProcessingGraph {
                 }
 
                 Ok(Box::new(peak_finder))
+            }
+            "computing_concentration" => {
+                // Extract concentration calculator parameters
+                let params = config
+                    .parameters
+                    .as_object()
+                    .ok_or_else(|| anyhow::anyhow!("Concentration node requires parameters"))?;
+
+                // Create concentration node with shared state
+                let mut concentration_node = ConcentrationNode::new_with_shared_state(
+                    config.id.clone(),
+                    computing_state.clone(),
+                );
+
+                // Extract computing_peak_finder_id (required)
+                let peak_finder_id = params
+                    .get("computing_peak_finder_id")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Concentration node requires 'computing_peak_finder_id' parameter"
+                        )
+                    })?;
+                concentration_node =
+                    concentration_node.with_peak_finder_source(peak_finder_id.to_string());
+
+                // Extract polynomial coefficients (required array of 5 values)
+                if let Some(coeffs_value) = params.get("polynomial_coefficients") {
+                    if let Some(coeffs_array) = coeffs_value.as_array() {
+                        if coeffs_array.len() == 5 {
+                            let mut coefficients = [0.0; 5];
+                            for (i, coeff) in coeffs_array.iter().enumerate() {
+                                if let Some(val) = coeff.as_f64() {
+                                    coefficients[i] = val;
+                                } else {
+                                    return Err(anyhow::anyhow!(
+                                        "Polynomial coefficient {} must be a number",
+                                        i
+                                    ));
+                                }
+                            }
+                            concentration_node =
+                                concentration_node.with_polynomial_coefficients(coefficients);
+                        } else {
+                            return Err(anyhow::anyhow!(
+                                "Polynomial coefficients must be an array of exactly 5 values, got {}",
+                                coeffs_array.len()
+                            ));
+                        }
+                    } else {
+                        return Err(anyhow::anyhow!("Polynomial coefficients must be an array"));
+                    }
+                }
+
+                // Extract optional parameters
+                if let Some(temp_comp) = params.get("temperature_compensation") {
+                    if let Some(enable_temp_comp) = temp_comp.as_bool() {
+                        concentration_node =
+                            concentration_node.with_temperature_compensation(enable_temp_comp);
+                    }
+                }
+
+                if let Some(spectral_line) = params.get("spectral_line_id") {
+                    if let Some(line_id) = spectral_line.as_str() {
+                        concentration_node =
+                            concentration_node.with_spectral_line_id(line_id.to_string());
+                    }
+                }
+
+                if let Some(min_threshold) = params.get("min_amplitude_threshold") {
+                    if let Some(threshold) = min_threshold.as_f64() {
+                        concentration_node =
+                            concentration_node.with_min_amplitude_threshold(threshold as f32);
+                    }
+                }
+
+                if let Some(max_conc) = params.get("max_concentration_ppm") {
+                    if let Some(max_ppm) = max_conc.as_f64() {
+                        concentration_node =
+                            concentration_node.with_max_concentration(max_ppm as f32);
+                    }
+                }
+
+                Ok(Box::new(concentration_node))
             }
             "gain" => {
                 // Extract gain parameters
