@@ -11,9 +11,7 @@ import { Alert } from "@heroui/alert";
 import { Tabs, Tab } from "@heroui/tabs";
 import { Switch } from "@heroui/switch";
 
-import {
-  useGenerixConfig,
-} from "../authentication/providers/generix-config";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import { SerializableProcessingGraph } from "@/types/processing-graph";
 import { useAuth, useSecuredApi } from "@/authentication";
@@ -32,9 +30,7 @@ export default function DocsPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const { isAuthenticated } = useAuth();
   // Configuration state - holds API endpoints and authentication details
-  const {
-    config: generixConfig
-  } = useGenerixConfig();
+  const { config: generixConfig } = useGenerixConfig();
 
   // Load Processing Graph function
   const loadProcessingGraph = async () => {
@@ -187,21 +183,24 @@ export default function DocsPage() {
               </Card>
 
               <Card
-                className={`${graph.is_valid
+                className={`${
+                  graph.is_valid
                     ? "bg-green-50 border-green-200"
                     : "bg-red-50 border-red-200"
-                  }`}
+                }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${graph.is_valid ? "text-green-600" : "text-red-600"
-                      }`}
+                    className={`text-2xl font-bold ${
+                      graph.is_valid ? "text-green-600" : "text-red-600"
+                    }`}
                   >
                     {graph.is_valid ? "✓" : "✗"}
                   </p>
                   <p
-                    className={`text-sm ${graph.is_valid ? "text-green-800" : "text-red-800"
-                      }`}
+                    className={`text-sm ${
+                      graph.is_valid ? "text-green-800" : "text-red-800"
+                    }`}
                   >
                     {graph.is_valid ? t("valid") : t("invalid")}
                   </p>

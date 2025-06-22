@@ -10,9 +10,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 
-import {
-  useGenerixConfig,
-} from "../authentication/providers/generix-config";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
@@ -30,9 +28,7 @@ export default function ApiPage() {
   const { user, isAuthenticated, getAccessToken } = useAuth();
 
   // Configuration state - holds API endpoints and authentication details
-  const {
-    config: generixConfig
-  } = useGenerixConfig();
+  const { config: generixConfig } = useGenerixConfig();
 
   const [accessToken, setAccessToken] = useState("" as string | null);
 

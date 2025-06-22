@@ -16,9 +16,7 @@ import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 
-import {
-  useGenerixConfig,
-} from "../authentication/providers/generix-config";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import AudioStreamAnalyzer from "./audio-stream-analyzer";
 
@@ -50,7 +48,7 @@ export function StreamingNodeModal({
     config: generixConfig,
     loading: configLoading,
     error: configError,
-    load: loadConfig
+    load: loadConfig,
   } = useGenerixConfig({ autoLoad: false });
 
   // Load Generix configuration when modal opens
@@ -211,11 +209,7 @@ export function StreamingNodeModal({
                     {t("streaming-modal-config-error-title")}
                   </p>
                   <p className="text-red-500 text-sm mb-4">{configError}</p>
-                  <Button
-                    color="danger"
-                    variant="flat"
-                    onPress={loadConfig}
-                  >
+                  <Button color="danger" variant="flat" onPress={loadConfig}>
                     {t("streaming-modal-retry-config")}
                   </Button>
                 </div>

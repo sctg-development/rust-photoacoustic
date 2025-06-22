@@ -64,7 +64,8 @@
     "react-router-dom": "^7.6.2",
     "reactflow": "^11.11.4",
     "tailwind-variants": "^1.0.0",
-    "tailwindcss": "^4.1.9"
+    "tailwindcss": "^4.1.9",
+    "temml": "^0.11.8"
   },
   "devDependencies": {
     "@sctg/vite-plugin-github-pages-spa": "^0.1.1",

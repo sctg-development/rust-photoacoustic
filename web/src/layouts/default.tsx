@@ -15,9 +15,7 @@ import { createRemoteJWKSet, JWTPayload, jwtVerify } from "jose";
 import { useAuth } from "@/authentication";
 import { Navbar } from "@/components/navbar";
 import { siteConfig } from "@/config/site";
-import {
-  useGenerixConfig,
-} from "@/authentication/providers/generix-config";
+import { useGenerixConfig } from "@/authentication/providers/generix-config";
 
 export default function DefaultLayout({
   children,
@@ -30,9 +28,7 @@ export default function DefaultLayout({
   const [decodedToken, setDecodedToken] = useState<JWTPayload | null>(null);
 
   // Configuration state
-  const {
-    config: generixConfig
-  } = useGenerixConfig();
+  const { config: generixConfig } = useGenerixConfig();
 
   useEffect(() => {
     if (isAuthenticated && generixConfig) {

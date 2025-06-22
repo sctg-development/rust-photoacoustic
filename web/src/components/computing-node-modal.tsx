@@ -17,12 +17,11 @@ import { Chip } from "@heroui/chip";
 import { Switch } from "@heroui/switch";
 import { Tabs, Tab } from "@heroui/tabs";
 
-import {
-  useGenerixConfig,
-} from "../authentication/providers/generix-config";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import { useAuth } from "@/authentication";
 import { ComputingResponse, ComputingUtils } from "@/types/computing";
+import { getMathMLFromPolynomialCoefficientsClassicOrder } from "@/utilities/polynomial-to-mathml";
 
 interface ProcessingNodeData {
   id: string;
@@ -53,7 +52,7 @@ export function ComputingNodeModal({
     config: generixConfig,
     loading: configLoading,
     error: configError,
-    load: loadConfig
+    load: loadConfig,
   } = useGenerixConfig({ autoLoad: false });
 
   const [computingResponse, setComputingResponse] =
@@ -113,7 +112,13 @@ export function ComputingNodeModal({
         clearInterval(refreshIntervalRef.current);
       }
     };
-  }, [autoRefresh, generixConfig, isAuthenticated, isOpen, fetchComputingResponse]);
+  }, [
+    autoRefresh,
+    generixConfig,
+    isAuthenticated,
+    isOpen,
+    fetchComputingResponse,
+  ]);
 
   const getPeakResult = (
     computingResponse: ComputingResponse | null,
@@ -234,11 +239,7 @@ export function ComputingNodeModal({
                     {t("computing-modal-config-error-title")}
                   </p>
                   <p className="text-red-500 text-sm mb-4">{configError}</p>
-                  <Button
-                    color="danger"
-                    variant="flat"
-                    onPress={loadConfig}
-                  >
+                  <Button color="danger" variant="flat" onPress={loadConfig}>
                     {t("streaming-modal-retry-config")}
                   </Button>
                 </div>
@@ -296,25 +297,28 @@ export function ComputingNodeModal({
                 </Card>
 
                 <Card
-                  className={`${stats.hasLatestResult
-                    ? "bg-green-50 border-green-200"
-                    : "bg-gray-50 border-gray-200"
-                    }`}
+                  className={`${
+                    stats.hasLatestResult
+                      ? "bg-green-50 border-green-200"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
                 >
                   <CardBody className="text-center">
                     <p
-                      className={`text-2xl font-bold ${stats.hasLatestResult
-                        ? "text-green-600"
-                        : "text-gray-600"
-                        }`}
+                      className={`text-2xl font-bold ${
+                        stats.hasLatestResult
+                          ? "text-green-600"
+                          : "text-gray-600"
+                      }`}
                     >
                       {stats.hasLatestResult ? "✓" : "—"}
                     </p>
                     <p
-                      className={`text-sm ${stats.hasLatestResult
-                        ? "text-green-800"
-                        : "text-gray-800"
-                        }`}
+                      className={`text-sm ${
+                        stats.hasLatestResult
+                          ? "text-green-800"
+                          : "text-gray-800"
+                      }`}
                     >
                       {t("computing-modal-latest-result")}
                     </p>
@@ -439,13 +443,15 @@ export function ComputingNodeModal({
                             <span className="text-sm text-gray-600">
                               {t("computing-modal-polynomial-coeffs")}:
                             </span>
-                            <span className="font-mono text-xs">
-                              [
-                              {nodeData.parameters.polynomial_coefficients.join(
-                                ", ",
-                              )}
-                              ]
-                            </span>
+                            <span
+                              dangerouslySetInnerHTML={{
+                                __html:
+                                  getMathMLFromPolynomialCoefficientsClassicOrder(
+                                    nodeData.parameters.polynomial_coefficients,
+                                  ) || "",
+                              }}
+                              className="font-mono text-xs"
+                            />
                           </div>
                         )}
                       </div>
@@ -455,7 +461,7 @@ export function ComputingNodeModal({
 
                 <Tab key="all-results" title={t("computing-modal-all-results")}>
                   {computingResponse &&
-                    Object.keys(computingResponse.peak_results).length > 0 ? (
+                  Object.keys(computingResponse.peak_results).length > 0 ? (
                     <div className="space-y-4">
                       {Object.entries(computingResponse.peak_results).map(
                         ([nodeId, result]) => (

@@ -31,9 +31,7 @@ import {
 import { Line } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 
-import {
-  useGenerixConfig,
-} from "../authentication/providers/generix-config";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import {
   LastTemperaturesResponse,
@@ -68,9 +66,7 @@ export default function ThermalPage() {
   const { isAuthenticated, getJson } = useAuth();
 
   // Configuration state
-  const {
-    config: generixConfig
-  } = useGenerixConfig();
+  const { config: generixConfig } = useGenerixConfig();
 
   // Data states
   const [lastTemperatures, setLastTemperatures] =
@@ -469,21 +465,24 @@ export default function ThermalPage() {
               </Card>
 
               <Card
-                className={`${stats.errors > 0
+                className={`${
+                  stats.errors > 0
                     ? "bg-red-50 border-red-200"
                     : "bg-gray-50 border-gray-200"
-                  }`}
+                }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${stats.errors > 0 ? "text-red-600" : "text-gray-600"
-                      }`}
+                    className={`text-2xl font-bold ${
+                      stats.errors > 0 ? "text-red-600" : "text-gray-600"
+                    }`}
                   >
                     {stats.errors}
                   </p>
                   <p
-                    className={`text-sm ${stats.errors > 0 ? "text-red-800" : "text-gray-800"
-                      }`}
+                    className={`text-sm ${
+                      stats.errors > 0 ? "text-red-800" : "text-gray-800"
+                    }`}
                   >
                     {t("error-regulators")}
                   </p>
