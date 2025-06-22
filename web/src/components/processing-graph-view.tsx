@@ -504,7 +504,83 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
       style: { stroke: "#64748b", strokeWidth: 2 },
     }));
 
-    return { reactFlowNodes, reactFlowEdges };
+    // Add special edges for computing_concentration nodes that reference computing_peak_finder
+    // This creates visual connections to show data dependencies
+    const computingDependencyEdges: Edge[] = [];
+
+    graph.nodes.forEach((node) => {
+      if (node.node_type === "computing_concentration" && node.parameters.computing_peak_finder_id) {
+        const peakFinderId = node.parameters.computing_peak_finder_id;
+
+        // Check if the referenced peak finder node exists
+        const peakFinderExists = graph.nodes.some(n => n.id === peakFinderId);
+
+        if (peakFinderExists) {
+          // Check if this connection exists in the main connections
+          const connectionExists = graph.connections.some(conn =>
+            conn.from === peakFinderId && conn.to === node.id
+          );
+
+          if (connectionExists) {
+            // If connection already exists, modify the existing edge to show it's a dependency
+            const existingEdgeIndex = reactFlowEdges.findIndex(edge =>
+              edge.source === peakFinderId && edge.target === node.id
+            );
+
+            if (existingEdgeIndex !== -1) {
+              // Modify the existing edge to show it's both data flow AND dependency
+              reactFlowEdges[existingEdgeIndex] = {
+                ...reactFlowEdges[existingEdgeIndex],
+                style: {
+                  stroke: "#f59e0b", // Amber color for computing dependencies
+                  strokeWidth: 3, // Thicker line
+                  filter: "drop-shadow(0 0 3px rgba(245, 158, 11, 0.5))" // Glow effect
+                },
+                label: "data flow + dependency",
+                labelStyle: {
+                  fontSize: "10px",
+                  fill: "#f59e0b",
+                  fontWeight: "600"
+                },
+                labelBgStyle: {
+                  fill: "#fef3c7",
+                  fillOpacity: 0.9
+                }
+              };
+            }
+          } else {
+            // Create a new dependency edge if no connection exists
+            computingDependencyEdges.push({
+              id: `dependency-${peakFinderId}-${node.id}`,
+              source: peakFinderId,
+              target: node.id,
+              type: "smoothstep",
+              animated: false, // Different animation for dependency edges
+              style: {
+                stroke: "#f59e0b", // Amber color for computing dependencies
+                strokeWidth: 2,
+                strokeDasharray: "5,5" // Dashed line to differentiate from data flow
+              },
+              label: "data dependency",
+              labelStyle: {
+                fontSize: "10px",
+                fill: "#f59e0b",
+                fontWeight: "500"
+              },
+              labelBgStyle: {
+                fill: "#fef3c7",
+                fillOpacity: 0.8
+              }
+            });
+          }
+        }
+      }
+    });
+
+    // Combine regular edges with computing dependency edges
+    const allEdges = [...reactFlowEdges, ...computingDependencyEdges];
+
+    return { reactFlowNodes, reactFlowEdges: allEdges };
   }, [graph, handleNodeClick]);
 
   // Update nodes and edges when graph changes
