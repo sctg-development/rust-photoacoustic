@@ -333,5 +333,10 @@
   "recording-started": "تم بدء التسجيل",
   "recording-stopped": "تم إيقاف التسجيل",
   "failed-to-toggle-recording": "فشل في تبديل التسجيل",
-  "recording-in-progress": "التسجيل في التقدم"
+  "recording-in-progress": "التسجيل في التقدم",
+  "select-audio-stream": "اختيار تدفق الصوت",
+  "choose-stream-to-analyze": "اختر التدفق للتحليل",
+  "stream-url": "رابط التدفق",
+  "stats-url": "رابط الإحصائيات",
+  "audio-streaming-analysis": "تحليل تدفق الصوت"
 }

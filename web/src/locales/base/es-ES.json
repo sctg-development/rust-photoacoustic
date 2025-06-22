@@ -333,5 +333,10 @@
   "recording-started": "Grabación iniciada",
   "recording-stopped": "Grabación detenida",
   "failed-to-toggle-recording": "No se pudo alternar la grabación",
-  "recording-in-progress": "Grabación en progreso"
+  "recording-in-progress": "Grabación en progreso",
+  "select-audio-stream": "Seleccionar flujo de audio",
+  "choose-stream-to-analyze": "Elegir flujo para analizar",
+  "stream-url": "URL del flujo",
+  "stats-url": "URL de estadísticas",
+  "audio-streaming-analysis": "Análisis de transmisión de audio"
 }

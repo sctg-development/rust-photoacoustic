@@ -333,5 +333,10 @@
   "recording-started": "Recording started",
   "recording-stopped": "Recording stopped",
   "failed-to-toggle-recording": "failed to toggle recording",
-  "recording-in-progress": "recording in progress"
+  "recording-in-progress": "recording in progress",
+  "select-audio-stream": "Select Audio Stream",
+  "choose-stream-to-analyze": "Choose stream to analyze",
+  "stream-url": "Stream URL",
+  "stats-url": "Stats URL",
+  "audio-streaming-analysis": "Audio streaming analysis"
 }

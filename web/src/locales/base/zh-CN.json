@@ -333,5 +333,10 @@
   "recording-started": "录制已开始",
   "recording-stopped": "录制已停止",
   "failed-to-toggle-recording": "无法切换记录",
-  "recording-in-progress": "正在进行录制"
+  "recording-in-progress": "正在进行录制",
+  "select-audio-stream": "选择音频流",
+  "choose-stream-to-analyze": "选择要分析的流",
+  "stream-url": "流URL",
+  "stats-url": "统计URL",
+  "audio-streaming-analysis": "音频流分析"
 }

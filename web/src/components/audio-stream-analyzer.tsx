@@ -449,8 +449,9 @@ export default function AudioStreamAnalyzer({
 
       {/* Main dashboard grid */}
       <div
-        className={`w-full grid ${getGridClasses()} gap-4 ${visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
-          }`}
+        className={`w-full grid ${getGridClasses()} gap-4 ${
+          visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
+        }`}
       >
         {/* Connection Status Card */}
         {isStatusDisplayed && (
@@ -528,7 +529,7 @@ export default function AudioStreamAnalyzer({
                       size="sm"
                       onPress={handleInitializeAudio}
                     >
-                      {t("initialize-audio-context")}
+                      {t("connect")}
                     </Button>
                   )}
 
@@ -698,7 +699,10 @@ export default function AudioStreamAnalyzer({
                   {/* Sample Data Preview */}
                   <div className="mt-2">
                     <div className="text-xs text-gray-600 mb-1">
-                      {t("channel-a-preview-first-n-samples", { count: PREVIEW_SAMPLE_COUNT })}:
+                      {t("channel-a-preview-first-n-samples", {
+                        count: PREVIEW_SAMPLE_COUNT,
+                      })}
+                      :
                     </div>
                     <div className="font-mono text-5xs bg-gray-100 p-1 rounded overflow-hidden">
                       [
@@ -750,8 +754,9 @@ export default function AudioStreamAnalyzer({
               <div className="relative">
                 <div
                   ref={analyzerContainerRef}
-                  className={`w-full rounded-lg bg-black ${showAnalyzer ? "h-[300px]" : "h-0"
-                    } overflow-hidden`}
+                  className={`w-full rounded-lg bg-black ${
+                    showAnalyzer ? "h-[300px]" : "h-0"
+                  } overflow-hidden`}
                 />
 
                 {/* Audio Playback Controls - Positioned in top-left corner */}

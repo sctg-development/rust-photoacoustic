@@ -23,6 +23,7 @@ use rocket::{
 use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::{openapi, openapi_get_routes_spec, JsonSchema};
 use serde::{Deserialize, Serialize};
+use std::os::macos::raw::stat;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -147,6 +148,17 @@ pub struct SpectralDataResponse {
     pub timestamp: u64,
     /// Sample rate
     pub sample_rate: u32,
+}
+
+/// Response structure for available audio stream information
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AudioStreamInfo {
+    /// Stream identifier (e.g., "realtime_source", "streaming_output")
+    pub id: String,
+    /// Stream URL endpoint for consuming audio data
+    pub stream_url: String,
+    /// Statistics URL endpoint for stream metrics
+    pub stats_url: String,
 }
 
 /// Get realtime source stream statistics
@@ -316,6 +328,80 @@ pub fn stream_audio_fast_with_node_id(
         stream_state.registry.clone(),
         AudioFastFrameResponse::from,
     )
+}
+
+/// Retrieve all available audio streams
+///
+/// This endpoint lists all currently active audio streams in the system.
+/// Includes streams from nodes (by id) as well as the realtime source stream.
+///
+///
+/// ### Authentication
+/// Requires a valid JWT token with `read:api` permission.
+///
+/// ### Response Format
+/// Returns a JSON array of audio stream information objects:
+/// ```json
+/// [
+///   {
+///     "id": "realtime_source",
+///     "stream_url": "/api/stream/audio/fast",
+///     "stats_url": "/api/stream/audio/fast/stats"
+///   },
+///   {
+///     "id": "streaming_output",
+///     "stream_url": "/api/stream/audio/fast/streaming_output",
+///     "stats_url": "/api/stream/audio/fast/streaming_output/stats"
+///   }
+/// ]
+/// ```
+#[openapi_protect_get(
+    "/api/stream/audio/get-all-streams",
+    "read:api",
+    tag = "Audio Streaming"
+)]
+pub async fn get_all_available_fast_audio_streams(
+    stream_state: &State<AudioStreamState>,
+) -> Json<Vec<AudioStreamInfo>> {
+    let mut stream_infos: Vec<AudioStreamInfo> = Vec::new();
+
+    // Add the main realtime source stream
+    stream_infos.push(AudioStreamInfo {
+        id: "realtime_source".to_string(),
+        stream_url: "/stream/audio/fast".to_string(),
+        stats_url: "/stream/audio/fast/stats".to_string(),
+    });
+
+    // Add all streaming node streams
+    for (node_uuid, string_id, name) in stream_state.registry.list_all_node_info() {
+        log::debug!(
+            "Found streaming node for URLs - UUID: {}, string_id: '{}', name: '{}'",
+            node_uuid,
+            string_id,
+            name
+        );
+
+        // Check if the node has an active stream
+        if let Some(_stream) = stream_state.registry.get_stream(&node_uuid) {
+            // Add stream URL using the string ID (preferred)
+            let stream_url = format!("/stream/audio/fast/{}", string_id);
+            let stats_url = format!("/stream/audio/fast/{}/stats", string_id);
+            stream_infos.push(AudioStreamInfo {
+                id: string_id.clone(),
+                stream_url,
+                stats_url,
+            });
+
+            log::debug!(
+                "Added stream URL: /stream/audio/fast/{} for node '{}'",
+                string_id,
+                name
+            );
+        }
+    }
+
+    log::debug!("Returning {} available audio streams", stream_infos.len());
+    Json(stream_infos)
 }
 
 /// Stream spectral analysis data via Server-Sent Events
@@ -828,6 +914,7 @@ pub fn get_audio_streaming_routes() -> (Vec<rocket::Route>, OpenApi) {
         list_streaming_nodes,
         get_node_stats,
         get_node_fast_stats,
+        get_all_available_fast_audio_streams,
     ]
 }
 

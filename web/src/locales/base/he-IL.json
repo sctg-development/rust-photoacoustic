@@ -333,5 +333,10 @@
   "recording-started": "ההקלטה התחילה",
   "recording-stopped": "ההקלטה נעצרה",
   "failed-to-toggle-recording": "הקלטת הקלטה נכשלה",
-  "recording-in-progress": "הקלטה בתהליך"
+  "recording-in-progress": "הקלטה בתהליך",
+  "select-audio-stream": "בחר זרם אודיו",
+  "choose-stream-to-analyze": "בחר זרם לניתוח",
+  "stream-url": "כתובת הזרם",
+  "stats-url": "כתובת הסטטיסטיקות",
+  "audio-streaming-analysis": "ניתוח הזרמת שמע"
 }

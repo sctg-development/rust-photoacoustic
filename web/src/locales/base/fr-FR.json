@@ -333,5 +333,10 @@
   "recording-started": "Enregistrement démarré",
   "recording-stopped": "Enregistrement arrêté",
   "failed-to-toggle-recording": "Échec de la baisse de l'enregistrement",
-  "recording-in-progress": "Enregistrement en cours"
+  "recording-in-progress": "Enregistrement en cours",
+  "select-audio-stream": "Sélectionner le flux audio",
+  "choose-stream-to-analyze": "Choisir le flux à analyser",
+  "stream-url": "URL du flux",
+  "stats-url": "URL des statistiques",
+  "audio-streaming-analysis": "Analyse de streaming audio"
 }
