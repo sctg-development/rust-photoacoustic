@@ -78,6 +78,10 @@ pub struct Args {
     #[arg(long)]
     config: Option<PathBuf>,
 
+    /// Path to a configuration to validate and exit
+    #[arg(long)]
+    validate_config: Option<PathBuf>,
+
     /// Output the configuration schema as JSON and exit
     #[arg(long)]
     show_config_schema: bool,
@@ -155,6 +159,22 @@ async fn main() -> Result<()> {
     // Check if --show-config-schema flag is set
     if args.show_config_schema {
         return config::output_config_schema();
+    }
+
+    // Validate configuration file if --validate-config is set
+    if let Some(validate_path) = args.validate_config {
+        if !validate_path.exists() {
+            return Err(anyhow::anyhow!(
+                "Configuration file does not exist: {}",
+                validate_path.display()
+            ));
+        }
+
+        let config = config::Config::from_file(&validate_path)
+            .map_err(|err| anyhow::anyhow!("Configuration validation failed: {}", err))?;
+        // TODO: Add any specific validation logic here if needed
+        println!("Configuration file is valid: {}", validate_path.display());
+        return Ok(());
     }
 
     // Load configuration
