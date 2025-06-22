@@ -296,11 +296,11 @@ processing:
           # Array of 5 coefficients [a₀, a₁, a₂, a₃, a₄]
           # Polynomial coefficients for concentration calculation a₀, a₁, a₂, a₃, a₄ 
           # Concentration(ppm) = a₀ + a₁A + a₂A² + a₃A³ + a₄A⁴ where A is the peak amplitude
-          - 0.0   # a₀ constant term
-          - 25.0  # a₁ linear term
-          - -0.3  # a₂ quadratic term
-          - 0.0   # a₃ cubic term
-          - 0.0   # a₄ quartic term
+          - 0.0           # a₀ constant term
+          - 0.5892        # a₁ linear term
+          - -0.003        # a₂ quadratic term
+          - 0.000001      # a₃ cubic term
+          - 0.000000001   # a₄ quartic term
         temperature_compensation: false  # Controle temperature compensation
         spectral_line_id: CO₂_4.26μm  # Optional line identifier for concentration calculation
         min_amplitude_threshold: 0.001 # Minimum amplitude threshold for valid concentration calculation

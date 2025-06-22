@@ -9,6 +9,7 @@
 //! It tests the actual data flow from simulation → processing → shared state → API endpoints.
 
 use anyhow::Result;
+use rand::rand_core::le;
 use rust_photoacoustic::{
     config::Config,
     daemon::launch_daemon::Daemon,
@@ -136,7 +137,7 @@ async fn test_real_world_peak_detection_endpoints() -> Result<()> {
         serde_json::to_string_pretty(&computing_data)?
     );
 
-    // Verify the structure exists
+    // Verify the structure exists (legacy fields for compatibility)
     assert!(
         computing_data.get("peak_frequency").is_some(),
         "Should have peak_frequency field"
@@ -150,18 +151,109 @@ async fn test_real_world_peak_detection_endpoints() -> Result<()> {
         "Should have concentration_ppm field"
     );
 
-    // Check if we have real data (non-null values)
-    let peak_frequency = computing_data["peak_frequency"].as_f64();
-    let peak_amplitude = computing_data["peak_amplitude"].as_f64();
+    // Verify new structure exists
+    assert!(
+        computing_data.get("active_node_ids").is_some(),
+        "Should have active_node_ids field"
+    );
+    assert!(
+        computing_data.get("peak_results").is_some(),
+        "Should have peak_results field"
+    );
 
-    println!("Peak frequency: {:?}", peak_frequency);
-    println!("Peak amplitude: {:?}", peak_amplitude);
+    // Get active node IDs
+    let active_node_ids = computing_data["active_node_ids"]
+        .as_array()
+        .expect("active_node_ids should be an array");
+
+    println!("Active node IDs: {:?}", active_node_ids);
+
+    // Check if we have peak_detector in active nodes
+    let peak_detector_id = active_node_ids
+        .iter()
+        .find(|id| id.as_str() == Some("peak_detector"))
+        .expect("Should have peak_detector in active_node_ids");
+
+    println!("✓ Found active peak detector: {}", peak_detector_id);
+
+    // Get peak results for the active peak detector
+    let peak_results = computing_data["peak_results"]
+        .as_object()
+        .expect("peak_results should be an object");
+
+    let peak_detector_result = peak_results
+        .get("peak_detector")
+        .expect("Should have peak_detector in peak_results");
+
+    println!(
+        "Peak detector result: {}",
+        serde_json::to_string_pretty(peak_detector_result)?
+    );
+
+    // Extract data from the peak detector result
+    let peak_frequency = peak_detector_result["frequency"].as_f64();
+    let peak_amplitude = peak_detector_result["amplitude"].as_f64();
+    let peak_concentration = peak_detector_result["concentration_ppm"].as_f64();
+
+    println!("Peak frequency from peak_detector: {:?}", peak_frequency);
+    println!("Peak amplitude from peak_detector: {:?}", peak_amplitude);
+    println!(
+        "Peak concentration from peak_detector: {:?} ppm",
+        peak_concentration
+    );
+    assert!(
+        peak_frequency.is_some(),
+        "Peak frequency should not be null"
+    );
+    // peak frequency should be between 1900 and 2200 Hz
+    assert!(
+        peak_frequency.unwrap() >= 1900.0 && peak_frequency.unwrap() <= 2200.0,
+        "Peak frequency should be in the range [1900, 2200] Hz"
+    );
+    assert!(
+        peak_amplitude.is_some(),
+        "Peak amplitude should not be null"
+    );
+    // peak amplitude should be 45 and 55
+    assert!(
+        peak_amplitude.unwrap() >= 45.0 && peak_amplitude.unwrap() <= 55.0,
+        "Peak amplitude should be in the range [45, 55]"
+    );
+    // peak concentration should be between 0 and 100 ppm
+    assert!(
+        peak_concentration.is_some(),
+        "Peak concentration should not be null"
+    );
+    assert!(
+        peak_concentration.unwrap() >= 0.0 && peak_concentration.unwrap() <= 100.0,
+        "Peak concentration should be in the range [0, 100] ppm"
+    );
+
+    // Check concentration calculation result
+    let concentration_ppm = computing_data["concentration_ppm"].as_f64();
+    println!("Calculated concentration: {:?} ppm", concentration_ppm);
+
+    // Check polynomial coefficients
+    let polynomial_coefficients = computing_data["polynomial_coefficients"]
+        .as_array()
+        .expect("Should have polynomial_coefficients array");
+    println!("Polynomial coefficients: {:?}", polynomial_coefficients);
 
     // The main test: verify we get real data, not null values
     if peak_frequency.is_some() && peak_amplitude.is_some() {
         println!("✓ SUCCESS: Peak detection is working - got real values!");
         println!("  Peak frequency: {} Hz", peak_frequency.unwrap());
         println!("  Peak amplitude: {}", peak_amplitude.unwrap());
+
+        if concentration_ppm.is_some() {
+            println!(
+                "  Calculated concentration: {} ppm",
+                concentration_ppm.unwrap()
+            );
+            println!("✓ SUCCESS: Concentration calculation is also working!");
+        } else {
+            println!("⚠ WARNING: Concentration calculation returning null");
+        }
     } else {
         println!("⚠ WARNING: Peak detection returning null values");
         println!(
@@ -184,8 +276,16 @@ async fn test_real_world_peak_detection_endpoints() -> Result<()> {
             serde_json::to_string_pretty(&retry_data)?
         );
 
-        let retry_peak_frequency = retry_data["peak_frequency"].as_f64();
-        let retry_peak_amplitude = retry_data["peak_amplitude"].as_f64();
+        let retry_peak_results = retry_data["peak_results"]
+            .as_object()
+            .expect("peak_results should be an object");
+
+        let retry_peak_detector_result = retry_peak_results
+            .get("peak_detector")
+            .expect("Should have peak_detector in peak_results");
+
+        let retry_peak_frequency = retry_peak_detector_result["frequency"].as_f64();
+        let retry_peak_amplitude = retry_peak_detector_result["amplitude"].as_f64();
 
         if retry_peak_frequency.is_some() && retry_peak_amplitude.is_some() {
             println!("✓ SUCCESS on retry: Peak detection working!");

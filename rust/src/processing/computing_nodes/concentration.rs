@@ -289,9 +289,14 @@ impl ConcentrationNode {
     fn update_shared_state(&mut self, source_peak_result: &PeakResult, concentration: f64) {
         if self.processing_count % 100 == 0 {
             info!(
-                "Concentration node '{}': Calculated {:.2} ppm from amplitude {:.4} (source: {})",
+                "Concentration node '{}': Calculated {:.2} ppm = {:.1} + {:.1}A + {:.1}A² + {:.1}A³ + {:.1}A⁴ from amplitude {:.4} (source: {})",
                 self.id,
                 concentration,
+                self.polynomial_coefficients[0],
+                self.polynomial_coefficients[1],
+                self.polynomial_coefficients[2],
+                self.polynomial_coefficients[3],
+                self.polynomial_coefficients[4],
                 source_peak_result.amplitude,
                 self.computing_peak_finder_id.as_deref().unwrap_or("latest")
             );
@@ -318,6 +323,14 @@ impl ConcentrationNode {
 
                 // Store concentration result under this node's ID
                 state.update_concentration_result(self.id.clone(), concentration_result);
+
+                // Update the source PeakResult with the calculated concentration
+                if let Some(source_id) = &self.computing_peak_finder_id {
+                    if let Some(mut peak_result) = state.get_peak_result(source_id).cloned() {
+                        peak_result.concentration_ppm = Some(concentration as f32);
+                        state.update_peak_result(source_id.clone(), peak_result);
+                    }
+                }
             }
             Err(_) => {
                 warn!(
