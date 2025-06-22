@@ -42,6 +42,7 @@ import {
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
 import { useAuth } from "@/authentication";
+import { CopyButton } from "@/components/copy-button";
 
 // Register Chart.js components
 ChartJS.register(
@@ -465,24 +466,21 @@ export default function ThermalPage() {
               </Card>
 
               <Card
-                className={`${
-                  stats.errors > 0
-                    ? "bg-red-50 border-red-200"
-                    : "bg-gray-50 border-gray-200"
-                }`}
+                className={`${stats.errors > 0
+                  ? "bg-red-50 border-red-200"
+                  : "bg-gray-50 border-gray-200"
+                  }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${
-                      stats.errors > 0 ? "text-red-600" : "text-gray-600"
-                    }`}
+                    className={`text-2xl font-bold ${stats.errors > 0 ? "text-red-600" : "text-gray-600"
+                      }`}
                   >
                     {stats.errors}
                   </p>
                   <p
-                    className={`text-sm ${
-                      stats.errors > 0 ? "text-red-800" : "text-gray-800"
-                    }`}
+                    className={`text-sm ${stats.errors > 0 ? "text-red-800" : "text-gray-800"
+                      }`}
                   >
                     {t("error-regulators")}
                   </p>
@@ -621,9 +619,15 @@ export default function ThermalPage() {
                       </h2>
                     </CardHeader>
                     <CardBody>
-                      <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
-                        {JSON.stringify(lastTemperatures, null, 2)}
-                      </pre>
+                      <div className="relative">
+                        <CopyButton
+                          value={JSON.stringify(lastTemperatures, null, 2)}
+                          className="absolute top-2 right-2"
+                        />
+                        <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
+                          {JSON.stringify(lastTemperatures, null, 2)}
+                        </pre>
+                      </div>
                     </CardBody>
                   </Card>
 
@@ -635,9 +639,15 @@ export default function ThermalPage() {
                         </h2>
                       </CardHeader>
                       <CardBody>
-                        <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
-                          {JSON.stringify(thermalHistory, null, 2)}
-                        </pre>
+                        <div className="relative">
+                          <CopyButton
+                            value={JSON.stringify(thermalHistory, null, 2)}
+                            className="absolute top-2 right-2"
+                          />
+                          <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
+                            {JSON.stringify(thermalHistory, null, 2)}
+                          </pre>
+                        </div>
                       </CardBody>
                     </Card>
                   )}

@@ -19,6 +19,7 @@ import { Chip } from "@heroui/chip";
 import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import AudioStreamAnalyzer from "./audio-stream-analyzer";
+import { CopyButton } from "./copy-button";
 
 interface ProcessingNodeData {
   id: string;
@@ -128,12 +129,9 @@ export function StreamingNodeModal({
           {/* Node Information */}
           <Card>
             <CardBody>
-              <h3 className="text-lg font-semibold mb-3">
-                {t("streaming-modal-node-information")}
-              </h3>
               <Accordion>
-                <AccordionItem>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <AccordionItem title={t("streaming-modal-node-information")} className="text-xl font-semibold">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-normal">
                     <div>
                       <p className="text-sm text-gray-600">
                         {t("streaming-modal-node-id")}
@@ -241,12 +239,9 @@ export function StreamingNodeModal({
           {generixConfig && (
             <Card>
               <CardBody>
-                <h3 className="text-lg font-semibold mb-3">
-                  {t("streaming-modal-connection-details")}
-                </h3>
                 <Accordion>
-                  <AccordionItem>
-                    <div className="space-y-2 text-sm">
+                  <AccordionItem title={t("streaming-modal-connection-details")} className="text-xl font-semibold">
+                    <div className="font-light space-y-2 text-xs">
                       <div>
                         <p className="text-gray-600">
                           {nodeData.nodeType === "input"
@@ -254,18 +249,32 @@ export function StreamingNodeModal({
                             : t("streaming-modal-websocket-url")}
                           :
                         </p>
-                        <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
-                          {streamUrl}
-                        </p>
+                        <div className="relative">
+                          <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
+                            {streamUrl}
+                          </p>
+                          <CopyButton
+                            value={streamUrl}
+                            className="absolute top-0 right-2"
+                            aria-label={t("streaming-modal-copy-stream-url")}
+                          />
+                        </div>
                       </div>
                       {statsUrl && (
                         <div>
                           <p className="text-gray-600">
                             {t("streaming-modal-stats-url")}:
                           </p>
-                          <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
-                            {statsUrl}
-                          </p>
+                          <div className="relative">
+                            <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
+                              {statsUrl}
+                            </p>
+                            <CopyButton
+                              value={statsUrl}
+                              className="absolute top-0 right-2"
+                              aria-label={t("streaming-modal-copy-stats-url")}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>

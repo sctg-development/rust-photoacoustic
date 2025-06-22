@@ -358,9 +358,8 @@ export default function AudioStreamAnalyzer({
 
       {/* Main dashboard grid */}
       <div
-        className={`w-full grid ${getGridClasses()} gap-4 ${
-          visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
-        }`}
+        className={`w-full grid ${getGridClasses()} gap-4 ${visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
+          }`}
       >
         {/* Connection Status Card */}
         {isStatusDisplayed && (
@@ -656,13 +655,70 @@ export default function AudioStreamAnalyzer({
           </CardHeader>
           <CardBody>
             <div className="w-full">
-              {/* Analyzer Container */}
-              <div
-                ref={analyzerContainerRef}
-                className={`w-full rounded-lg bg-black ${
-                  showAnalyzer ? "h-[300px]" : "h-0"
-                } overflow-hidden`}
-              />
+              {/* Analyzer Container with Universal Control Button Overlay */}
+              <div className="relative">
+                <div
+                  ref={analyzerContainerRef}
+                  className={`w-full rounded-lg bg-black ${showAnalyzer ? "h-[300px]" : "h-0"
+                    } overflow-hidden`}
+                />
+
+                {/* Universal Control Button - Positioned in top-right corner */}
+                {showUniversalControl && !isStatusDisplayed && (
+                  <div className="absolute top-2 right-4 z-10">
+                    {!isAudioReady && (
+                      <Button
+                        color="primary"
+                        size="sm"
+                        variant="solid"
+                        className="shadow-lg backdrop-blur-sm bg-primary/90"
+                        onPress={handleInitializeAudio}
+                      >
+                        {t("connect")}
+                      </Button>
+                    )}
+
+                    {isAudioReady && !isConnected && !isConnecting && (
+                      <Button
+                        aria-label={t("connect-to-audio-stream")}
+                        color="primary"
+                        size="sm"
+                        variant="solid"
+                        className="shadow-lg backdrop-blur-sm bg-primary/90"
+                        onPress={handleConnect}
+                      >
+                        {t("connect")}
+                      </Button>
+                    )}
+
+                    {isConnected && (
+                      <Button
+                        aria-label={t("disconnect-from-audio-stream")}
+                        color="danger"
+                        size="sm"
+                        variant="solid"
+                        className="shadow-lg backdrop-blur-sm bg-danger/90"
+                        onPress={handleDisconnect}
+                      >
+                        {t("disconnect")}
+                      </Button>
+                    )}
+
+                    {isConnecting && (
+                      <Button
+                        isDisabled
+                        isLoading
+                        color="warning"
+                        size="sm"
+                        variant="solid"
+                        className="shadow-lg backdrop-blur-sm bg-warning/90"
+                      >
+                        {t("connecting")}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Debug/Status Information */}
               {!isAnalyzerInitialized && isAudioReady && (
@@ -706,45 +762,6 @@ export default function AudioStreamAnalyzer({
             </div>
           </CardBody>
         </Card>
-      )}
-
-      {/* Universal Control Button - Only shown when status controls are hidden */}
-      {showUniversalControl && !isStatusDisplayed && (
-        <div className="mt-6 flex justify-center">
-          {!isAudioReady && (
-            <Button color="primary" size="md" onPress={handleInitializeAudio}>
-              {t("initialize-audio-context")}
-            </Button>
-          )}
-
-          {isAudioReady && !isConnected && !isConnecting && (
-            <Button
-              aria-label={t("connect-to-audio-stream")}
-              color="primary"
-              size="md"
-              onPress={handleConnect}
-            >
-              {t("connect")}
-            </Button>
-          )}
-
-          {isConnected && (
-            <Button
-              aria-label={t("disconnect-from-audio-stream")}
-              color="danger"
-              size="md"
-              onPress={handleDisconnect}
-            >
-              {t("disconnect")}
-            </Button>
-          )}
-
-          {isConnecting && (
-            <Button isDisabled isLoading color="warning" size="md">
-              {t("connecting")}
-            </Button>
-          )}
-        </div>
       )}
     </div>
   );

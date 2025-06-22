@@ -21,7 +21,8 @@ import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 import { useAuth } from "@/authentication";
 import { ComputingResponse, ComputingUtils } from "@/types/computing";
-import { getMathMLFromPolynomialCoefficientsClassicOrder } from "@/utilities/polynomial-to-mathml";
+import { getMathMLFromPolynomialCoefficientsClassicOrder, getMathMLFromPolynomialCoefficientsClassicOrderMathML } from "@/utilities/polynomial-to-mathml";
+import { CopyButton } from "./copy-button";
 
 interface ProcessingNodeData {
   id: string;
@@ -297,28 +298,25 @@ export function ComputingNodeModal({
                 </Card>
 
                 <Card
-                  className={`${
-                    stats.hasLatestResult
-                      ? "bg-green-50 border-green-200"
-                      : "bg-gray-50 border-gray-200"
-                  }`}
+                  className={`${stats.hasLatestResult
+                    ? "bg-green-50 border-green-200"
+                    : "bg-gray-50 border-gray-200"
+                    }`}
                 >
                   <CardBody className="text-center">
                     <p
-                      className={`text-2xl font-bold ${
-                        stats.hasLatestResult
-                          ? "text-green-600"
-                          : "text-gray-600"
-                      }`}
+                      className={`text-2xl font-bold ${stats.hasLatestResult
+                        ? "text-green-600"
+                        : "text-gray-600"
+                        }`}
                     >
                       {stats.hasLatestResult ? "✓" : "—"}
                     </p>
                     <p
-                      className={`text-sm ${
-                        stats.hasLatestResult
-                          ? "text-green-800"
-                          : "text-gray-800"
-                      }`}
+                      className={`text-sm ${stats.hasLatestResult
+                        ? "text-green-800"
+                        : "text-gray-800"
+                        }`}
                     >
                       {t("computing-modal-latest-result")}
                     </p>
@@ -349,18 +347,28 @@ export function ComputingNodeModal({
                               <span className="text-sm font-medium text-blue-700">
                                 {t("computing-modal-frequency")}:
                               </span>
-                              <span className="font-bold text-blue-800">
-                                {peakResult.frequency?.toFixed(2) ?? "N/A"} Hz
-                              </span>
+                              <div>
+                                <span className="font-bold text-blue-800">
+                                  {peakResult.frequency?.toFixed(2) ?? "N/A"} Hz
+                                </span>
+                                <CopyButton
+                                  value={peakResult.frequency ?? "N/A"}
+                                />
+                              </div>
                             </div>
 
                             <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                               <span className="text-sm font-medium text-green-700">
                                 {t("computing-modal-amplitude")}:
                               </span>
-                              <span className="font-bold text-green-800">
-                                {peakResult.amplitude?.toFixed(4) ?? "N/A"}
-                              </span>
+                              <div>
+                                <span className="font-bold text-green-800">
+                                  {peakResult.amplitude?.toFixed(4) ?? "N/A"}
+                                </span>
+                                <CopyButton
+                                  value={peakResult.amplitude ?? "N/A"}
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -371,10 +379,15 @@ export function ComputingNodeModal({
                                   <span className="text-sm font-medium text-purple-700">
                                     {t("computing-modal-concentration")}:
                                   </span>
-                                  <span className="font-bold text-purple-800">
-                                    {peakResult.concentration_ppm.toFixed(2)}{" "}
-                                    ppm
-                                  </span>
+                                  <div>
+                                    <span className="font-bold text-purple-800">
+                                      {peakResult.concentration_ppm.toFixed(2)}{" "}
+                                      ppm
+                                    </span>
+                                    <CopyButton
+                                      value={peakResult.concentration_ppm / 10000000} // Convert ppm to concentration
+                                    />
+                                  </div>
                                 </div>
                               )}
 
@@ -443,15 +456,20 @@ export function ComputingNodeModal({
                             <span className="text-sm text-gray-600">
                               {t("computing-modal-polynomial-coeffs")}:
                             </span>
-                            <span
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  getMathMLFromPolynomialCoefficientsClassicOrder(
-                                    nodeData.parameters.polynomial_coefficients,
-                                  ) || "",
-                              }}
-                              className="font-mono text-xs"
-                            />
+                            <div>
+                              <span
+                                dangerouslySetInnerHTML={{
+                                  __html:
+                                    getMathMLFromPolynomialCoefficientsClassicOrderMathML(
+                                      nodeData.parameters.polynomial_coefficients,
+                                    ) || "",
+                                }}
+                                className="font-mono text-xs"
+                              />
+                              <CopyButton value={getMathMLFromPolynomialCoefficientsClassicOrder(
+                                nodeData.parameters.polynomial_coefficients,
+                              ) || "error"} />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -461,7 +479,7 @@ export function ComputingNodeModal({
 
                 <Tab key="all-results" title={t("computing-modal-all-results")}>
                   {computingResponse &&
-                  Object.keys(computingResponse.peak_results).length > 0 ? (
+                    Object.keys(computingResponse.peak_results).length > 0 ? (
                     <div className="space-y-4">
                       {Object.entries(computingResponse.peak_results).map(
                         ([nodeId, result]) => (
@@ -498,6 +516,9 @@ export function ComputingNodeModal({
                                   </p>
                                   <p className="font-bold text-blue-800">
                                     {result.frequency?.toFixed(2) ?? "N/A"} Hz
+                                    <CopyButton
+                                      value={result.frequency ?? "N/A"}
+                                    />
                                   </p>
                                 </div>
                                 <div className="text-center p-2 bg-green-50 rounded">
@@ -506,6 +527,9 @@ export function ComputingNodeModal({
                                   </p>
                                   <p className="font-bold text-green-800">
                                     {result.amplitude?.toFixed(4) ?? "N/A"}
+                                    <CopyButton
+                                      value={result.amplitude ?? "N/A"}
+                                    />
                                   </p>
                                 </div>
                                 {result.concentration_ppm !== undefined &&
@@ -517,6 +541,9 @@ export function ComputingNodeModal({
                                       <p className="font-bold text-purple-800">
                                         {result.concentration_ppm.toFixed(2)}{" "}
                                         ppm
+                                        <CopyButton
+                                          value={result.concentration_ppm / 10000000} // Convert ppm to concentration
+                                        />
                                       </p>
                                     </div>
                                   )}
