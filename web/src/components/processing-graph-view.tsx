@@ -38,6 +38,7 @@ import {
 } from "../types/processing-graph";
 
 import { StreamingNodeModal } from "./streaming-node-modal";
+import { ComputingNodeModal } from "./computing-node-modal";
 
 // Custom node types
 const nodeTypes = {
@@ -77,6 +78,8 @@ export const getNodeIcon = (nodeType: string) => {
       return "📊"; // Chart for measurement output
     case "output":
       return "📤"; // Outbox for final output
+    case "computing_concentration":
+      return "🧮"; // Calculator for concentration computing
     default:
       return "⚙️"; // Gear for processing
   }
@@ -100,6 +103,18 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
         return "border-orange-500 bg-orange-50";
       case "streaming":
         return "border-cyan-500 bg-cyan-50";
+      case "gain":
+        return "border-emerald-500 bg-emerald-50";
+      case "channel_mixer":
+        return "border-pink-500 bg-pink-50";
+      case "channel_selector":
+        return "border-teal-500 bg-teal-50";
+      case "photoacoustic_output":
+        return "border-indigo-500 bg-indigo-50";
+      case "output":
+        return "border-gray-500 bg-gray-50";
+      case "computing_concentration":
+        return "border-amber-500 bg-amber-50";
       default:
         return "border-gray-500 bg-gray-50";
     }
@@ -233,6 +248,13 @@ function NodeDetailsModal({
         nodeData={nodeData}
         onClose={onClose}
       />
+    );
+  }
+
+  // For computing nodes, use the computing node modal
+  if (nodeData.nodeType === "computing_concentration") {
+    return (
+      <ComputingNodeModal isOpen={isOpen} nodeData={nodeData} onClose={onClose} />
     );
   }
 
