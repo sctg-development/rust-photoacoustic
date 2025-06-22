@@ -12,8 +12,7 @@ import { Tabs, Tab } from "@heroui/tabs";
 import { Switch } from "@heroui/switch";
 
 import {
-  getGenerixConfig,
-  GenerixConfig,
+  useGenerixConfig,
 } from "../authentication/providers/generix-config";
 
 import { SerializableProcessingGraph } from "@/types/processing-graph";
@@ -31,11 +30,11 @@ export default function DocsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>("graph");
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   // Configuration state - holds API endpoints and authentication details
-  const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null,
-  );
+  const {
+    config: generixConfig
+  } = useGenerixConfig();
 
   // Load Processing Graph function
   const loadProcessingGraph = async () => {
@@ -62,21 +61,6 @@ export default function DocsPage() {
       setLoading(false);
     }
   };
-
-  // Configuration loading effects
-  useEffect(() => {
-    /**
-     * Load Generix Configuration
-     */
-    const loadGenerixConfig = async () => {
-      const config = await getGenerixConfig();
-
-      console.log(t("config-is"), config);
-      setGenerixConfig(config);
-    };
-
-    loadGenerixConfig();
-  }, [getAccessToken]);
 
   // Load graph when config is ready
   useEffect(() => {
@@ -203,24 +187,21 @@ export default function DocsPage() {
               </Card>
 
               <Card
-                className={`${
-                  graph.is_valid
+                className={`${graph.is_valid
                     ? "bg-green-50 border-green-200"
                     : "bg-red-50 border-red-200"
-                }`}
+                  }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${
-                      graph.is_valid ? "text-green-600" : "text-red-600"
-                    }`}
+                    className={`text-2xl font-bold ${graph.is_valid ? "text-green-600" : "text-red-600"
+                      }`}
                   >
                     {graph.is_valid ? "✓" : "✗"}
                   </p>
                   <p
-                    className={`text-sm ${
-                      graph.is_valid ? "text-green-800" : "text-red-800"
-                    }`}
+                    className={`text-sm ${graph.is_valid ? "text-green-800" : "text-red-800"
+                      }`}
                   >
                     {graph.is_valid ? t("valid") : t("invalid")}
                   </p>

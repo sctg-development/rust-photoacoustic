@@ -3,7 +3,7 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 import { useTranslation } from "react-i18next";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Modal,
   ModalContent,
@@ -18,8 +18,7 @@ import { Switch } from "@heroui/switch";
 import { Tabs, Tab } from "@heroui/tabs";
 
 import {
-  getGenerixConfig,
-  GenerixConfig,
+  useGenerixConfig,
 } from "../authentication/providers/generix-config";
 
 import { useAuth } from "@/authentication";
@@ -48,11 +47,15 @@ export function ComputingNodeModal({
 }: ComputingNodeModalProps) {
   const { t } = useTranslation();
   const { isAuthenticated, getJson } = useAuth();
-  const [generixConfig, setGenerixConfig] = useState<GenerixConfig | null>(
-    null,
-  );
-  const [configLoading, setConfigLoading] = useState(true);
-  const [configError, setConfigError] = useState<string | null>(null);
+
+  // Configuration management with the new hook
+  const {
+    config: generixConfig,
+    loading: configLoading,
+    error: configError,
+    load: loadConfig
+  } = useGenerixConfig({ autoLoad: false });
+
   const [computingResponse, setComputingResponse] =
     useState<ComputingResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,24 +67,34 @@ export function ComputingNodeModal({
 
   // Load Generix configuration when modal opens
   useEffect(() => {
-    const loadData = async () => {
-      if (isOpen && !generixConfig) {
-        await loadGenerixConfig();
+    if (isOpen && !generixConfig) {
+      loadConfig();
+    }
+  }, [isOpen, generixConfig, loadConfig]);
 
-        return; // loadGenerixConfig will handle loading state
-      }
-      if (isOpen && isAuthenticated && generixConfig && !refreshing) {
-        setConfigLoading(true);
-        try {
-          await fetchComputingResponse();
-        } finally {
-          setConfigLoading(false);
-        }
-      }
-    };
+  // Memoized function to fetch computing data
+  const fetchComputingResponse = useCallback(async () => {
+    if (!isAuthenticated || !generixConfig) {
+      return;
+    }
+    try {
+      const response = (await getJson(
+        `${generixConfig.api_base_url}/computing`,
+      )) as ComputingResponse;
 
-    loadData();
-  }, [isOpen, generixConfig, isAuthenticated]);
+      setComputingResponse(response);
+    } catch (error) {
+      console.error("Error fetching computing response:", error);
+      // Note: error is now managed by the useGenerixConfig hook
+    }
+  }, [isAuthenticated, generixConfig, getJson]);
+
+  // Fetch computing data when authenticated and config is ready
+  useEffect(() => {
+    if (isOpen && isAuthenticated && generixConfig) {
+      fetchComputingResponse();
+    }
+  }, [isOpen, isAuthenticated, generixConfig, fetchComputingResponse]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -100,47 +113,7 @@ export function ComputingNodeModal({
         clearInterval(refreshIntervalRef.current);
       }
     };
-  }, [autoRefresh, generixConfig, isAuthenticated, isOpen]);
-
-  const loadGenerixConfig = async () => {
-    try {
-      setConfigLoading(true);
-      setConfigError(null);
-      const config = await getGenerixConfig();
-
-      setGenerixConfig(config);
-    } catch (error) {
-      console.error("Error loading Generix config:", error);
-      setConfigError(
-        error instanceof Error
-          ? error.message
-          : t("computing-modal-config-error"),
-      );
-    } finally {
-      setConfigLoading(false);
-    }
-  };
-
-  const fetchComputingResponse = async () => {
-    if (!isAuthenticated || !generixConfig) {
-      return;
-    }
-    try {
-      setConfigError(null);
-      const response = (await getJson(
-        `${generixConfig.api_base_url}/computing`,
-      )) as ComputingResponse;
-
-      setComputingResponse(response);
-    } catch (error) {
-      console.error("Error fetching computing response:", error);
-      setConfigError(
-        error instanceof Error
-          ? error.message
-          : t("computing-modal-fetch-error"),
-      );
-    }
-  };
+  }, [autoRefresh, generixConfig, isAuthenticated, isOpen, fetchComputingResponse]);
 
   const getPeakResult = (
     computingResponse: ComputingResponse | null,
@@ -264,7 +237,7 @@ export function ComputingNodeModal({
                   <Button
                     color="danger"
                     variant="flat"
-                    onPress={loadGenerixConfig}
+                    onPress={loadConfig}
                   >
                     {t("streaming-modal-retry-config")}
                   </Button>
@@ -323,28 +296,25 @@ export function ComputingNodeModal({
                 </Card>
 
                 <Card
-                  className={`${
-                    stats.hasLatestResult
-                      ? "bg-green-50 border-green-200"
-                      : "bg-gray-50 border-gray-200"
-                  }`}
+                  className={`${stats.hasLatestResult
+                    ? "bg-green-50 border-green-200"
+                    : "bg-gray-50 border-gray-200"
+                    }`}
                 >
                   <CardBody className="text-center">
                     <p
-                      className={`text-2xl font-bold ${
-                        stats.hasLatestResult
-                          ? "text-green-600"
-                          : "text-gray-600"
-                      }`}
+                      className={`text-2xl font-bold ${stats.hasLatestResult
+                        ? "text-green-600"
+                        : "text-gray-600"
+                        }`}
                     >
                       {stats.hasLatestResult ? "✓" : "—"}
                     </p>
                     <p
-                      className={`text-sm ${
-                        stats.hasLatestResult
-                          ? "text-green-800"
-                          : "text-gray-800"
-                      }`}
+                      className={`text-sm ${stats.hasLatestResult
+                        ? "text-green-800"
+                        : "text-gray-800"
+                        }`}
                     >
                       {t("computing-modal-latest-result")}
                     </p>
@@ -485,7 +455,7 @@ export function ComputingNodeModal({
 
                 <Tab key="all-results" title={t("computing-modal-all-results")}>
                   {computingResponse &&
-                  Object.keys(computingResponse.peak_results).length > 0 ? (
+                    Object.keys(computingResponse.peak_results).length > 0 ? (
                     <div className="space-y-4">
                       {Object.entries(computingResponse.peak_results).map(
                         ([nodeId, result]) => (

@@ -11,8 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 
 import {
-  getGenerixConfig,
-  GenerixConfig,
+  useGenerixConfig,
 } from "../authentication/providers/generix-config";
 
 import { title } from "@/components/primitives";
@@ -31,23 +30,14 @@ export default function ApiPage() {
   const { user, isAuthenticated, getAccessToken } = useAuth();
 
   // Configuration state - holds API endpoints and authentication details
-  const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null,
-  );
+  const {
+    config: generixConfig
+  } = useGenerixConfig();
+
   const [accessToken, setAccessToken] = useState("" as string | null);
 
   // Configuration loading effects
   useEffect(() => {
-    /**
-     * Load Generix Configuration
-     */
-    const loadGenerixConfig = async () => {
-      const config = await getGenerixConfig();
-
-      console.log("Config is :", config);
-      setGenerixConfig(config);
-    };
-
     /**
      * Load Access Token
      */
@@ -58,7 +48,6 @@ export default function ApiPage() {
     };
 
     loadAccessToken();
-    loadGenerixConfig();
   }, [getAccessToken]);
 
   // Authentication state monitoring

@@ -4,7 +4,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Accordion, AccordionItem } from "@heroui/accordion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Modal,
   ModalContent,
@@ -17,8 +17,7 @@ import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 
 import {
-  getGenerixConfig,
-  GenerixConfig,
+  useGenerixConfig,
 } from "../authentication/providers/generix-config";
 
 import AudioStreamAnalyzer from "./audio-stream-analyzer";
@@ -45,37 +44,21 @@ export function StreamingNodeModal({
   nodeData,
 }: StreamingNodeModalProps) {
   const { t } = useTranslation();
-  const [generixConfig, setGenerixConfig] = useState<GenerixConfig | null>(
-    null,
-  );
-  const [configLoading, setConfigLoading] = useState(true);
-  const [configError, setConfigError] = useState<string | null>(null);
+
+  // Configuration management with the new hook
+  const {
+    config: generixConfig,
+    loading: configLoading,
+    error: configError,
+    load: loadConfig
+  } = useGenerixConfig({ autoLoad: false });
 
   // Load Generix configuration when modal opens
   useEffect(() => {
     if (isOpen && !generixConfig) {
-      loadGenerixConfig();
+      loadConfig();
     }
-  }, [isOpen, generixConfig]);
-
-  const loadGenerixConfig = async () => {
-    try {
-      setConfigLoading(true);
-      setConfigError(null);
-      const config = await getGenerixConfig();
-
-      setGenerixConfig(config);
-    } catch (error) {
-      console.error("Error loading Generix config:", error);
-      setConfigError(
-        error instanceof Error
-          ? error.message
-          : t("streaming-modal-config-error"),
-      );
-    } finally {
-      setConfigLoading(false);
-    }
-  };
+  }, [isOpen, generixConfig, loadConfig]);
 
   if (
     !nodeData ||
@@ -231,7 +214,7 @@ export function StreamingNodeModal({
                   <Button
                     color="danger"
                     variant="flat"
-                    onPress={loadGenerixConfig}
+                    onPress={loadConfig}
                   >
                     {t("streaming-modal-retry-config")}
                   </Button>

@@ -16,8 +16,7 @@ import { useAuth } from "@/authentication";
 import { Navbar } from "@/components/navbar";
 import { siteConfig } from "@/config/site";
 import {
-  GenerixConfig,
-  getGenerixConfig,
+  useGenerixConfig,
 } from "@/authentication/providers/generix-config";
 
 export default function DefaultLayout({
@@ -29,20 +28,11 @@ export default function DefaultLayout({
   const { isAuthenticated, user, getAccessToken } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [decodedToken, setDecodedToken] = useState<JWTPayload | null>(null);
-  const [generixConfig, setGenerixConfig] = useState(
-    null as GenerixConfig | null,
-  );
 
-  useEffect(() => {
-    const loadGenerixConfig = async () => {
-      const config = await getGenerixConfig();
-
-      console.log("Config is :", config);
-      setGenerixConfig(config);
-    };
-
-    loadGenerixConfig();
-  }, []);
+  // Configuration state
+  const {
+    config: generixConfig
+  } = useGenerixConfig();
 
   useEffect(() => {
     if (isAuthenticated && generixConfig) {

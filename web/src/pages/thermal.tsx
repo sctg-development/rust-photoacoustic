@@ -32,8 +32,7 @@ import { Line } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 
 import {
-  getGenerixConfig,
-  GenerixConfig,
+  useGenerixConfig,
 } from "../authentication/providers/generix-config";
 
 import {
@@ -69,9 +68,9 @@ export default function ThermalPage() {
   const { isAuthenticated, getJson } = useAuth();
 
   // Configuration state
-  const [generixConfig, setGenerixConfig] = useState<GenerixConfig | null>(
-    null,
-  );
+  const {
+    config: generixConfig
+  } = useGenerixConfig();
 
   // Data states
   const [lastTemperatures, setLastTemperatures] =
@@ -97,17 +96,6 @@ export default function ThermalPage() {
     { value: "24h", label: t("last-24-hours"), seconds: 86400 },
     //   { value: "1w", label: t("last-week"), seconds: 604800 },
   ];
-
-  // Load configuration
-  useEffect(() => {
-    const loadGenerixConfig = async () => {
-      const config = await getGenerixConfig();
-
-      setGenerixConfig(config);
-    };
-
-    loadGenerixConfig();
-  }, []);
 
   // Fetch functions
   const fetchLastTemperatures = async () => {
@@ -481,24 +469,21 @@ export default function ThermalPage() {
               </Card>
 
               <Card
-                className={`${
-                  stats.errors > 0
+                className={`${stats.errors > 0
                     ? "bg-red-50 border-red-200"
                     : "bg-gray-50 border-gray-200"
-                }`}
+                  }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${
-                      stats.errors > 0 ? "text-red-600" : "text-gray-600"
-                    }`}
+                    className={`text-2xl font-bold ${stats.errors > 0 ? "text-red-600" : "text-gray-600"
+                      }`}
                   >
                     {stats.errors}
                   </p>
                   <p
-                    className={`text-sm ${
-                      stats.errors > 0 ? "text-red-800" : "text-gray-800"
-                    }`}
+                    className={`text-sm ${stats.errors > 0 ? "text-red-800" : "text-gray-800"
+                      }`}
                   >
                     {t("error-regulators")}
                   </p>
