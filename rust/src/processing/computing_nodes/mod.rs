@@ -7,12 +7,10 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
 
+pub mod action_trait;
 pub mod concentration;
+pub mod example_display_action;
 pub mod peak_finder;
-
-// Re-export for easier access
-pub use concentration::ConcentrationNode;
-pub use peak_finder::PeakFinderNode;
 
 /// Result data from a peak finder node
 #[derive(Debug, Clone)]
@@ -189,3 +187,11 @@ impl ComputingSharedData {
 
 /// Type alias for thread-safe access to computing shared data
 pub type SharedComputingState = Arc<RwLock<ComputingSharedData>>;
+
+// Re-export for easier access
+pub use action_trait::{
+    ActionHistoryEntry, ActionNode, ActionNodeHelper, ActionTrigger, CircularBuffer,
+};
+pub use concentration::ConcentrationNode;
+pub use example_display_action::ExampleDisplayActionNode;
+pub use peak_finder::PeakFinderNode;
