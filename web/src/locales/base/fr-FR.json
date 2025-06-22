@@ -318,5 +318,20 @@
   "computing-modal-raw-data": "Données Brutes",
   "computing-modal-node-result": "Résultat du Nœud",
   "computing-modal-full-response": "Réponse Complète",
-  "close": "Fermer"
+  "close": "Fermer",
+  "decrease-volume": "Diminuer le volume",
+  "increase-volume": "Augmenter le volume",
+  "disable-audio-playback": "Désactiver la lecture audio",
+  "enable-audio-playback": "Activer la lecture audio",
+  "audio-playback-disabled": "Lecture audio désactivée",
+  "audio-playback-enabled": "Lecture audio activée",
+  "failed-to-toggle-audio-playback": "Échec de la commutation de la lecture audio",
+  "volume-decreased": "Volume diminué à",
+  "volume-increased": "Volume augmenté à",
+  "start-recording": "Commencer l'enregistrement",
+  "stop-recording": "Arrêter l'enregistrement",
+  "recording-started": "Enregistrement démarré",
+  "recording-stopped": "Enregistrement arrêté",
+  "failed-to-toggle-recording": "Échec de la baisse de l'enregistrement",
+  "recording-in-progress": "Enregistrement en cours"
 }

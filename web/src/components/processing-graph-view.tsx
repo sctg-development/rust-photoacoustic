@@ -1,10 +1,10 @@
 /**
  * Processing Graph View Component
- * 
+ *
  * This file implements a comprehensive visual representation of a photoacoustic processing pipeline
  * using ReactFlow. It renders nodes, edges, and provides interactive functionality for exploring
  * the processing graph structure and performance statistics.
- * 
+ *
  * Key Features:
  * - Interactive node graph with drag/zoom capabilities
  * - Visual differentiation based on node types and performance
@@ -12,33 +12,33 @@
  * - Modal dialogs for detailed node inspection
  * - Real-time performance statistics display
  * - Automatic layout with collision detection
- * 
+ *
  * Architecture:
  * - ProcessingGraphView: Main component wrapper with ReactFlowProvider
  * - FlowContainer: Core ReactFlow implementation with state management
  * - ProcessingNode: Custom node component with statistics and styling
  * - NodeDetailsModal: Generic modal for non-specialized nodes
  * - Specialized modals: StreamingNodeModal, ComputingNodeModal
- * 
+ *
  * Data Flow:
  * 1. SerializableProcessingGraph data comes from the backend API
  * 2. calculateNodePositions() creates optimal layout coordinates
  * 3. Graph nodes are converted to ReactFlow format with statistics
  * 4. Special dependency edges are added for computing relationships
  * 5. User interactions trigger modal displays for detailed information
- * 
+ *
  * Performance Considerations:
  * - useMemo() optimization for expensive graph transformations
  * - useCallback() stabilization for event handlers
  * - Lazy modal loading based on node types
  * - Efficient collision detection in layout algorithm
- * 
+ *
  * Visual Design Principles:
  * - Color-coded nodes by type and performance status
  * - Consistent iconography for node identification
  * - Progressive disclosure through modal interactions
  * - Responsive layout with mobile considerations
- * 
+ *
  * @copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
  * @license SCTG Development Non-Commercial License v1.0
  */
@@ -94,11 +94,11 @@ import { ComputingNodeModal } from "./computing-node-modal";
 
 /**
  * Custom node types registry for ReactFlow
- * 
+ *
  * ReactFlow uses this mapping to render custom node components.
  * Each string key corresponds to a React component that will
  * handle the rendering of that node type.
- * 
+ *
  * @see ProcessingNode - The main node component implementation
  */
 const nodeTypes = {
@@ -107,16 +107,16 @@ const nodeTypes = {
 
 /**
  * Data structure for processing nodes in the ReactFlow graph
- * 
+ *
  * This interface defines the complete data contract for node components.
  * It combines static configuration (from the backend) with dynamic
  * runtime information (statistics) and interactive capabilities (callbacks).
- * 
+ *
  * The data flows from:
  * 1. Backend processing graph definition
  * 2. Runtime statistics collection
  * 3. UI interaction handlers
- * 
+ *
  * @interface ProcessingNodeData
  */
 interface ProcessingNodeData {
@@ -147,20 +147,20 @@ interface ProcessingNodeData {
 
 /**
  * Icon mapping for different node types
- * 
+ *
  * Returns appropriate emoji icons for visual identification of node types.
  * These icons provide instant visual recognition and help users quickly
  * understand the purpose and functionality of each node in the graph.
- * 
+ *
  * The mapping is designed around the photoacoustic processing pipeline:
  * - Input nodes: Data acquisition and laser sources
  * - Processing nodes: Signal filtering, amplification, and analysis
  * - Output nodes: Data storage, streaming, and visualization
  * - Computing nodes: Mathematical calculations and analysis
- * 
+ *
  * @param nodeType - The type of processing node from the backend definition
  * @returns Emoji string representing the node type, with fallback for unknown types
- * 
+ *
  * @example
  * ```typescript
  * const icon = getNodeIcon("filter"); // Returns "🔬"
@@ -198,31 +198,31 @@ export const getNodeIcon = (nodeType: string): string => {
 
 /**
  * Custom Processing Node Component
- * 
+ *
  * This component renders individual nodes in the processing graph with comprehensive
  * visual feedback and interactive capabilities. Each node displays multiple layers
  * of information to provide immediate understanding of its role and performance.
- * 
+ *
  * Visual Information Hierarchy:
  * 1. Icon: Immediate type identification
  * 2. ID and Type: Node identification
  * 3. Statistics: Performance metrics (when available)
  * 4. Status Indicators: Bottleneck warnings
  * 5. Color Coding: Type and performance-based styling
- * 
+ *
  * Interactive Features:
  * - Click handling: Opens detailed modal for the node
  * - Hover effects: Visual feedback for interactivity
  * - Connection handles: Visual anchor points for edges
- * 
+ *
  * Performance Considerations:
  * - Conditional rendering for statistics (only when available)
  * - Efficient color calculation with early bottleneck detection
  * - Optimized event handlers through parent component callbacks
- * 
+ *
  * @param data - Complete node data including configuration and runtime info
  * @returns JSX element representing the visual node
- * 
+ *
  * @see ProcessingNodeData - Interface defining the expected data structure
  * @see getNodeIcon - Function providing visual icons for node types
  */
@@ -232,16 +232,16 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
 
   /**
    * Determines the visual styling for the node based on its type and status
-   * 
+   *
    * This function implements a comprehensive color coding system that provides
    * immediate visual feedback about node functionality and performance status.
-   * 
+   *
    * Color Coding Strategy:
    * - Priority System: Bottlenecks override type-based colors for immediate attention
    * - Functional Grouping: Related node types use similar color families
    * - Accessibility: High contrast colors for clear differentiation
    * - Consistency: Predictable mapping between types and colors
-   * 
+   *
    * Color Meanings:
    * - Red: Performance issues (bottlenecks) - requires immediate attention
    * - Blue: Data entry points (input) - start of processing pipeline
@@ -255,14 +255,14 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
    * - Indigo: Measurement output (photoacoustic_output) - final results
    * - Amber: Mathematical computation (computing_concentration) - calculations
    * - Gray: Generic/output nodes - standard operations
-   * 
+   *
    * @returns Tailwind CSS classes for border and background colors
-   * 
+   *
    * @example
    * ```typescript
    * // Bottleneck node (always red regardless of type)
    * getNodeColor() // "border-red-500 bg-red-50"
-   * 
+   *
    * // Normal filter node
    * getNodeColor() // "border-purple-500 bg-purple-50"
    * ```
@@ -274,27 +274,27 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
     // Color coding based on node functionality
     switch (nodeType) {
       case "input":
-        return "border-blue-500 bg-blue-50";        // Data entry
+        return "border-blue-500 bg-blue-50"; // Data entry
       case "filter":
-        return "border-purple-500 bg-purple-50";    // Signal processing
+        return "border-purple-500 bg-purple-50"; // Signal processing
       case "differential":
-        return "border-green-500 bg-green-50";      // Signal analysis
+        return "border-green-500 bg-green-50"; // Signal analysis
       case "record":
-        return "border-orange-500 bg-orange-50";    // Data storage
+        return "border-orange-500 bg-orange-50"; // Data storage
       case "streaming":
-        return "border-cyan-500 bg-cyan-50";        // Real-time data
+        return "border-cyan-500 bg-cyan-50"; // Real-time data
       case "gain":
-        return "border-emerald-500 bg-emerald-50";  // Amplification
+        return "border-emerald-500 bg-emerald-50"; // Amplification
       case "channel_mixer":
-        return "border-pink-500 bg-pink-50";        // Audio mixing
+        return "border-pink-500 bg-pink-50"; // Audio mixing
       case "channel_selector":
-        return "border-teal-500 bg-teal-50";        // Channel selection
+        return "border-teal-500 bg-teal-50"; // Channel selection
       case "photoacoustic_output":
-        return "border-indigo-500 bg-indigo-50";    // Measurement output
+        return "border-indigo-500 bg-indigo-50"; // Measurement output
       case "output":
-        return "border-gray-500 bg-gray-50";        // Final output
+        return "border-gray-500 bg-gray-50"; // Final output
       case "computing_concentration":
-        return "border-amber-500 bg-amber-50";      // Concentration calculation
+        return "border-amber-500 bg-amber-50"; // Concentration calculation
       default:
         return "border-gray-500 bg-gray-50";
     }
@@ -350,23 +350,23 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
 
 /**
  * Calculates optimal positions for nodes in the graph layout
- * 
+ *
  * This function implements a sophisticated multi-row grid layout system with
  * automatic collision detection and resolution. The algorithm balances several
  * competing requirements:
- * 
+ *
  * 1. **Execution Order Preservation**: Nodes are positioned to respect their
  *    logical execution sequence, making the data flow visually apparent.
- * 
+ *
  * 2. **Collision Prevention**: Automatic detection and resolution of overlapping
  *    nodes ensures all nodes remain visible and accessible.
- * 
+ *
  * 3. **Visual Clarity**: Consistent spacing and alignment provide a clean,
  *    professional appearance suitable for technical documentation.
- * 
+ *
  * 4. **Scalability**: The algorithm adapts to graphs of varying sizes while
  *    maintaining performance and visual quality.
- * 
+ *
  * Algorithm Steps:
  * 1. **Grid Positioning**: Initial placement based on execution order with
  *    configurable rows and columns
@@ -374,22 +374,22 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
  *    and add visual interest
  * 3. **Collision Detection**: Pairwise comparison of all node positions
  * 4. **Conflict Resolution**: Automatic repositioning of overlapping nodes
- * 
+ *
  * Layout Configuration Constants:
  * - Node dimensions: 140x80px (minimum space required)
  * - Horizontal spacing: 240px (ensures clear separation)
  * - Vertical spacing: 200px (provides adequate row separation)
  * - Max nodes per row: 4 (optimal for wide screen viewing)
  * - Jitter range: ±15px (subtle randomization)
- * 
+ *
  * Performance Characteristics:
  * - Time Complexity: O(n²) for collision detection (acceptable for typical graph sizes)
  * - Space Complexity: O(n) for position storage
  * - Typical execution time: <1ms for graphs with <100 nodes
- * 
+ *
  * @param graph - The complete processing graph containing nodes and execution order
  * @returns Object mapping node IDs to their calculated {x, y} positions in pixels
- * 
+ *
  * @example
  * ```typescript
  * const positions = calculateNodePositions(graph);
@@ -403,11 +403,11 @@ function calculateNodePositions(
   const executionOrder = graph.execution_order;
 
   // Layout configuration constants - these values are tuned for optimal visual balance
-  const NODE_WIDTH = 140;           // Minimum width for nodes (accommodates typical content)
-  const NODE_HEIGHT = 80;           // Minimum height for nodes (includes statistics display)
-  const HORIZONTAL_SPACING = 240;   // Space between nodes horizontally (prevents crowding)
-  const VERTICAL_SPACING = 200;     // Space between rows (ensures clear separation)
-  const MAX_NODES_PER_ROW = 4;      // Maximum nodes per row (optimal for wide screens)
+  const NODE_WIDTH = 140; // Minimum width for nodes (accommodates typical content)
+  const NODE_HEIGHT = 80; // Minimum height for nodes (includes statistics display)
+  const HORIZONTAL_SPACING = 240; // Space between nodes horizontally (prevents crowding)
+  const VERTICAL_SPACING = 200; // Space between rows (ensures clear separation)
+  const MAX_NODES_PER_ROW = 4; // Maximum nodes per row (optimal for wide screens)
 
   // **Phase 1: Initial Grid Positioning**
   // Calculate base positions using execution order to maintain logical flow
@@ -468,15 +468,15 @@ function calculateNodePositions(
 
 /**
  * Node Details Modal Component Props
- * 
+ *
  * Defines the complete interface for the generic node details modal component.
  * This modal serves as both a standalone component for basic nodes and a
  * router for specialized modal implementations.
- * 
+ *
  * The modal system uses a delegation pattern:
  * - Generic nodes: Handled by this component directly
  * - Specialized nodes: Routed to dedicated modal components
- * 
+ *
  * @interface NodeDetailsModalProps
  */
 interface NodeDetailsModalProps {
@@ -486,14 +486,14 @@ interface NodeDetailsModalProps {
   /** Callback function to close the modal and clean up state */
   onClose: () => void;
 
-  /** 
+  /**
    * Complete node data to display in the modal
    * - null when modal is closed or no node selected
    * - Contains all node configuration and runtime information when open
    */
   nodeData: ProcessingNodeData | null;
 
-  /** 
+  /**
    * Optional graph-wide statistics for contextual information
    * - Provides comparative performance data
    * - Used for relative performance analysis
@@ -503,39 +503,39 @@ interface NodeDetailsModalProps {
 
 /**
  * Generic Node Details Modal Component
- * 
+ *
  * This component provides comprehensive detailed information about processing
  * nodes that don't have specialized modal implementations. It serves as both
  * a full-featured modal for generic nodes and a routing mechanism for
  * specialized node types.
- * 
+ *
  * **Modal Routing System:**
  * The component implements intelligent routing based on node types:
  * - `streaming` & `input` nodes → StreamingNodeModal (real-time data visualization)
  * - `computing_concentration` nodes → ComputingNodeModal (mathematical analysis)
  * - All other nodes → Generic modal (this component)
- * 
+ *
  * **Information Architecture:**
  * 1. **Node Information**: Basic identification and configuration
  * 2. **Performance Statistics**: Runtime metrics and bottleneck analysis
  * 3. **Configuration Parameters**: Node-specific settings and values
  * 4. **Visual Performance Metrics**: Progressive indicators and charts
- * 
+ *
  * **Performance Visualization:**
  * - Frame processing counts with locale-appropriate formatting
  * - Processing time metrics with human-readable duration formatting
  * - Consistency analysis through progress bars
  * - Bottleneck highlighting with visual warnings
- * 
+ *
  * **Accessibility Features:**
  * - Semantic HTML structure with proper headings
  * - Keyboard navigation support through HeroUI components
  * - Screen reader friendly labels and descriptions
  * - High contrast color scheme for performance indicators
- * 
+ *
  * @param props - Modal props including node data and visibility controls
  * @returns Modal component or null if no node data provided
- * 
+ *
  * @example
  * ```typescript
  * <NodeDetailsModal
@@ -795,38 +795,38 @@ function NodeDetailsModal({
 
 /**
  * Flow Container Component
- * 
+ *
  * This is the core ReactFlow implementation that orchestrates the complete
  * graph visualization system. It serves as the central state management hub
  * and data transformation engine for the visual graph representation.
- * 
+ *
  * **Core Responsibilities:**
  * 1. **State Management**: Manages ReactFlow nodes and edges using specialized hooks
  * 2. **Data Transformation**: Converts backend processing graph to ReactFlow format
  * 3. **Event Handling**: Manages user interactions and modal state
  * 4. **Dependency Visualization**: Creates special edges for computing relationships
  * 5. **Performance Integration**: Integrates runtime statistics with visual elements
- * 
+ *
  * **Architecture Pattern:**
  * The component follows a reactive architecture where:
  * - Graph data changes trigger automatic re-computation of visual elements
  * - User interactions flow through centralized event handlers
  * - Modal state is managed separately from graph visualization state
  * - Performance data is merged with static configuration for rich node display
- * 
+ *
  * **Data Flow:**
  * ```
  * SerializableProcessingGraph → calculateNodePositions() → ReactFlow Nodes
  *                            → graph.connections → ReactFlow Edges
  *                            → dependency analysis → Special Dependency Edges
  * ```
- * 
+ *
  * **Performance Optimizations:**
  * - useMemo() for expensive graph transformations (prevents unnecessary recalculations)
  * - useCallback() for stable event handlers (prevents child re-renders)
  * - Conditional rendering for performance statistics (only when data available)
  * - Efficient edge creation with batch operations
- * 
+ *
  * **Special Features:**
  * - **Dependency Edge Enhancement**: Visual representation of data dependencies
  *   between computing_concentration and computing_peak_finder nodes
@@ -834,10 +834,10 @@ function NodeDetailsModal({
  *   of performance bottlenecks
  * - **Modal Routing**: Intelligent delegation to specialized modal components
  *   based on node type and functionality requirements
- * 
+ *
  * @param graph - The complete processing graph data structure from the backend
  * @returns ReactFlow visualization with controls and modal system
- * 
+ *
  * @example
  * ```typescript
  * <FlowContainer graph={processingGraphData} />
@@ -859,14 +859,14 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
 
   /**
    * Handles node click events to open detailed information modals
-   * 
+   *
    * This function provides a stable callback for node click handling,
    * preventing unnecessary re-renders of child components while maintaining
    * proper event propagation and state management.
-   * 
+   *
    * The callback pattern allows for centralized modal management while
    * keeping the click handling logic close to the node components.
-   * 
+   *
    * @param _nodeId - The ID of the clicked node (unused, data contains ID)
    * @param nodeData - Complete node data for the clicked node
    */
@@ -880,30 +880,30 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
 
   /**
    * **Core Data Transformation Engine**
-   * 
+   *
    * Converts processing graph data to ReactFlow format with comprehensive
    * enhancements for visualization and interactivity. This is the most
    * complex and performance-critical part of the component.
-   * 
+   *
    * **Transformation Pipeline:**
    * 1. **Position Calculation**: Optimal node layout with collision detection
    * 2. **Node Enhancement**: Integration of statistics and interaction handlers
    * 3. **Edge Creation**: Standard connections from graph definition
    * 4. **Dependency Analysis**: Special edges for computing relationships
    * 5. **Visual Styling**: Performance-based and type-based styling
-   * 
+   *
    * **Performance Considerations:**
    * - Runs only when graph data changes (memoized)
    * - Efficient array operations with minimal object creation
    * - Batch processing for edge creation
    * - Early returns for missing data scenarios
-   * 
+   *
    * **Dependency Edge Logic:**
    * For computing_concentration nodes that reference computing_peak_finder nodes:
    * - If normal connection exists: Enhance existing edge with special styling
    * - If no connection exists: Create new dashed dependency edge
    * - Visual differentiation: Amber color, special labels, glow effects
-   * 
+   *
    * @returns Object containing processed ReactFlow nodes and edges
    */
   const { reactFlowNodes, reactFlowEdges } = useMemo(() => {
@@ -953,23 +953,26 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
 
     graph.nodes.forEach((node) => {
       // Focus on computing_concentration nodes that reference other computing nodes
-      if (node.node_type === "computing_concentration" && node.parameters.computing_peak_finder_id) {
+      if (
+        node.node_type === "computing_concentration" &&
+        node.parameters.computing_peak_finder_id
+      ) {
         const peakFinderId = node.parameters.computing_peak_finder_id;
 
         // Validate that the referenced node actually exists in the graph
-        const peakFinderExists = graph.nodes.some(n => n.id === peakFinderId);
+        const peakFinderExists = graph.nodes.some((n) => n.id === peakFinderId);
 
         if (peakFinderExists) {
           // Check if this dependency already has a normal data connection
-          const connectionExists = graph.connections.some(conn =>
-            conn.from === peakFinderId && conn.to === node.id
+          const connectionExists = graph.connections.some(
+            (conn) => conn.from === peakFinderId && conn.to === node.id,
           );
 
           if (connectionExists) {
             // **Enhance Existing Edge**: Modify the existing connection to show
             // it represents both data flow AND computational dependency
-            const existingEdgeIndex = reactFlowEdges.findIndex(edge =>
-              edge.source === peakFinderId && edge.target === node.id
+            const existingEdgeIndex = reactFlowEdges.findIndex(
+              (edge) => edge.source === peakFinderId && edge.target === node.id,
             );
 
             if (existingEdgeIndex !== -1) {
@@ -979,18 +982,18 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
                 style: {
                   stroke: "#f59e0b", // Amber color for computing dependencies
                   strokeWidth: 3, // Thicker line for emphasis
-                  filter: "drop-shadow(0 0 3px rgba(245, 158, 11, 0.5))" // Glow effect
+                  filter: "drop-shadow(0 0 3px rgba(245, 158, 11, 0.5))", // Glow effect
                 },
                 label: "🧮", // Computing icon to indicate special relationship
                 labelStyle: {
                   fontSize: "10px",
                   fill: "#f59e0b",
-                  fontWeight: "600"
+                  fontWeight: "600",
                 },
                 labelBgStyle: {
                   fill: "#fef3c7", // Light amber background
-                  fillOpacity: 0.9
-                }
+                  fillOpacity: 0.9,
+                },
               };
             }
           } else {
@@ -1005,18 +1008,18 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
               style: {
                 stroke: "#f59e0b", // Amber color for computing dependencies
                 strokeWidth: 2,
-                strokeDasharray: "5,5" // Dashed line to differentiate from data flow
+                strokeDasharray: "5,5", // Dashed line to differentiate from data flow
               },
               label: "data dependency", // Clear text label
               labelStyle: {
                 fontSize: "10px",
                 fill: "#f59e0b",
-                fontWeight: "500"
+                fontWeight: "500",
               },
               labelBgStyle: {
                 fill: "#fef3c7", // Light amber background
-                fillOpacity: 0.8
-              }
+                fillOpacity: 0.8,
+              },
             });
           }
         }
@@ -1076,11 +1079,11 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
 
 /**
  * Main Processing Graph View Component
- * 
+ *
  * This is the top-level component that provides the complete processing graph
  * visualization experience. It serves as the public API for the graph system
  * and handles the ReactFlow provider setup.
- * 
+ *
  * **Component Architecture:**
  * ```
  * ProcessingGraphView (ReactFlow Provider)
@@ -1094,34 +1097,34 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
  *           ├── ComputingNodeModal (Specialized)
  *           └── Generic Modal (Fallback)
  * ```
- * 
+ *
  * **Provider Pattern:**
  * ReactFlowProvider is required at the top level to provide context for
  * all ReactFlow hooks and components. This separation allows for clean
  * component isolation and proper context management.
- * 
+ *
  * **Responsive Design:**
  * The component is designed to be fully responsive and adapts to:
  * - Different screen sizes and orientations
  * - Various container dimensions
  * - Touch vs mouse interaction patterns
  * - High DPI displays
- * 
+ *
  * **Performance Characteristics:**
  * - Efficient re-rendering through React.memo and proper dependency arrays
  * - Optimized for graphs with 10-100 nodes (typical use case)
  * - Memory efficient with proper cleanup and state management
  * - Fast initial render through optimized layout algorithms
- * 
+ *
  * @example
  * ```typescript
  * // Basic usage
  * <ProcessingGraphView graph={processingGraphData} />
- * 
+ *
  * // With custom styling
- * <ProcessingGraphView 
- *   graph={processingGraphData} 
- *   className="h-96 border rounded-lg" 
+ * <ProcessingGraphView
+ *   graph={processingGraphData}
+ *   className="h-96 border rounded-lg"
  * />
  * ```
  */
@@ -1131,7 +1134,7 @@ interface ProcessingGraphViewProps {
   /** The complete processing graph data structure from the backend */
   graph: SerializableProcessingGraph;
 
-  /** 
+  /**
    * Optional CSS classes for styling the outer wrapper element
    * Applied to the outermost div element
    */
@@ -1140,14 +1143,14 @@ interface ProcessingGraphViewProps {
 
 /**
  * **Main Export Component**
- * 
+ *
  * Provides the complete processing graph visualization with all features:
  * - Interactive node graph with drag/zoom capabilities
  * - Performance-aware visual styling and bottleneck detection
  * - Specialized dependency edges for computing relationships
  * - Comprehensive modal system for detailed node inspection
  * - Responsive design with professional appearance
- * 
+ *
  * @param graph - Complete processing graph data from the backend API
  * @param className - Optional CSS classes for wrapper element styling
  * @returns Complete graph visualization component

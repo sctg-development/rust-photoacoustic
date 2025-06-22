@@ -318,5 +318,20 @@
   "computing-modal-raw-data": "Raw Data",
   "computing-modal-node-result": "Node Result",
   "computing-modal-full-response": "Full Response",
-  "close": "Close"
+  "close": "Close",
+  "decrease-volume": "Decrease volume",
+  "increase-volume": "Increase volume",
+  "disable-audio-playback": "Disable audio playback",
+  "enable-audio-playback": "Enable audio playback",
+  "audio-playback-disabled": "Audio playback disabled",
+  "audio-playback-enabled": "Audio playback enabled",
+  "failed-to-toggle-audio-playback": "Failed to toggle audio playback",
+  "volume-decreased": "Volume decreased to",
+  "volume-increased": "Volume increased to",
+  "start-recording": "Start recording",
+  "stop-recording": "Stop recording",
+  "recording-started": "Recording started",
+  "recording-stopped": "Recording stopped",
+  "failed-to-toggle-recording": "failed to toggle recording",
+  "recording-in-progress": "recording in progress"
 }

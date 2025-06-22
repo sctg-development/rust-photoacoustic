@@ -46,73 +46,73 @@ import { ScientificNotation } from "./scientific-notation";
  * const latex = getMathMLFromPolynomialCoefficients([0, 0, 0, 0, 0]);
  */
 export const getMathMLFromPolynomialCoefficients = (coefficients: number[]) => {
-    try {
-        // Step 1: Process each coefficient and create term objects
-        // This maps coefficients to their LaTeX representation with proper formatting
-        const terms = coefficients
-            .map((coeff, index) => {
-                // Skip zero coefficients to avoid cluttering the expression
-                if (coeff === 0) {
-                    return null;
-                }
-
-                // Convert coefficient to scientific notation LaTeX format
-                const coeffLatex = ScientificNotation.toScientificNotationLatex(coeff);
-
-                // Generate the power part of the term based on the index
-                // index 0: constant term (no x)
-                // index 1: linear term (x)
-                // index 2+: higher powers (x², x³, etc.)
-                const powerStr = index === 0 ? "" : index === 1 ? "x" : `x^${index}`;
-
-                return {
-                    coefficient: coeff,
-                    // Combine coefficient and power with multiplication symbol if needed
-                    latex: `${coeffLatex}${powerStr ? `\\cdot ${powerStr}` : ""}`,
-                    isNegative: coeff < 0,
-                };
-            })
-            // Remove null entries (zero coefficients)
-            .filter((term) => term !== null);
-
-        // Handle edge case: all coefficients are zero
-        if (terms.length === 0) {
-            return "0";
+  try {
+    // Step 1: Process each coefficient and create term objects
+    // This maps coefficients to their LaTeX representation with proper formatting
+    const terms = coefficients
+      .map((coeff, index) => {
+        // Skip zero coefficients to avoid cluttering the expression
+        if (coeff === 0) {
+          return null;
         }
 
-        // Step 2: Build the polynomial string with proper sign handling
-        let polynomial = "";
+        // Convert coefficient to scientific notation LaTeX format
+        const coeffLatex = ScientificNotation.toScientificNotationLatex(coeff);
 
-        for (let i = 0; i < terms.length; i++) {
-            const term = terms[i];
+        // Generate the power part of the term based on the index
+        // index 0: constant term (no x)
+        // index 1: linear term (x)
+        // index 2+: higher powers (x², x³, etc.)
+        const powerStr = index === 0 ? "" : index === 1 ? "x" : `x^${index}`;
 
-            if (i === 0) {
-                // First term: display as-is (positive or negative)
-                // No leading + sign for positive first terms
-                polynomial = term.latex;
-            } else {
-                // Subsequent terms: handle signs between terms
-                if (term.isNegative) {
-                    // Negative coefficient already includes minus sign
-                    // Just add a space before the term
-                    polynomial += ` ${term.latex}`;
-                } else {
-                    // Positive coefficient needs explicit + sign
-                    polynomial += ` + ${term.latex}`;
-                }
-            }
-        }
+        return {
+          coefficient: coeff,
+          // Combine coefficient and power with multiplication symbol if needed
+          latex: `${coeffLatex}${powerStr ? `\\cdot ${powerStr}` : ""}`,
+          isNegative: coeff < 0,
+        };
+      })
+      // Remove null entries (zero coefficients)
+      .filter((term) => term !== null);
 
-        // Step 3: Return LaTeX string
-        return polynomial;
-    } catch (error) {
-        // Handle any errors during LaTeX generation
-        console.error("Error generating polynomial LaTeX:", error);
-
-        // Fallback: return a simple bracketed array representation
-        // This ensures the UI doesn't break if LaTeX generation fails
-        return `[${coefficients.join(", ")}]`;
+    // Handle edge case: all coefficients are zero
+    if (terms.length === 0) {
+      return "0";
     }
+
+    // Step 2: Build the polynomial string with proper sign handling
+    let polynomial = "";
+
+    for (let i = 0; i < terms.length; i++) {
+      const term = terms[i];
+
+      if (i === 0) {
+        // First term: display as-is (positive or negative)
+        // No leading + sign for positive first terms
+        polynomial = term.latex;
+      } else {
+        // Subsequent terms: handle signs between terms
+        if (term.isNegative) {
+          // Negative coefficient already includes minus sign
+          // Just add a space before the term
+          polynomial += ` ${term.latex}`;
+        } else {
+          // Positive coefficient needs explicit + sign
+          polynomial += ` + ${term.latex}`;
+        }
+      }
+    }
+
+    // Step 3: Return LaTeX string
+    return polynomial;
+  } catch (error) {
+    // Handle any errors during LaTeX generation
+    console.error("Error generating polynomial LaTeX:", error);
+
+    // Fallback: return a simple bracketed array representation
+    // This ensures the UI doesn't break if LaTeX generation fails
+    return `[${coefficients.join(", ")}]`;
+  }
 };
 
 /**
@@ -147,84 +147,84 @@ export const getMathMLFromPolynomialCoefficients = (coefficients: number[]) => {
  * const latex = getMathMLFromPolynomialCoefficientsClassicOrder([5, -3, 0, 2, -1]);
  */
 export const getMathMLFromPolynomialCoefficientsClassicOrder = (
-    coefficients: number[],
+  coefficients: number[],
 ) => {
-    // Validate input: must be exactly 5 coefficients for a degree-4 polynomial
-    if (coefficients.length !== 5) {
-        return null;
-    }
+  // Validate input: must be exactly 5 coefficients for a degree-4 polynomial
+  if (coefficients.length !== 5) {
+    return null;
+  }
 
-    try {
-        // Step 1: Process each coefficient and create term objects
-        // Note: We process in reverse order to display from highest to lowest degree
-        const terms = coefficients
-            .map((coeff, index) => {
-                // Skip zero coefficients to avoid cluttering the expression
-                if (coeff === 0) {
-                    return null;
-                }
-
-                // Convert coefficient to scientific notation LaTeX format
-                const coeffLatex = ScientificNotation.toScientificNotationLatex(coeff);
-
-                // Generate the power part of the term based on the index
-                // index 0: constant term (no x)
-                // index 1: linear term (x)
-                // index 2+: higher powers (x², x³, etc.)
-                const powerStr = index === 0 ? "" : index === 1 ? "x" : `x^${index}`;
-
-                return {
-                    coefficient: coeff,
-                    // Combine coefficient and power with multiplication symbol if needed
-                    latex: `${coeffLatex}${powerStr ? `\\cdot ${powerStr}` : ""}`,
-                    isNegative: coeff < 0,
-                    index: index,
-                };
-            })
-            // Remove null entries (zero coefficients)
-            .filter((term) => term !== null)
-            // Sort in descending order of powers for classical mathematical presentation
-            .sort((a, b) => b.index - a.index);
-
-        // Handle edge case: all coefficients are zero
-        if (terms.length === 0) {
-            return "0";
+  try {
+    // Step 1: Process each coefficient and create term objects
+    // Note: We process in reverse order to display from highest to lowest degree
+    const terms = coefficients
+      .map((coeff, index) => {
+        // Skip zero coefficients to avoid cluttering the expression
+        if (coeff === 0) {
+          return null;
         }
 
-        // Step 2: Build the polynomial string with proper sign handling
-        // Starting from highest degree and working down to constant
-        let polynomial = "";
+        // Convert coefficient to scientific notation LaTeX format
+        const coeffLatex = ScientificNotation.toScientificNotationLatex(coeff);
 
-        for (let i = 0; i < terms.length; i++) {
-            const term = terms[i];
+        // Generate the power part of the term based on the index
+        // index 0: constant term (no x)
+        // index 1: linear term (x)
+        // index 2+: higher powers (x², x³, etc.)
+        const powerStr = index === 0 ? "" : index === 1 ? "x" : `x^${index}`;
 
-            if (i === 0) {
-                // First term (highest degree): display as-is (positive or negative)
-                // No leading + sign for positive first terms
-                polynomial = term.latex;
-            } else {
-                // Subsequent terms: handle signs between terms
-                if (term.isNegative) {
-                    // Negative coefficient already includes minus sign
-                    // Just add a space before the term
-                    polynomial += ` ${term.latex}`;
-                } else {
-                    // Positive coefficient needs explicit + sign
-                    polynomial += ` + ${term.latex}`;
-                }
-            }
-        }
+        return {
+          coefficient: coeff,
+          // Combine coefficient and power with multiplication symbol if needed
+          latex: `${coeffLatex}${powerStr ? `\\cdot ${powerStr}` : ""}`,
+          isNegative: coeff < 0,
+          index: index,
+        };
+      })
+      // Remove null entries (zero coefficients)
+      .filter((term) => term !== null)
+      // Sort in descending order of powers for classical mathematical presentation
+      .sort((a, b) => b.index - a.index);
 
-        // Step 3: Return LaTeX string
-        return polynomial;
-    } catch (error) {
-        // Handle any errors during LaTeX generation
-        console.error("Error generating polynomial LaTeX in classic order:", error);
-
-        // Fallback: return a simple bracketed array representation
-        // This ensures the UI doesn't break if LaTeX generation fails
-        return `[${coefficients.join(", ")}]`;
+    // Handle edge case: all coefficients are zero
+    if (terms.length === 0) {
+      return "0";
     }
+
+    // Step 2: Build the polynomial string with proper sign handling
+    // Starting from highest degree and working down to constant
+    let polynomial = "";
+
+    for (let i = 0; i < terms.length; i++) {
+      const term = terms[i];
+
+      if (i === 0) {
+        // First term (highest degree): display as-is (positive or negative)
+        // No leading + sign for positive first terms
+        polynomial = term.latex;
+      } else {
+        // Subsequent terms: handle signs between terms
+        if (term.isNegative) {
+          // Negative coefficient already includes minus sign
+          // Just add a space before the term
+          polynomial += ` ${term.latex}`;
+        } else {
+          // Positive coefficient needs explicit + sign
+          polynomial += ` + ${term.latex}`;
+        }
+      }
+    }
+
+    // Step 3: Return LaTeX string
+    return polynomial;
+  } catch (error) {
+    // Handle any errors during LaTeX generation
+    console.error("Error generating polynomial LaTeX in classic order:", error);
+
+    // Fallback: return a simple bracketed array representation
+    // This ensures the UI doesn't break if LaTeX generation fails
+    return `[${coefficients.join(", ")}]`;
+  }
 };
 
 /**
@@ -241,14 +241,18 @@ export const getMathMLFromPolynomialCoefficientsClassicOrder = (
  * // Returns MathML for: 1.5×10⁻³ - 2.1x² + 4.7×10⁻⁶x⁴
  * const mathml = getMathMLFromPolynomialCoefficientsMathML([1.5e-3, 0, -2.1, 0, 4.7e-6]);
  */
-export const getMathMLFromPolynomialCoefficientsMathML = (coefficients: number[]) => {
-    try {
-        const latex = getMathMLFromPolynomialCoefficients(coefficients);
-        return Temml.renderToString(latex);
-    } catch (error) {
-        console.error("Error rendering polynomial to MathML:", error);
-        return `[${coefficients.join(", ")}]`;
-    }
+export const getMathMLFromPolynomialCoefficientsMathML = (
+  coefficients: number[],
+) => {
+  try {
+    const latex = getMathMLFromPolynomialCoefficients(coefficients);
+
+    return Temml.renderToString(latex);
+  } catch (error) {
+    console.error("Error rendering polynomial to MathML:", error);
+
+    return `[${coefficients.join(", ")}]`;
+  }
 };
 
 /**
@@ -265,15 +269,23 @@ export const getMathMLFromPolynomialCoefficientsMathML = (coefficients: number[]
  * // Returns MathML for: 4.7×10⁻⁶x⁴ - 2.1x² + 1.5×10⁻³
  * const mathml = getMathMLFromPolynomialCoefficientsClassicOrderMathML([1.5e-3, 0, -2.1, 0, 4.7e-6]);
  */
-export const getMathMLFromPolynomialCoefficientsClassicOrderMathML = (coefficients: number[]) => {
-    try {
-        const latex = getMathMLFromPolynomialCoefficientsClassicOrder(coefficients);
-        if (latex === null) {
-            return null;
-        }
-        return Temml.renderToString(latex);
-    } catch (error) {
-        console.error("Error rendering polynomial to MathML in classic order:", error);
-        return `[${coefficients.join(", ")}]`;
+export const getMathMLFromPolynomialCoefficientsClassicOrderMathML = (
+  coefficients: number[],
+) => {
+  try {
+    const latex = getMathMLFromPolynomialCoefficientsClassicOrder(coefficients);
+
+    if (latex === null) {
+      return null;
     }
+
+    return Temml.renderToString(latex);
+  } catch (error) {
+    console.error(
+      "Error rendering polynomial to MathML in classic order:",
+      error,
+    );
+
+    return `[${coefficients.join(", ")}]`;
+  }
 };

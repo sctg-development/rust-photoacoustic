@@ -130,7 +130,10 @@ export function StreamingNodeModal({
           <Card>
             <CardBody>
               <Accordion>
-                <AccordionItem title={t("streaming-modal-node-information")} className="text-xl font-semibold">
+                <AccordionItem
+                  className="text-xl font-semibold"
+                  title={t("streaming-modal-node-information")}
+                >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-normal">
                     <div>
                       <p className="text-sm text-gray-600">
@@ -240,7 +243,10 @@ export function StreamingNodeModal({
             <Card>
               <CardBody>
                 <Accordion>
-                  <AccordionItem title={t("streaming-modal-connection-details")} className="text-xl font-semibold">
+                  <AccordionItem
+                    className="text-xl font-semibold"
+                    title={t("streaming-modal-connection-details")}
+                  >
                     <div className="font-light space-y-2 text-xs">
                       <div>
                         <p className="text-gray-600">
@@ -254,9 +260,9 @@ export function StreamingNodeModal({
                             {streamUrl}
                           </p>
                           <CopyButton
-                            value={streamUrl}
-                            className="absolute top-0 right-2"
                             aria-label={t("streaming-modal-copy-stream-url")}
+                            className="absolute top-0 right-2"
+                            value={streamUrl}
                           />
                         </div>
                       </div>
@@ -270,9 +276,9 @@ export function StreamingNodeModal({
                               {statsUrl}
                             </p>
                             <CopyButton
-                              value={statsUrl}
-                              className="absolute top-0 right-2"
                               aria-label={t("streaming-modal-copy-stats-url")}
+                              className="absolute top-0 right-2"
+                              value={statsUrl}
                             />
                           </div>
                         </div>

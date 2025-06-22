@@ -1,10 +1,10 @@
 /**
  * Processing Graph Page Component
- * 
+ *
  * This page provides a comprehensive dashboard for visualizing and monitoring
  * the photoacoustic processing pipeline. It serves as the main interface for
  * understanding system performance, node relationships, and real-time statistics.
- * 
+ *
  * **Key Features:**
  * - Interactive graph visualization with drag/zoom capabilities
  * - Real-time performance monitoring and statistics
@@ -12,7 +12,7 @@
  * - Multiple view modes (graph, stats, raw data)
  * - Comprehensive error handling and loading states
  * - Responsive design for various screen sizes
- * 
+ *
  * **Architecture:**
  * ```
  * DocsPage (Main Container)
@@ -22,20 +22,20 @@
  *     ├── Performance Stats (Detailed Analytics)
  *     └── Raw Data (JSON Debug View)
  * ```
- * 
+ *
  * **Data Flow:**
  * 1. Authentication validation via useAuth hook
  * 2. Configuration loading via useGenerixConfig
  * 3. API call to fetch processing graph data
  * 4. Real-time updates through auto-refresh mechanism
  * 5. Multi-view presentation of the same data
- * 
+ *
  * **Performance Considerations:**
  * - Efficient state management with minimal re-renders
  * - Conditional API calls based on authentication state
  * - Optimized auto-refresh with cleanup mechanisms
  * - Lazy loading of heavy visualization components
- * 
+ *
  * @copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
  * @license SCTG Development Non-Commercial License v1.0
  */
@@ -72,32 +72,32 @@ import { CopyButton } from "@/components/copy-button";
 
 /**
  * Main Processing Graph Dashboard Component
- * 
+ *
  * This component orchestrates the complete dashboard experience for monitoring
  * and visualizing the photoacoustic processing pipeline. It manages multiple
  * interconnected systems including authentication, data fetching, real-time
  * updates, and multi-view presentation.
- * 
+ *
  * **State Management Strategy:**
  * - `graph`: The complete processing graph data structure from the backend
  * - `loading`: Tracks API request state for user feedback
  * - `error`: Captures and displays any errors that occur during data fetching
  * - `selectedTab`: Controls which view mode is currently active
  * - `autoRefresh`: Enables/disables automatic data updates
- * 
+ *
  * **Lifecycle Management:**
  * 1. Component Mount: Check authentication and configuration
  * 2. Data Loading: Fetch initial graph data from API
  * 3. Auto-refresh Setup: Establish periodic updates if enabled
  * 4. User Interactions: Handle manual refresh and tab switching
  * 5. Component Unmount: Clean up intervals and subscriptions
- * 
+ *
  * **Error Handling Philosophy:**
  * - Graceful degradation with informative error messages
  * - Retry mechanisms for transient failures
  * - Separation of authentication vs. API errors
  * - User-friendly error presentation with action buttons
- * 
+ *
  * @returns JSX.Element - The complete dashboard interface
  */
 export default function DocsPage() {
@@ -121,11 +121,11 @@ export default function DocsPage() {
 
   /**
    * Core Data Loading Function
-   * 
+   *
    * This function orchestrates the complete data fetching process for the
    * processing graph. It includes comprehensive error handling, authentication
    * validation, and state management.
-   * 
+   *
    * **Execution Flow:**
    * 1. **Pre-flight Checks**: Validate authentication and configuration
    * 2. **Error Reset**: Clear any previous error states
@@ -133,19 +133,19 @@ export default function DocsPage() {
    * 4. **State Update**: Update component state with new data
    * 5. **Error Handling**: Capture and format any errors for user display
    * 6. **Cleanup**: Ensure loading state is always cleared
-   * 
+   *
    * **Error Categories:**
    * - Authentication Errors: User not logged in or session expired
    * - Configuration Errors: Missing or invalid API configuration
    * - Network Errors: Connection issues or server problems
    * - Data Errors: Invalid response format or missing data
-   * 
+   *
    * **Performance Considerations:**
    * - Async/await pattern for clean error handling
    * - Type assertion for API response validation
    * - Proper error logging for debugging
    * - State cleanup in finally block
-   * 
+   *
    * @async
    * @function loadProcessingGraph
    * @returns {Promise<void>} Promise that resolves when data loading is complete
@@ -155,6 +155,7 @@ export default function DocsPage() {
     if (!isAuthenticated || !generixConfig) {
       console.warn(t("user-not-authenticated-or-config-not-loaded"));
       setLoading(false);
+
       return;
     }
 
@@ -183,20 +184,20 @@ export default function DocsPage() {
 
   /**
    * Initial Data Loading Effect
-   * 
+   *
    * This effect handles the initial data loading when the component mounts
    * or when authentication/configuration state changes. It implements a
    * dependency-aware loading strategy that only triggers when necessary.
-   * 
+   *
    * **Trigger Conditions:**
    * - Component first mount
    * - Authentication state changes (login/logout)
    * - Configuration becomes available
-   * 
+   *
    * **Dependencies:**
    * - generixConfig: API configuration object
    * - isAuthenticated: User authentication status
-   * 
+   *
    * **Performance Notes:**
    * - Only runs when dependencies actually change
    * - Prevents unnecessary API calls
@@ -210,27 +211,27 @@ export default function DocsPage() {
 
   /**
    * Auto-refresh Management Effect
-   * 
+   *
    * This effect manages the automatic refresh functionality for real-time
    * monitoring. It establishes and cleans up interval-based data fetching
    * when auto-refresh is enabled.
-   * 
+   *
    * **Refresh Strategy:**
    * - 60-second intervals for balanced performance vs. freshness
    * - Only active when auto-refresh is enabled
    * - Respects authentication and configuration state
    * - Automatic cleanup on component unmount or dependency changes
-   * 
+   *
    * **Safety Mechanisms:**
    * - Guards against running when authentication is invalid
    * - Cleans up intervals to prevent memory leaks
    * - Handles rapid state changes gracefully
-   * 
+   *
    * **Performance Considerations:**
    * - Uses setInterval for predictable timing
    * - Cleanup function prevents multiple intervals
    * - Minimal overhead when disabled
-   * 
+   *
    * @effect Auto-refresh interval management
    */
   useEffect(() => {
@@ -248,16 +249,16 @@ export default function DocsPage() {
 
   /**
    * Manual Refresh Handler
-   * 
+   *
    * Provides user-initiated data refresh functionality with proper state
    * management. This function is called when the user clicks the refresh
    * button and ensures consistent UI feedback.
-   * 
+   *
    * **User Experience Features:**
    * - Immediate loading state activation
    * - Consistent error handling
    * - Visual feedback through loading indicators
-   * 
+   *
    * **State Management:**
    * - Sets loading state immediately for instant feedback
    * - Delegates actual loading to main function for consistency
@@ -377,21 +378,24 @@ export default function DocsPage() {
 
               {/* System Validity - Health status indicator */}
               <Card
-                className={`${graph.is_valid
-                  ? "bg-green-50 border-green-200"
-                  : "bg-red-50 border-red-200"
-                  }`}
+                className={`${
+                  graph.is_valid
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${graph.is_valid ? "text-green-600" : "text-red-600"
-                      }`}
+                    className={`text-2xl font-bold ${
+                      graph.is_valid ? "text-green-600" : "text-red-600"
+                    }`}
                   >
                     {graph.is_valid ? "✓" : "✗"}
                   </p>
                   <p
-                    className={`text-sm ${graph.is_valid ? "text-green-800" : "text-red-800"
-                      }`}
+                    className={`text-sm ${
+                      graph.is_valid ? "text-green-800" : "text-red-800"
+                    }`}
                   >
                     {graph.is_valid ? t("valid") : t("invalid")}
                   </p>
@@ -441,8 +445,8 @@ export default function DocsPage() {
                     <div className="relative">
                       {/* Copy functionality for easy data extraction */}
                       <CopyButton
-                        value={JSON.stringify(graph, null, 2)}
                         className="absolute top-2 right-2"
+                        value={JSON.stringify(graph, null, 2)}
                       />
                       {/* Formatted JSON display with syntax highlighting */}
                       <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">

@@ -318,5 +318,20 @@
   "computing-modal-raw-data": "原始数据",
   "computing-modal-node-result": "节点结果",
   "computing-modal-full-response": "完整响应",
-  "close": "关闭"
+  "close": "关闭",
+  "decrease-volume": "降低音量",
+  "increase-volume": "提高音量",
+  "disable-audio-playback": "禁用音频播放",
+  "enable-audio-playback": "启用音频播放",
+  "audio-playback-disabled": "音频播放已禁用",
+  "audio-playback-enabled": "音频播放已启用",
+  "failed-to-toggle-audio-playback": "切换音频播放失败",
+  "volume-decreased": "音量降至",
+  "volume-increased": "音量提升至",
+  "start-recording": "开始录制",
+  "stop-recording": "停止录制",
+  "recording-started": "录制已开始",
+  "recording-stopped": "录制已停止",
+  "failed-to-toggle-recording": "无法切换记录",
+  "recording-in-progress": "正在进行录制"
 }

@@ -318,5 +318,20 @@
   "computing-modal-raw-data": "נתונים גולמיים",
   "computing-modal-node-result": "תוצאת צומת",
   "computing-modal-full-response": "תגובה מלאה",
-  "close": "סגור"
+  "close": "סגור",
+  "decrease-volume": "הפחת עוצמת קול",
+  "increase-volume": "הגבר עוצמת קול",
+  "disable-audio-playback": "השבת השמעת אודיו",
+  "enable-audio-playback": "הפעל השמעת אודיו",
+  "audio-playback-disabled": "השמעת אודיו הושבתה",
+  "audio-playback-enabled": "השמעת אודיו הופעלה",
+  "failed-to-toggle-audio-playback": "נכשל בשינוי השמעת אודיו",
+  "volume-decreased": "עוצמת הקול הופחתה ל",
+  "volume-increased": "עוצמת הקול הוגברה ל",
+  "start-recording": "התחל הקלטה",
+  "stop-recording": "עצור הקלטה",
+  "recording-started": "ההקלטה התחילה",
+  "recording-stopped": "ההקלטה נעצרה",
+  "failed-to-toggle-recording": "הקלטת הקלטה נכשלה",
+  "recording-in-progress": "הקלטה בתהליך"
 }

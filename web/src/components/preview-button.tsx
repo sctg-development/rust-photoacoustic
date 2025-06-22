@@ -22,27 +22,27 @@ import { Button, type ButtonProps } from "@heroui/button";
 import { clsx } from "@heroui/shared-utils";
 
 export interface PreviewButtonProps extends ButtonProps {
-    icon: React.ReactNode;
+  icon: React.ReactNode;
 }
 
 export const PreviewButton = forwardRef<
-    HTMLButtonElement | null,
-    PreviewButtonProps
+  HTMLButtonElement | null,
+  PreviewButtonProps
 >((props, ref) => {
-    const { icon, className, ...buttonProps } = props;
+  const { icon, className, ...buttonProps } = props;
 
-    return (
-        <Button
-            ref={ref}
-            isIconOnly
-            className={clsx("relative z-50 text-zinc-300 top-8", className)}
-            size="sm"
-            variant={props.variant ?? "light"}
-            {...buttonProps}
-        >
-            {icon}
-        </Button>
-    );
+  return (
+    <Button
+      ref={ref}
+      isIconOnly
+      className={clsx("relative z-50 text-zinc-300 top-8", className)}
+      size="sm"
+      variant={props.variant ?? "light"}
+      {...buttonProps}
+    >
+      {icon}
+    </Button>
+  );
 });
 
 PreviewButton.displayName = "PreviewButton";

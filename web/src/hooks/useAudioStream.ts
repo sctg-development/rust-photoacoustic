@@ -2,9 +2,96 @@
  * @copyright Copyright (c) 2024-2025 Ronan LE MEILLAT
  * @license AGPL-3.0-or-later
  *
- * React hook for managing a real-time authenticated audio stream with WebAudio API integration.
- * Provides functionality for connecting to a server-sent events stream, processing audio frames,
- * and managing audio context lifecycle including reconnection strategies.
+ * Advanced Real-Time Audio Stream Hook
+ *
+ * This hook provides a comprehensive solution for managing authenticated real-time audio streaming
+ * with WebAudio API integration. It's designed for high-performance photoacoustic applications
+ * requiring precise timing, minimal latency, and robust error handling.
+ *
+ * **Core Capabilities:**
+ * - Server-Sent Events (SSE) audio streaming with authentication
+ * - Automatic frame format detection (standard vs. fast binary format)
+ * - High-performance audio processing with WebAudio API integration
+ * - Advanced timestamp validation and gap detection
+ * - Intelligent reconnection strategies with exponential backoff
+ * - Memory-efficient buffer pooling and batch processing
+ * - Real-time performance monitoring and statistics
+ * - Optional real-time audio playback with volume control
+ *
+ * **Architecture Overview:**
+ * ```
+ * useAudioStream Hook
+ * ├── Connection Management (SSE + Auth)
+ * ├── Audio Processing Pipeline
+ * │   ├── Frame Decoding (Binary/JSON)
+ * │   ├── Buffer Creation & Pooling
+ * │   ├── WebAudio Scheduling
+ * │   ├── Optional Speaker Output
+ * │   └── Performance Monitoring
+ * ├── Timestamp Validation System
+ * ├── Audio Playback Controls
+ * │   ├── Enable/Disable Playback
+ * │   ├── Volume Control
+ * │   └── User Interaction Compliance
+ * ├── Reconnection Logic
+ * └── Statistics & Monitoring
+ * ```
+ *
+ * **Performance Optimizations:**
+ * - Typed array operations for minimal garbage collection
+ * - Buffer pooling to reduce memory allocations
+ * - Batch processing with adaptive time budgets
+ * - Efficient base64 decoding for binary frames
+ * - Throttled UI updates to prevent render blocking
+ * - Conditional audio output for visualization-only mode
+ *
+ * **Frame Format Support:**
+ * - Standard JSON frames: Traditional format with array data
+ * - Fast binary frames: Base64-encoded Float32 data for efficiency
+ * - Automatic detection and seamless switching between formats
+ *
+ * **Audio Playback Features:**
+ * - Optional real-time audio output to speakers/headphones
+ * - User-initiated playback (complies with browser autoplay policies)
+ * - Volume control from 0% to 100%
+ * - Independent of visualization and analysis functions
+ * - Graceful fallback when audio devices are unavailable
+ *
+ * **Error Handling Strategy:**
+ * - Categorized error types (auth, network, parse, audio, connection)
+ * - Graceful degradation with user-friendly error messages
+ * - Automatic recovery mechanisms where appropriate
+ * - Comprehensive logging for debugging production issues
+ *
+ * **Usage Example:**
+ * ```typescript
+ * const {
+ *   isConnected,
+ *   currentFrame,
+ *   fps,
+ *   connect,
+ *   disconnect,
+ *   initializeAudio,
+ *   enableAudioPlayback,
+ *   disableAudioPlayback,
+ *   setPlaybackVolume,
+ *   isAudioPlaybackEnabled,
+ *   playbackVolume
+ * } = useAudioStream(
+ *   'wss://api.example.com/stream',
+ *   '/api/stats',
+ *   false, // autoConnect
+ *   { enabled: true, toleranceMs: 50 } // timestamp validation
+ * );
+ *
+ * // Enable audio playback (requires user interaction)
+ * const handleEnableAudio = async () => {
+ *   await enableAudioPlayback();
+ * };
+ *
+ * // Set volume to 75%
+ * setPlaybackVolume(0.75);
+ * ```
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -12,14 +99,30 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth, useSecuredApi } from "@/authentication";
 
 /**
- * @typedef {Object} AudioFrame
- * @description Structure representing an audio frame received from the server
- * @property {number[]} channel_a - Array of samples for channel A
- * @property {number[]} channel_b - Array of samples for channel B
- * @property {number} sample_rate - Sample rate in Hz
- * @property {number} timestamp - Server timestamp when the frame was created
- * @property {number} frame_number - Sequential frame number
- * @property {number} duration_ms - Frame duration in milliseconds
+ * Audio Frame Data Structure
+ *
+ * Represents a single audio frame received from the server containing stereo audio data.
+ * This is the standard format used throughout the application for audio processing.
+ *
+ * @interface AudioFrame
+ * @property {number[]} channel_a - Left audio channel samples (typically 48kHz Float32 values)
+ * @property {number[]} channel_b - Right audio channel samples (typically 48kHz Float32 values)
+ * @property {number} sample_rate - Audio sample rate in Hz (usually 48000)
+ * @property {number} timestamp - Server-side timestamp when frame was captured (milliseconds)
+ * @property {number} frame_number - Sequential frame identifier for ordering and gap detection
+ * @property {number} duration_ms - Frame duration in milliseconds (typically ~10-20ms)
+ *
+ * @example
+ * ```typescript
+ * const frame: AudioFrame = {
+ *   channel_a: [0.1, -0.2, 0.3, ...], // 480 samples for 10ms at 48kHz
+ *   channel_b: [0.2, -0.1, 0.4, ...], // 480 samples for 10ms at 48kHz
+ *   sample_rate: 48000,
+ *   timestamp: 1640995200000,
+ *   frame_number: 12345,
+ *   duration_ms: 10.0
+ * };
+ * ```
  */
 interface AudioFrame {
   channel_a: number[];
@@ -127,6 +230,11 @@ export interface TimestampValidationConfig {
  * @property {Function} getPerformanceStats - Function to get performance statistics
  * @property {Function} resetTimestampValidation - Function to reset timestamp validation stats
  * @property {Function} updateTimestampValidationConfig - Function to update validation configuration
+ * @property {Function} enableAudioPlayback - Function to enable real-time audio playback to speakers
+ * @property {Function} disableAudioPlayback - Function to disable real-time audio playback
+ * @property {Function} setPlaybackVolume - Function to set the playback volume (0.0 to 1.0)
+ * @property {boolean} isAudioPlaybackEnabled - Whether audio is currently being played to speakers
+ * @property {number} playbackVolume - Current playback volume (0.0 to 1.0)
  * @property {boolean} isDualChannel - Whether the audio stream has dual channels
  */
 interface UseAudioStreamReturn {
@@ -150,6 +258,13 @@ interface UseAudioStreamReturn {
   bufferDuration: number;
   latency: number;
 
+  // Audio playback controls
+  isAudioPlaybackEnabled: boolean;
+  playbackVolume: number;
+
+  // Audio recording controls
+  isRecording: boolean;
+
   // Timestamp validation
   timestampValidation: TimestampValidationStats;
 
@@ -160,6 +275,11 @@ interface UseAudioStreamReturn {
   initializeAudio: () => Promise<void>;
   resumeAudio: () => Promise<void>;
   suspendAudio: () => Promise<void>;
+  enableAudioPlayback: () => Promise<void>;
+  disableAudioPlayback: () => void;
+  setPlaybackVolume: (volume: number) => void;
+  startRecording: () => Promise<void>;
+  stopRecording: () => void;
   getPerformanceStats: () => any;
   resetTimestampValidation: () => void;
   updateTimestampValidationConfig: (
@@ -258,6 +378,24 @@ export const useAudioStream = (
   const [currentBuffer, setCurrentBuffer] = useState<AudioBuffer | null>(null);
   const [bufferDuration, setBufferDuration] = useState(0);
   const [latency, setLatency] = useState(0);
+
+  /**
+   * Audio playback control states
+   */
+  const [isAudioPlaybackEnabled, setIsAudioPlaybackEnabled] = useState(false);
+  const [playbackVolume, setPlaybackVolumeState] = useState(0.5); // Default to 50% volume
+
+  /**
+   * Audio recording control states
+   */
+  const [isRecording, setIsRecording] = useState(false);
+
+  /**
+   * Audio recording references
+   */
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
 
   /**
    * Timestamp validation states
@@ -446,9 +584,12 @@ export const useAudioStream = (
       analyserNode.fftSize = 2048;
       analyserNode.smoothingTimeConstant = 0.8;
 
-      // Connect the audio graph - do not connect to destination to avoid audio output
+      // Configure gain node with current volume
+      gainNode.gain.value = playbackVolume;
+
+      // Connect the audio graph - do not connect to destination initially to avoid audio output
       gainNode.connect(analyserNode);
-      // analyserNode.connect(context.destination); // Removed to prevent audio output
+      // Note: analyserNode.connect(context.destination) is done conditionally in enableAudioPlayback()
 
       const streamNode: AudioStreamNode = {
         context,
@@ -505,6 +646,217 @@ export const useAudioStream = (
       console.log("Audio context suspended");
     }
   }, [audioContext]);
+
+  // --- AUDIO PLAYBACK CONTROLS ---
+
+  /**
+   * Enables real-time audio playback to speakers by connecting the analyser to the audio destination.
+   * Requires user interaction to comply with browser autoplay policies.
+   *
+   * @returns {Promise<void>}
+   */
+  const enableAudioPlayback = useCallback(async () => {
+    if (!audioStreamNode || !audioContext) {
+      console.warn("Audio system not ready for playback");
+
+      return;
+    }
+
+    try {
+      // Resume audio context if needed (required for user interaction compliance)
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+        console.log("Audio context resumed for playback");
+      }
+
+      // Connect analyser to destination for audio output
+      if (!isAudioPlaybackEnabled) {
+        audioStreamNode.analyserNode.connect(audioContext.destination);
+        setIsAudioPlaybackEnabled(true);
+        console.log("Audio playback enabled - connecting to speakers");
+      }
+    } catch (err) {
+      console.error("Failed to enable audio playback:", err);
+      setError({
+        type: "audio",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Failed to enable audio playback",
+        timestamp: Date.now(),
+      });
+    }
+  }, [audioStreamNode, audioContext, isAudioPlaybackEnabled]);
+
+  /**
+   * Disables real-time audio playback by disconnecting from the audio destination.
+   * Audio processing and visualization will continue without audible output.
+   */
+  const disableAudioPlayback = useCallback(() => {
+    if (!audioStreamNode || !audioContext) {
+      console.warn("Audio system not available");
+
+      return;
+    }
+
+    try {
+      // Disconnect from destination to stop audio output
+      if (isAudioPlaybackEnabled) {
+        audioStreamNode.analyserNode.disconnect(audioContext.destination);
+        setIsAudioPlaybackEnabled(false);
+        console.log("Audio playback disabled - disconnected from speakers");
+      }
+    } catch (err) {
+      console.error("Failed to disable audio playback:", err);
+      // Set playback as disabled even if disconnect failed
+      setIsAudioPlaybackEnabled(false);
+    }
+  }, [audioStreamNode, audioContext, isAudioPlaybackEnabled]);
+
+  /**
+   * Sets the playback volume for the audio stream.
+   *
+   * @param {number} volume - Volume level from 0.0 (muted) to 1.0 (full volume)
+   */
+  const setPlaybackVolume = useCallback(
+    (volume: number) => {
+      if (!audioStreamNode) {
+        console.warn("Audio system not available for volume control");
+
+        return;
+      }
+
+      // Clamp volume between 0.0 and 1.0
+      const clampedVolume = Math.max(0.0, Math.min(1.0, volume));
+
+      try {
+        // Set gain node volume
+        audioStreamNode.gainNode.gain.value = clampedVolume;
+        setPlaybackVolumeState(clampedVolume);
+        console.log(`Audio volume set to: ${Math.round(clampedVolume * 100)}%`);
+      } catch (err) {
+        console.error("Failed to set playback volume:", err);
+      }
+    },
+    [audioStreamNode],
+  );
+
+  // --- AUDIO RECORDING CONTROLS ---
+
+  /**
+   * Starts recording the audio stream by capturing the output of the analyser node.
+   * Creates a MediaRecorder to record the audio data to a downloadable file.
+   *
+   * @returns {Promise<void>}
+   */
+  const startRecording = useCallback(async () => {
+    if (!audioStreamNode || !audioContext) {
+      console.warn("Audio system not ready for recording");
+
+      return;
+    }
+
+    if (isRecording) {
+      console.warn("Recording already in progress");
+
+      return;
+    }
+
+    try {
+      // Create a MediaStreamDestination to capture audio
+      const destination = audioContext.createMediaStreamDestination();
+
+      // Connect the analyser to the destination for recording
+      audioStreamNode.analyserNode.connect(destination);
+
+      // Store the recording stream
+      recordingStreamRef.current = destination.stream;
+
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(destination.stream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
+
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      // Set up event handlers
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        // Create downloadable blob
+        const blob = new Blob(recordedChunksRef.current, {
+          type: "audio/webm",
+        });
+        const url = URL.createObjectURL(blob);
+
+        // Create download link
+        const a = document.createElement("a");
+
+        a.href = url;
+        a.download = `audio-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Clean up
+        URL.revokeObjectURL(url);
+        recordedChunksRef.current = [];
+      };
+
+      // Start recording
+      mediaRecorder.start(1000); // Collect data every second
+      setIsRecording(true);
+      console.log("Audio recording started");
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      setError({
+        type: "audio",
+        message:
+          err instanceof Error ? err.message : "Failed to start recording",
+        timestamp: Date.now(),
+      });
+    }
+  }, [audioStreamNode, audioContext, isRecording]);
+
+  /**
+   * Stops the current audio recording and triggers download of the recorded file.
+   */
+  const stopRecording = useCallback(() => {
+    if (!mediaRecorderRef.current || !isRecording) {
+      console.warn("No recording in progress");
+
+      return;
+    }
+
+    try {
+      // Stop the MediaRecorder
+      mediaRecorderRef.current.stop();
+
+      // Disconnect from recording destination
+      if (audioStreamNode && recordingStreamRef.current) {
+        // Note: We don't need to explicitly disconnect as the MediaStreamDestination
+        // will be garbage collected when the MediaRecorder stops
+      }
+
+      // Clean up references
+      mediaRecorderRef.current = null;
+      recordingStreamRef.current = null;
+      setIsRecording(false);
+
+      console.log("Audio recording stopped");
+    } catch (err) {
+      console.error("Failed to stop recording:", err);
+      // Force reset recording state even if stop failed
+      setIsRecording(false);
+      mediaRecorderRef.current = null;
+      recordingStreamRef.current = null;
+    }
+  }, [audioStreamNode, isRecording]);
 
   // --- OPTIMIZED AUDIO PROCESSING ---
 
@@ -1393,6 +1745,12 @@ export const useAudioStream = (
    */
   const cleanupAudio = useCallback(() => {
     console.log("cleanupAudio called");
+
+    // Disable playback first to properly disconnect from destination
+    if (isAudioPlaybackEnabled) {
+      disableAudioPlayback();
+    }
+
     if (audioStreamNode?.sourceNode) {
       audioStreamNode.sourceNode.disconnect();
     }
@@ -1415,9 +1773,16 @@ export const useAudioStream = (
     setAudioStreamNode(null);
     setIsAudioReady(false);
     setCurrentBuffer(null);
+    setIsAudioPlaybackEnabled(false);
     audioBufferQueueRef.current = [];
     nextPlayTimeRef.current = 0;
-  }, [audioStreamNode, audioContext, resetPerformanceStats]);
+  }, [
+    audioStreamNode,
+    audioContext,
+    resetPerformanceStats,
+    isAudioPlaybackEnabled,
+    disableAudioPlayback,
+  ]);
 
   // --- PERFORMANCE OPTIMIZATION CONSTANTS ---
 
@@ -1655,6 +2020,9 @@ export const useAudioStream = (
     currentBuffer,
     bufferDuration,
     latency,
+    isAudioPlaybackEnabled,
+    playbackVolume,
+    isRecording,
     timestampValidation,
     connect,
     disconnect,
@@ -1662,6 +2030,11 @@ export const useAudioStream = (
     initializeAudio,
     resumeAudio,
     suspendAudio,
+    enableAudioPlayback,
+    disableAudioPlayback,
+    setPlaybackVolume,
+    startRecording,
+    stopRecording,
     getPerformanceStats,
     resetTimestampValidation,
     updateTimestampValidationConfig,

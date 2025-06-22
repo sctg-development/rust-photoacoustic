@@ -318,5 +318,20 @@
   "computing-modal-raw-data": "البيانات الخام",
   "computing-modal-node-result": "نتيجة العقدة",
   "computing-modal-full-response": "الاستجابة الكاملة",
-  "close": "إغلاق"
+  "close": "إغلاق",
+  "decrease-volume": "خفض مستوى الصوت",
+  "increase-volume": "رفع مستوى الصوت",
+  "disable-audio-playback": "إيقاف تشغيل الصوت",
+  "enable-audio-playback": "تفعيل تشغيل الصوت",
+  "audio-playback-disabled": "تم إيقاف تشغيل الصوت",
+  "audio-playback-enabled": "تم تفعيل تشغيل الصوت",
+  "failed-to-toggle-audio-playback": "فشل في تبديل تشغيل الصوت",
+  "volume-decreased": "تم خفض مستوى الصوت إلى",
+  "volume-increased": "تم رفع مستوى الصوت إلى",
+  "start-recording": "بدء التسجيل",
+  "stop-recording": "إيقاف التسجيل",
+  "recording-started": "تم بدء التسجيل",
+  "recording-stopped": "تم إيقاف التسجيل",
+  "failed-to-toggle-recording": "فشل في تبديل التسجيل",
+  "recording-in-progress": "التسجيل في التقدم"
 }

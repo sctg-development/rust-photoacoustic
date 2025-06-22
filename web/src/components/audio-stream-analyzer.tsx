@@ -25,6 +25,14 @@ import {
   TimestampValidationConfig,
   useAudioStream,
 } from "@/hooks/useAudioStream";
+import {
+  SpeakerOnIcon,
+  SpeakerOffIcon,
+  SpeakerLowIcon,
+  SpeakerMaxIcon,
+  RecordOnIcon,
+  RecordOffIcon,
+} from "@/components/icons";
 
 export interface AudioStreamAnalyzerProps {
   /** Base URL for the audio stream endpoint */
@@ -53,6 +61,10 @@ export interface AudioStreamAnalyzerProps {
   title?: string;
   /** Optional title for the analyzer section (defaults to translated "analyzer") */
   analyzerTitle?: string;
+  /** Custom function to handle starting recording */
+  onStartRecording?: () => void;
+  /** Custom function to handle stopping recording */
+  onStopRecording?: () => void;
 }
 
 export default function AudioStreamAnalyzer({
@@ -69,6 +81,8 @@ export default function AudioStreamAnalyzer({
   className = "",
   title,
   analyzerTitle,
+  onStartRecording,
+  onStopRecording,
 }: AudioStreamAnalyzerProps) {
   const { t } = useTranslation();
 
@@ -100,6 +114,14 @@ export default function AudioStreamAnalyzer({
     isAudioReady,
     averageFrameSizeBytes,
     isDualChannel,
+    enableAudioPlayback,
+    disableAudioPlayback,
+    setPlaybackVolume,
+    isAudioPlaybackEnabled,
+    playbackVolume,
+    isRecording,
+    startRecording,
+    stopRecording,
   } = useAudioStream(
     streamUrl,
     statsUrl,
@@ -330,6 +352,72 @@ export default function AudioStreamAnalyzer({
     }
   }, [disconnect, onDisconnect]);
 
+  /**
+   * Handle Audio Playback Toggle
+   */
+  const handleAudioPlaybackToggle = useCallback(async () => {
+    try {
+      if (isAudioPlaybackEnabled) {
+        disableAudioPlayback();
+        console.log(t("audio-playback-disabled"));
+      } else {
+        await enableAudioPlayback();
+        console.log(t("audio-playback-enabled"));
+      }
+    } catch (error) {
+      console.error(t("failed-to-toggle-audio-playback"), error);
+    }
+  }, [isAudioPlaybackEnabled, enableAudioPlayback, disableAudioPlayback]);
+
+  /**
+   * Handle Volume Decrease
+   */
+  const handleVolumeDecrease = useCallback(() => {
+    const newVolume = Math.max(0, playbackVolume - 0.1);
+
+    setPlaybackVolume(newVolume);
+    console.log(t("volume-decreased"), Math.round(newVolume * 100));
+  }, [playbackVolume, setPlaybackVolume]);
+
+  /**
+   * Handle Volume Increase
+   */
+  const handleVolumeIncrease = useCallback(() => {
+    const newVolume = Math.min(1, playbackVolume + 0.1);
+
+    setPlaybackVolume(newVolume);
+    console.log(t("volume-increased"), Math.round(newVolume * 100));
+  }, [playbackVolume, setPlaybackVolume]);
+
+  /**
+   * Handle Recording Toggle
+   */
+  const handleToggleRecording = useCallback(async () => {
+    try {
+      if (isRecording) {
+        stopRecording();
+        console.log(t("recording-stopped"));
+        if (onStopRecording) {
+          onStopRecording();
+        }
+      } else {
+        await startRecording();
+        console.log(t("recording-started"));
+        if (onStartRecording) {
+          onStartRecording();
+        }
+      }
+    } catch (error) {
+      console.error(t("failed-to-toggle-recording"), error);
+    }
+  }, [
+    isRecording,
+    startRecording,
+    stopRecording,
+    onStartRecording,
+    onStopRecording,
+  ]);
+
   // Calculate grid layout based on displayed cards
   const visibleCardsCount = [
     isStatusDisplayed,
@@ -358,8 +446,9 @@ export default function AudioStreamAnalyzer({
 
       {/* Main dashboard grid */}
       <div
-        className={`w-full grid ${getGridClasses()} gap-4 ${visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
-          }`}
+        className={`w-full grid ${getGridClasses()} gap-4 ${
+          visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
+        }`}
       >
         {/* Connection Status Card */}
         {isStatusDisplayed && (
@@ -655,23 +744,113 @@ export default function AudioStreamAnalyzer({
           </CardHeader>
           <CardBody>
             <div className="w-full">
-              {/* Analyzer Container with Universal Control Button Overlay */}
+              {/* Analyzer Container with Audio Controls and Universal Control Button Overlay */}
               <div className="relative">
                 <div
                   ref={analyzerContainerRef}
-                  className={`w-full rounded-lg bg-black ${showAnalyzer ? "h-[300px]" : "h-0"
-                    } overflow-hidden`}
+                  className={`w-full rounded-lg bg-black ${
+                    showAnalyzer ? "h-[300px]" : "h-0"
+                  } overflow-hidden`}
                 />
+
+                {/* Audio Playback Controls - Positioned in top-left corner */}
+                {isAudioReady && isConnected && (
+                  <div className="absolute top-2 left-4 z-10 flex items-center gap-2">
+                    {/* Main Speaker Toggle Button */}
+                    <Button
+                      isIconOnly
+                      aria-label={
+                        isAudioPlaybackEnabled
+                          ? t("disable-audio-playback")
+                          : t("enable-audio-playback")
+                      }
+                      size="sm"
+                      variant="flat"
+                      onPress={handleAudioPlaybackToggle}
+                    >
+                      {isAudioPlaybackEnabled ? (
+                        <SpeakerOffIcon size={16} />
+                      ) : (
+                        <SpeakerOnIcon size={16} />
+                      )}
+                    </Button>
+
+                    {/* Volume Controls - Only show when audio playback is enabled */}
+                    {isAudioPlaybackEnabled && (
+                      <>
+                        {/* Volume Down Button */}
+                        <Button
+                          isIconOnly
+                          aria-label={t("decrease-volume")}
+                          size="sm"
+                          variant="flat"
+                          onPress={handleVolumeDecrease}
+                        >
+                          <SpeakerLowIcon size={16} />
+                        </Button>
+
+                        {/* Volume Indicator */}
+                        <div className="px-2 py-1 rounded">
+                          <span className="text-xs font-medium text-gray-700">
+                            {Math.round(playbackVolume * 100)}%
+                          </span>
+                        </div>
+
+                        {/* Volume Up Button */}
+                        <Button
+                          isIconOnly
+                          aria-label={t("increase-volume")}
+                          size="sm"
+                          variant="flat"
+                          onPress={handleVolumeIncrease}
+                        >
+                          <SpeakerMaxIcon size={16} />
+                        </Button>
+                      </>
+                    )}
+
+                    {/* Recording Controls - Show when audio is ready */}
+                    <>
+                      {/* Main Recording Toggle Button */}
+                      <Button
+                        isIconOnly
+                        aria-label={
+                          isRecording
+                            ? t("stop-recording")
+                            : t("start-recording")
+                        }
+                        size="sm"
+                        variant="flat"
+                        onPress={handleToggleRecording}
+                      >
+                        {isRecording ? (
+                          <RecordOffIcon size={16} />
+                        ) : (
+                          <RecordOnIcon size={16} />
+                        )}
+                      </Button>
+
+                      {/* Recording Status Indicator - Only show when recording */}
+                      {isRecording && (
+                        <div className="px-2 py-1 rounded bg-red-100">
+                          <span className="text-xs font-medium text-red-700">
+                            {t("recording-in-progress")}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  </div>
+                )}
 
                 {/* Universal Control Button - Positioned in top-right corner */}
                 {showUniversalControl && !isStatusDisplayed && (
                   <div className="absolute top-2 right-4 z-10">
                     {!isAudioReady && (
                       <Button
+                        className="shadow-lg backdrop-blur-sm bg-primary/90"
                         color="primary"
                         size="sm"
                         variant="solid"
-                        className="shadow-lg backdrop-blur-sm bg-primary/90"
                         onPress={handleInitializeAudio}
                       >
                         {t("connect")}
@@ -681,10 +860,10 @@ export default function AudioStreamAnalyzer({
                     {isAudioReady && !isConnected && !isConnecting && (
                       <Button
                         aria-label={t("connect-to-audio-stream")}
+                        className="shadow-lg backdrop-blur-sm bg-primary/90"
                         color="primary"
                         size="sm"
                         variant="solid"
-                        className="shadow-lg backdrop-blur-sm bg-primary/90"
                         onPress={handleConnect}
                       >
                         {t("connect")}
@@ -694,10 +873,10 @@ export default function AudioStreamAnalyzer({
                     {isConnected && (
                       <Button
                         aria-label={t("disconnect-from-audio-stream")}
+                        className="shadow-lg backdrop-blur-sm bg-danger/90"
                         color="danger"
                         size="sm"
                         variant="solid"
-                        className="shadow-lg backdrop-blur-sm bg-danger/90"
                         onPress={handleDisconnect}
                       >
                         {t("disconnect")}
@@ -708,10 +887,10 @@ export default function AudioStreamAnalyzer({
                       <Button
                         isDisabled
                         isLoading
+                        className="shadow-lg backdrop-blur-sm bg-warning/90"
                         color="warning"
                         size="sm"
                         variant="solid"
-                        className="shadow-lg backdrop-blur-sm bg-warning/90"
                       >
                         {t("connecting")}
                       </Button>

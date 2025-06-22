@@ -19,10 +19,14 @@ import { Tabs, Tab } from "@heroui/tabs";
 
 import { useGenerixConfig } from "../authentication/providers/generix-config";
 
+import { CopyButton } from "./copy-button";
+
 import { useAuth } from "@/authentication";
 import { ComputingResponse, ComputingUtils } from "@/types/computing";
-import { getMathMLFromPolynomialCoefficientsClassicOrder, getMathMLFromPolynomialCoefficientsClassicOrderMathML } from "@/utilities/polynomial-to-mathml";
-import { CopyButton } from "./copy-button";
+import {
+  getMathMLFromPolynomialCoefficientsClassicOrder,
+  getMathMLFromPolynomialCoefficientsClassicOrderMathML,
+} from "@/utilities/polynomial-to-mathml";
 
 interface ProcessingNodeData {
   id: string;
@@ -298,25 +302,28 @@ export function ComputingNodeModal({
                 </Card>
 
                 <Card
-                  className={`${stats.hasLatestResult
-                    ? "bg-green-50 border-green-200"
-                    : "bg-gray-50 border-gray-200"
-                    }`}
+                  className={`${
+                    stats.hasLatestResult
+                      ? "bg-green-50 border-green-200"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
                 >
                   <CardBody className="text-center">
                     <p
-                      className={`text-2xl font-bold ${stats.hasLatestResult
-                        ? "text-green-600"
-                        : "text-gray-600"
-                        }`}
+                      className={`text-2xl font-bold ${
+                        stats.hasLatestResult
+                          ? "text-green-600"
+                          : "text-gray-600"
+                      }`}
                     >
                       {stats.hasLatestResult ? "✓" : "—"}
                     </p>
                     <p
-                      className={`text-sm ${stats.hasLatestResult
-                        ? "text-green-800"
-                        : "text-gray-800"
-                        }`}
+                      className={`text-sm ${
+                        stats.hasLatestResult
+                          ? "text-green-800"
+                          : "text-gray-800"
+                      }`}
                     >
                       {t("computing-modal-latest-result")}
                     </p>
@@ -385,7 +392,9 @@ export function ComputingNodeModal({
                                       ppm
                                     </span>
                                     <CopyButton
-                                      value={peakResult.concentration_ppm / 10000000} // Convert ppm to concentration
+                                      value={
+                                        peakResult.concentration_ppm / 10000000
+                                      } // Convert ppm to concentration
                                     />
                                   </div>
                                 </div>
@@ -461,14 +470,19 @@ export function ComputingNodeModal({
                                 dangerouslySetInnerHTML={{
                                   __html:
                                     getMathMLFromPolynomialCoefficientsClassicOrderMathML(
-                                      nodeData.parameters.polynomial_coefficients,
+                                      nodeData.parameters
+                                        .polynomial_coefficients,
                                     ) || "",
                                 }}
                                 className="font-mono text-xs"
                               />
-                              <CopyButton value={getMathMLFromPolynomialCoefficientsClassicOrder(
-                                nodeData.parameters.polynomial_coefficients,
-                              ) || "error"} />
+                              <CopyButton
+                                value={
+                                  getMathMLFromPolynomialCoefficientsClassicOrder(
+                                    nodeData.parameters.polynomial_coefficients,
+                                  ) || "error"
+                                }
+                              />
                             </div>
                           </div>
                         )}
@@ -479,7 +493,7 @@ export function ComputingNodeModal({
 
                 <Tab key="all-results" title={t("computing-modal-all-results")}>
                   {computingResponse &&
-                    Object.keys(computingResponse.peak_results).length > 0 ? (
+                  Object.keys(computingResponse.peak_results).length > 0 ? (
                     <div className="space-y-4">
                       {Object.entries(computingResponse.peak_results).map(
                         ([nodeId, result]) => (
@@ -542,7 +556,9 @@ export function ComputingNodeModal({
                                         {result.concentration_ppm.toFixed(2)}{" "}
                                         ppm
                                         <CopyButton
-                                          value={result.concentration_ppm / 10000000} // Convert ppm to concentration
+                                          value={
+                                            result.concentration_ppm / 10000000
+                                          } // Convert ppm to concentration
                                         />
                                       </p>
                                     </div>
