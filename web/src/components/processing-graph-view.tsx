@@ -254,7 +254,11 @@ function NodeDetailsModal({
   // For computing nodes, use the computing node modal
   if (nodeData.nodeType === "computing_concentration") {
     return (
-      <ComputingNodeModal isOpen={isOpen} nodeData={nodeData} onClose={onClose} />
+      <ComputingNodeModal
+        isOpen={isOpen}
+        nodeData={nodeData}
+        onClose={onClose}
+      />
     );
   }
 

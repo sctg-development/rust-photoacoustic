@@ -16,13 +16,13 @@ import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Switch } from "@heroui/switch";
 import { Tabs, Tab } from "@heroui/tabs";
-import { useAuth } from "@/authentication";
-
 
 import {
   getGenerixConfig,
   GenerixConfig,
 } from "../authentication/providers/generix-config";
+
+import { useAuth } from "@/authentication";
 import { ComputingResponse, ComputingUtils } from "@/types/computing";
 
 interface ProcessingNodeData {
@@ -53,7 +53,8 @@ export function ComputingNodeModal({
   );
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [computingResponse, setComputingResponse] = useState<ComputingResponse | null>(null);
+  const [computingResponse, setComputingResponse] =
+    useState<ComputingResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [selectedTab, setSelectedTab] = useState<string>("overview");
@@ -66,6 +67,7 @@ export function ComputingNodeModal({
     const loadData = async () => {
       if (isOpen && !generixConfig) {
         await loadGenerixConfig();
+
         return; // loadGenerixConfig will handle loading state
       }
       if (isOpen && isAuthenticated && generixConfig && !refreshing) {
@@ -125,9 +127,10 @@ export function ComputingNodeModal({
     }
     try {
       setConfigError(null);
-      const response = await getJson(
+      const response = (await getJson(
         `${generixConfig.api_base_url}/computing`,
-      ) as ComputingResponse;
+      )) as ComputingResponse;
+
       setComputingResponse(response);
     } catch (error) {
       console.error("Error fetching computing response:", error);
@@ -139,10 +142,14 @@ export function ComputingNodeModal({
     }
   };
 
-  const getPeakResult = (computingResponse: ComputingResponse | null, nodeId: string) => {
+  const getPeakResult = (
+    computingResponse: ComputingResponse | null,
+    nodeId: string,
+  ) => {
     if (!computingResponse) {
       return null;
     }
+
     return computingResponse.peak_results[nodeId] || null;
   };
 
@@ -166,6 +173,7 @@ export function ComputingNodeModal({
     // Handle object format { secs_since_epoch, nanos_since_epoch }
     if (timestamp.secs_since_epoch) {
       const date = new Date(timestamp.secs_since_epoch * 1000);
+
       return date.toLocaleString();
     }
 
@@ -186,7 +194,8 @@ export function ComputingNodeModal({
 
   if (
     !nodeData ||
-    (nodeData.nodeType !== "computing_concentration" && nodeData.nodeType !== "computing_peak_finder")
+    (nodeData.nodeType !== "computing_concentration" &&
+      nodeData.nodeType !== "computing_peak_finder")
   ) {
     return null;
   }
@@ -194,17 +203,23 @@ export function ComputingNodeModal({
   // Get appropriate modal title and subtitle based on node type
   const getModalTitles = () => {
     const isConcentration = nodeData.nodeType === "computing_concentration";
+
     return {
-      title: isConcentration ? t("computing-modal-concentration-title") : t("computing-modal-peak-finder-title"),
+      title: isConcentration
+        ? t("computing-modal-concentration-title")
+        : t("computing-modal-peak-finder-title"),
       subtitle: isConcentration
         ? t("computing-modal-concentration-subtitle", { name: nodeData.id })
         : t("computing-modal-peak-finder-subtitle", { name: nodeData.id }),
-      icon: isConcentration ? "🧪" : "📊"
+      icon: isConcentration ? "🧪" : "📊",
     };
   };
 
   const { title, subtitle, icon } = getModalTitles();
-  const peakResult = getPeakResult(computingResponse, nodeData.parameters.computing_peak_finder_id || nodeData.id);
+  const peakResult = getPeakResult(
+    computingResponse,
+    nodeData.parameters.computing_peak_finder_id || nodeData.id,
+  );
   const stats = getNodeStats();
 
   return (
@@ -212,9 +227,7 @@ export function ComputingNodeModal({
       <ModalContent>
         <ModalHeader className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">
-              {icon}
-            </span>
+            <span className="text-2xl">{icon}</span>
             <div>
               <h2 className="text-xl font-bold">{title || nodeData.id}</h2>
               <p className="text-sm text-gray-600 font-normal">{subtitle}</p>
@@ -310,21 +323,28 @@ export function ComputingNodeModal({
                 </Card>
 
                 <Card
-                  className={`${stats.hasLatestResult
-                    ? "bg-green-50 border-green-200"
-                    : "bg-gray-50 border-gray-200"
-                    }`}
+                  className={`${
+                    stats.hasLatestResult
+                      ? "bg-green-50 border-green-200"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
                 >
                   <CardBody className="text-center">
                     <p
-                      className={`text-2xl font-bold ${stats.hasLatestResult ? "text-green-600" : "text-gray-600"
-                        }`}
+                      className={`text-2xl font-bold ${
+                        stats.hasLatestResult
+                          ? "text-green-600"
+                          : "text-gray-600"
+                      }`}
                     >
                       {stats.hasLatestResult ? "✓" : "—"}
                     </p>
                     <p
-                      className={`text-sm ${stats.hasLatestResult ? "text-green-800" : "text-gray-800"
-                        }`}
+                      className={`text-sm ${
+                        stats.hasLatestResult
+                          ? "text-green-800"
+                          : "text-gray-800"
+                      }`}
                     >
                       {t("computing-modal-latest-result")}
                     </p>
@@ -356,7 +376,7 @@ export function ComputingNodeModal({
                                 {t("computing-modal-frequency")}:
                               </span>
                               <span className="font-bold text-blue-800">
-                                {peakResult.frequency?.toFixed(2) ?? 'N/A'} Hz
+                                {peakResult.frequency?.toFixed(2) ?? "N/A"} Hz
                               </span>
                             </div>
 
@@ -365,22 +385,24 @@ export function ComputingNodeModal({
                                 {t("computing-modal-amplitude")}:
                               </span>
                               <span className="font-bold text-green-800">
-                                {peakResult.amplitude?.toFixed(4) ?? 'N/A'}
+                                {peakResult.amplitude?.toFixed(4) ?? "N/A"}
                               </span>
                             </div>
                           </div>
 
                           <div className="space-y-3">
-                            {peakResult.concentration_ppm !== undefined && peakResult.concentration_ppm !== null && (
-                              <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                                <span className="text-sm font-medium text-purple-700">
-                                  {t("computing-modal-concentration")}:
-                                </span>
-                                <span className="font-bold text-purple-800">
-                                  {peakResult.concentration_ppm.toFixed(2)} ppm
-                                </span>
-                              </div>
-                            )}
+                            {peakResult.concentration_ppm !== undefined &&
+                              peakResult.concentration_ppm !== null && (
+                                <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                                  <span className="text-sm font-medium text-purple-700">
+                                    {t("computing-modal-concentration")}:
+                                  </span>
+                                  <span className="font-bold text-purple-800">
+                                    {peakResult.concentration_ppm.toFixed(2)}{" "}
+                                    ppm
+                                  </span>
+                                </div>
+                              )}
 
                             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                               <span className="text-sm font-medium text-gray-700">
@@ -428,7 +450,7 @@ export function ComputingNodeModal({
                           <span className="text-sm text-gray-600">
                             {t("computing-modal-node-type")}:
                           </span>
-                          <Chip size="sm" variant="flat" color="primary">
+                          <Chip color="primary" size="sm" variant="flat">
                             {nodeData.nodeType}
                           </Chip>
                         </div>
@@ -448,7 +470,11 @@ export function ComputingNodeModal({
                               {t("computing-modal-polynomial-coeffs")}:
                             </span>
                             <span className="font-mono text-xs">
-                              [{nodeData.parameters.polynomial_coefficients.join(", ")}]
+                              [
+                              {nodeData.parameters.polynomial_coefficients.join(
+                                ", ",
+                              )}
+                              ]
                             </span>
                           </div>
                         )}
@@ -458,68 +484,79 @@ export function ComputingNodeModal({
                 </Tab>
 
                 <Tab key="all-results" title={t("computing-modal-all-results")}>
-                  {computingResponse && Object.keys(computingResponse.peak_results).length > 0 ? (
+                  {computingResponse &&
+                  Object.keys(computingResponse.peak_results).length > 0 ? (
                     <div className="space-y-4">
-                      {Object.entries(computingResponse.peak_results).map(([nodeId, result]) => (
-                        <Card key={nodeId} className="p-4">
-                          <CardHeader className="pb-2">
-                            <div className="flex justify-between items-center w-full">
-                              <h3 className="text-lg font-semibold">{nodeId}</h3>
-                              <Chip
-                                className={
-                                  computingResponse.active_node_ids.includes(nodeId)
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-600"
-                                }
-                                size="sm"
-                                variant="flat"
-                              >
-                                {computingResponse.active_node_ids.includes(nodeId)
-                                  ? t("computing-modal-active")
-                                  : t("computing-modal-inactive")}
-                              </Chip>
-                            </div>
-                          </CardHeader>
-                          <CardBody>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div className="text-center p-2 bg-blue-50 rounded">
-                                <p className="text-xs text-blue-600 mb-1">
-                                  {t("computing-modal-frequency")}
-                                </p>
-                                <p className="font-bold text-blue-800">
-                                  {result.frequency?.toFixed(2) ?? 'N/A'} Hz
-                                </p>
+                      {Object.entries(computingResponse.peak_results).map(
+                        ([nodeId, result]) => (
+                          <Card key={nodeId} className="p-4">
+                            <CardHeader className="pb-2">
+                              <div className="flex justify-between items-center w-full">
+                                <h3 className="text-lg font-semibold">
+                                  {nodeId}
+                                </h3>
+                                <Chip
+                                  className={
+                                    computingResponse.active_node_ids.includes(
+                                      nodeId,
+                                    )
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-gray-100 text-gray-600"
+                                  }
+                                  size="sm"
+                                  variant="flat"
+                                >
+                                  {computingResponse.active_node_ids.includes(
+                                    nodeId,
+                                  )
+                                    ? t("computing-modal-active")
+                                    : t("computing-modal-inactive")}
+                                </Chip>
                               </div>
-                              <div className="text-center p-2 bg-green-50 rounded">
-                                <p className="text-xs text-green-600 mb-1">
-                                  {t("computing-modal-amplitude")}
-                                </p>
-                                <p className="font-bold text-green-800">
-                                  {result.amplitude?.toFixed(4) ?? 'N/A'}
-                                </p>
-                              </div>
-                              {result.concentration_ppm !== undefined && result.concentration_ppm !== null && (
-                                <div className="text-center p-2 bg-purple-50 rounded">
-                                  <p className="text-xs text-purple-600 mb-1">
-                                    {t("computing-modal-concentration")}
+                            </CardHeader>
+                            <CardBody>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="text-center p-2 bg-blue-50 rounded">
+                                  <p className="text-xs text-blue-600 mb-1">
+                                    {t("computing-modal-frequency")}
                                   </p>
-                                  <p className="font-bold text-purple-800">
-                                    {result.concentration_ppm.toFixed(2)} ppm
+                                  <p className="font-bold text-blue-800">
+                                    {result.frequency?.toFixed(2) ?? "N/A"} Hz
                                   </p>
                                 </div>
-                              )}
-                              <div className="text-center p-2 bg-gray-50 rounded">
-                                <p className="text-xs text-gray-600 mb-1">
-                                  {t("computing-modal-timestamp")}
-                                </p>
-                                <p className="font-bold text-gray-800 text-xs">
-                                  {formatTimestamp(result.timestamp)}
-                                </p>
+                                <div className="text-center p-2 bg-green-50 rounded">
+                                  <p className="text-xs text-green-600 mb-1">
+                                    {t("computing-modal-amplitude")}
+                                  </p>
+                                  <p className="font-bold text-green-800">
+                                    {result.amplitude?.toFixed(4) ?? "N/A"}
+                                  </p>
+                                </div>
+                                {result.concentration_ppm !== undefined &&
+                                  result.concentration_ppm !== null && (
+                                    <div className="text-center p-2 bg-purple-50 rounded">
+                                      <p className="text-xs text-purple-600 mb-1">
+                                        {t("computing-modal-concentration")}
+                                      </p>
+                                      <p className="font-bold text-purple-800">
+                                        {result.concentration_ppm.toFixed(2)}{" "}
+                                        ppm
+                                      </p>
+                                    </div>
+                                  )}
+                                <div className="text-center p-2 bg-gray-50 rounded">
+                                  <p className="text-xs text-gray-600 mb-1">
+                                    {t("computing-modal-timestamp")}
+                                  </p>
+                                  <p className="font-bold text-gray-800 text-xs">
+                                    {formatTimestamp(result.timestamp)}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </CardBody>
-                        </Card>
-                      ))}
+                            </CardBody>
+                          </Card>
+                        ),
+                      )}
                     </div>
                   ) : (
                     <Card>

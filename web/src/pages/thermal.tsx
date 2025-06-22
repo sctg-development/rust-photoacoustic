@@ -136,8 +136,12 @@ export default function ThermalPage() {
       const now = Math.floor(Date.now() / 1000);
       const from = timeRangeSeconds ? now - timeRangeSeconds : undefined;
       const params = new URLSearchParams();
+
       params.append("steps", "60"); // 1-minute intervals
-      params.append("limit", Math.ceil((timeRangeSeconds || 86400) / 60).toString()); // Limit to the number of steps function of the range or default to 1d if not specified
+      params.append(
+        "limit",
+        Math.ceil((timeRangeSeconds || 86400) / 60).toString(),
+      ); // Limit to the number of steps function of the range or default to 1d if not specified
       if (from) {
         params.append("from", from.toString());
       }
@@ -477,21 +481,24 @@ export default function ThermalPage() {
               </Card>
 
               <Card
-                className={`${stats.errors > 0
-                  ? "bg-red-50 border-red-200"
-                  : "bg-gray-50 border-gray-200"
-                  }`}
+                className={`${
+                  stats.errors > 0
+                    ? "bg-red-50 border-red-200"
+                    : "bg-gray-50 border-gray-200"
+                }`}
               >
                 <CardBody className="text-center">
                   <p
-                    className={`text-2xl font-bold ${stats.errors > 0 ? "text-red-600" : "text-gray-600"
-                      }`}
+                    className={`text-2xl font-bold ${
+                      stats.errors > 0 ? "text-red-600" : "text-gray-600"
+                    }`}
                   >
                     {stats.errors}
                   </p>
                   <p
-                    className={`text-sm ${stats.errors > 0 ? "text-red-800" : "text-gray-800"
-                      }`}
+                    className={`text-sm ${
+                      stats.errors > 0 ? "text-red-800" : "text-gray-800"
+                    }`}
                   >
                     {t("error-regulators")}
                   </p>
