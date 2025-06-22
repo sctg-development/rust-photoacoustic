@@ -9,7 +9,6 @@ pub mod system;
 pub mod test;
 pub use computing::*;
 pub use get::config::*;
-pub use get::test::*;
 pub use get::thermal::*;
 pub use post::test::*;
 pub use system::*;
