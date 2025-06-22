@@ -207,6 +207,40 @@ pub fn validate_specific_rules(config: &Config) -> Result<()> {
         }
     }
 
+    // If processing is enabled and default_graph exists, validate the graph
+    if config.processing.enabled && config.processing.default_graph.has_input_node() {
+        debug!("Validating processing graph");
+
+        // Check if the graph contains streaming nodes
+        let has_streaming_nodes = config
+            .processing
+            .default_graph
+            .nodes
+            .iter()
+            .any(|node| node.node_type == "streaming");
+
+        if has_streaming_nodes {
+            debug!("Graph contains streaming nodes, validating with StreamingNodeRegistry");
+            // Create a temporary registry for validation
+            let streaming_registry = crate::processing::nodes::StreamingNodeRegistry::new();
+            match crate::processing::graph::ProcessingGraph::from_config_with_registry(
+                &config.processing.default_graph,
+                Some(streaming_registry),
+            ) {
+                Ok(_) => debug!("Processing graph validation successful (with streaming registry)"),
+                Err(e) => anyhow::bail!("Processing graph validation failed: {}", e),
+            }
+        } else {
+            debug!("Graph contains no streaming nodes, validating without registry");
+            match crate::processing::graph::ProcessingGraph::from_config(
+                &config.processing.default_graph,
+            ) {
+                Ok(_) => debug!("Processing graph validation successful"),
+                Err(e) => anyhow::bail!("Processing graph validation failed: {}", e),
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -379,6 +413,80 @@ mod tests {
         let config = create_test_config_with_formula(formula);
 
         // La validation devrait réussir
+        assert!(validate_specific_rules(&config).is_ok());
+    }
+
+    #[test]
+    fn test_validate_processing_graph_with_streaming_nodes() {
+        use crate::config::processing::{NodeConfig, ProcessingConfig, ProcessingGraphConfig};
+
+        // Create a config with a processing graph containing streaming nodes
+        let mut config = Config::default();
+        config.processing = ProcessingConfig {
+            enabled: true,
+            default_graph: ProcessingGraphConfig {
+                id: "test_graph".to_string(),
+                nodes: vec![
+                    NodeConfig {
+                        id: "input".to_string(),
+                        node_type: "input".to_string(),
+                        parameters: serde_json::Value::Null,
+                    },
+                    NodeConfig {
+                        id: "streaming_output".to_string(),
+                        node_type: "streaming".to_string(),
+                        parameters: serde_json::json!({
+                            "name": "Test Stream"
+                        }),
+                    },
+                ],
+                connections: vec![crate::config::processing::ConnectionConfig {
+                    from: "input".to_string(),
+                    to: "streaming_output".to_string(),
+                }],
+                output_node: Some("streaming_output".to_string()),
+            },
+            ..Default::default()
+        };
+
+        // Validation should succeed with streaming nodes when registry is provided
+        assert!(validate_specific_rules(&config).is_ok());
+    }
+
+    #[test]
+    fn test_validate_processing_graph_without_streaming_nodes() {
+        use crate::config::processing::{NodeConfig, ProcessingConfig, ProcessingGraphConfig};
+
+        // Create a config with a processing graph containing no streaming nodes
+        let mut config = Config::default();
+        config.processing = ProcessingConfig {
+            enabled: true,
+            default_graph: ProcessingGraphConfig {
+                id: "test_graph".to_string(),
+                nodes: vec![
+                    NodeConfig {
+                        id: "input".to_string(),
+                        node_type: "input".to_string(),
+                        parameters: serde_json::Value::Null,
+                    },
+                    NodeConfig {
+                        id: "gain".to_string(),
+                        node_type: "gain".to_string(),
+                        parameters: serde_json::json!({
+                            "gain_db": 10.0
+                        }),
+                    },
+                ],
+                connections: vec![crate::config::processing::ConnectionConfig {
+                    from: "input".to_string(),
+                    to: "gain".to_string(),
+                }],
+                output_node: Some("gain".to_string()),
+            },
+            ..Default::default()
+        };
+
+        // Validation should succeed without streaming nodes
         assert!(validate_specific_rules(&config).is_ok());
     }
 }
