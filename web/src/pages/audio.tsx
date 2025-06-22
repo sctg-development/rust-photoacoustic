@@ -87,32 +87,6 @@ export default function ApiPage() {
           streamUrl={streamUrl}
           title={t("main-audio-analyzer")}
         />
-
-        {/* Compact version - Only status and statistics */}
-        <AudioStreamAnalyzer
-          analyzerTitle="Compact Analyzer"
-          className="mb-8"
-          isCurrentFrameStatisticsDisplayed={false}
-          isPrestateDisplayed={false}
-          isStatisticsDisplayed={true}
-          isStatusDisplayed={true}
-          statsUrl={statsUrl}
-          streamUrl={streamUrl}
-          title={t("compact-analyzer-stats-only")}
-        />
-
-        {/* Minimal version - Only analyzer visualization */}
-        <AudioStreamAnalyzer
-          className="mb-8"
-          isCurrentFrameStatisticsDisplayed={false}
-          isPrestateDisplayed={false}
-          isStatisticsDisplayed={false}
-          isStatusDisplayed={false}
-          showUniversalControl={true}
-          statsUrl={statsUrl}
-          streamUrl={streamUrl}
-          title={t("minimal-analyzer-visualization-only")}
-        />
       </section>
     </DefaultLayout>
   );

@@ -46,7 +46,7 @@
   "site-homepage": "الصفحة الرئيسية الموقع",
   "brand": "Lasersmart",
   "audio-streaming-test": "اختبار تدفق الصوت",
-  "channel-a-preview-first-10-samples": "قناة A (أول 10 عينات)",
+  "channel-a-preview-first-n-samples": "قناة A (أول {{count}} عينات)",
   "channel-a-samples": "القناة (عينات)",
   "channel-b-samples": "القناة ب (عينات)",
   "connect": "يتصل",

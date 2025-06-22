@@ -46,7 +46,7 @@
   "site-homepage": "page d'accueil du site",
   "brand": "Lasersmart",
   "audio-streaming-test": "Test de streaming audio",
-  "channel-a-preview-first-10-samples": "Canal A Preview (10 premiers échantillons)",
+  "channel-a-preview-first-n-samples": "Canal A Preview ({{count}} premiers échantillons)",
   "channel-a-samples": "Canal A (échantillons)",
   "channel-b-samples": "Canal B (échantillons)",
   "connect": "Connecter",

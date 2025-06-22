@@ -46,7 +46,7 @@
   "site-homepage": "דף הבית של אתר",
   "brand": "Lasersmart",
   "audio-streaming-test": "מבחן הזרמת שמע",
-  "channel-a-preview-first-10-samples": "ערוץ תצוגה מקדימה (10 דוגמאות ראשונות)",
+  "channel-a-preview-first-n-samples": "ערוץ תצוגה מקדימה ({{count}} דוגמאות ראשונות)",
   "channel-a-samples": "ערוץ A (דוגמאות)",
   "channel-b-samples": "ערוץ B (דוגמאות)",
   "connect": "לְחַבֵּר",

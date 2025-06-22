@@ -64,7 +64,7 @@
   "sample-rate": "Sample Rate",
   "channel-a-samples": "Channel A (samples)",
   "channel-b-samples": "Channel B (samples)",
-  "channel-a-preview-first-10-samples": "Channel A Preview (first 10 samples)",
+  "channel-a-preview-first-n-samples": "Channel A Preview (first {{count}} samples)",
   "no-frame-received": "No frame received",
   "frame-data-json": "Frame Data (JSON)",
   "disconnected": "Disconnected",

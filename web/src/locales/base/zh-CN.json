@@ -46,7 +46,7 @@
   "site-homepage": "站点主页",
   "brand": "Lasersmart",
   "audio-streaming-test": "音频流测试",
-  "channel-a-preview-first-10-samples": "通道A预览（前10个样本）",
+  "channel-a-preview-first-n-samples": "通道A预览（前{{count}}个样本）",
   "channel-a-samples": "通道A（样品）",
   "channel-b-samples": "通道B（样品）",
   "connect": "连接",

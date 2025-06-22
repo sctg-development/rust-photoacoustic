@@ -92,6 +92,9 @@ export default function AudioStreamAnalyzer({
   const [showAnalyzer, setShowAnalyzer] = useState(true);
   const analyzerContainerRef = useRef<HTMLDivElement>(null);
 
+  // Constants
+  const PREVIEW_SAMPLE_COUNT = 45;
+
   // Track manual disconnection to prevent auto-reconnect
   const manuallyDisconnectedRef = useRef(false);
 
@@ -446,9 +449,8 @@ export default function AudioStreamAnalyzer({
 
       {/* Main dashboard grid */}
       <div
-        className={`w-full grid ${getGridClasses()} gap-4 ${
-          visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
-        }`}
+        className={`w-full grid ${getGridClasses()} gap-4 ${visibleCardsCount < 3 ? "lg:h-auto" : "lg:h-96 lg:max-h-96"
+          }`}
       >
         {/* Connection Status Card */}
         {isStatusDisplayed && (
@@ -696,12 +698,12 @@ export default function AudioStreamAnalyzer({
                   {/* Sample Data Preview */}
                   <div className="mt-2">
                     <div className="text-xs text-gray-600 mb-1">
-                      {t("channel-a-preview-first-10-samples")}:
+                      {t("channel-a-preview-first-n-samples", { count: PREVIEW_SAMPLE_COUNT })}:
                     </div>
-                    <div className="font-mono text-xs bg-gray-100 p-1 rounded overflow-hidden">
+                    <div className="font-mono text-5xs bg-gray-100 p-1 rounded overflow-hidden">
                       [
                       {currentFrame.channel_a
-                        .slice(0, 10)
+                        .slice(0, PREVIEW_SAMPLE_COUNT)
                         .map((val) => val.toFixed(3))
                         .join(", ")}
                       ...]
@@ -748,9 +750,8 @@ export default function AudioStreamAnalyzer({
               <div className="relative">
                 <div
                   ref={analyzerContainerRef}
-                  className={`w-full rounded-lg bg-black ${
-                    showAnalyzer ? "h-[300px]" : "h-0"
-                  } overflow-hidden`}
+                  className={`w-full rounded-lg bg-black ${showAnalyzer ? "h-[300px]" : "h-0"
+                    } overflow-hidden`}
                 />
 
                 {/* Audio Playback Controls - Positioned in top-left corner */}
