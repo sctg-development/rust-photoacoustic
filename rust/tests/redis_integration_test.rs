@@ -427,7 +427,7 @@ async fn test_redis_driver_local() -> Result<()> {
 async fn test_docker_availability_check() -> Result<()> {
     let docker_available = is_docker_available();
     println!("Docker availability check result: {}", docker_available);
-    
+
     // This test always passes, it just reports the Docker status
     // In CI environments, Docker should be available
     // In local environments without Docker, it should gracefully handle the absence
