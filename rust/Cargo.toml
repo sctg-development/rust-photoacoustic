@@ -45,9 +45,11 @@ base64 = "0.22.1"                                                               
 tempfile = "3.20.0"                                                                   # Temporary files for tests
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
-reqwest = "0.12.20"
+reqwest = { version = "0.12.20", features = ["json"] }
 oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
+redis = { version = "0.25.2", features = ["tokio-comp", "aio"] }
+rdkafka = { version = "0.36.2", features = ["cmake-build"] }
 rocket_okapi = { git = "https://github.com/sctg-development/okapi", features = [
     "rapidoc",
     "swagger",

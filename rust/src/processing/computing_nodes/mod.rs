@@ -9,8 +9,9 @@ use tokio::sync::RwLock;
 
 pub mod action_trait;
 pub mod concentration;
-pub mod example_display_action;
+pub mod display_drivers;
 pub mod peak_finder;
+pub mod universal_display_action;
 
 /// Result data from a peak finder node
 #[derive(Debug, Clone)]
@@ -193,5 +194,5 @@ pub use action_trait::{
     ActionHistoryEntry, ActionNode, ActionNodeHelper, ActionTrigger, CircularBuffer,
 };
 pub use concentration::ConcentrationNode;
-pub use example_display_action::ExampleDisplayActionNode;
 pub use peak_finder::PeakFinderNode;
+pub use universal_display_action::UniversalDisplayActionNode;

@@ -34,7 +34,7 @@ pub trait ActionNode: ProcessingNode {
 - ✅ **Pass-through processing** : Aucun impact sur les performances du pipeline principal
 - ✅ **Buffer circulaire** : Gestion d'historique déjà implémentée en Rust (performances préservées)
 - ✅ **SharedComputingState** : Accès aux données analytiques déjà sécurisé
-- ✅ **ExampleDisplayActionNode** : Template de référence disponible
+- ✅ **UniversalDisplayActionNode** : Template de référence disponible
 
 ### 1.2 Points d'Extension Identifiés
 
@@ -146,6 +146,55 @@ class RustPhotoacousticAPI:
     def trigger_notification(self, message: str, severity: str) -> bool:
         """Déclencher une notification système"""
         
+    def get_node_config(self) -> Dict[str, Any]:
+        """
+        Accès à la configuration du nœud PythonAction (LECTURE SEULE)
+        
+        Retourne la configuration YAML spécifique à ce nœud PythonAction,
+        permettant aux scripts Python d'accéder à leurs paramètres de configuration.
+        
+        Returns:
+            Dict[str, Any]: Configuration du nœud depuis config.yaml
+            
+        Example:
+            ```python
+            config = api.get_node_config()
+            smtp_server = config.get("smtp_server", "localhost")
+            threshold = config.get("concentration_threshold", 1000.0)
+            recipients = config.get("email_recipients", [])
+            ```
+        """
+        
+    def get_node_parameter(self, parameter_name: str, default_value: Any = None) -> Any:
+        """
+        Accès direct à un paramètre de configuration spécifique
+        
+        Args:
+            parameter_name: Nom du paramètre dans la configuration YAML
+            default_value: Valeur par défaut si le paramètre n'existe pas
+            
+        Returns:
+            Any: Valeur du paramètre ou default_value
+            
+        Example:
+            ```python
+            # Plus pratique que get_node_config() pour un seul paramètre
+            smtp_server = api.get_node_parameter("smtp_server", "localhost")
+            port = api.get_node_parameter("smtp_port", 587)
+            ```
+        """
+        
+    def get_monitored_node_ids(self) -> List[str]:
+        """
+        Liste des nœuds de calcul monitorés par ce PythonAction
+        
+        Retourne la liste des IDs de nœuds (PeakFinder, Concentration) que
+        ce PythonAction surveille, telle que configurée dans monitored_nodes.
+        
+        Returns:
+            List[str]: Liste des IDs de nœuds monitorés
+        """
+        
     # Buffer circulaire - LECTURE SEULE (performance critique)
     def get_history_count(self) -> int:
         """Nombre d'entrées dans l'historique"""
@@ -163,10 +212,24 @@ class CustomPythonAction:
     Interface à implémenter par les clients
     """
     
-    def __init__(self, api: RustPhotoacousticAPI, config: Dict[str, Any]):
-        """Initialisation avec API Rust et configuration"""
+    def __init__(self, api: RustPhotoacousticAPI):
+        """
+        Initialisation avec API Rust
+        
+        L'API fournit l'accès à la configuration via get_node_config() et get_node_parameter().
+        Plus besoin de passer la configuration manuellement.
+        
+        Args:
+            api: Instance de RustPhotoacousticAPI avec accès à la configuration
+        """
         self.api = api
-        self.config = config
+        
+        # Accès direct à la configuration du nœud depuis Rust
+        self.config = api.get_node_config()
+        
+        # Ou accès paramètre par paramètre avec valeurs par défaut
+        self.threshold = api.get_node_parameter("concentration_threshold", 1000.0)
+        self.monitored_nodes = api.get_monitored_node_ids()
         
     def on_trigger(self, trigger_type: str, data: Dict[str, Any]) -> bool:
         """
@@ -208,14 +271,25 @@ class EmailNotificationAction(CustomPythonAction):
     Action personnalisée : notifications email sur seuils
     """
     
-    def __init__(self, api: RustPhotoacousticAPI, config: Dict[str, Any]):
-        super().__init__(api, config)
-        self.smtp_server = config.get("smtp_server", "localhost")
-        self.smtp_port = config.get("smtp_port", 587)
-        self.username = config["username"]
-        self.password = config["password"]
-        self.recipients = config["recipients"]
+    def __init__(self, api: RustPhotoacousticAPI):
+        super().__init__(api)
+        
+        # Configuration récupérée automatiquement depuis Rust
+        self.smtp_server = self.api.get_node_parameter("smtp_server", "localhost")
+        self.smtp_port = self.api.get_node_parameter("smtp_port", 587)
+        self.username = self.api.get_node_parameter("username")
+        self.password = self.api.get_node_parameter("password")
+        self.recipients = self.api.get_node_parameter("recipients", [])
+        self.notification_interval = self.api.get_node_parameter("notification_interval_seconds", 300)
+        
+        # État interne
         self.last_notification = {}
+        
+        # Validation de la configuration
+        if not self.username or not self.password:
+            raise ValueError("SMTP username and password are required in node configuration")
+        if not self.recipients:
+            raise ValueError("Email recipients list is required in node configuration")
         
     def on_trigger(self, trigger_type: str, data: Dict[str, Any]) -> bool:
         """Envoi d'email sur déclenchement"""
@@ -329,6 +403,180 @@ processing:
             - "json"
             - "csv"
             - "requests"                    # HTTP client
+```
+
+### 2.4 Architecture de l'API de Configuration
+
+#### 2.4.1 Pont Configuration Rust ↔ Python
+
+L'architecture suivante assure un accès sécurisé et performant à la configuration :
+
+```mermaid
+sequenceDiagram
+    participant YAML as config.yaml
+    participant Graph as ProcessingGraph
+    participant PythonNode as PythonActionNode
+    participant PyO3 as PyO3 Bridge
+    participant PythonScript as Script Python
+    
+    YAML->>Graph: Chargement configuration nœud
+    Graph->>PythonNode: Création avec paramètres YAML
+    PythonNode->>PyO3: Exposition sélective config
+    PyO3->>PythonScript: get_node_parameter("smtp_server")
+    PythonScript->>PyO3: Retour valeur typée
+    PyO3->>PythonNode: Accès sécurisé aux données
+    PythonNode->>PythonScript: Valeur de configuration
+```
+
+#### 2.4.2 Implémentation Rust de l'API de Configuration
+
+```rust
+/// API de configuration exposée aux scripts Python
+impl RustPhotoacousticAPIImpl {
+    /// Accès à la configuration complète du nœud
+    fn get_node_config(&self) -> PyResult<PyDict> {
+        Python::with_gil(|py| {
+            let dict = PyDict::new(py);
+            
+            // Conversion sécurisée des paramètres Rust vers Python
+            let config_data = &self.node_config.parameters;
+            
+            for (key, value) in config_data.iter() {
+                let py_value = self.json_to_python(py, value)?;
+                dict.set_item(key, py_value)?;
+            }
+            
+            Ok(dict.into())
+        })
+    }
+    
+    /// Accès à un paramètre spécifique avec type-checking
+    fn get_node_parameter(&self, param_name: &str, default_value: Option<&PyAny>) -> PyResult<PyObject> {
+        Python::with_gil(|py| {
+            // Recherche dans la configuration du nœud
+            if let Some(value) = self.node_config.parameters.get(param_name) {
+                self.json_to_python(py, value)
+            } else if let Some(default) = default_value {
+                Ok(default.into())
+            } else {
+                Ok(py.None())
+            }
+        })
+    }
+    
+    /// Conversion sécurisée JSON → Python avec validation de type
+    fn json_to_python(&self, py: Python, value: &serde_json::Value) -> PyResult<PyObject> {
+        match value {
+            serde_json::Value::String(s) => Ok(s.into_py(py)),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Ok(i.into_py(py))
+                } else if let Some(f) = n.as_f64() {
+                    Ok(f.into_py(py))
+                } else {
+                    Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid number"))
+                }
+            },
+            serde_json::Value::Bool(b) => Ok(b.into_py(py)),
+            serde_json::Value::Array(arr) => {
+                let py_list = PyList::new(py, arr.iter().map(|v| self.json_to_python(py, v)));
+                Ok(py_list.into())
+            },
+            serde_json::Value::Object(obj) => {
+                let py_dict = PyDict::new(py);
+                for (k, v) in obj {
+                    py_dict.set_item(k, self.json_to_python(py, v)?)?;
+                }
+                Ok(py_dict.into())
+            },
+            serde_json::Value::Null => Ok(py.None()),
+        }
+    }
+}
+```
+
+#### 2.4.3 Validation et Sécurité de Configuration
+
+```rust
+/// Validation de la configuration Python avant exécution
+impl PythonActionNode {
+    fn validate_python_config(&self, config: &PythonActionConfig) -> Result<()> {
+        // 1. Vérifier que le script Python existe
+        if !std::path::Path::new(&config.python_script_path).exists() {
+            return Err(anyhow::anyhow!("Python script not found: {}", config.python_script_path));
+        }
+        
+        // 2. Valider les limites de ressources
+        if config.max_memory_mb > 512 {
+            return Err(anyhow::anyhow!("Python memory limit too high: {} MB", config.max_memory_mb));
+        }
+        
+        if config.python_timeout_ms > 30000 {
+            return Err(anyhow::anyhow!("Python timeout too high: {} ms", config.python_timeout_ms));
+        }
+        
+        // 3. Valider les imports autorisés
+        for import in &config.allowed_imports {
+            if !self.is_safe_import(import) {
+                return Err(anyhow::anyhow!("Unsafe Python import: {}", import));
+            }
+        }
+        
+        Ok(())
+    }
+    
+    fn is_safe_import(&self, module: &str) -> bool {
+        // Liste blanche de modules Python sécurisés
+        const SAFE_MODULES: &[&str] = &[
+            "smtplib", "email", "datetime", "json", "csv", "time", "math",
+            "requests", "urllib", "base64", "hashlib", "hmac", "os.path",
+            "logging", "re", "collections", "itertools", "functools"
+        ];
+        
+        SAFE_MODULES.contains(&module) || module.starts_with("email.")
+    }
+}
+```
+
+#### 2.4.4 Exemple d'Utilisation Complète
+
+```python
+# /user_scripts/advanced_webhook_action.py
+class WebhookNotificationAction(CustomPythonAction):
+    """Action webhook avec configuration flexible"""
+    
+    def __init__(self, api: RustPhotoacousticAPI):
+        super().__init__(api)
+        
+        # Configuration récupérée de manière type-safe
+        self.webhook_url = self.api.get_node_parameter("webhook_url")
+        self.api_key = self.api.get_node_parameter("api_key")
+        self.timeout_seconds = self.api.get_node_parameter("timeout_seconds", 10)
+        self.retry_count = self.api.get_node_parameter("retry_count", 3)
+        
+        # Configuration avancée avec structure complexe
+        notification_config = self.api.get_node_parameter("notification_config", {})
+        self.templates = notification_config.get("templates", {})
+        self.escalation_rules = notification_config.get("escalation", [])
+        
+        # Validation
+        if not self.webhook_url:
+            raise ValueError("webhook_url is required in node configuration")
+            
+    def on_trigger(self, trigger_type: str, data: Dict[str, Any]) -> bool:
+        """Envoi webhook avec template dynamique"""
+        template = self.templates.get(trigger_type, self.templates.get("default", {}))
+        
+        payload = {
+            "timestamp": datetime.now().isoformat(),
+            "trigger_type": trigger_type,
+            "sensor_data": data,
+            "message": template.get("message", "Photoacoustic alert triggered"),
+            "severity": template.get("severity", "warning"),
+            "node_id": self.api.get_monitored_node_ids()
+        }
+        
+        return self._send_webhook(payload)
 ```
 
 ---
@@ -817,7 +1065,178 @@ class RustPhotoacousticAPI:
 
 ---
 
-## 8. Alternatives Techniques Considérées
+## 8. Roadmap d'Implémentation
+
+### 8.1 Phase 1 : Prototype et API de Base (4-6 semaines)
+
+#### 8.1.1 Objectifs
+- Validation de faisabilité PyO3 avec rust-photoacoustic
+- API Python minimale fonctionnelle
+- Premier exemple fonctionnel (DisplayPythonAction)
+
+#### 8.1.2 Livrables
+```rust
+// Implémentation minimale PythonActionNode
+pub struct PythonActionNode {
+    // Champs ActionNode de base
+    id: String,
+    history_buffer: CircularBuffer<ActionHistoryEntry>,
+    shared_computing_state: Option<SharedComputingState>,
+    
+    // Extension Python basique
+    python_interpreter: Python,
+    python_config: PythonActionConfig,
+}
+
+impl ActionNode for PythonActionNode {
+    // Implémentation du trait avec appels Python
+    fn trigger_action(&mut self, trigger: ActionTrigger) -> Result<bool> {
+        self.call_python_on_trigger(trigger)
+    }
+}
+```
+
+```python
+# API Python Phase 1 - Fonctionnalités de base
+class RustPhotoacousticAPI:
+    def get_concentration_data(self, node_id: str) -> Optional[float]: pass
+    def get_peak_frequency(self, node_id: str) -> Optional[float]: pass
+    def get_node_parameter(self, param: str, default: Any) -> Any: pass
+    def log_message(self, level: str, message: str): pass
+```
+
+#### 8.1.3 Critères de Validation Phase 1
+- [ ] Compilation réussie avec PyO3
+- [ ] Exemple Python fonctionnel (affichage console)
+- [ ] Accès aux données de concentration 
+- [ ] Configuration YAML intégrée
+- [ ] Pas de régression de performance sur pipeline principal
+
+### 8.2 Phase 2 : Sandboxing et Sécurité (3-4 semaines)
+
+#### 8.2.1 Objectifs
+- Implémentation des restrictions de sécurité
+- Gestion des timeouts et limites mémoire
+- Validation des imports Python
+- Monitoring des performances Python
+
+#### 8.2.2 Livrables
+```rust
+// Sandboxing et sécurité
+pub struct PythonSecurityManager {
+    allowed_imports: HashSet<String>,
+    max_memory_mb: u64,
+    timeout_ms: u64,
+    execution_monitor: PythonExecutionMonitor,
+}
+
+impl PythonSecurityManager {
+    fn validate_script(&self, script_path: &str) -> Result<()>;
+    fn execute_with_limits<T>(&self, callback: impl FnOnce() -> T) -> Result<T>;
+    fn monitor_resources(&self) -> PythonResourceUsage;
+}
+```
+
+#### 8.2.3 Critères de Validation Phase 2
+- [ ] Scripts Python isolés et limités en ressources
+- [ ] Timeout automatique sur scripts bloquants
+- [ ] Validation statique des imports
+- [ ] Monitoring temps d'exécution < 5ms
+- [ ] Gestion gracieuse des erreurs Python
+
+### 8.3 Phase 3 : API Avancée et Optimisations (4-5 semaines)
+
+#### 8.3.1 Objectifs
+- API Python complète avec buffer historique
+- Cache des appels Python pour performances
+- Hot-reload des scripts Python
+- Intégration dans l'interface web
+
+#### 8.3.2 Livrables
+```python
+# API Python Phase 3 - Fonctionnalités avancées
+class RustPhotoacousticAPI:
+    # Configuration avancée
+    def get_node_config(self) -> Dict[str, Any]: pass
+    def get_monitored_node_ids(self) -> List[str]: pass
+    
+    # Accès historique (lecture seule)
+    def get_history_count(self) -> int: pass
+    def get_recent_entries(self, count: int) -> List[Dict]: pass
+    
+    # Notifications système
+    def trigger_notification(self, message: str, severity: str) -> bool: pass
+    
+    # Statistiques de performance
+    def get_node_statistics(self, node_id: str) -> Dict[str, Any]: pass
+```
+
+```rust
+// Cache et optimisations
+pub struct PyO3APICache {
+    method_cache: HashMap<String, PyObject>,
+    data_cache: LruCache<String, CachedValue>,
+    cache_ttl_ms: u64,
+}
+
+impl PythonActionNode {
+    fn call_python_cached(&mut self, method: &str, args: &PyTuple) -> PyResult<PyObject>;
+    fn reload_python_script(&mut self) -> Result<()>; // Hot-reload
+}
+```
+
+#### 8.3.3 Critères de Validation Phase 3
+- [ ] API Python complète et documentée
+- [ ] Exemples clients multiples (email, webhook, database)
+- [ ] Hot-reload sans redémarrage serveur
+- [ ] Interface web pour monitoring PythonActions
+- [ ] Documentation utilisateur complète
+
+### 8.4 Tests et Validation Clients (2-3 semaines)
+
+#### 8.4.1 Exemples Clients de Référence
+1. **EmailActionNode** : Notifications SMTP sur seuils
+2. **WebhookActionNode** : Callbacks HTTP vers systèmes externes
+3. **DatabaseActionNode** : Enregistrement données vers PostgreSQL/MongoDB
+4. **LEDControlActionNode** : Contrôle GPIO pour affichage LED
+5. **PredictiveActionNode** : ML/IA pour alertes prédictives
+
+#### 8.4.2 Métriques de Performance Cibles
+- **Startup Python** : < 100ms
+- **Trigger Python** : < 5ms (95e percentile)
+- **Memory overhead** : < 64MB par PythonAction
+- **No performance impact** : 0% impact sur pipeline principal
+
+### 8.5 Planning Global
+
+```mermaid
+gantt
+    title Roadmap PythonAction Implementation
+    dateFormat  YYYY-MM-DD
+    section Phase 1 - Prototype
+    PyO3 Integration    :p1-1, 2025-06-23, 2w
+    Basic API          :p1-2, after p1-1, 2w
+    First Example      :p1-3, after p1-2, 2w
+    
+    section Phase 2 - Security
+    Sandboxing         :p2-1, after p1-3, 2w
+    Resource Limits    :p2-2, after p2-1, 1w
+    Import Validation  :p2-3, after p2-2, 1w
+    
+    section Phase 3 - Advanced
+    Full API           :p3-1, after p2-3, 2w
+    Performance Cache  :p3-2, after p3-1, 2w
+    Hot Reload         :p3-3, after p3-2, 1w
+    
+    section Validation
+    Client Examples    :p4-1, after p3-3, 2w
+    Performance Tests  :p4-2, after p4-1, 1w
+    Documentation      :p4-3, after p4-2, 1w
+```
+
+---
+
+## 9. Alternatives Techniques Considérées
 
 ### 8.1 WebAssembly (WASM)
 **Avantages** : Sandboxing natif, performances proches du natif
@@ -836,9 +1255,9 @@ class RustPhotoacousticAPI:
 
 ---
 
-## 9. Recommandations Finales
+## 10. Recommandations Finales
 
-### 9.1 Faisabilité : ✅ RECOMMANDÉ
+### 10.1 Faisabilité : ✅ RECOMMANDÉ
 
 L'extension PythonAction est **hautement faisable** et **strategiquement pertinente** :
 
@@ -847,14 +1266,14 @@ L'extension PythonAction est **hautement faisable** et **strategiquement pertine
 3. **Valeur client** : Flexibilité maximale pour actions personnalisées
 4. **Risques maîtrisés** : Performances critiques préservées en Rust
 
-### 9.2 Stratégie Recommandée
+### 10.2 Stratégie Recommandée
 
 1. **Implémentation progressive** : 3 phases avec validation à chaque étape
 2. **API limitée** : Exposition contrôlée pour préserver sécurité/performance
 3. **Sandboxing** : Restrictions d'exécution pour la sécurité
 4. **Documentation exemplaire** : Guides et exemples pour faciliter adoption
 
-### 9.3 Prochaines Étapes Immédiates
+### 10.3 Prochaines Étapes Immédiates
 
 1. **Prototypage** (1-2 semaines) : Validation PyO3 + exemple minimal
 2. **Architecture détaillée** (1 semaine) : Spécifications techniques complètes  

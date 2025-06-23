@@ -11,7 +11,7 @@ use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::computing_nodes::{
-    ConcentrationNode, ExampleDisplayActionNode, PeakFinderNode, SharedComputingState,
+    ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalDisplayActionNode,
 };
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
@@ -1322,9 +1322,9 @@ impl ProcessingGraph {
 
                 Ok(Box::new(GainNode::new(config.id.clone(), gain_db)))
             }
-            "action_example_display" => {
+            "action_universal_display" => {
                 // Extract example display action parameters
-                let mut action_node = ExampleDisplayActionNode::new_with_shared_state(
+                let mut action_node = UniversalDisplayActionNode::new_with_shared_state(
                     config.id.clone(),
                     computing_state.clone(),
                 );

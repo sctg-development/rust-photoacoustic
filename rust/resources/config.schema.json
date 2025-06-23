@@ -555,7 +555,7 @@
                       "streaming",
                       "computing_peak_finder",
                       "computing_concentration",
-                      "action_example_display"
+                      "action_universal_display"
                     ],
                     "description": "Type of processing node"
                   },
@@ -911,7 +911,7 @@
                     "if": {
                       "properties": {
                         "node_type": {
-                          "const": "action_example_display"
+                          "const": "action_universal_display"
                         }
                       }
                     },
@@ -952,6 +952,23 @@
                               "maximum": 60000,
                               "default": 1000,
                               "description": "Minimum milliseconds between display updates for throttling"
+                            },
+                            "driver": {
+                              "type": "object",
+                              "description": "Display driver configuration for output to various endpoints",
+                              "properties": {
+                                "type": {
+                                  "type": "string",
+                                  "enum": ["https_callback", "redis", "kafka","log"],
+                                  "description": "Type of display driver"
+                                },
+                                "config": {
+                                  "type": "object",
+                                  "description": "Driver-specific configuration",
+                                  "additionalProperties": true
+                                }
+                              },
+                              "required": ["type"]
                             }
                           },
                           "additionalProperties": false

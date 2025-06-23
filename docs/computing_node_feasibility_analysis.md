@@ -1155,15 +1155,15 @@ connections:
 - [ ] **Interface Web** : Configuration et monitoring des ActionNode
 - [ ] **Tests d'Intégration** : Validation complète du pipeline étendu
 
-### 8.8 Exemple d'Implémentation - ExampleDisplayActionNode
+### 8.8 Exemple d'Implémentation - UniversalDisplayActionNode
 
 #### Code de Démonstration Implémenté
 
-Pour illustrer concrètement l'utilisation du trait ActionNode, un **ExampleDisplayActionNode** a été implémenté en tant que référence :
+Pour illustrer concrètement l'utilisation du trait ActionNode, un **UniversalDisplayActionNode** a été implémenté en tant que référence :
 
 ```rust
 /// Example DisplayActionNode implementation
-pub struct ExampleDisplayActionNode {
+pub struct UniversalDisplayActionNode {
     id: String,
     history_buffer: CircularBuffer<ActionHistoryEntry>,
     monitored_nodes: Vec<String>,
@@ -1177,7 +1177,7 @@ pub struct ExampleDisplayActionNode {
     last_update_time: Option<SystemTime>,
 }
 
-impl ActionNode for ExampleDisplayActionNode {
+impl ActionNode for UniversalDisplayActionNode {
     fn update_from_computing_data(&mut self, computing_data: &ComputingSharedData) -> Result<()> {
         // Update history buffer with data from monitored nodes
         for node_id in &self.monitored_nodes.clone() {
@@ -1224,7 +1224,7 @@ impl ActionNode for ExampleDisplayActionNode {
 
 **✅ Pass-through Processing**
 ```rust
-impl ProcessingNode for ExampleDisplayActionNode {
+impl ProcessingNode for UniversalDisplayActionNode {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
         // Update from computing data if available
         if let Some(shared_state) = &self.shared_computing_state {
@@ -1270,7 +1270,7 @@ fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
 
 ```rust
 // Création avec configuration fluent API
-let display_node = ExampleDisplayActionNode::new("main_display".to_string())
+let display_node = UniversalDisplayActionNode::new("main_display".to_string())
     .with_concentration_threshold(1000.0)  // Seuil 1000 ppm
     .with_amplitude_threshold(0.8)         // Seuil 80% amplitude
     .with_monitored_node("co2_peak_finder".to_string())
