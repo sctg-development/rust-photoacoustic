@@ -333,13 +333,12 @@ processing:
             verify_ssl: false
 
     # Redis Pub/Sub Driver - For real-time data streaming
-    - id: "redis_stream_display" 
+    - id: "redis_stream_action" 
       node_type: "action_universal"
       parameters:
         buffer_capacity: 100                    # Minimal buffer for real-time streaming
         monitored_nodes:
           - "concentration_calculator"
-          - "peak_detector"
         concentration_threshold: 500.0          # Lower threshold for streaming
         amplitude_threshold: 60                 # Alert at 60dB amplitude
         update_interval_ms: 5000                # 5 seconds updates
@@ -424,7 +423,7 @@ processing:
     - from: concentration_calculator
       to: web_dashboard_action
     - from: concentration_calculator
-      to: redis_stream_display
+      to: redis_stream_action
     - from: concentration_calculator
       to: kafka_events_display
     - from: concentration_calculator

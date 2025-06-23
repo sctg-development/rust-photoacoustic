@@ -16,12 +16,11 @@ use rust_photoacoustic::processing::{
 /// Example: HTTP callback driver for web dashboard integration
 pub fn create_web_dashboard_display() -> Result<UniversalActionNode> {
     // Configure HTTP driver for remote dashboard
-    let http_driver = HttpsCallbackActionDriver::new(
-        "https://dashboard.mycompany.com/api/photoacoustic/display",
-    )
-    .with_auth_token("Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...")
-    .with_timeout_seconds(5)
-    .with_retry_count(3);
+    let http_driver =
+        HttpsCallbackActionDriver::new("https://dashboard.mycompany.com/api/photoacoustic/display")
+            .with_auth_token("Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...")
+            .with_timeout_seconds(5)
+            .with_retry_count(3);
 
     let display_node = UniversalActionNode::new("web_dashboard".to_string())
         .with_history_buffer_capacity(300) // 5 minutes at 1Hz

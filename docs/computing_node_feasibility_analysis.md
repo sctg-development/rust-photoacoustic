@@ -558,1186 +558,1186 @@ impl DynamicFilterNode {
 
 ---
 
-## 4. Évolutions Implémentées et Validation
+## 4. Implémentations Proposées
 
-### 4.1 Refactorisation de ComputingSharedData - Support Multi-Nœuds
+### 4.1 PeakFinderNode (ComputingNode spécialisé) - Support Multi-Instances
 
-✅ **Structure HashMap Implémentée**
-- **Clé Unique** : Chaque `PeakFinderNode` identifié par son `id` String
-- **Stockage Individuel** : `HashMap<String, PeakResult>` pour isoler les résultats
-- **Méthodes Utilitaires** : API complète pour accès individuel et collectif
-- **Rétrocompatibilité** : Maintien des champs legacy pour transition progressive
-
-✅ **API Enrichie pour Multi-Instances**
+#### Structure et fonctionnalités
 ```rust
-impl ComputingSharedData {
-    // Accès individuel par node_id
-    pub fn get_peak_result(&self, node_id: &str) -> Option<&PeakResult>
-    pub fn get_concentration_result(&self, node_id: &str) -> Option<&ConcentrationResult>
-    
-    // Accès collectif
-    pub fn get_latest_peak_result(&self) -> Option<&PeakResult>
-    pub fn get_peak_finder_node_ids(&self) -> Vec<String>
-    
-    // Validation temporelle
-    pub fn has_recent_peak_data(&self, node_id: &str) -> bool
-    pub fn has_recent_concentration_data(&self, node_id: &str) -> bool
-}
-```
-
-### 4.2 Tests de Validation Multi-Instances
-
-✅ **Tests Automatisés Passés**
-- **`test_multi_peak_finder_shared_data`** : Validation du stockage concurrent de 2 instances
-- **`test_backward_compatibility`** : Vérification de la compatibilité avec l'ancienne API
-- **`test_mixed_mode_operation`** : Fonctionnement hybride nouveau/ancien système
-
-✅ **Scénarios de Test Validés
-```rust
-// Création de 2 instances avec IDs uniques
-let peak_finder_1 = PeakFinderNode::new_with_shared_state(
-    "peak_finder_1".to_string(), Some(shared_state.clone())
-);
-let peak_finder_2 = PeakFinderNode::new_with_shared_state(
-    "peak_finder_2".to_string(), Some(shared_state.clone())
-);
-
-// Validation : Stockage indépendant des résultats
-assert!(state.peak_results.contains_key("peak_finder_1"));
-assert!(state.peak_results.contains_key("peak_finder_2"));
-
-// Validation : Accès individuel fonctionnel
-let result_1 = state.get_peak_result("peak_finder_1").unwrap();
-assert_eq!(result_1.frequency, 1000.0);
-
-// Validation : Champs legacy mis à jour automatiquement
-assert_eq!(state.peak_frequency, Some(1200.0)); // Dernière valeur
-```
-
-### 4.3 Intégration API et Serveur Modbus
-
-✅ **API REST Étendue**
-```rust
-pub struct ComputingResponse {
-    /// Résultats individuels par node_id
-    pub peak_results: HashMap<String, PeakResultResponse>,
-    pub concentration_results: HashMap<String, ConcentrationResultResponse>,
-    
-    /// Champs legacy pour compatibilité
-    pub peak_frequency: Option<f32>,
-    pub concentration_ppm: Option<f32>,
-    pub latest_result: Option<PeakResultResponse>,
-}
-```
-
-✅ **Serveur Modbus Adapté**
-- **Méthode Sélective** : `update_from_computing_state_with_node(node_id: Option<&str>)`
-- **Mode Automatique** : Si `node_id = None`, utilise le résultat le plus récent
-- **Mode Ciblé** : Si `node_id` spécifié, utilise les données de ce nœud uniquement
-- **Fallback Legacy** : Gestion transparente de l'ancien format de données
-
-### 4.4 Cas d'Usage Multi-Instances Validés
-
-✅ **Configuration Redondante**
-```yaml
-processing:
-  nodes:
-    - id: "primary_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters: {frequency_range: [800, 1200]}
-    - id: "backup_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters: {frequency_range: [800, 1200], detection_threshold: 0.05}
-```
-
-✅ **Configuration Multi-Bandes**
-```yaml
-processing:
-  nodes:
-    - id: "co2_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters: {frequency_range: [800, 1000]}
-    - id: "ch4_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters: {frequency_range: [1500, 1800]}
-```
-
-✅ **Configuration Différentielle**
-```yaml
-processing:
-  nodes:
-    - id: "reference_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters: {frequency_range: [900, 1100], smoothing_factor: 0.9}
-    - id: "measurement_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters: {frequency_range: [900, 1100], smoothing_factor: 0.7}
-```
-
----
-
-## 5. Analyse de Faisabilité Technique - Post-Implémentation
-
-### 5.1 Avantages Confirmés de l'approche Multi-Instances
-
-✅ **Flexibilité Architecturale Démontrée**
-- **Instances Multiples** : Support natif validé par les tests automatisés
-- **Configuration Granulaire** : Chaque nœud peut avoir des paramètres optimisés
-- **Isolation des Résultats** : Aucune interférence entre instances simultanées
-- **Évolutivité** : Ajout/suppression d'instances sans impact sur les autres
-
-✅ **Performance Multi-Threading Validée**
-- **Accès Concurrent** : HashMap thread-safe avec `Arc<RwLock<T>>`
-- **Pas de Contention** : Chaque nœud écrit dans sa propre clé
-- **Lecture Parallèle** : Accès simultané aux résultats de différents nœuds
-
-✅ **Maintenance et Observabilité**
-- **Debugging Facilité** : Identification claire des nœuds par ID
-- **Métriques Individuelles** : Statistiques de performance par instance
-- **Configuration Dynamique** : Hot-reload supporté pour tous les paramètres
-
-### 5.2 Validation des Cas d'Usage Métrologiques
-
-✅ **Redondance et Fiabilité**
-- **Validation Croisée** : Comparaison automatique entre instances
-- **Détection d'Anomalies** : Identification des mesures aberrantes
-- **Basculement Automatique** : Failover transparent entre sources
-
-✅ **Multi-Analytes**
-- **Séparation Spectrale** : Analyse simultanée de plusieurs gaz
-- **Évitement Interférences** : Bandes spectrales distinctes
-- **Optimisation Individuelle** : Paramètres adaptés par analyte
-
-### 5.3 Scalabilité et Extensibilité
-
-✅ **Architecture Évolutive**
-- **Ajout Transparent** : Nouveaux nœuds sans modification du code existant
-- **Configuration Déclarative** : Gestion via YAML sans recompilation
-- **API Standardisée** : Interface uniforme pour tous les ComputingNode
-
-✅ **Performance Linéaire**
-- **Complexité O(n)** : Performance proportionnelle au nombre de nœuds
-- **Pas de Goulot d'Étranglement** : Aucun point de contention identifié
-- **Mémoire Contrôlée** : Consommation mémoire prévisible et limitée
-
----
-
-## 6. Feuille de Route Technique
-
-### 6.1 Prochaines Évolutions Proposées
-
-#### ActionNode - Objectifs et Bénéfices Attendus
-
-🎯 **Objectif Principal** : Étendre l'architecture pour inclure des nœuds d'action réagissant aux données analytiques
-
-- **Types d'ActionNode** :
-  - `DisplayActionNode` : Affichage des résultats sur écran
-  - `RelayActionNode` : Contrôle de relais pour actions physiques
-  - `NotificationActionNode` : Envoi d'alertes par email ou SMS
-
-- **Bénéfices Attendus** :
-  - **Automatisation Complète** : Chaîne de mesure à action sans intervention humaine
-  - **Réactivité Améliorée** : Actions immédiates sur détection de conditions critiques
-  - **Flexibilité Accrue** : Configurations d'alerte et d'action personnalisables
-
-#### Phases de Développement Proposées
-
-**Phase 1 - Prototype ActionNode** (4-6 semaines)
-- Implémentation du trait `ActionNode`
-- `DisplayActionNode` basique pour validation du concept
-- Buffer circulaire générique avec tests unitaires
-
-**Phase 2 - Extensions Spécialisées** (6-8 semaines)
-- `RelayActionNode` pour contrôle industriel
-- `NotificationActionNode` pour alertes
-- Intégration dans l'interface web de configuration
-
-**Phase 3 - Production** (4-6 semaines)
-- Tests de charge et validation terrain
-- Documentation utilisateur complète
-- Formation et déploiement
-
----
-
-## 8. Évolution ActionNode - Architecture Implémentée ✅
-
-### 8.1 Vue d'ensemble - Extension Architecturale Réalisée
-
-L'**extension ActionNode** a été concrétisée par l'implémentation d'un trait spécialisé qui étend l'architecture ProcessingNode existante. Cette évolution représente l'aboutissement logique de l'architecture ComputingNode, permettant de transformer les résultats analytiques en **actions physiques concrètes**.
-
-#### Architecture Complète - Pipeline Photoacoustique avec Actions
-
-```mermaid
-graph TB
-    subgraph "Pipeline de Traitement Signal"
-        A[Input Node] --> B[Bandpass Filter]
-        B --> C[Gain Amplifier]
-        C --> D[Differential Detection]
-    end
-    
-    subgraph "Couche Analytique - ComputingNode"
-        E[PeakFinderNode] 
-        F[ConcentrationNode]
-        G[DynamicFilterNode]
-        
-        E --> CS[Shared Computing State]
-        F --> CS
-        CS --> G
-    end
-    
-    subgraph "Couche Action - ActionNode"
-        H["DisplayActionNode<br/>(Écran LCD)"]
-        I["RelayActionNode<br/>(Alarmes)"]
-        J["NotificationActionNode<br/>(Email/SMS)"]
-        K["LoggingActionNode<br/>(Historique)"]
-        
-        CS -.->|"Lecture Data"| H
-        CS -.->|"Lecture Data"| I
-        CS -.->|"Lecture Data"| J
-        CS -.->|"Lecture Data"| K
-    end
-    
-    subgraph "Buffer Circulaires"
-        BH[Buffer Historique H]
-        BI[Buffer Historique I] 
-        BJ[Buffer Historique J]
-        BK[Buffer Historique K]
-        
-        H --> BH
-        I --> BI
-        J --> BJ
-        K --> BK
-    end
-    
-    D --> E
-    E --> F
-    F --> O[Output Node]
-    
-    %% Pass-through behavior
-    E -.->|"Pass-through"| F
-    F -.->|"Pass-through"| O
-    H -.->|"Pass-through"| O
-    I -.->|"Pass-through"| O
-    J -.->|"Pass-through"| O
-    K -.->|"Pass-through"| O
-    
-    classDef computing fill:#e1f5fe
-    classDef action fill:#fff3e0
-    classDef buffer fill:#f3e5f5
-    classDef signal fill:#e8f5e8
-    
-    class E,F,G computing
-    class H,I,J,K action
-    class BH,BI,BJ,BK buffer
-    class A,B,C,D,O signal
-```
-
-#### Caractéristiques Clés de l'Architecture ActionNode
-
-✅ **Trait ActionNode Implémenté**
-- **Extension ProcessingNode** : Hérite de toutes les capacités du trait de base
-- **Buffer Circulaire** : Gestion automatique de l'historique des données
-- **Système de Triggers** : Conditions configurables pour déclencher des actions
-- **Multi-source Monitoring** : Surveillance simultanée de plusieurs ComputingNode
-- **Pass-through Processing** : Signal inchangé, actions parallèles
-
-### 8.2 Structure du Trait ActionNode - API Complète
-
-#### Interface Principale
-```rust
-pub trait ActionNode: ProcessingNode {
-    // Configuration du buffer
-    fn buffer_size(&self) -> usize;
-    fn set_buffer_size(&mut self, new_size: usize) -> Result<()>;
-    
-    // Mise à jour depuis les données de calcul
-    fn update_from_computing_data(&mut self, computing_data: &ComputingSharedData) -> Result<()>;
-    
-    // Déclenchement d'actions
-    fn trigger_action(&mut self, trigger: ActionTrigger) -> Result<bool>;
-    
-    // Gestion de l'historique
-    fn get_history_buffer(&self) -> &CircularBuffer<ActionHistoryEntry>;
-    
-    // Surveillance des nœuds
-    fn get_monitored_node_ids(&self) -> Vec<String>;
-    fn add_monitored_node(&mut self, node_id: String) -> Result<()>;
-    fn remove_monitored_node(&mut self, node_id: &str) -> Result<bool>;
-    
-    // État et diagnostics
-    fn get_status(&self) -> Result<serde_json::Value>;
-    fn reset_action_state(&mut self);
-}
-```
-
-#### Types de Triggers Supportés
-
-**Enum ActionTrigger - Conditions de Déclenchement**
-```rust
-pub enum ActionTrigger {
-    /// Seuil de concentration dépassé
-    ConcentrationThreshold {
-        value: f64,           // Concentration actuelle (ppm)
-        threshold: f64,       // Seuil configuré (ppm)
-        source_node_id: String,
-    },
-    
-    /// Seuil d'amplitude dépassé
-    AmplitudeThreshold {
-        value: f32,           // Amplitude actuelle (0.0-1.0)
-        threshold: f32,       // Seuil configuré (0.0-1.0)
-        source_node_id: String,
-    },
-    
-    /// Déviation de fréquence
-    FrequencyDeviation {
-        value: f32,           // Fréquence actuelle (Hz)
-        expected: f32,        // Fréquence attendue (Hz)
-        tolerance: f32,       // Tolérance maximum (Hz)
-        source_node_id: String,
-    },
-    
-    /// Timeout de données (pas de mise à jour)
-    DataTimeout {
-        elapsed_seconds: u64, // Temps écoulé
-        timeout_seconds: u64, // Seuil de timeout
-        source_node_id: String,
-    },
-    
-    /// Trigger personnalisé
-    Custom {
-        trigger_id: String,
-        data: serde_json::Value,
-    },
-}
-```
-
-### 8.3 Buffer Circulaire - Gestion de l'Historique
-
-#### Structure CircularBuffer<T>
-```mermaid
-graph LR
-    subgraph "Buffer Circulaire - Capacité 5"
-        A[Entrée 1<br/>t-4] --> B[Entrée 2<br/>t-3]
-        B --> C[Entrée 3<br/>t-2]
-        C --> D[Entrée 4<br/>t-1]
-        D --> E[Entrée 5<br/>t-0]
-        E -.->|"Nouvelle entrée"| F[Entrée 6<br/>t+1]
-        F -.->|"Supprime automatiquement"| A
-    end
-    
-    subgraph "ActionHistoryEntry"
-        G[timestamp: SystemTime]
-        H[peak_data: Option&lt;PeakResult&gt;]
-        I[concentration_data: Option&lt;ConcentrationResult&gt;]
-        J[source_node_id: String]
-        K[metadata: HashMap&lt;String, String&gt;]
-    end
-    
-    E --> G
-```
-
-**Fonctionnalités du Buffer Circulaire**
-- **Auto-Sizing** : Taille configurable avec éviction automatique
-- **Thread-Safe** : Accès concurrent sécurisé
-- **Efficient Operations** : Basé sur VecDeque pour performance optimale
-- **Rich API** : Accès aux données récentes, anciennes, itération complète
-
-### 8.4 Implémentations ActionNode Spécialisées Proposées
-
-#### 8.4.1 DisplayActionNode - Gestion d'Affichage
-
-```mermaid
-graph TB
-    subgraph "DisplayActionNode"
-        A[Computing Data Input] --> B[Threshold Check]
-        B --> C{Condition Met?}
-        C -->|Yes| D[Update Display]
-        C -->|No| E[Keep Current Display]
-        D --> F[Add to History Buffer]
-        E --> F
-        F --> G[Pass-through Signal]
-    end
-    
-    subgraph "Display Actions"
-        H[LCD Update]
-        I[LED Status]
-        J[Graph Refresh]
-        K[Alarm Flash]
-    end
-    
-    D --> H
-    D --> I  
-    D --> J
-    D --> K
-    
-    classDef action fill:#fff3e0
-    classDef display fill:#e3f2fd
-    
-    class A,B,C,D,E,F,G action
-    class H,I,J,K display
-```
-
-**Cas d'Usage DisplayActionNode**
-- **Écran LCD Principal** : Affichage temps réel des concentrations
-- **Voyants LED Status** : Indications visuelles de l'état du système
-- **Interface Web** : Mise à jour dynamique des graphiques
-- **Écrans Déportés** : Affichage dans salles de contrôle distantes
-
-#### 8.4.2 RelayActionNode - Contrôle Physique
-
-```mermaid
-graph TB
-    subgraph "RelayActionNode"
-        A[Concentration Data] --> B{C > Threshold?}
-        B -->|Yes| C[Activate Relay]
-        B -->|No| D[Deactivate Relay]
-        C --> E[Log Action]
-        D --> E
-        E --> F[Update Buffer]
-        F --> G[Pass-through Signal]
-    end
-    
-    subgraph "Physical Outputs"
-        H[Alarm Buzzer]
-        I[Ventilation Fan]
-        J[Safety Valve]
-        K[Warning Light]
-    end
-    
-    C --> H
-    C --> I
-    C --> J
-    C --> K
-    
-    classDef action fill:#fff3e0
-    classDef relay fill:#ffebee
-    
-    class A,B,C,D,E,F,G action
-    class H,I,J,K relay
-```
-
-**Applications RelayActionNode**
-- **Sécurité Industrielle** : Activation automatique de systèmes de sécurité
-- **Ventilation Intelligente** : Déclenchement conditionné sur concentration
-- **Alarmes Sonores** : Sirènes et buzzers d'alerte
-- **Signalisation Lumineuse** : Feux d'alerte et panneaux de signalisation
-
-#### 8.4.3 NotificationActionNode - Communications
-
-```mermaid
-graph TB
-    subgraph "NotificationActionNode"
-        A[Alert Condition] --> B[Format Message]
-        B --> C[Select Recipients]
-        C --> D[Send Notification]
-        D --> E[Retry Logic]
-        E --> F[Log Result]
-        F --> G[Update Buffer]
-        G --> H[Pass-through Signal]
-    end
-    
-    subgraph "Notification Channels"
-        I[Email SMTP]
-        J[SMS Gateway]
-        K[Slack/Teams]
-        L[SNMP Trap]
-        M[HTTP Webhook]
-    end
-    
-    D --> I
-    D --> J
-    D --> K
-    D --> L
-    D --> M
-    
-    classDef action fill:#fff3e0
-    classDef notification fill:#e8f5e8
-    
-    class A,B,C,D,E,F,G,H action
-    class I,J,K,L,M notification
-```
-
-**Capacités NotificationActionNode**
-- **Multi-Canal** : Email, SMS, Slack, SNMP, Webhooks
-- **Template System** : Messages personnalisables par type d'alerte
-- **Escalation Logic** : Notifications hiérarchiques selon gravité
-- **Retry Mechanisms** : Gestion des échecs de transmission
-- **Rate Limiting** : Éviter le spam en cas d'alertes répétées
-
-### 8.5 Configuration YAML ActionNode
-
-#### Exemple de Configuration Complète
-```yaml
-processing:
-  nodes:
-    # Computing Nodes
-    - id: "primary_peak_finder"
-      node_type: "computing_peak_finder"
-      parameters:
-        frequency_range: [800, 1200]
-        detection_threshold: 0.1
-        
-    - id: "co2_concentration"
-      node_type: "computing_concentration"
-      parameters:
-        computing_peak_finder_id: "primary_peak_finder"
-        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
-        
-    # Action Nodes
-    - id: "main_display"
-      node_type: "action_display"
-      parameters:
-        buffer_size: 100
-        monitored_nodes: ["co2_concentration"]
-        display_type: "lcd_20x4"
-        update_interval_ms: 1000
-        
-    - id: "safety_relay"
-      node_type: "action_relay"
-      parameters:
-        buffer_size: 50
-        monitored_nodes: ["co2_concentration"]
-        concentration_threshold: 1000.0  # ppm
-        relay_pin: 18
-        active_high: true
-        
-    - id: "email_alerts"
-      node_type: "action_notification"
-      parameters:
-        buffer_size: 200
-        monitored_nodes: ["co2_concentration"]
-        notification_channels:
-          - type: "email"
-            smtp_server: "smtp.company.com"
-            recipients: ["operator@company.com", "safety@company.com"]
-          - type: "sms"
-            gateway_url: "https://api.sms-provider.com/send"
-            recipients: ["+33123456789"]
-        thresholds:
-          warning: 800.0   # ppm
-          critical: 1500.0 # ppm
-          
-connections:
-  - from: differential_detection
-    to: primary_peak_finder
-  - from: primary_peak_finder
-    to: co2_concentration
-  - from: co2_concentration
-    to: main_display
-  - from: main_display
-    to: safety_relay
-  - from: safety_relay
-    to: email_alerts
-  - from: email_alerts
-    to: output
-```
-
-### 8.6 Avantages Techniques de l'Architecture ActionNode
-
-#### 8.6.1 Séparation des Responsabilités
-- **Signal Processing** : Pipeline de traitement signal inchangé
-- **Analytics** : ComputingNode pour calculs scientifiques
-- **Actions** : ActionNode pour interfaces physiques
-- **Data Flow** : Pass-through maintient l'intégrité du pipeline
-
-#### 8.6.2 Flexibilité et Extensibilité
-- **Pluggable Architecture** : Ajout/suppression d'ActionNode sans impact
-- **Multiple Actions** : Plusieurs ActionNode peuvent monitorer les mêmes données
-- **Conditional Logic** : Triggers configurables pour chaque ActionNode
-- **Historical Analysis** : Buffer circulaire pour analyse de tendances
-
-#### 8.6.3 Fiabilité et Robustesse
-- **Error Isolation** : Échec d'un ActionNode n'impacte pas le pipeline
-- **Retry Logic** : Mécanismes de récupération pour actions critiques
-- **State Persistence** : Historique maintenu pour analyse post-incident
-- **Graceful Degradation** : Fonctionnement dégradé en cas de problème
-
-### 8.7 Roadmap d'Implémentation ActionNode
-
-#### Phase 1 - Prototypes (4-6 semaines) ✅ COMPLÉTÉ
-- [x] **Trait ActionNode** : Interface et types de base implémentés
-- [x] **CircularBuffer** : Structure de buffer circulaire générique
-- [x] **ActionTrigger** : Enum des conditions de déclenchement
-- [x] **ActionHistoryEntry** : Entrées d'historique structurées
-
-#### Phase 2 - Implémentations Spécialisées (6-8 semaines)
-- [ ] **DisplayActionNode** : Gestion d'écrans LCD et interfaces
-- [ ] **RelayActionNode** : Contrôle de relais et sorties numériques
-- [ ] **NotificationActionNode** : Système de notifications multi-canal
-- [ ] **LoggingActionNode** : Enregistrement avancé avec rotation
-
-#### Phase 3 - Intégration et Production (4-6 semaines)
-- [ ] **Factory Pattern** : Création automatique depuis configuration YAML
-- [ ] **Hot-Reload Support** : Reconfiguration dynamique des ActionNode
-- [ ] **Interface Web** : Configuration et monitoring des ActionNode
-- [ ] **Tests d'Intégration** : Validation complète du pipeline étendu
-
-### 8.8 Exemple d'Implémentation - UniversalActionNode
-
-#### Code de Démonstration Implémenté
-
-Pour illustrer concrètement l'utilisation du trait ActionNode, un **UniversalActionNode** a été implémenté en tant que référence :
-
-```rust
-/// Example DisplayActionNode implementation
-pub struct UniversalActionNode {
+pub struct PeakFinderNode {
+    /// Unique identifier for this node - CRITIQUE pour le support multi-instances
     id: String,
-    history_buffer: CircularBuffer<ActionHistoryEntry>,
-    monitored_nodes: Vec<String>,
-    shared_computing_state: Option<SharedComputingState>,
-    concentration_threshold: Option<f64>,
-    amplitude_threshold: Option<f32>,
-    display_update_interval_ms: u64,
-    // Performance statistics
+    
+    /// Shared state for communicating results to other nodes
+    shared_state: SharedComputingState,
+    
+    /// FFT configuration and buffers
+    fft_buffer: Vec<Complex<f32>>,
+    fft_size: usize,
+    sample_rate: u32,
+    
+    /// Detection parameters
+    frequency_range: (f32, f32),  // Bande de recherche
+    detection_threshold: f32,
+    smoothing_factor: f32,
+    
+    /// Performance monitoring
     processing_count: u64,
-    actions_triggered: u64,
-    last_update_time: Option<SystemTime>,
+    last_detection_time: Option<SystemTime>,
 }
 
-impl ActionNode for UniversalActionNode {
-    fn update_from_computing_data(&mut self, computing_data: &ComputingSharedData) -> Result<()> {
-        // Update history buffer with data from monitored nodes
-        for node_id in &self.monitored_nodes.clone() {
-            if let Some(entry) = self.create_history_entry(computing_data, node_id) {
-                self.history_buffer.push(entry);
+impl ProcessingNode for PeakFinderNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Analyse spectrale sur les données
+        if let Some(peak_info) = self.analyze_spectrum(&input)? {
+            // Création du résultat avec ID unique
+            let peak_result = PeakResult {
+                frequency: peak_info.frequency,
+                amplitude: peak_info.amplitude,
+                concentration_ppm: None,
+                timestamp: SystemTime::now(),
+            };
+            
+            // Mise à jour de l'état partagé avec clé unique
+            if let Ok(mut state) = self.shared_state.try_write() {
+                state.update_peak_result(self.id.clone(), peak_result);
             }
         }
         
-        // Check for trigger conditions using helper trait
-        let triggers = self.check_common_thresholds(
-            computing_data,
-            self.concentration_threshold,
-            self.amplitude_threshold,
-        );
-        
-        // Process triggers
-        for trigger in triggers {
-            let _ = self.trigger_action(trigger);
-        }
-        
-        Ok(())
+        // Transmission des données inchangées
+        Ok(input)
     }
     
-    fn trigger_action(&mut self, trigger: ActionTrigger) -> Result<bool> {
-        match trigger {
-            ActionTrigger::ConcentrationThreshold { value, threshold, source_node_id } => {
-                if value > threshold {
-                    self.flash_display(&format!(
-                        "Concentration threshold exceeded: {:.2} ppm > {:.2} ppm (from {})",
-                        value, threshold, source_node_id
-                    ))?;
-                    Ok(true)
+    fn node_type(&self) -> &str { "computing_peak_finder" }
+}
+```
+
+**Nouveautés Multi-Instances :**
+- **ID Obligatoire** : Chaque instance doit avoir un `id` unique lors de l'instanciation
+- **Stockage Cloisonné** : Chaque nœud stocke ses résultats indépendamment
+- **Configuration Individuelle** : Chaque instance peut avoir des paramètres différents
+  - Bandes de fréquence distinctes (ex: 800-1200 Hz vs 1500-2000 Hz)
+  - Seuils de détection adaptés à chaque signal
+  - Facteurs de lissage optimisés par usage
+
+#### Fonctionnalités étendues
+- **Analyse spectrale FFT** : Détection automatique de la fréquence de résonance par instance
+- **Algorithme de détection de pics** : Recherche du maximum local dans la bande configurée
+- **Filtrage adaptatif** : Élimination des pics parasites par analyse de cohérence temporelle
+- **Suivi temporel indépendant** : Moyenne glissante et historique par nœud
+- **Validation croisée** : Possibilité de comparer les résultats entre instances
+
+### 4.2 ConcentrationNode (ComputingNode spécialisé) - IMPLÉMENTATION COMPLÈTE
+
+#### Architecture Multi-Instances avec Polynômes Individuels
+
+**🎯 Objectifs Atteints :**
+- ✅ **Instances Multiples** : Chaque ConcentrationNode a son propre ID unique
+- ✅ **Polynômes Configurables** : Coefficients individuels par instance
+- ✅ **Liaison Sélective** : Paramètre `computing_peak_finder_id` pour source spécifique
+- ✅ **Hot-Reload** : Reconfiguration dynamique des polynômes sans redémarrage
+
+#### Structure complète implémentée
+```rust
+pub struct ConcentrationNode {
+    /// Unique identifier for this node
+    id: String,
+
+    /// ID of the PeakFinderNode to use as data source
+    /// If None, uses the most recent peak data available
+    computing_peak_finder_id: Option<String>,
+
+    /// Polynomial coefficients for concentration calculation [a₀, a₁, a₂, a₃, a₄]
+    /// Concentration(ppm) = a₀ + a₁·A + a₂·A² + a₃·A³ + a₄·A⁴
+    /// where A is the normalized peak amplitude
+    polynomial_coefficients: [f64; 5],
+
+    /// Enable temperature compensation for improved accuracy
+    temperature_compensation: bool,
+
+    /// Optional identifier for the spectral line being analyzed
+    spectral_line_id: Option<String>,
+
+    /// Minimum amplitude threshold for valid concentration calculation
+    min_amplitude_threshold: f32,
+
+    /// Maximum concentration limit for safety/validation
+    max_concentration_ppm: f32,
+
+    /// Shared state for communicating results to other nodes
+    shared_state: Arc<RwLock<ComputingSharedData>>,
+
+    /// Statistics for monitoring performance
+    processing_count: u64,
+    calculation_count: u64,
+    last_calculation_time: Option<SystemTime>,
+}
+
+impl ProcessingNode for ConcentrationNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Lecture sélective depuis l'état partagé basée sur computing_peak_finder_id
+        let peak_result = match self.shared_state.try_read() {
+            Ok(state) => {
+                if let Some(source_id) = &self.computing_peak_finder_id {
+                    // Lecture depuis un PeakFinder spécifique
+                    state.get_peak_result(source_id).cloned()
                 } else {
-                    Ok(false)
+                    // Lecture du résultat le plus récent (comportement automatique)
+                    state.get_latest_peak_result().cloned()
                 }
             }
-            // ... autres types de triggers
-        }
-    }
-}
-```
+            Err(_) => None
+        };
 
-#### Caractéristiques de l'Exemple
-
-**✅ Pass-through Processing**
-```rust
-impl ProcessingNode for UniversalActionNode {
-    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
-        // Update from computing data if available
-        if let Some(shared_state) = &self.shared_computing_state {
-            if let Ok(computing_data) = shared_state.try_read() {
-                let _ = self.update_from_computing_data(&computing_data);
+        // Calcul de concentration si données disponibles
+        if let Some(peak_data) = peak_result {
+            if peak_data.amplitude >= self.min_amplitude_threshold {
+                let concentration = self.calculate_concentration(peak_data.amplitude);
+                self.update_shared_state(&peak_data, concentration);
             }
         }
-        
-        // Return input unchanged (pass-through behavior)
+
+        // Transmission des données inchangées (pass-through)
         Ok(input)
     }
 }
 ```
 
-**✅ Configuration Hot-Reload**
-```rust
-fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
-    let mut updated = false;
-    
-    if let Some(threshold) = parameters.get("concentration_threshold") {
-        self.concentration_threshold = Some(threshold.as_f64().unwrap());
-        updated = true;
-    }
-    
-    if let Some(nodes) = parameters.get("monitored_nodes").as_array() {
-        self.monitored_nodes = nodes.iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect();
-        updated = true;
-    }
-    
-    Ok(updated)
-}
+#### Calcul Polynomial Avancé - Équation Physique
+
+**Modèle Physique Implémenté** : Relation amplitude-concentration selon la loi de Beer-Lambert modifiée pour la photoacoustique
+
+```mathematica
+C(ppm) = a₀ + a₁·A + a₂·A² + a₃·A³ + a₄·A⁴
 ```
 
-**✅ Tests Unitaires Inclus**
-- Test de création et configuration
-- Test de gestion des nœuds monitorés  
-- Test des triggers et seuils
-- Test de gestion du buffer circulaire
+**Où** :
+- `A` = amplitude normalisée du pic détecté (0.0 à 1.0)
+- `C` = concentration en parties par million (ppm)
+- `[a₀, a₁, a₂, a₃, a₄]` = coefficients du polynôme de 4ème degré
 
-#### Utilisation Pratique
+**Caractéristiques d'Implémentation** :
+- **Validation d'Amplitude** : Seuil minimum configurable (`min_amplitude_threshold`)
+- **Limitation de Sécurité** : Concentration maximale configurable (`max_concentration_ppm`)
+- **Précision Numérique** : Calculs en double précision (f64) avec conversion finale f32
+- **Compensation Thermique** : Support optionnel pour correction de température
 
-```rust
-// Création avec configuration fluent API
-let display_node = UniversalActionNode::new("main_display".to_string())
-    .with_concentration_threshold(1000.0)  // Seuil 1000 ppm
-    .with_amplitude_threshold(0.8)         // Seuil 80% amplitude
-    .with_monitored_node("co2_peak_finder".to_string())
-    .with_monitored_node("co2_concentration".to_string())
-    .with_update_interval(1000);           // Mise à jour toutes les secondes
+#### Avantages Multi-Instances - Cas d'Usage Validés
 
-// Ajout au graphe de traitement
-processing_graph.add_node(Box::new(display_node))?;
-```
-
-**Status et Monitoring API**
-```json
-{
-  "node_id": "main_display",
-  "buffer_utilization": {
-    "current_size": 45,
-    "capacity": 100,
-    "utilization_percent": 45.0
-  },
-  "monitoring": {
-    "monitored_nodes": ["co2_peak_finder", "co2_concentration"],
-    "node_count": 2
-  },
-  "performance": {
-    "processing_count": 12847,
-    "actions_triggered": 23,
-    "last_update": 1704123456
-  }
-}
-```
-
----
-
-## 4. Architecture des ActionNode - UniversalActionNode avec Drivers Pluggables
-
-### 4.1 Implémentation Complète du Pattern ActionNode
-
-L'architecture a évolué vers un système à 3 couches parfaitement intégré :
-
-```text
-Couche 1: Signal Processing    │ Couche 2: Analytics         │ Couche 3: Actions
-─────────────────────────────  │ ─────────────────────────── │ ────────────────────────
-• FilterNode                   │ • PeakFinderNode            │ • UniversalActionNode
-• GainNode                     │ • ConcentrationNode         │   ├─ HttpsCallbackActionDriver
-• DifferentialNode            │ • ComputingSharedData       │   ├─ RedisActionDriver  
-• RecorderNode                │                             │   └─ KafkaActionDriver
-```
-
-#### 4.1.1 UniversalActionNode - Architecture Multi-Drivers
-
-**🎯 Objectifs Atteints :**
-- ✅ **Pattern Pluggable** : Drivers interchangeables via trait ActionDriver
-- ✅ **Thread-based Processing** : Traitement asynchrone avec channels mpsc
-- ✅ **Configuration YAML** : Instantiation automatique des drivers depuis la config
-- ✅ **Monitoring Intégré** : Buffer circulaire et suivi des performances
-- ✅ **Threshold Management** : Triggers configurables pour alertes automatiques
-
-#### Structure UniversalActionNode
-```rust
-#[derive(Debug)]
-pub struct UniversalActionNode {
-    /// Channel sender pour communication avec le thread de traitement display
-    display_sender: Option<mpsc::Sender<DisplayMessage>>,
-    /// Handle vers le thread de traitement display
-    display_thread_handle: Option<thread::JoinHandle<()>>,
-    /// Identifiant unique pour ce nœud d'action
-    id: String,
-    /// Buffer circulaire pour l'historique des données
-    history_buffer: CircularBuffer<ActionHistoryEntry>,
-    /// Liste des nœuds computing à surveiller
-    monitored_nodes: Vec<String>,
-    /// État partagé pour lecture des résultats analytiques
-    shared_computing_state: Option<SharedComputingState>,
-    /// Seuils configurables pour déclenchement d'alertes
-    concentration_threshold: Option<f64>,
-    amplitude_threshold: Option<f32>,
-    /// Configuration spécifique hardware/service
-    display_update_interval_ms: u64,
-    /// Statistiques de performance
-    processing_count: u64,
-    actions_triggered: u64,
-    last_update_time: Option<SystemTime>,
-    last_display_update: Option<SystemTime>,
-}
-```
-
-### 4.2 Drivers d'Action Implémentés
-
-#### 4.2.1 HttpsCallbackActionDriver - COMPLET ✅
-
-**Cas d'Usage** : Dashboards web, intégration cloud, webhooks
-```rust
-pub struct HttpsCallbackActionDriver {
-    url: String,
-    auth_token: Option<String>,
-    client: reqwest::Client,
-    retry_count: u32,
-    timeout_seconds: u64,
-    headers: HashMap<String, String>,
-    connection_status: String,
-}
-```
-
-**Fonctionnalités Clés** :
-- ✅ **Authentification** : Support Bearer tokens avec détection automatique du préfixe
-- ✅ **Retry Logic** : Retry automatique avec exponential backoff
-- ✅ **Headers Personnalisés** : Support complet des en-têtes HTTP
-- ✅ **Status Monitoring** : Suivi de l'état de connexion en temps réel
-- ✅ **SSL/TLS** : Support HTTPS avec validation optionnelle des certificats
-
-**Configuration YAML** :
-```yaml
-driver:
-  type: "https_callback"
-  config:
-    callback_url: "https://localhost:8080/api/test/web_dashboard_action"
-    auth_token: "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-    timeout_ms: 2000
-    retry_count: 1
-    verify_ssl: false
-```
-
-#### 4.2.2 RedisActionDriver - COMPLET ✅
-
-**Cas d'Usage** : Streaming temps réel, mise en cache, dashboards live
-```rust
-pub struct RedisActionDriver {
-    url: String,
-    channel_or_prefix: String,
-    mode: RedisDriverMode,  // PubSub ou KeyValue
-    client: Option<Client>,
-    connection: Option<MultiplexedConnection>,
-    expiration_seconds: Option<u64>,
-    connection_status: String,
-}
-```
-
-**Modes Opérationnels** :
-- ✅ **PubSub Mode** : Publication sur channels Redis pour notifications temps réel
-- ✅ **KeyValue Mode** : Stockage avec clés horodatées et expiration configurable
-- ✅ **Latest Keys** : Clés "latest" pour accès rapide aux dernières valeurs
-- ✅ **Connection Pooling** : Connexions multiplexées pour performance optimale
-
-**Configuration YAML** :
-```yaml
-driver:
-  type: "redis"
-  config:
-    url: "redis://localhost:6379"
-    channel: "photoacoustic:display"
-    mode: "pubsub"  # ou "keyvalue"
-    expiration_seconds: 3600
-```
-
-#### 4.2.3 KafkaActionDriver - COMPLET ✅
-
-**Cas d'Usage** : Event streaming, architectures microservices, data pipelines
-```rust
-pub struct KafkaActionDriver {
-    brokers: String,
-    display_topic: String,
-    alert_topic: String,
-    producer: Option<FutureProducer>,
-    client_id: String,
-    timeout_ms: u64,
-    connection_status: String,
-}
-```
-
-**Fonctionnalités Avancées** :
-- ✅ **Multi-Topics** : Topics séparés pour display updates et alertes
-- ✅ **Message Keys** : Partitioning intelligent basé sur source_node_id
-- ✅ **Producer Pooling** : FutureProducer pour performance asynchrone optimale
-- ✅ **Timeout Management** : Gestion configurable des timeouts par message
-- ✅ **UUID Client IDs** : Identification unique automatique des clients
-
-**Configuration YAML** :
-```yaml
-driver:
-  type: "kafka"
-  config:
-    brokers: "localhost:9092"
-    display_topic: "photoacoustic-display"
-    alert_topic: "photoacoustic-alerts"
-    timeout_ms: 5000
-```
-
-### 4.3 Architecture Thread-based pour Compatibilité Sync/Async
-
-#### 4.3.1 Problème Résolu
-
-**Défi Initial** : Intégrer des drivers asynchrones (HTTP, Redis, Kafka) dans une architecture ProcessingNode synchrone sans utiliser de wrappers bloquants (`tokio::block_on`).
-
-**Solution Implémentée** : Thread interne avec communication par channels
-```rust
-enum DisplayMessage {
-    Update(DisplayData),
-    Alert(AlertData),
-    Shutdown,
-}
-
-impl UniversalActionNode {
-    pub fn with_driver(mut self, mut driver: Box<dyn ActionDriver>) -> Self {
-        let (sender, receiver) = mpsc::channel::<DisplayMessage>();
-        
-        let handle = thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            
-            // Initialisation du driver
-            rt.block_on(driver.initialize()).unwrap();
-            
-            // Boucle de traitement des messages
-            while let Ok(message) = receiver.recv() {
-                match message {
-                    DisplayMessage::Update(data) => {
-                        rt.block_on(driver.update_display(&data));
-                    }
-                    DisplayMessage::Alert(alert) => {
-                        rt.block_on(driver.show_alert(&alert));
-                    }
-                    DisplayMessage::Shutdown => break,
-                }
-            }
-        });
-        
-        self.display_sender = Some(sender);
-        self.display_thread_handle = Some(handle);
-        self
-    }
-}
-```
-
-#### 4.3.2 Avantages de l'Architecture
-
-**✅ Séparation Parfaite** :
-- Thread principal synchrone pour ProcessingNode
-- Thread dédié asynchrone pour drivers
-- Communication non-bloquante via channels
-
-**✅ Performance Optimisée** :
-- Pas de blocage du pipeline principal
-- Traitement parallèle des opérations display
-- Gestion automatique de la charge asynchrone
-
-**✅ Résilience** :
-- Isolation des erreurs driver dans le thread dédié
-- Pipeline principal protégé des failures externes
-- Logging centralisé des erreurs de communication
-
-### 4.4 Configuration YAML et Instantiation Automatique
-
-#### 4.4.1 Parser de Configuration Avancé
-
-Le système supporte l'instantiation automatique des drivers depuis la configuration YAML :
-
-```rust
-// Dans graph.rs
-match driver_type {
-    "https_callback" => {
-        let url = driver_config_obj.get("callback_url")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing callback_url"))?;
-        
-        let mut http_driver = HttpsCallbackActionDriver::new(url);
-        
-        if let Some(auth_token) = driver_config_obj.get("auth_token")
-            .and_then(|v| v.as_str()) {
-            http_driver = http_driver.with_auth_token(auth_token);
-        }
-        
-        Box::new(http_driver)
-    }
-    "redis" => {
-        let url = driver_config_obj.get("url")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing Redis URL"))?;
-        
-        let channel = driver_config_obj.get("channel")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing Redis channel"))?;
-        
-        Box::new(RedisActionDriver::new_pubsub(url, channel))
-    }
-    "kafka" => {
-        let brokers = driver_config_obj.get("brokers")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing Kafka brokers"))?;
-        
-        let display_topic = driver_config_obj.get("display_topic")
-            .and_then(|v| v.as_str())
-            .unwrap_or("photoacoustic-display");
-        
-        let alert_topic = driver_config_obj.get("alert_topic")
-            .and_then(|v| v.as_str())
-            .unwrap_or("photoacoustic-alerts");
-        
-        Box::new(KafkaActionDriver::new(brokers, display_topic, alert_topic))
-    }
-}
-```
-
-#### 4.4.2 Exemple de Configuration Complète
-
+**🔬 1. Test de Nouveaux Polynômes**
 ```yaml
 processing:
   nodes:
-    # ActionNode avec driver HTTP
-    - id: "web_dashboard_action"
-      node_type: "action_universal_display"
+    # Polynôme de référence (actuellement utilisé)
+    - id: "concentration_reference"
+      node_type: "computing_concentration"
       parameters:
-        buffer_capacity: 300
-        monitored_nodes:
-          - "concentration_calculator"
-        concentration_threshold: 1000.0
-        amplitude_threshold: 70
-        update_interval_ms: 10000
-        driver:
-          type: "https_callback"
-          config:
-            callback_url: "https://localhost:8080/api/test/web_dashboard_action"
-            auth_token: "Bearer eyJ0eXAiOiJKV1Q..."
-            timeout_ms: 2000
-            retry_count: 1
-            verify_ssl: false
+        computing_peak_finder_id: "primary_peak_finder"
+        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
+        spectral_line_id: "reference_polynomial_v2.1"
+        temperature_compensation: true
 
-    # ActionNode avec driver Redis
-    - id: "redis_stream_display"
-      node_type: "action_universal_display"
+    # Nouveau polynôme en test (parallèle)
+    - id: "concentration_test"
+      node_type: "computing_concentration"
       parameters:
-        buffer_capacity: 100
-        monitored_nodes:
-          - "concentration_calculator"
-        driver:
-          type: "redis"
-          config:
-            url: "redis://localhost:6379"
-            channel: "photoacoustic:display"
-            mode: "pubsub"
-            expiration_seconds: 3600
-
-    # ActionNode avec driver Kafka
-    - id: "kafka_events_display"
-      node_type: "action_universal_display"
-      parameters:
-        buffer_capacity: 200
-        monitored_nodes:
-          - "concentration_calculator"
-        driver:
-          type: "kafka"
-          config:
-            brokers: "localhost:9092"
-            display_topic: "photoacoustic-display"
-            alert_topic: "photoacoustic-alerts"
-            timeout_ms: 5000
+        computing_peak_finder_id: "primary_peak_finder"  # Même source
+        polynomial_coefficients: [0.1, 0.52, -0.0025, 0.00015, -0.000001]
+        spectral_line_id: "experimental_polynomial_v3.0"
+        temperature_compensation: true
+        min_amplitude_threshold: 0.002  # Plus restrictif pour tests
 ```
 
-### 4.5 Extraction des Données Temps Réel depuis ComputingSharedData
+**Avantages** :
+- **Comparaison Temps Réel** : Deux calculs simultanés sur les mêmes données
+- **Validation Progressive** : Test de nouveaux modèles sans arrêter la production
+- **Analyse de Performance** : Métriques comparatives automatiques
 
-#### 4.5.1 Intégration avec les Données de Concentration et Peak
+**🎯 2. Calculs Multi-Raies Spectrales**
+```yaml
+processing:
+  nodes:
+    # Raie principale du méthane (2ν₃ à ~2100 cm⁻¹)
+    - id: "concentration_main_line"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "main_line_detector"
+        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
+        spectral_line_id: "CH4_2v3_main"
 
-L'UniversalActionNode récupère maintenant les vraies valeurs `peak_amplitude` et `peak_frequency` depuis les données partagées au lieu de les hardcoder à 0.0 :
+    # Raie secondaire pour validation croisée (ν₄ à ~1300 cm⁻¹)
+    - id: "concentration_secondary_line"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "secondary_line_detector"
+        polynomial_coefficients: [0.05, 0.38, -0.0018, 0.00008, 0.0]
+        spectral_line_id: "CH4_v4_secondary"
+        temperature_compensation: false  # Différente configuration
+```
 
+**Applications Métrologiques** :
+- **Redondance Spectrale** : Mesure sur plusieurs raies pour fiabilité
+- **Validation Croisée** : Cohérence entre différentes transitions moléculaires
+- **Compensation d'Interférences** : Correction des interférences spectrales
+
+**⚡ 3. Positionnement dans le Pipeline - Flexibilité Architecturale**
+
+**Configuration Avant Filtrage** (Recommandée pour analyse large bande) :
+```yaml
+connections:
+- from: differential_detection
+  to: concentration_early      # AVANT le filtrage
+- from: concentration_early
+  to: bandpass_filter
+```
+
+**Configuration Après Filtrage** (Optimisée pour SNR) :
+```yaml
+connections:
+- from: bandpass_filter
+  to: concentration_late       # APRÈS le filtrage
+- from: concentration_late
+  to: gain_amplifier
+```
+
+**Impacts Techniques Analysés** :
+
+| Position | Avantages | Inconvénients | Cas d'Usage |
+|----------|-----------|---------------|-------------|
+| **Avant Filtrage** | • Analyse large bande<br>• Détection multi-harmoniques<br>• Moins de distorsion | • Plus de bruit<br>• Calculs sur signal brut | • Test de nouveaux polynômes<br>• Analyse exploratoire |
+| **Après Filtrage** | • Meilleur SNR<br>• Signal optimisé<br>• Précision maximale | • Bande limitée<br>• Dépendant du filtre | • Production<br>• Mesures de précision |
+
+#### Configuration Hot-Reload - Paramètres Supportés
+
+**Paramètres Reconfigurables en Temps Réel** :
+```json
+{
+  "polynomial_coefficients": [0.1, 0.52, -0.0025, 0.00015, -0.000001],
+  "min_amplitude_threshold": 0.002,
+  "max_concentration_ppm": 8000.0,
+  "computing_peak_finder_id": "backup_peak_finder"
+}
+```
+
+**Tests de Validation Hot-Reload** :
+- ✅ **Polynômes** : Coefficients modifiables sans interruption
+- ✅ **Seuils** : Ajustement dynamique des limites
+- ✅ **Source** : Basculement entre PeakFinderNode
+- ✅ **Paramètres Sécurité** : Limites min/max en temps réel
+
+### 3.3 DynamicFilterNode (ProcessingNode enrichi) - Support Multi-Fréquences
+
+#### Adaptation basée sur l'état partagé multi-sources
 ```rust
-impl UniversalActionNode {
-    fn update_display_safely(&mut self, concentration: f64, source_node: &str) -> Result<()> {
-        // Récupération des valeurs réelles depuis l'état partagé
-        let (peak_amplitude, peak_frequency) = if let Some(shared_state) = self.shared_computing_state.clone() {
-            if let Ok(computing_data) = shared_state.try_read() {
-                (
-                    computing_data.peak_amplitude.unwrap_or(0.0),
-                    computing_data.peak_frequency.unwrap_or(0.0),
-                )
-            } else {
-                (0.0, 0.0) // Fallback si l'état est verrouillé
+pub struct DynamicFilterNode {
+    id: String,
+    base_filter: Box<dyn Filter>,
+    fusion_mode: FrequencyFusionMode,
+    shared_state: Arc<RwLock<ComputingSharedData>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum FrequencyFusionMode {
+    /// Utilise la fréquence du PeakFinder le plus récent
+    MostRecent,
+    /// Utilise la fréquence avec la plus forte amplitude
+    HighestAmplitude,
+    /// Moyenne pondée par amplitude
+    WeightedAverage,
+    /// Utilise une fréquence spécifique par node_id
+    SelectiveBinding(String),
+}
+
+impl ProcessingNode for DynamicFilterNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Lecture de l'état partagé pour obtenir les fréquences détectées
+        if let Ok(state) = self.shared_state.try_read() {
+            if let Some(target_frequency) = self.calculate_target_frequency(&state)? {
+                // Adapter la fréquence centrale du filtre
+                self.base_filter.set_center_frequency(target_frequency)?;
             }
-        } else {
-            (0.0, 0.0) // Fallback si pas d'état partagé
-        };
+        }
+        
+        // Appliquer le filtrage avec la fréquence adaptée
+        self.base_filter.process(input)
+    }
+    
+    fn node_type(&self) -> &str { "dynamic_filter" }
+    fn node_id(&self) -> &str { &self.id }
+}
 
-        // Création du payload avec les vraies données
-        let display_data = DisplayData {
-            concentration_ppm: concentration,
-            source_node_id: source_node.to_string(),
-            peak_amplitude,
-            peak_frequency,
-            timestamp: SystemTime::now(),
-            metadata: HashMap::new(),
-        };
-
-        self.send_display_update(display_data);
-        Ok(())
+impl DynamicFilterNode {
+    fn calculate_target_frequency(&self, state: &ComputingSharedData) -> Result<Option<f32>> {
+        match self.fusion_mode {
+            FrequencyFusionMode::MostRecent => {
+                Ok(state.get_latest_peak_result().map(|r| r.frequency))
+            }
+            FrequencyFusionMode::HighestAmplitude => {
+                let best_peak = state.peak_results
+                    .values()
+                    .max_by(|a, b| a.amplitude.partial_cmp(&b.amplitude).unwrap());
+                Ok(best_peak.map(|r| r.frequency))
+            }
+            FrequencyFusionMode::WeightedAverage => {
+                self.calculate_weighted_average_frequency(state)
+            }
+            FrequencyFusionMode::SelectiveBinding(ref node_id) => {
+                Ok(state.get_peak_result(node_id).map(|r| r.frequency))
+            }
+        }
+    }
+    
+    fn calculate_weighted_average_frequency(&self, state: &ComputingSharedData) -> Result<Option<f32>> {
+        let recent_results: Vec<_> = state.peak_results
+            .values()
+            .filter(|result| {
+                result.timestamp.elapsed().unwrap_or_default().as_secs() < 30
+            })
+            .collect();
+            
+        if recent_results.is_empty() {
+            return Ok(None);
+        }
+        
+        let total_weight: f32 = recent_results.iter().map(|r| r.amplitude).sum();
+        
+        if total_weight == 0.0 {
+            return Ok(None);
+        }
+        
+        let weighted_freq = recent_results.iter()
+            .map(|r| r.frequency * r.amplitude)
+            .sum::<f32>() / total_weight;
+            
+        Ok(Some(weighted_freq))
     }
 }
 ```
 
-#### 4.5.2 Validation Temps Réel - Données Complètes
+**Évolutions Multi-Fréquences** :
+- **Stratégies de Fusion** : Plusieurs modes pour combiner les fréquences multiples
+- **Adaptation Intelligente** : Choix automatique de la meilleure fréquence de référence
+- **Pondération par Amplitude** : Priorité aux signaux les plus forts
+- **Validation Temporelle** : Utilise uniquement les données récentes et valides
 
-Les logs montrent maintenant des données complètes au lieu de valeurs nulles :
+---
 
-**Avant** (valeurs hardcodées) :
+## 4. Implémentations Proposées
+
+### 4.1 PeakFinderNode (ComputingNode spécialisé) - Support Multi-Instances
+
+#### Structure et fonctionnalités
+```rust
+pub struct PeakFinderNode {
+    /// Unique identifier for this node - CRITIQUE pour le support multi-instances
+    id: String,
+    
+    /// Shared state for communicating results to other nodes
+    shared_state: SharedComputingState,
+    
+    /// FFT configuration and buffers
+    fft_buffer: Vec<Complex<f32>>,
+    fft_size: usize,
+    sample_rate: u32,
+    
+    /// Detection parameters
+    frequency_range: (f32, f32),  // Bande de recherche
+    detection_threshold: f32,
+    smoothing_factor: f32,
+    
+    /// Performance monitoring
+    processing_count: u64,
+    last_detection_time: Option<SystemTime>,
+}
+
+impl ProcessingNode for PeakFinderNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Analyse spectrale sur les données
+        if let Some(peak_info) = self.analyze_spectrum(&input)? {
+            // Création du résultat avec ID unique
+            let peak_result = PeakResult {
+                frequency: peak_info.frequency,
+                amplitude: peak_info.amplitude,
+                concentration_ppm: None,
+                timestamp: SystemTime::now(),
+            };
+            
+            // Mise à jour de l'état partagé avec clé unique
+            if let Ok(mut state) = self.shared_state.try_write() {
+                state.update_peak_result(self.id.clone(), peak_result);
+            }
+        }
+        
+        // Transmission des données inchangées
+        Ok(input)
+    }
+    
+    fn node_type(&self) -> &str { "computing_peak_finder" }
+}
 ```
-Peak amplitude: 0.00 | Peak frequency: 0.00 Hz
+
+**Nouveautés Multi-Instances :**
+- **ID Obligatoire** : Chaque instance doit avoir un `id` unique lors de l'instanciation
+- **Stockage Cloisonné** : Chaque nœud stocke ses résultats indépendamment
+- **Configuration Individuelle** : Chaque instance peut avoir des paramètres différents
+  - Bandes de fréquence distinctes (ex: 800-1200 Hz vs 1500-2000 Hz)
+  - Seuils de détection adaptés à chaque signal
+  - Facteurs de lissage optimisés par usage
+
+#### Fonctionnalités étendues
+- **Analyse spectrale FFT** : Détection automatique de la fréquence de résonance par instance
+- **Algorithme de détection de pics** : Recherche du maximum local dans la bande configurée
+- **Filtrage adaptatif** : Élimination des pics parasites par analyse de cohérence temporelle
+- **Suivi temporel indépendant** : Moyenne glissante et historique par nœud
+- **Validation croisée** : Possibilité de comparer les résultats entre instances
+
+### 4.2 ConcentrationNode (ComputingNode spécialisé) - IMPLÉMENTATION COMPLÈTE
+
+#### Architecture Multi-Instances avec Polynômes Individuels
+
+**🎯 Objectifs Atteints :**
+- ✅ **Instances Multiples** : Chaque ConcentrationNode a son propre ID unique
+- ✅ **Polynômes Configurables** : Coefficients individuels par instance
+- ✅ **Liaison Sélective** : Paramètre `computing_peak_finder_id` pour source spécifique
+- ✅ **Hot-Reload** : Reconfiguration dynamique des polynômes sans redémarrage
+
+#### Structure complète implémentée
+```rust
+pub struct ConcentrationNode {
+    /// Unique identifier for this node
+    id: String,
+
+    /// ID of the PeakFinderNode to use as data source
+    /// If None, uses the most recent peak data available
+    computing_peak_finder_id: Option<String>,
+
+    /// Polynomial coefficients for concentration calculation [a₀, a₁, a₂, a₃, a₄]
+    /// Concentration(ppm) = a₀ + a₁·A + a₂·A² + a₃·A³ + a₄·A⁴
+    /// where A is the normalized peak amplitude
+    polynomial_coefficients: [f64; 5],
+
+    /// Enable temperature compensation for improved accuracy
+    temperature_compensation: bool,
+
+    /// Optional identifier for the spectral line being analyzed
+    spectral_line_id: Option<String>,
+
+    /// Minimum amplitude threshold for valid concentration calculation
+    min_amplitude_threshold: f32,
+
+    /// Maximum concentration limit for safety/validation
+    max_concentration_ppm: f32,
+
+    /// Shared state for communicating results to other nodes
+    shared_state: Arc<RwLock<ComputingSharedData>>,
+
+    /// Statistics for monitoring performance
+    processing_count: u64,
+    calculation_count: u64,
+    last_calculation_time: Option<SystemTime>,
+}
+
+impl ProcessingNode for ConcentrationNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Lecture sélective depuis l'état partagé basée sur computing_peak_finder_id
+        let peak_result = match self.shared_state.try_read() {
+            Ok(state) => {
+                if let Some(source_id) = &self.computing_peak_finder_id {
+                    // Lecture depuis un PeakFinder spécifique
+                    state.get_peak_result(source_id).cloned()
+                } else {
+                    // Lecture du résultat le plus récent (comportement automatique)
+                    state.get_latest_peak_result().cloned()
+                }
+            }
+            Err(_) => None
+        };
+
+        // Calcul de concentration si données disponibles
+        if let Some(peak_data) = peak_result {
+            if peak_data.amplitude >= self.min_amplitude_threshold {
+                let concentration = self.calculate_concentration(peak_data.amplitude);
+                self.update_shared_state(&peak_data, concentration);
+            }
+        }
+
+        // Transmission des données inchangées (pass-through)
+        Ok(input)
+    }
+}
 ```
 
-**Après** (valeurs réelles depuis ComputingSharedData) :
-```
-Peak amplitude: 0.75 | Peak frequency: 1234.56 Hz
-```
+#### Calcul Polynomial Avancé - Équation Physique
 
-Cette intégration garantit que tous les drivers (HTTP, Redis, Kafka) reçoivent et transmettent les données analytiques complètes et à jour.
+**Modèle Physique Implémenté** : Relation amplitude-concentration selon la loi de Beer-Lambert modifiée pour la photoacoustique
 
-## 5. État Final de l'Architecture (Juin 2025)
-
-### 5.1 Architecture Trois Couches Complète
-
-L'architecture du système photoacoustique est maintenant structurée en **trois couches distinctes et modulaires** :
-
-```
-┌─────────────────────┬─────────────────────┬─────────────────────┐
-│   SIGNAL LAYER      │   ANALYTICS LAYER   │   ACTION LAYER      │
-├─────────────────────┼─────────────────────┼─────────────────────┤
-│ • FilterNode        │ • PeakFinderNode    │ • UniversalActionNode│
-│ • DifferentialNode  │ • ConcentrationNode │   ├─ HttpsCallback   │
-│ • GainNode          │ • ComputingShared   │   │   ActionDriver   │
-│ • RecorderNode      │   Data              │   ├─ RedisAction     │
-│ • NoiseGenerator    │                     │   │   Driver         │
-│                     │                     │   └─ KafkaAction    │
-│                     │                     │       Driver        │
-└─────────────────────┴─────────────────────┴─────────────────────┘
+```mathematica
+C(ppm) = a₀ + a₁·A + a₂·A² + a₃·A³ + a₄·A⁴
 ```
 
-### 5.2 Nomenclature Finale et Cohérente
+**Où** :
+- `A` = amplitude normalisée du pic détecté (0.0 à 1.0)
+- `C` = concentration en parties par million (ppm)
+- `[a₀, a₁, a₂, a₃, a₄]` = coefficients du polynôme de 4ème degré
 
-**Nœuds Principaux** :
-- `UniversalActionNode` : Nœud d'action universel avec drivers pluggables
-- `PeakFinderNode` : Détection de pics spectraux multi-instances
-- `ConcentrationNode` : Calcul de concentration par polynômes
+**Caractéristiques d'Implémentation** :
+- **Validation d'Amplitude** : Seuil minimum configurable (`min_amplitude_threshold`)
+- **Limitation de Sécurité** : Concentration maximale configurable (`max_concentration_ppm`)
+- **Précision Numérique** : Calculs en double précision (f64) avec conversion finale f32
+- **Compensation Thermique** : Support optionnel pour correction de température
 
-**Drivers d'Action** :
-- `HttpsCallbackActionDriver` : Callbacks HTTP/HTTPS pour intégration web
-- `RedisActionDriver` : Pub/sub Redis pour streaming temps réel
-- `KafkaActionDriver` : Event streaming pour architectures distribuées
+#### Avantages Multi-Instances - Cas d'Usage Validés
 
-**Traits et Architecture** :
-- `ActionDriver` : Trait principal pour tous les drivers d'action
-- `ActionNode` : Trait étendant ProcessingNode pour nœuds d'action
-- `ComputingSharedData` : État partagé pour données analytiques
+**🔬 1. Test de Nouveaux Polynômes**
+```yaml
+processing:
+  nodes:
+    # Polynôme de référence (actuellement utilisé)
+    - id: "concentration_reference"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "primary_peak_finder"
+        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
+        spectral_line_id: "reference_polynomial_v2.1"
+        temperature_compensation: true
 
-### 5.3 Fonctionnalités Opérationnelles
+    # Nouveau polynôme en test (parallèle)
+    - id: "concentration_test"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "primary_peak_finder"  # Même source
+        polynomial_coefficients: [0.1, 0.52, -0.0025, 0.00015, -0.000001]
+        spectral_line_id: "experimental_polynomial_v3.0"
+        temperature_compensation: true
+        min_amplitude_threshold: 0.002  # Plus restrictif pour tests
+```
+
+**Avantages** :
+- **Comparaison Temps Réel** : Deux calculs simultanés sur les mêmes données
+- **Validation Progressive** : Test de nouveaux modèles sans arrêter la production
+- **Analyse de Performance** : Métriques comparatives automatiques
+
+**🎯 2. Calculs Multi-Raies Spectrales**
+```yaml
+processing:
+  nodes:
+    # Raie principale du méthane (2ν₃ à ~2100 cm⁻¹)
+    - id: "concentration_main_line"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "main_line_detector"
+        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
+        spectral_line_id: "CH4_2v3_main"
+
+    # Raie secondaire pour validation croisée (ν₄ à ~1300 cm⁻¹)
+    - id: "concentration_secondary_line"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "secondary_line_detector"
+        polynomial_coefficients: [0.05, 0.38, -0.0018, 0.00008, 0.0]
+        spectral_line_id: "CH4_v4_secondary"
+        temperature_compensation: false  # Différente configuration
+```
+
+**Applications Métrologiques** :
+- **Redondance Spectrale** : Mesure sur plusieurs raies pour fiabilité
+- **Validation Croisée** : Cohérence entre différentes transitions moléculaires
+- **Compensation d'Interférences** : Correction des interférences spectrales
+
+**⚡ 3. Positionnement dans le Pipeline - Flexibilité Architecturale**
+
+**Configuration Avant Filtrage** (Recommandée pour analyse large bande) :
+```yaml
+connections:
+- from: differential_detection
+  to: concentration_early      # AVANT le filtrage
+- from: concentration_early
+  to: bandpass_filter
+```
+
+**Configuration Après Filtrage** (Optimisée pour SNR) :
+```yaml
+connections:
+- from: bandpass_filter
+  to: concentration_late       # APRÈS le filtrage
+- from: concentration_late
+  to: gain_amplifier
+```
+
+**Impacts Techniques Analysés** :
+
+| Position | Avantages | Inconvénients | Cas d'Usage |
+|----------|-----------|---------------|-------------|
+| **Avant Filtrage** | • Analyse large bande<br>• Détection multi-harmoniques<br>• Moins de distorsion | • Plus de bruit<br>• Calculs sur signal brut | • Test de nouveaux polynômes<br>• Analyse exploratoire |
+| **Après Filtrage** | • Meilleur SNR<br>• Signal optimisé<br>• Précision maximale | • Bande limitée<br>• Dépendant du filtre | • Production<br>• Mesures de précision |
+
+#### Configuration Hot-Reload - Paramètres Supportés
+
+**Paramètres Reconfigurables en Temps Réel** :
+```json
+{
+  "polynomial_coefficients": [0.1, 0.52, -0.0025, 0.00015, -0.000001],
+  "min_amplitude_threshold": 0.002,
+  "max_concentration_ppm": 8000.0,
+  "computing_peak_finder_id": "backup_peak_finder"
+}
+```
+
+**Tests de Validation Hot-Reload** :
+- ✅ **Polynômes** : Coefficients modifiables sans interruption
+- ✅ **Seuils** : Ajustement dynamique des limites
+- ✅ **Source** : Basculement entre PeakFinderNode
+- ✅ **Paramètres Sécurité** : Limites min/max en temps réel
+
+### 3.3 DynamicFilterNode (ProcessingNode enrichi) - Support Multi-Fréquences
+
+#### Adaptation basée sur l'état partagé multi-sources
+```rust
+pub struct DynamicFilterNode {
+    id: String,
+    base_filter: Box<dyn Filter>,
+    fusion_mode: FrequencyFusionMode,
+    shared_state: Arc<RwLock<ComputingSharedData>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum FrequencyFusionMode {
+    /// Utilise la fréquence du PeakFinder le plus récent
+    MostRecent,
+    /// Utilise la fréquence avec la plus forte amplitude
+    HighestAmplitude,
+    /// Moyenne pondée par amplitude
+    WeightedAverage,
+    /// Utilise une fréquence spécifique par node_id
+    SelectiveBinding(String),
+}
+
+impl ProcessingNode for DynamicFilterNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Lecture de l'état partagé pour obtenir les fréquences détectées
+        if let Ok(state) = self.shared_state.try_read() {
+            if let Some(target_frequency) = self.calculate_target_frequency(&state)? {
+                // Adapter la fréquence centrale du filtre
+                self.base_filter.set_center_frequency(target_frequency)?;
+            }
+        }
+        
+        // Appliquer le filtrage avec la fréquence adaptée
+        self.base_filter.process(input)
+    }
+    
+    fn node_type(&self) -> &str { "dynamic_filter" }
+    fn node_id(&self) -> &str { &self.id }
+}
+
+impl DynamicFilterNode {
+    fn calculate_target_frequency(&self, state: &ComputingSharedData) -> Result<Option<f32>> {
+        match self.fusion_mode {
+            FrequencyFusionMode::MostRecent => {
+                Ok(state.get_latest_peak_result().map(|r| r.frequency))
+            }
+            FrequencyFusionMode::HighestAmplitude => {
+                let best_peak = state.peak_results
+                    .values()
+                    .max_by(|a, b| a.amplitude.partial_cmp(&b.amplitude).unwrap());
+                Ok(best_peak.map(|r| r.frequency))
+            }
+            FrequencyFusionMode::WeightedAverage => {
+                self.calculate_weighted_average_frequency(state)
+            }
+            FrequencyFusionMode::SelectiveBinding(ref node_id) => {
+                Ok(state.get_peak_result(node_id).map(|r| r.frequency))
+            }
+        }
+    }
+    
+    fn calculate_weighted_average_frequency(&self, state: &ComputingSharedData) -> Result<Option<f32>> {
+        let recent_results: Vec<_> = state.peak_results
+            .values()
+            .filter(|result| {
+                result.timestamp.elapsed().unwrap_or_default().as_secs() < 30
+            })
+            .collect();
+            
+        if recent_results.is_empty() {
+            return Ok(None);
+        }
+        
+        let total_weight: f32 = recent_results.iter().map(|r| r.amplitude).sum();
+        
+        if total_weight == 0.0 {
+            return Ok(None);
+        }
+        
+        let weighted_freq = recent_results.iter()
+            .map(|r| r.frequency * r.amplitude)
+            .sum::<f32>() / total_weight;
+            
+        Ok(Some(weighted_freq))
+    }
+}
+```
+
+**Évolutions Multi-Fréquences** :
+- **Stratégies de Fusion** : Plusieurs modes pour combiner les fréquences multiples
+- **Adaptation Intelligente** : Choix automatique de la meilleure fréquence de référence
+- **Pondération par Amplitude** : Priorité aux signaux les plus forts
+- **Validation Temporelle** : Utilise uniquement les données récentes et valides
+
+---
+
+## 4. Implémentations Proposées
+
+### 4.1 PeakFinderNode (ComputingNode spécialisé) - Support Multi-Instances
+
+#### Structure et fonctionnalités
+```rust
+pub struct PeakFinderNode {
+    /// Unique identifier for this node - CRITIQUE pour le support multi-instances
+    id: String,
+    
+    /// Shared state for communicating results to other nodes
+    shared_state: SharedComputingState,
+    
+    /// FFT configuration and buffers
+    fft_buffer: Vec<Complex<f32>>,
+    fft_size: usize,
+    sample_rate: u32,
+    
+    /// Detection parameters
+    frequency_range: (f32, f32),  // Bande de recherche
+    detection_threshold: f32,
+    smoothing_factor: f32,
+    
+    /// Performance monitoring
+    processing_count: u64,
+    last_detection_time: Option<SystemTime>,
+}
+
+impl ProcessingNode for PeakFinderNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Analyse spectrale sur les données
+        if let Some(peak_info) = self.analyze_spectrum(&input)? {
+            // Création du résultat avec ID unique
+            let peak_result = PeakResult {
+                frequency: peak_info.frequency,
+                amplitude: peak_info.amplitude,
+                concentration_ppm: None,
+                timestamp: SystemTime::now(),
+            };
+            
+            // Mise à jour de l'état partagé avec clé unique
+            if let Ok(mut state) = self.shared_state.try_write() {
+                state.update_peak_result(self.id.clone(), peak_result);
+            }
+        }
+        
+        // Transmission des données inchangées
+        Ok(input)
+    }
+    
+    fn node_type(&self) -> &str { "computing_peak_finder" }
+}
+```
+
+**Nouveautés Multi-Instances :**
+- **ID Obligatoire** : Chaque instance doit avoir un `id` unique lors de l'instanciation
+- **Stockage Cloisonné** : Chaque nœud stocke ses résultats indépendamment
+- **Configuration Individuelle** : Chaque instance peut avoir des paramètres différents
+  - Bandes de fréquence distinctes (ex: 800-1200 Hz vs 1500-2000 Hz)
+  - Seuils de détection adaptés à chaque signal
+  - Facteurs de lissage optimisés par usage
+
+#### Fonctionnalités étendues
+- **Analyse spectrale FFT** : Détection automatique de la fréquence de résonance par instance
+- **Algorithme de détection de pics** : Recherche du maximum local dans la bande configurée
+- **Filtrage adaptatif** : Élimination des pics parasites par analyse de cohérence temporelle
+- **Suivi temporel indépendant** : Moyenne glissante et historique par nœud
+- **Validation croisée** : Possibilité de comparer les résultats entre instances
+
+### 4.2 ConcentrationNode (ComputingNode spécialisé) - IMPLÉMENTATION COMPLÈTE
+
+#### Architecture Multi-Instances avec Polynômes Individuels
+
+**🎯 Objectifs Atteints :**
+- ✅ **Instances Multiples** : Chaque ConcentrationNode a son propre ID unique
+- ✅ **Polynômes Configurables** : Coefficients individuels par instance
+- ✅ **Liaison Sélective** : Paramètre `computing_peak_finder_id` pour source spécifique
+- ✅ **Hot-Reload** : Reconfiguration dynamique des polynômes sans redémarrage
+
+#### Structure complète implémentée
+```rust
+pub struct ConcentrationNode {
+    /// Unique identifier for this node
+    id: String,
+
+    /// ID of the PeakFinderNode to use as data source
+    /// If None, uses the most recent peak data available
+    computing_peak_finder_id: Option<String>,
+
+    /// Polynomial coefficients for concentration calculation [a₀, a₁, a₂, a₃, a₄]
+    /// Concentration(ppm) = a₀ + a₁·A + a₂·A² + a₃·A³ + a₄·A⁴
+    /// where A is the normalized peak amplitude
+    polynomial_coefficients: [f64; 5],
+
+    /// Enable temperature compensation for improved accuracy
+    temperature_compensation: bool,
+
+    /// Optional identifier for the spectral line being analyzed
+    spectral_line_id: Option<String>,
+
+    /// Minimum amplitude threshold for valid concentration calculation
+    min_amplitude_threshold: f32,
+
+    /// Maximum concentration limit for safety/validation
+    max_concentration_ppm: f32,
+
+    /// Shared state for communicating results to other nodes
+    shared_state: Arc<RwLock<ComputingSharedData>>,
+
+    /// Statistics for monitoring performance
+    processing_count: u64,
+    calculation_count: u64,
+    last_calculation_time: Option<SystemTime>,
+}
+
+impl ProcessingNode for ConcentrationNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Lecture sélective depuis l'état partagé basée sur computing_peak_finder_id
+        let peak_result = match self.shared_state.try_read() {
+            Ok(state) => {
+                if let Some(source_id) = &self.computing_peak_finder_id {
+                    // Lecture depuis un PeakFinder spécifique
+                    state.get_peak_result(source_id).cloned()
+                } else {
+                    // Lecture du résultat le plus récent (comportement automatique)
+                    state.get_latest_peak_result().cloned()
+                }
+            }
+            Err(_) => None
+        };
+
+        // Calcul de concentration si données disponibles
+        if let Some(peak_data) = peak_result {
+            if peak_data.amplitude >= self.min_amplitude_threshold {
+                let concentration = self.calculate_concentration(peak_data.amplitude);
+                self.update_shared_state(&peak_data, concentration);
+            }
+        }
+
+        // Transmission des données inchangées (pass-through)
+        Ok(input)
+    }
+}
+```
+
+#### Calcul Polynomial Avancé - Équation Physique
+
+**Modèle Physique Implémenté** : Relation amplitude-concentration selon la loi de Beer-Lambert modifiée pour la photoacoustique
+
+```mathematica
+C(ppm) = a₀ + a₁·A + a₂·A² + a₃·A³ + a₄·A⁴
+```
+
+**Où** :
+- `A` = amplitude normalisée du pic détecté (0.0 à 1.0)
+- `C` = concentration en parties par million (ppm)
+- `[a₀, a₁, a₂, a₃, a₄]` = coefficients du polynôme de 4ème degré
+
+**Caractéristiques d'Implémentation** :
+- **Validation d'Amplitude** : Seuil minimum configurable (`min_amplitude_threshold`)
+- **Limitation de Sécurité** : Concentration maximale configurable (`max_concentration_ppm`)
+- **Précision Numérique** : Calculs en double précision (f64) avec conversion finale f32
+- **Compensation Thermique** : Support optionnel pour correction de température
+
+#### Avantages Multi-Instances - Cas d'Usage Validés
+
+**🔬 1. Test de Nouveaux Polynômes**
+```yaml
+processing:
+  nodes:
+    # Polynôme de référence (actuellement utilisé)
+    - id: "concentration_reference"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "primary_peak_finder"
+        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
+        spectral_line_id: "reference_polynomial_v2.1"
+        temperature_compensation: true
+
+    # Nouveau polynôme en test (parallèle)
+    - id: "concentration_test"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "primary_peak_finder"  # Même source
+        polynomial_coefficients: [0.1, 0.52, -0.0025, 0.00015, -0.000001]
+        spectral_line_id: "experimental_polynomial_v3.0"
+        temperature_compensation: true
+        min_amplitude_threshold: 0.002  # Plus restrictif pour tests
+```
+
+**Avantages** :
+- **Comparaison Temps Réel** : Deux calculs simultanés sur les mêmes données
+- **Validation Progressive** : Test de nouveaux modèles sans arrêter la production
+- **Analyse de Performance** : Métriques comparatives automatiques
+
+**🎯 2. Calculs Multi-Raies Spectrales**
+```yaml
+processing:
+  nodes:
+    # Raie principale du méthane (2ν₃ à ~2100 cm⁻¹)
+    - id: "concentration_main_line"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "main_line_detector"
+        polynomial_coefficients: [0.0, 0.45, -0.002, 0.0001, 0.0]
+        spectral_line_id: "CH4_2v3_main"
+
+    # Raie secondaire pour validation croisée (ν₄ à ~1300 cm⁻¹)
+    - id: "concentration_secondary_line"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "secondary_line_detector"
+        polynomial_coefficients: [0.05, 0.38, -0.0018, 0.00008, 0.0]
+        spectral_line_id: "CH4_v4_secondary"
+        temperature_compensation: false  # Différente configuration
+```
+
+**Applications Métrologiques** :
+- **Redondance Spectrale** : Mesure sur plusieurs raies pour fiabilité
+- **Validation Croisée** : Cohérence entre différentes transitions moléculaires
+- **Compensation d'Interférences** : Correction des interférences spectrales
+
+**⚡ 3. Positionnement dans le Pipeline - Flexibilité Architecturale**
+
+**Configuration Avant Filtrage** (Recommandée pour analyse large bande) :
+```yaml
+connections:
+- from: differential_detection
+  to: concentration_early      # AVANT le filtrage
+- from: concentration_early
+  to: bandpass_filter
+```
+
+**Configuration Après Filtrage** (Optimisée pour SNR) :
+```yaml
+connections:
+- from: bandpass_filter
+  to: concentration_late       # APRÈS le filtrage
+- from: concentration_late
+  to: gain_amplifier
+```
+
+**Impacts Techniques Analysés** :
+
+| Position | Avantages | Inconvénients | Cas d'Usage |
+|----------|-----------|---------------|-------------|
+| **Avant Filtrage** | • Analyse large bande<br>• Détection multi-harmoniques<br>• Moins de distorsion | • Plus de bruit<br>• Calculs sur signal brut | • Test de nouveaux polynômes<br>• Analyse exploratoire |
+| **Après Filtrage** | • Meilleur SNR<br>• Signal optimisé<br>• Précision maximale | • Bande limitée<br>• Dépendant du filtre | • Production<br>• Mesures de précision |
+
+#### Configuration Hot-Reload - Paramètres Supportés
+
+**Paramètres Reconfigurables en Temps Réel** :
+```json
+{
+  "polynomial_coefficients": [0.1, 0.52, -0.0025, 0.00015, -0.000001],
+  "min_amplitude_threshold": 0.002,
+  "max_concentration_ppm": 8000.0,
+  "computing_peak_finder_id": "backup_peak_finder"
+}
+```
+
+**Tests de Validation Hot-Reload** :
+- ✅ **Polynômes** : Coefficients modifiables sans interruption
+- ✅ **Seuils** : Ajustement dynamique des limites
+- ✅ **Source** : Basculement entre PeakFinderNode
+- ✅ **Paramètres Sécurité** : Limites min/max en temps réel
+
+### 3.3 DynamicFilterNode (ProcessingNode enrichi) - Support Multi-Fréquences
+
+#### Adaptation basée sur l'état partagé multi-sources
+```rust
+pub struct DynamicFilterNode {
+    id: String,
+    base_filter: Box<dyn Filter>,
+    fusion_mode: FrequencyFusionMode,
+    shared_state: Arc<RwLock<ComputingSharedData>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum FrequencyFusionMode {
+    /// Utilise la fréquence du PeakFinder le plus récent
+    MostRecent,
+    /// Utilise la fréquence avec la plus forte amplitude
+    HighestAmplitude,
+    /// Moyenne pondée par amplitude
+    WeightedAverage,
+    /// Utilise une fréquence spécifique par node_id
+    SelectiveBinding(String),
+}
+
+impl ProcessingNode for DynamicFilterNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Lecture de l'état partagé pour obtenir les fréquences détectées
+        if let Ok(state) = self.shared_state.try_read() {
+            if let Some(target_frequency) = self.calculate_target_frequency(&state)? {
+                // Adapter la fréquence centrale du filtre
+                self.base_filter.set_center_frequency(target_frequency)?;
+            }
+        }
+        
+        // Appliquer le filtrage avec la fréquence adaptée
+        self.base_filter.process(input)
+    }
+    
+    fn node_type(&self) -> &str { "dynamic_filter" }
+    fn node_id(&self) -> &str { &self.id }
+}
+
+impl DynamicFilterNode {
+    fn calculate_target_frequency(&self, state: &ComputingSharedData) -> Result<Option<f32>> {
+        match self.fusion_mode {
+            FrequencyFusionMode::MostRecent => {
+                Ok(state.get_latest_peak_result().map(|r| r.frequency))
+            }
+            FrequencyFusionMode::HighestAmplitude => {
+                let best_peak = state.peak_results
+                    .values()
+                    .max_by(|a, b| a.amplitude.partial_cmp(&b.amplitude).unwrap());
+                Ok(best_peak.map(|r| r.frequency))
+            }
+            FrequencyFusionMode::WeightedAverage => {
+                self.calculate_weighted_average_frequency(state)
+            }
+            FrequencyFusionMode::SelectiveBinding(ref node_id) => {
+                Ok(state.get_peak_result(node_id).map(|r| r.frequency))
+            }
+        }
+    }
+    
+    fn calculate_weighted_average_frequency(&self, state: &ComputingSharedData) -> Result<Option<f32>> {
+        let recent_results: Vec<_> = state.peak_results
+            .values()
+            .filter(|result| {
+                result.timestamp.elapsed().unwrap_or_default().as_secs() < 30
+            })
+            .collect();
+            
+        if recent_results.is_empty() {
+            return Ok(None);
+        }
+        
+        let total_weight: f32 = recent_results.iter().map(|r| r.amplitude).sum();
+        
+        if total_weight == 0.0 {
+            return Ok(None);
+        }
+        
+        let weighted_freq = recent_results.iter()
+            .map(|r| r.frequency * r.amplitude)
+            .sum::<f32>() / total_weight;
+            
+        Ok(Some(weighted_freq))
+    }
+}
+```
+
+**Évolutions Multi-Fréquences** :
+- **Stratégies de Fusion** : Plusieurs modes pour combiner les fréquences multiples
+- **Adaptation Intelligente** : Choix automatique de la meilleure fréquence de référence
+- **Pondération par Amplitude** : Priorité aux signaux les plus forts
+- **Validation Temporelle** : Utilise uniquement les données récentes et valides
+
+---
+
+## 4. Implémentations Proposées
+
+### 4.1 PeakFinderNode (ComputingNode spécialisé) - Support Multi-Instances
+
+#### Structure et fonctionnalités
+```rust
+pub struct PeakFinderNode {
+    /// Unique identifier for this node - CRITIQUE pour le support multi-instances
+    id: String,
+    
+    /// Shared state for communicating results to other nodes
+    shared_state: SharedComputingState,
+    
+    /// FFT configuration and buffers
+    fft_buffer: Vec<Complex<f32>>,
+    fft_size: usize,
+    sample_rate: u32,
+    
+    /// Detection parameters
+    frequency_range: (f32, f32),  // Bande de recherche
+    detection_threshold: f32,
+    smoothing_factor: f32,
+    
+    /// Performance monitoring
+    processing_count: u64,
+    last_detection_time: Option<SystemTime>,
+}
+
+impl ProcessingNode for PeakFinderNode {
+    fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
+        // Analyse spectrale sur les données
+        if let Some(peak_info) = self.analyze_spectrum(&input)? {
+            // Création du résultat avec ID unique
+            let peak_result = PeakResult {
+                frequency: peak_info.frequency,
+                amplitude: peak_info.amplitude,
+                concentration_ppm: None,
+                timestamp: SystemTime::now(),
+            };
+            
+            // Mise à jour de l'état partagé avec clé unique
+            if let Ok(mut state) = self.shared_state.try_write() {
+                state.update_peak_result(self.id.clone(), peak_result);
+            }
+        }
+        
+        // Transmission des données inchangées
+        Ok(input)
+    }
+    
+    fn node_type(&self) -> &str { "computing_peak_finder" }
+}
+```
+
+**Nouveautés Multi-Instances :**
+- **ID Obligatoire** : Chaque instance doit avoir un `id` unique lors de l'instanciation
+- **Stockage Cloisonné** : Chaque nœud stocke ses résultats indépendamment
+- **Configuration Individuelle** : Chaque instance peut avoir des paramètres différents
+  - Bandes de fréquence distinctes (ex: 800-1200 Hz vs 1500-2000 Hz)
+  - Seuils de détection adaptés à chaque signal
+  - Facteurs de lissage optimisés par usage
+
+#### Fonctionnalités étendues
+- **Analyse spectrale FFT** : Détection automatique de la fréquence de résonance par instance
+- **Algorithme de détection de pics** : Recherche du maximum local dans la bande configurée
+- **Filtrage adaptatif** : Élimination des pics parasites par analyse de cohérence temporelle
+- **Suivi temporel indépendant** : Moyenne glissante et historique par nœud
+- **Validation croisée** : Possibilité de comparer les résultats entre instances
+
+### 4.2 ConcentrationNode (ComputingNode spécialisé) - IMPLÉMENTATION COMPLÈTE
+
+#### Architecture Multi-Instances avec Polynômes Individuels
+
+**🎯 Objectifs Atteints :**
+- ✅ **Instances Multiples** : Chaque ConcentrationNode a son propre ID unique
+- ✅ **Polynômes Configurables** : Coefficients individuels par instance
+- ✅ **Liaison Sélective** : Paramètre `computing_peak_finder_id` pour source spécifique
+- ✅ **Hot-Reload** : Reconfiguration dynamique des polynômes sans redémarrage
+
+#### Structure complète implémentée
+```rust
+pub struct ConcentrationNode {
+    /// Unique identifier for this node
+    id: String,
+
+    /// ID of the PeakFinderNode to use as data source
+    /// If None, uses the most recent peak data available
+    computing_peak_finder_id: Option
 
 ✅ **Thread-based Processing** : Traitement asynchrone avec channels mpsc
 ✅ **Configuration YAML** : Instantiation automatique depuis fichiers de config
