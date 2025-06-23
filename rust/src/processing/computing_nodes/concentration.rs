@@ -289,7 +289,7 @@ impl ConcentrationNode {
     fn update_shared_state(&mut self, source_peak_result: &PeakResult, concentration: f64) {
         if self.processing_count % 100 == 0 {
             info!(
-                "Concentration node '{}': Calculated {:.2} ppm = {:.3} + {:.3}xA + {:.3}xA² + {:.3}xA³ + {:.3}xA⁴ from amplitude {:.4} (source: {})",
+                "Concentration node '{}': Calculated {:.2} ppm = {:.2e} + {:.2e}xA + {:.2e}xA² + {:.2e}xA³ + {:.2e}xA⁴ from amplitude {:.4}dB (source: {})",
                 self.id,
                 concentration,
                 self.polynomial_coefficients[0],
