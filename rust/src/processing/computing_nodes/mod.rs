@@ -11,7 +11,7 @@ pub mod action_trait;
 pub mod concentration;
 pub mod display_drivers;
 pub mod peak_finder;
-pub mod universal_display_action;
+pub mod universal_action;
 
 /// Result data from a peak finder node
 #[derive(Debug, Clone)]
@@ -195,4 +195,4 @@ pub use action_trait::{
 };
 pub use concentration::ConcentrationNode;
 pub use peak_finder::PeakFinderNode;
-pub use universal_display_action::UniversalDisplayActionNode;
+pub use universal_action::UniversalActionNode;

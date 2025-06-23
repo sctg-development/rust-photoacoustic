@@ -2,12 +2,12 @@
 
 ## Overview
 
-The `UniversalDisplayActionNode` provides a flexible, pluggable architecture for outputting photoacoustic sensor data to various display technologies. Through the `DisplayDriver` trait, the same ActionNode can output to web dashboards, message queues, databases, physical displays, and future output technologies without changing the core processing logic.
+The `UniversalActionNode` provides a flexible, pluggable architecture for outputting photoacoustic sensor data to various display technologies. Through the `DisplayDriver` trait, the same ActionNode can output to web dashboards, message queues, databases, physical displays, and future output technologies without changing the core processing logic.
 
 ## Architecture
 
 ```text
-UniversalDisplayActionNode
+UniversalActionNode
           ↓
    DisplayDriver trait
           ↓
@@ -20,7 +20,7 @@ UniversalDisplayActionNode
 
 ## Available Drivers
 
-### 1. HttpsCallbackDisplayDriver
+### 1. HttpsCallbackActionDriver
 
 **Purpose**: Send data to web dashboards, cloud APIs, and external monitoring systems via HTTP/HTTPS.
 
@@ -45,18 +45,18 @@ driver:
 
 **Code Example**:
 ```rust
-let http_driver = HttpsCallbackDisplayDriver::new()
+let http_driver = HttpsCallbackActionDriver::new()
     .with_callback_url("https://api.company.com/sensors/display")
     .with_auth_header("Authorization", "Bearer token")
     .with_timeout_ms(5000)
     .build()?;
 
-let display_node = UniversalDisplayActionNode::new("web_display".to_string())
+let display_node = UniversalActionNode::new("web_display".to_string())
     .with_driver(Box::new(http_driver))
     .with_concentration_threshold(1000.0);
 ```
 
-### 2. RedisDisplayDriver
+### 2. RedisActionDriver
 
 **Purpose**: Real-time data streaming and caching via Redis pub/sub and data structures.
 
@@ -79,18 +79,18 @@ driver:
 
 **Code Example**:
 ```rust
-let redis_driver = RedisDisplayDriver::new()
+let redis_driver = RedisActionDriver::new()
     .with_connection_string("redis://redis.company.com:6379")
     .with_channel("sensors:photoacoustic:data")
     .with_expiry_seconds(3600)
     .build()?;
 
-let stream_node = UniversalDisplayActionNode::new("redis_stream".to_string())
+let stream_node = UniversalActionNode::new("redis_stream".to_string())
     .with_driver(Box::new(redis_driver))
     .with_update_interval(500); // High frequency streaming
 ```
 
-### 3. KafkaDisplayDriver
+### 3. KafkaActionDriver
 
 **Purpose**: Enterprise-grade event streaming for large-scale distributed systems.
 
@@ -115,13 +115,13 @@ driver:
 
 **Code Example**:
 ```rust
-let kafka_driver = KafkaDisplayDriver::new()
+let kafka_driver = KafkaActionDriver::new()
     .with_bootstrap_servers("kafka.company.com:9092")
     .with_topic("industrial.sensors.display")
     .with_producer_config("acks", "all")
     .build()?;
 
-let event_node = UniversalDisplayActionNode::new("kafka_events".to_string())
+let event_node = UniversalActionNode::new("kafka_events".to_string())
     .with_driver(Box::new(kafka_driver))
     .with_concentration_threshold(750.0);
 ```
@@ -227,7 +227,7 @@ processing_graph:
   nodes:
     # Web dashboard
     - id: "web_display"
-      node_type: "action_universal_display"
+      node_type: "action_universal"
       parameters:
         driver:
           type: "https_callback"
@@ -236,7 +236,7 @@ processing_graph:
 
     # Real-time stream
     - id: "realtime_stream"
-      node_type: "action_universal_display"
+      node_type: "action_universal"
       parameters:
         driver:
           type: "redis"
@@ -245,7 +245,7 @@ processing_graph:
 
     # Enterprise events
     - id: "enterprise_events"
-      node_type: "action_universal_display"
+      node_type: "action_universal"
       parameters:
         driver:
           type: "kafka"

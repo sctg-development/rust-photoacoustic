@@ -34,7 +34,7 @@ pub trait ActionNode: ProcessingNode {
 - ✅ **Pass-through processing** : Aucun impact sur les performances du pipeline principal
 - ✅ **Buffer circulaire** : Gestion d'historique déjà implémentée en Rust (performances préservées)
 - ✅ **SharedComputingState** : Accès aux données analytiques déjà sécurisé
-- ✅ **UniversalDisplayActionNode** : Template de référence disponible
+- ✅ **UniversalActionNode** : Template de référence disponible
 
 ### 1.2 Points d'Extension Identifiés
 

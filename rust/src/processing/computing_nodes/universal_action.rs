@@ -11,10 +11,10 @@
 //!
 //! # Driver Architecture
 //!
-//! The UniversalDisplayActionNode uses the DisplayDriver trait to abstract display outputs:
+//! The UniversalActionNode uses the DisplayDriver trait to abstract display outputs:
 //!
 //! ```text
-//! UniversalDisplayActionNode
+//! UniversalActionNode
 //!           ↓
 //!    DisplayDriver trait  
 //!           ↓
@@ -28,9 +28,9 @@
 //! # Available Drivers
 //!
 //! ## Network/Cloud Drivers (Implemented)
-//! - **HttpsCallbackDisplayDriver**: HTTP/HTTPS webhooks for remote dashboards
-//! - **RedisDisplayDriver**: Redis pub/sub for real-time data streams
-//! - **KafkaDisplayDriver**: Apache Kafka for scalable message streaming
+//! - **HttpsCallbackActionDriver**: HTTP/HTTPS webhooks for remote dashboards
+//! - **RedisActionDriver**: Redis pub/sub for real-time data streams
+//! - **KafkaActionDriver**: Apache Kafka for scalable message streaming
 //!
 //! ## Physical Hardware Drivers (Planned)
 //! - **USBDisplayDriver**: USB-connected displays and HID devices
@@ -43,31 +43,31 @@
 //!
 //! ```rust,ignore
 //! use crate::processing::computing_nodes::{
-//!     UniversalDisplayActionNode,
-//!     display_drivers::{HttpsCallbackDisplayDriver, RedisDisplayDriver}
+//!     UniversalActionNode,
+//!     display_drivers::{HttpsCallbackActionDriver, RedisActionDriver}
 //! };
 //!
 //! // HTTP callback driver for web dashboard
-//! let http_driver = HttpsCallbackDisplayDriver::new()
+//! let http_driver = HttpsCallbackActionDriver::new()
 //!     .with_callback_url("https://dashboard.company.com/api/display")
 //!     .with_auth_token("Bearer your_api_token_here")
 //!     .with_timeout_ms(5000)
 //!     .build()?;
 //!
-//! let web_display_node = UniversalDisplayActionNode::new("web_display".to_string())
+//! let web_display_node = UniversalActionNode::new("web_display".to_string())
 //!     .with_history_buffer_capacity(100)
 //!     .with_driver(Box::new(http_driver))
 //!     .with_concentration_threshold(1000.0)
 //!     .with_monitored_node("co2_concentration".to_string());
 //!
 //! // Redis pub/sub driver for real-time streaming
-//! let redis_driver = RedisDisplayDriver::new()
+//! let redis_driver = RedisActionDriver::new()
 //!     .with_connection_string("redis://localhost:6379")
 //!     .with_channel("photoacoustic:realtime:display")
 //!     .with_expiry_seconds(3600)
 //!     .build()?;
 //!
-//! let redis_display_node = UniversalDisplayActionNode::new("redis_stream".to_string())
+//! let redis_display_node = UniversalActionNode::new("redis_stream".to_string())
 //!     .with_history_buffer_capacity(50)
 //!     .with_driver(Box::new(redis_driver))
 //!     .with_amplitude_threshold(0.8);
@@ -109,7 +109,7 @@
 //!
 //! # ActionNode Template
 //!
-//! This UniversalDisplayActionNode serves as a comprehensive template for creating
+//! This UniversalActionNode serves as a comprehensive template for creating
 //! specialized ActionNode instances with pluggable backends. The patterns demonstrated
 //! here can be adapted for various industrial and IoT applications.
 //!
@@ -132,7 +132,18 @@ use anyhow::{anyhow, Result};
 use log::{debug, error, info, warn};
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::SystemTime;
+
+/// Messages sent to the display processing thread
+#[derive(Debug, Clone)]
+enum DisplayMessage {
+    Update(DisplayData),
+    Alert(AlertData),
+    Shutdown,
+}
 
 /// Universal Display ActionNode with Pluggable Driver Architecture
 ///
@@ -162,12 +173,12 @@ use std::time::SystemTime;
 ///
 /// ```rust,ignore
 /// // Create with HTTP driver for remote dashboard
-/// let http_driver = HttpsCallbackDisplayDriver::new()
+/// let http_driver = HttpsCallbackActionDriver::new()
 ///     .with_callback_url("https://api.company.com/photoacoustic/display")
 ///     .with_auth_header("Authorization", "Bearer your_token")
 ///     .build()?;
 ///
-/// let display_node = UniversalDisplayActionNode::new("main_display".to_string())
+/// let display_node = UniversalActionNode::new("main_display".to_string())
 ///     .with_history_buffer_capacity(200)        // 200 entries of history
 ///     .with_driver(Box::new(http_driver))       // Use HTTP driver
 ///     .with_concentration_threshold(1000.0)     // Alert at 1000 ppm
@@ -197,11 +208,11 @@ use std::time::SystemTime;
 /// extensible ActionNodes that can adapt to changing requirements without
 /// architectural changes to the core processing pipeline.
 #[derive(Debug)]
-pub struct UniversalDisplayActionNode {
-    /// Queue of pending display updates to be processed asynchronously
-    pending_updates: std::collections::VecDeque<(f64, String)>,
-    /// Queue of pending alerts to be processed asynchronously
-    pending_alerts: std::collections::VecDeque<String>,
+pub struct UniversalActionNode {
+    /// Channel sender for sending messages to the display processing thread
+    display_sender: Option<mpsc::Sender<DisplayMessage>>,
+    /// Handle to the display processing thread
+    display_thread_handle: Option<thread::JoinHandle<()>>,
     /// Unique identifier for this action node
     /// REQUIRED: Every ActionNode must have a unique ID for monitoring and debugging
     id: String,
@@ -232,11 +243,6 @@ pub struct UniversalDisplayActionNode {
     /// Examples: GPIO pin numbers, SMTP server config, webhook URLs, etc.
     display_update_interval_ms: u64, // How often to update display (throttling)
 
-    /// Display driver - PLUGGABLE DRIVER SYSTEM
-    /// The actual display implementation (HTTP, Redis, Kafka, Hardware, etc.)
-    /// This is the main extension point for different display backends
-    driver: Option<Box<dyn DisplayDriver>>,
-
     /// Performance statistics - MONITORING PATTERN
     /// These fields demonstrate how to track ActionNode performance
     /// Useful for debugging and system monitoring
@@ -246,8 +252,8 @@ pub struct UniversalDisplayActionNode {
     last_display_update: Option<SystemTime>, // When display was last updated (hardware-specific)
 }
 
-impl UniversalDisplayActionNode {
-    /// Create a new UniversalDisplayActionNode with required configuration
+impl UniversalActionNode {
+    /// Create a new UniversalActionNode with required configuration
     ///
     /// # IMPORTANT: Buffer capacity must be explicitly configured
     ///
@@ -263,7 +269,7 @@ impl UniversalDisplayActionNode {
     ///
     /// # Required Configuration
     /// ```rust,ignore
-    /// let node = UniversalDisplayActionNode::new("display".to_string())
+    /// let node = UniversalActionNode::new("display".to_string())
     ///     .with_history_buffer_capacity(200)  // REQUIRED: Set buffer size
     ///     .with_concentration_threshold(1000.0)
     ///     .with_monitored_node("concentration_calc".to_string());
@@ -271,23 +277,22 @@ impl UniversalDisplayActionNode {
     pub fn new(id: String) -> Self {
         Self {
             id,
+            display_sender: None,                   // No thread started yet
+            display_thread_handle: None,            // No thread started yet
             history_buffer: CircularBuffer::new(1), // Minimal buffer - MUST configure with with_history_buffer_capacity()
             monitored_nodes: Vec::new(),            // Empty: add nodes via with_monitored_node()
             shared_computing_state: None,           // Set later by ProcessingGraph
             concentration_threshold: Some(1000.0),  // Default: 1000 ppm CO2 alarm
             amplitude_threshold: Some(0.8),         // Default: 80% amplitude alarm
             display_update_interval_ms: 1000,       // Default: update every second
-            driver: None,                           // No driver set - configure with with_driver()
             processing_count: 0,                    // Performance counter
             actions_triggered: 0,                   // Action counter
             last_update_time: None,                 // No updates yet
             last_display_update: None,              // No display updates yet
-            pending_updates: std::collections::VecDeque::new(), // Queue for pending display updates
-            pending_alerts: std::collections::VecDeque::new(), // Queue for pending alerts
         }
     }
 
-    /// Create a new UniversalDisplayActionNode with shared computing state
+    /// Create a new UniversalActionNode with shared computing state
     ///
     /// # PATTERN: Shared state constructor for ActionNode
     /// This constructor is used by the ProcessingGraph when creating ActionNodes
@@ -303,7 +308,7 @@ impl UniversalDisplayActionNode {
     /// # Example
     /// ```rust,ignore
     /// let shared_state = Some(Arc::new(RwLock::new(ComputingSharedData::default())));
-    /// let node = UniversalDisplayActionNode::new_with_shared_state(
+    /// let node = UniversalActionNode::new_with_shared_state(
     ///     "display".to_string(),
     ///     shared_state
     /// ).with_history_buffer_capacity(100);
@@ -311,17 +316,16 @@ impl UniversalDisplayActionNode {
     pub fn new_with_shared_state(id: String, shared_state: Option<SharedComputingState>) -> Self {
         Self {
             id,
+            display_sender: None,                   // No thread started yet
+            display_thread_handle: None,            // No thread started yet
             history_buffer: CircularBuffer::new(1), // Minimal buffer - MUST configure with with_history_buffer_capacity()
             monitored_nodes: Vec::new(),            // Empty: add nodes via with_monitored_node()
             shared_computing_state: shared_state,   // Use provided shared state
             concentration_threshold: Some(1000.0),  // Default: 1000 ppm CO2 alarm
             amplitude_threshold: Some(0.8),         // Default: 80% amplitude alarm
             display_update_interval_ms: 1000,       // Default: update every second
-            driver: None,                           // No driver set - configure with with_driver()
             processing_count: 0,                    // Performance counter
             actions_triggered: 0,                   // Action counter
-            pending_updates: std::collections::VecDeque::new(), // Queue for pending display updates
-            pending_alerts: std::collections::VecDeque::new(), // Queue for pending alerts
             last_update_time: None,                 // No updates yet
             last_display_update: None,              // No display updates yet
         }
@@ -348,15 +352,15 @@ impl UniversalDisplayActionNode {
     /// # Examples
     /// ```rust,ignore
     /// // For a real-time display updating every second
-    /// let display_node = UniversalDisplayActionNode::new("display".to_string())
+    /// let display_node = UniversalActionNode::new("display".to_string())
     ///     .with_history_buffer_capacity(60);  // 1 minute of history
     ///
     /// // For trend analysis over several hours
-    /// let logger_node = UniversalDisplayActionNode::new("logger".to_string())
+    /// let logger_node = UniversalActionNode::new("logger".to_string())
     ///     .with_history_buffer_capacity(3600); // 1 hour at 1Hz
     ///
     /// // For memory-constrained embedded systems
-    /// let led_node = UniversalDisplayActionNode::new("led".to_string())
+    /// let led_node = UniversalActionNode::new("led".to_string())
     ///     .with_history_buffer_capacity(10);   // Just recent data
     /// ```
     ///
@@ -392,7 +396,7 @@ impl UniversalDisplayActionNode {
     ///
     /// # Example
     /// ```rust,ignore
-    /// let node = UniversalDisplayActionNode::new("display".to_string())
+    /// let node = UniversalActionNode::new("display".to_string())
     ///     .with_concentration_threshold(500.0);  // Alert at 500 ppm
     /// ```
     pub fn with_concentration_threshold(mut self, threshold: f64) -> Self {
@@ -422,7 +426,7 @@ impl UniversalDisplayActionNode {
     ///
     /// # Example
     /// ```rust,ignore
-    /// let node = UniversalDisplayActionNode::new("display".to_string())
+    /// let node = UniversalActionNode::new("display".to_string())
     ///     .with_monitored_node("concentration_co2".to_string())
     ///     .with_monitored_node("co2_concentration".to_string());
     /// ```
@@ -449,13 +453,16 @@ impl UniversalDisplayActionNode {
     /// Configure the display driver for output operations
     ///
     /// # PATTERN: Builder method for pluggable driver configuration
-    /// This is the key extension point for the UniversalDisplayActionNode.
+    /// This is the key extension point for the UniversalActionNode.
     /// Different drivers implement the DisplayDriver trait to provide:
     /// - HTTP/HTTPS callback endpoints
     /// - Redis pub/sub messaging
     /// - Kafka message streaming  
     /// - Physical display control (LCD, LED, OLED)
     /// - Future hardware interfaces (GPIO, SPI, I2C, etc.)
+    ///
+    /// This method starts an internal processing thread that handles display operations
+    /// asynchronously, maintaining compatibility with the synchronous ProcessingNode trait.
     ///
     /// # Arguments
     /// * `driver` - A boxed DisplayDriver implementation
@@ -465,27 +472,82 @@ impl UniversalDisplayActionNode {
     /// use crate::processing::computing_nodes::display_drivers::*;
     ///
     /// // HTTP callback driver
-    /// let http_driver = HttpsCallbackDisplayDriver::new()
-    ///     .with_callback_url("https://myserver.com/display")
-    ///     .with_timeout_ms(5000)
-    ///     .build().expect("Failed to create HTTP driver");
+    /// let http_driver = HttpsCallbackActionDriver::new("https://myserver.com/display");
     ///
-    /// let node = UniversalDisplayActionNode::new("display".to_string())
+    /// let node = UniversalActionNode::new("display".to_string())
     ///     .with_history_buffer_capacity(100)
     ///     .with_driver(Box::new(http_driver));
-    ///
-    /// // Redis pub/sub driver  
-    /// let redis_driver = RedisDisplayDriver::new()
-    ///     .with_connection_string("redis://localhost:6379")
-    ///     .with_channel("photoacoustic:display")
-    ///     .build().expect("Failed to create Redis driver");
-    ///
-    /// let node = UniversalDisplayActionNode::new("display".to_string())
-    ///     .with_history_buffer_capacity(100)
-    ///     .with_driver(Box::new(redis_driver));
     /// ```
-    pub fn with_driver(mut self, driver: Box<dyn DisplayDriver>) -> Self {
-        self.driver = Some(driver);
+    pub fn with_driver(mut self, mut driver: Box<dyn DisplayDriver>) -> Self {
+        // Create channel for communicating with the display thread
+        let (sender, receiver) = mpsc::channel::<DisplayMessage>();
+
+        // Start the display processing thread
+        let node_id = self.id.clone();
+        let handle = thread::spawn(move || {
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(e) => {
+                    error!(
+                        "Display thread [{}]: Failed to create tokio runtime: {}",
+                        node_id, e
+                    );
+                    return;
+                }
+            };
+
+            // Initialize the driver
+            if let Err(e) = rt.block_on(driver.initialize()) {
+                error!(
+                    "Display thread [{}]: Failed to initialize driver: {}",
+                    node_id, e
+                );
+                return;
+            }
+
+            info!(
+                "Display thread [{}]: Driver initialized successfully",
+                node_id
+            );
+
+            // Process messages
+            while let Ok(message) = receiver.recv() {
+                match message {
+                    DisplayMessage::Update(data) => {
+                        if let Err(e) = rt.block_on(driver.update_display(&data)) {
+                            error!(
+                                "Display thread [{}]: Failed to update display: {}",
+                                node_id, e
+                            );
+                        } else {
+                            debug!(
+                                "Display thread [{}]: Successfully updated display with {:.2} ppm",
+                                node_id, data.concentration_ppm
+                            );
+                        }
+                    }
+                    DisplayMessage::Alert(alert) => {
+                        if let Err(e) = rt.block_on(driver.show_alert(&alert)) {
+                            error!("Display thread [{}]: Failed to show alert: {}", node_id, e);
+                        } else {
+                            debug!(
+                                "Display thread [{}]: Successfully showed alert: {}",
+                                node_id, alert.message
+                            );
+                        }
+                    }
+                    DisplayMessage::Shutdown => {
+                        info!("Display thread [{}]: Shutting down", node_id);
+                        break;
+                    }
+                }
+            }
+
+            info!("Display thread [{}]: Thread terminated", node_id);
+        });
+
+        self.display_sender = Some(sender);
+        self.display_thread_handle = Some(handle);
         self
     }
 
@@ -501,39 +563,33 @@ impl UniversalDisplayActionNode {
     ///
     /// # Example
     /// ```rust,ignore
-    /// let mut node = UniversalDisplayActionNode::new("display".to_string())
+    /// let mut node = UniversalActionNode::new("display".to_string())
     ///     .with_history_buffer_capacity(100)
     ///     .with_driver(Box::new(http_driver));
     ///
     /// // Initialize the driver before using the node
     /// node.initialize_driver().await?;
     /// ```
-    pub async fn initialize_driver(&mut self) -> Result<()> {
-        if let Some(ref mut driver) = self.driver {
-            driver.initialize().await?;
-            info!("Display driver initialized for node '{}'", self.id);
-        } else {
-            warn!("No driver configured for display node '{}'", self.id);
-        }
-        Ok(())
-    }
-
-    /// Check if a driver is configured
+    /// Check if a driver is configured and thread is running
     pub fn has_driver(&self) -> bool {
-        self.driver.is_some()
+        self.display_sender.is_some() && self.display_thread_handle.is_some()
     }
 
-    /// Get driver status information
-    ///
-    /// # Returns
-    /// * `Ok(Some(Value))` - Driver status information
-    /// * `Ok(None)` - No driver configured
-    /// * `Err(anyhow::Error)` - Failed to get driver status
-    pub async fn get_driver_status(&self) -> Result<Option<serde_json::Value>> {
-        if let Some(ref driver) = self.driver {
-            Ok(Some(driver.get_status().await?))
-        } else {
-            Ok(None)
+    /// Send a display update message to the processing thread
+    fn send_display_update(&self, data: DisplayData) {
+        if let Some(ref sender) = self.display_sender {
+            if let Err(e) = sender.send(DisplayMessage::Update(data)) {
+                error!("Failed to send display update to thread: {}", e);
+            }
+        }
+    }
+
+    /// Send an alert message to the processing thread
+    fn send_alert(&self, alert: AlertData) {
+        if let Some(ref sender) = self.display_sender {
+            if let Err(e) = sender.send(DisplayMessage::Alert(alert)) {
+                error!("Failed to send alert to thread: {}", e);
+            }
         }
     }
 
@@ -572,140 +628,46 @@ impl UniversalDisplayActionNode {
     /// # PATTERN: Driver-based display update
     /// This method demonstrates how to use the pluggable driver system to update
     /// displays. The actual output mechanism depends on the configured driver:
-    /// - HttpsCallbackDisplayDriver: HTTP POST to endpoint
-    /// - RedisDisplayDriver: Publish to Redis channel
-    /// - KafkaDisplayDriver: Send to Kafka topic
+    /// - HttpsCallbackActionDriver: HTTP POST to endpoint
+    /// - RedisActionDriver: Publish to Redis channel
+    /// - KafkaActionDriver: Send to Kafka topic
     /// - Future hardware drivers: GPIO, SPI, I2C, etc.
     ///
-    /// # Arguments
-    /// * `concentration` - Current concentration value to display
-    /// * `source_node` - Node ID that provided this data (for debugging)
-    ///
-    /// # Returns
-    /// * `Ok(())` - Display updated successfully
-    /// * `Err(anyhow::Error)` - Driver communication failed
-    async fn update_display(&mut self, concentration: f64, source_node: &str) -> Result<()> {
-        if let Some(ref mut driver) = self.driver {
-            let display_data = DisplayData {
-                concentration_ppm: concentration,
-                source_node_id: source_node.to_string(),
-                peak_amplitude: 0.0, // TODO: Get from actual data
-                peak_frequency: 0.0, // TODO: Get from actual data
-                timestamp: SystemTime::now(),
-                metadata: std::collections::HashMap::new(),
-            };
-
-            // Use the configured driver to update the display
-            driver.update_display(&display_data).await?;
-
-            info!(
-                "Display Update [{}]: {:.2} ppm from node '{}' via driver",
-                self.id, concentration, source_node
-            );
-        } else {
-            // Fallback logging if no driver is configured
-            info!(
-                "Display Update [{}]: {:.2} ppm from node '{}' (no driver configured)",
-                self.id, concentration, source_node
-            );
-        }
-
-        // IMPORTANT: Always update timing fields for throttling and monitoring
-        self.last_display_update = Some(SystemTime::now());
-
-        Ok(())
-    }
-
-    /// Simulate flashing the display for alarm conditions
-    ///
-    /// # PATTERN: Alarm/alert action method  
-    /// This method demonstrates how to implement alarm responses.
-    /// In your ActionNode, replace this with appropriate alarm mechanisms:
-    /// - GPIO pin toggling for buzzers/lights
-    /// - Email/SMS sending for notifications  
-    /// - Relay activation for safety systems
-    /// - Webhook calls for external system integration
-    ///
-    /// # Key Design Points
-    /// - Log the alarm with full context for debugging
-    /// - Increment action counter for monitoring
-    /// - Include reason string for human-readable logs
-    /// - Keep alarm actions fast and reliable
-    ///
-    /// # Arguments
-    /// * `reason` - Human-readable description of why alarm was triggered
-    ///
-    /// # Returns  
-    /// * `Ok(())` - Alarm action completed successfully
-    /// * `Err(anyhow::Error)` - Alarm action failed
-    /// Trigger alarm/alert action using the configured driver
-    ///
-    /// # PATTERN: Driver-based alarm/alert action
-    /// This method demonstrates how to use the pluggable driver system for alerts.
-    /// The actual alarm mechanism depends on the configured driver:
-    /// - HttpsCallbackDisplayDriver: HTTP POST alarm webhook
-    /// - RedisDisplayDriver: Publish urgent alert to Redis
-    /// - KafkaDisplayDriver: Send alarm message to Kafka
-    /// - Future hardware drivers: GPIO buzzer, LED flash, etc.
-    ///
-    /// # Key Design Points
-    /// - Log the alarm with full context for debugging
-    /// - Increment action counter for monitoring
-    /// - Include reason string for human-readable logs
-    /// - Keep alarm actions fast and reliable
-    ///
-    /// # Arguments
-    /// * `reason` - Human-readable description of why alarm was triggered
-    ///
-    /// # Returns  
-    /// * `Ok(())` - Alarm action completed successfully
-    /// * `Err(anyhow::Error)` - Alarm action failed
-    async fn flash_display(&mut self, reason: &str) -> Result<()> {
-        if let Some(ref mut driver) = self.driver {
-            let alert_data = AlertData {
-                alert_type: "concentration_threshold".to_string(),
-                severity: "warning".to_string(),
-                message: reason.to_string(),
-                data: std::collections::HashMap::new(),
-                timestamp: SystemTime::now(),
-            };
-
-            // Use the configured driver to trigger the alarm
-            driver.show_alert(&alert_data).await?;
-
-            warn!(
-                "Display Alarm [{}]: Alert sent via driver - {}",
-                self.id, reason
-            );
-        } else {
-            // Fallback logging if no driver is configured
-            warn!(
-                "Display Alarm [{}]: No driver configured - {}",
-                self.id, reason
-            );
-        }
-
-        // IMPORTANT: Track action execution for monitoring and rate limiting
-        self.actions_triggered += 1;
-
-        Ok(())
-    }
-
     /// Updates the display with concentration data - no longer a sync wrapper
     /// This version handles both sync and async contexts safely
     fn update_display_safely(&mut self, concentration: f64, source_node: &str) -> Result<()> {
-        // Instead of creating a new runtime, we queue the update for later processing
-        // in an async context, and just log the data in the sync context
-
-        // Record the data for later processing
-        self.pending_updates
-            .push_back((concentration, source_node.to_string()));
-
-        // Log the update in the sync context
+        // Log the update
         info!(
             "Display Update Queued [{}]: {:.2} ppm from node '{}'",
             self.id, concentration, source_node
         );
+
+        // Get peak amplitude and frequency from shared state
+        let (peak_amplitude, peak_frequency) =
+            if let Some(shared_state) = self.shared_computing_state.clone() {
+                if let Ok(computing_data) = shared_state.try_read() {
+                    (
+                        computing_data.peak_amplitude.unwrap_or(0.0),
+                        computing_data.peak_frequency.unwrap_or(0.0),
+                    )
+                } else {
+                    (0.0, 0.0) // Fallback if state is locked
+                }
+            } else {
+                (0.0, 0.0) // Fallback if no shared state
+            };
+
+        // Send display data to the processing thread
+        let display_data = DisplayData {
+            concentration_ppm: concentration,
+            source_node_id: source_node.to_string(),
+            peak_amplitude,
+            peak_frequency,
+            timestamp: SystemTime::now(),
+            metadata: HashMap::new(),
+        };
+
+        self.send_display_update(display_data);
 
         // Update the timestamp to prevent too frequent updates
         self.last_display_update = Some(SystemTime::now());
@@ -713,79 +675,26 @@ impl UniversalDisplayActionNode {
         Ok(())
     }
 
-    /// Queues a flash display alert for async processing
+    /// Sends a flash display alert to the processing thread
     fn flash_display_safely(&mut self, reason: &str) -> Result<()> {
-        // Queue the alert for later async processing
-        self.pending_alerts.push_back(reason.to_string());
-
-        // Log in the sync context
+        // Log the alert
         warn!("Display Alarm Queued [{}]: {}", self.id, reason);
 
-        // Update counters in sync context
+        // Send alert to the processing thread
+        let alert = AlertData {
+            alert_type: "threshold_exceeded".to_string(),
+            severity: "warning".to_string(),
+            message: reason.to_string(),
+            data: HashMap::new(),
+            timestamp: SystemTime::now(),
+        };
+
+        self.send_alert(alert);
+
+        // Update counters
         self.actions_triggered += 1;
 
         Ok(())
-    }
-
-    /// Process any pending updates and alerts in an async context
-    /// This should be called from an async context like process_async
-    pub async fn process_pending_updates(&mut self) -> Result<()> {
-        // Keep track of the latest concentration per source node
-        let mut latest_concentrations: HashMap<String, f64> = HashMap::new();
-
-        // Gather latest updates per source to avoid multiple updates for the same source
-        while let Some((concentration, source_node)) = self.pending_updates.pop_front() {
-            latest_concentrations.insert(source_node, concentration);
-        }
-
-        // Now process only the latest concentration value per source node
-        for (source_node, concentration) in latest_concentrations {
-            debug!(
-                "Processing latest display update for node '{}': {:.2} ppm",
-                source_node, concentration
-            );
-            if let Err(e) = self.update_display(concentration, &source_node).await {
-                error!("Failed to process pending display update: {}", e);
-            }
-        }
-
-        // Process any pending alerts - collect unique alerts to avoid sending duplicates
-        let mut processed_alerts = std::collections::HashSet::new();
-        let mut alerts_to_process = Vec::new();
-
-        // First collect all alerts and filter duplicates
-        while let Some(reason) = self.pending_alerts.pop_front() {
-            // Filter duplicate alerts in this batch
-            if !processed_alerts.contains(&reason) {
-                processed_alerts.insert(reason.clone());
-                alerts_to_process.push(reason);
-            } else {
-                debug!("Skipping duplicate alert: {}", reason);
-            }
-        }
-
-        // Now process the unique alerts, with category-based deduplication
-        for reason in &alerts_to_process {
-            // Check if this is a "Data timeout" alert that we might want to skip
-            if reason.contains("Data timeout") {
-                // Already handled all timeouts this batch with smarter logic in update_from_computing_data
-                debug!("Processing alert: {}", reason);
-            }
-        }
-
-        // Process all unique alerts
-        for reason in alerts_to_process {
-            if let Err(e) = self.flash_display(&reason).await {
-                error!("Failed to process pending display alert: {}", e);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Check if there are pending updates that need to be processed asynchronously
-    pub fn has_pending_updates(&self) -> bool {
-        !self.pending_updates.is_empty() || !self.pending_alerts.is_empty()
     }
 
     // ========================================================================
@@ -858,7 +767,7 @@ impl UniversalDisplayActionNode {
 // This implementation is mostly boilerplate that you can copy to your own
 // ActionNode. The key method is process() which implements pass-through behavior.
 
-impl ProcessingNode for UniversalDisplayActionNode {
+impl ProcessingNode for UniversalActionNode {
     /// Process input data (pass-through behavior) - CORE ACTIONNODE PATTERN
     ///
     /// This method implements the fundamental ActionNode pattern:
@@ -888,13 +797,9 @@ impl ProcessingNode for UniversalDisplayActionNode {
         // This is where ActionNode reacts to analytical results
         self.try_update_from_shared_state();
 
-        // Step 3: Process any pending updates in a safe way
-        // Instead of trying to spawn tasks or use block_on, just leave the pending updates
-        // in the queue. The ProcessingGraph runs in an async context and will call process
-        // frequently, so we'll handle them soon enough without blocking.
-
-        // Step 4: CRITICAL - Return input unchanged (pass-through behavior)
+        // Step 3: CRITICAL - Return input unchanged (pass-through behavior)
         // ActionNodes NEVER modify the signal data, they only react to it
+        // The display updates are now handled asynchronously by the internal thread
         Ok(input)
     }
 
@@ -952,7 +857,7 @@ impl ProcessingNode for UniversalDisplayActionNode {
     }
 
     fn clone_node(&self) -> Box<dyn ProcessingNode> {
-        let mut cloned = UniversalDisplayActionNode::new(self.id.clone())
+        let mut cloned = UniversalActionNode::new(self.id.clone())
             .with_history_buffer_capacity(self.history_buffer.capacity()) // IMPORTANT: Preserve buffer capacity
             .with_update_interval(self.display_update_interval_ms);
 
@@ -1025,7 +930,7 @@ impl ProcessingNode for UniversalDisplayActionNode {
     }
 }
 
-impl ActionNode for UniversalDisplayActionNode {
+impl ActionNode for UniversalActionNode {
     fn buffer_size(&self) -> usize {
         self.history_buffer.capacity()
     }
@@ -1655,7 +1560,7 @@ mod tests {
     /// ```
     #[tokio::test]
     async fn test_example_display_action_node_creation() {
-        let display_node = UniversalDisplayActionNode::new("test_display".to_string())
+        let display_node = UniversalActionNode::new("test_display".to_string())
             .with_history_buffer_capacity(150) // REQUIRED: explicit buffer capacity
             .with_concentration_threshold(500.0)
             .with_amplitude_threshold(0.6)
@@ -1675,8 +1580,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_action_node_monitoring() -> Result<()> {
-        let mut display_node = UniversalDisplayActionNode::new("test_display".to_string())
-            .with_history_buffer_capacity(50); // REQUIRED: explicit buffer capacity
+        let mut display_node =
+            UniversalActionNode::new("test_display".to_string()).with_history_buffer_capacity(50); // REQUIRED: explicit buffer capacity
 
         // Test adding monitored nodes
         display_node.add_monitored_node("node1".to_string())?;
@@ -1756,7 +1661,7 @@ mod tests {
     /// - **Error conditions**: Test trigger_action error handling
     #[tokio::test]
     async fn test_action_node_triggers() -> Result<()> {
-        let mut display_node = UniversalDisplayActionNode::new("test_display".to_string())
+        let mut display_node = UniversalActionNode::new("test_display".to_string())
             .with_history_buffer_capacity(100) // REQUIRED: explicit buffer capacity
             .with_concentration_threshold(1000.0)
             .with_amplitude_threshold(0.8);
@@ -1786,8 +1691,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_action_node_buffer_management() -> Result<()> {
-        let mut display_node = UniversalDisplayActionNode::new("test_display".to_string())
-            .with_history_buffer_capacity(25); // REQUIRED: explicit buffer capacity
+        let mut display_node =
+            UniversalActionNode::new("test_display".to_string()).with_history_buffer_capacity(25); // REQUIRED: explicit buffer capacity
 
         // Verify initial buffer size is as configured
         assert_eq!(display_node.buffer_size(), 25);

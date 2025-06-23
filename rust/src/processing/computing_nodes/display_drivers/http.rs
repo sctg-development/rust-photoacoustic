@@ -18,7 +18,7 @@ use super::{AlertData, DisplayData, DisplayDriver};
 /// Sends display data to external HTTP endpoints via webhooks.
 /// Useful for integration with web applications, dashboards, or cloud services.
 #[derive(Debug)]
-pub struct HttpsCallbackDisplayDriver {
+pub struct HttpsCallbackActionDriver {
     /// Target webhook URL
     url: String,
     /// Optional authentication token
@@ -35,7 +35,7 @@ pub struct HttpsCallbackDisplayDriver {
     connection_status: String,
 }
 
-impl HttpsCallbackDisplayDriver {
+impl HttpsCallbackActionDriver {
     /// Create a new HTTPS callback driver
     ///
     /// # Arguments
@@ -96,10 +96,14 @@ impl HttpsCallbackDisplayDriver {
 
         let mut headers = HeaderMap::new();
         if let Some(ref token) = self.auth_token {
-            headers.insert(
-                reqwest::header::AUTHORIZATION,
-                format!("Bearer {}", token).parse()?,
-            );
+            let auth_value = if token.starts_with("Bearer ") {
+                // Token already includes "Bearer " prefix
+                token.clone()
+            } else {
+                // Add "Bearer " prefix
+                format!("Bearer {}", token)
+            };
+            headers.insert(reqwest::header::AUTHORIZATION, auth_value.parse()?);
         }
 
         // Add custom headers
@@ -182,7 +186,7 @@ impl HttpsCallbackDisplayDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for HttpsCallbackDisplayDriver {
+impl DisplayDriver for HttpsCallbackActionDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Validate URL
         if !self.url.starts_with("https://") && !self.url.starts_with("http://") {
@@ -203,7 +207,7 @@ impl DisplayDriver for HttpsCallbackDisplayDriver {
         match response {
             Ok(_) => {
                 info!(
-                    "HttpsCallbackDisplayDriver: Successfully connected to {}",
+                    "HttpsCallbackActionDriver: Successfully connected to {}",
                     self.url
                 );
                 self.connection_status = "Connected".to_string();
@@ -211,7 +215,7 @@ impl DisplayDriver for HttpsCallbackDisplayDriver {
             }
             Err(e) => {
                 warn!(
-                    "HttpsCallbackDisplayDriver: Connection test failed for {}: {}",
+                    "HttpsCallbackActionDriver: Connection test failed for {}: {}",
                     self.url, e
                 );
                 // Don't fail initialization - the endpoint might not support GET requests

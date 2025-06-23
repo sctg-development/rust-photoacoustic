@@ -22,18 +22,47 @@ pub struct TestResponse {
     message: Option<String>,
 }
 
-#[openapi_protect_get("/api/test/web_dashboard_display", "read:api", tag = "Test")]
-pub async fn test_api_web_dashboard_display() -> Json<TestResponse> {
+/// Test API endpoint for web dashboard display
+///
+/// This endpoint is used to test the API functionality for the web dashboard display.
+/// It returns a JSON response containing the request path, user information, and an optional message.
+/// It logs the concentration, amplitude, frequency, and timestamp from the display update data.
+#[openapi_protect_post(
+    "/api/test/web_dashboard_action",
+    "read:api",
+    tag = "Test",
+    data = "<display_data>"
+)]
+pub async fn test_api_post_web_dashboard_display(
+    display_data: Json<DisplayUpdateData>,
+) -> Json<TestResponse> {
     let token = bearer.token.clone();
+
+    // Log the display update data
     log::info!(
-        "test_api_web_dashboard_display called with token: {}",
-        token
+        "test_api_web_dashboard_display called with Data type: {} | Concentration: {:.2} ppm | Peak amplitude: {:.2} | Peak frequency: {:.2} Hz | Source node: {} | Timestamp: {} | Retry attempt: {:?}",
+        display_data.data_type,
+        display_data.concentration_ppm,
+        display_data.peak_amplitude,
+        display_data.peak_frequency,
+        display_data.source_node_id,
+        display_data.timestamp,
+        display_data.retry_attempt
     );
+
     Json(TestResponse {
-        description: format!("Test API called with path: {:?}", "web_dashboard_displa"),
+        description: format!(
+            "Display update received - Type: {} | Concentration: {:.2} ppm | Peak amplitude: {:.2} | Peak frequency: {:.2} Hz | Source: {} | Timestamp: {}",
+            display_data.data_type,
+            display_data.concentration_ppm,
+            display_data.peak_amplitude,
+            display_data.peak_frequency,
+            display_data.source_node_id,
+            display_data.timestamp
+        ),
         token: token.to_string(),
         user: bearer.user_info.user_id.clone(),
-        message: None,
+        message: Some(format!("Successfully processed display update from node '{}'", display_data.source_node_id)),
     })
 }
 
@@ -53,6 +82,20 @@ pub struct TestData {
     message: String,
 }
 
+#[derive(Debug, Serialize, JsonSchema, Deserialize)]
+pub struct DisplayUpdateData {
+    #[serde(rename = "type")]
+    pub data_type: String,
+    pub concentration_ppm: f64,
+    pub source_node_id: String,
+    pub peak_amplitude: f32,
+    pub peak_frequency: f32,
+    pub timestamp: u64,
+    pub metadata: std::collections::HashMap<String, serde_json::Value>,
+    #[serde(default)]
+    pub retry_attempt: Option<u32>,
+}
+
 #[openapi_protect_post("/api/test/<path..>", "read:api", tag = "Test", data = "<test_data>")]
 pub async fn test_post_api(path: PathBuf, test_data: Json<TestData>) -> Json<TestResponse> {
     let token = bearer.token.clone();
@@ -65,5 +108,5 @@ pub async fn test_post_api(path: PathBuf, test_data: Json<TestData>) -> Json<Tes
 }
 
 pub fn get_test_routes() -> (Vec<rocket::Route>, OpenApi) {
-    openapi_get_routes_spec![test_api_web_dashboard_display, test_api, test_post_api]
+    openapi_get_routes_spec![test_api, test_post_api, test_api_post_web_dashboard_display]
 }

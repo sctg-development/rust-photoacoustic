@@ -1,13 +1,13 @@
-//! Display drivers for UniversalDisplayActionNode
+//! Display drivers for UniversalActionNode
 //!
 //! This module provides a pluggable driver architecture for display outputs in the
-//! UniversalDisplayActionNode. Drivers abstract different display technologies and
+//! UniversalActionNode. Drivers abstract different display technologies and
 //! communication protocols, allowing the same ActionNode to output to various endpoints.
 //!
 //! # Architecture
 //!
 //! ```text
-//! UniversalDisplayActionNode
+//! UniversalActionNode
 //!           ↓
 //!    DisplayDriver trait
 //!           ↓
@@ -24,9 +24,9 @@ mod kafka;
 mod redis;
 
 // Re-export driver implementations
-pub use self::http::HttpsCallbackDisplayDriver;
-pub use self::kafka::KafkaDisplayDriver;
-pub use self::redis::RedisDisplayDriver;
+pub use self::http::HttpsCallbackActionDriver;
+pub use self::kafka::KafkaActionDriver;
+pub use self::redis::RedisActionDriver;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -70,7 +70,7 @@ pub struct AlertData {
 ///
 /// This trait abstracts different display technologies and communication protocols.
 /// Each driver implements the specific logic for updating its display type while
-/// providing a common interface to the UniversalDisplayActionNode.
+/// providing a common interface to the UniversalActionNode.
 #[async_trait]
 pub trait DisplayDriver: Send + Sync + std::fmt::Debug {
     /// Initialize the driver and establish connection

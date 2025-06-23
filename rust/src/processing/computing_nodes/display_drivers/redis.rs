@@ -27,7 +27,7 @@ pub enum RedisDriverMode {
 /// Sends display data to Redis using either pub/sub channels or key-value storage.
 /// Useful for real-time dashboards and data-sharing between services.
 #[derive(Debug)]
-pub struct RedisDisplayDriver {
+pub struct RedisActionDriver {
     /// Redis connection URL
     url: String,
     /// Redis channel or key prefix
@@ -44,7 +44,7 @@ pub struct RedisDisplayDriver {
     connection_status: String,
 }
 
-impl RedisDisplayDriver {
+impl RedisActionDriver {
     /// Create a new Redis driver in pub/sub mode
     ///
     /// # Arguments
@@ -121,7 +121,7 @@ impl RedisDisplayDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for RedisDisplayDriver {
+impl DisplayDriver for RedisActionDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Test Redis connection
         let conn = self.get_connection().await?;
@@ -134,12 +134,12 @@ impl DisplayDriver for RedisDisplayDriver {
 
         match echo_result {
             Ok(_) => {
-                info!("RedisDisplayDriver: Successfully connected to Redis");
+                info!("RedisActionDriver: Successfully connected to Redis");
                 self.connection_status = "Connected and verified".to_string();
                 Ok(())
             }
             Err(e) => {
-                warn!("RedisDisplayDriver: Connection test failed: {}", e);
+                warn!("RedisActionDriver: Connection test failed: {}", e);
                 self.connection_status = format!("Connection test failed: {}", e);
                 Err(anyhow::anyhow!("Redis connection test failed: {}", e))
             }

@@ -312,9 +312,9 @@ processing:
     # These examples demonstrate the pluggable driver architecture for display outputs.
     # Each driver type enables different output destinations and protocols.
 
-    # HTTP/HTTPS Callback Driver - For web dashboards and cloud integration
-    - id: "web_dashboard_display"
-      node_type: "action_universal_display"
+    # HTTP/HTTPS Callback Driver - For web dashboards and cloud integration the method is POST
+    - id: "web_dashboard_action"
+      node_type: "action_universal"
       parameters:
         buffer_capacity: 300                    # 5 minutes of history at 1Hz
         monitored_nodes:
@@ -325,7 +325,7 @@ processing:
         driver:
           type: "https_callback"
           config:
-            callback_url: "https://localhost:8080/api/test/web_dashboard_display"  # Does nothing, just an example
+            callback_url: "https://localhost:8080/api/test/web_dashboard_action"  # Does nothing, just an example
             auth_header: "Authorization"
             auth_token: "Bearer yJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhZG1pbmlzdHJhdG9yIiwiaWF0IjoxNzUwNjcwMzc4LCJleHAiOjE3NjM4MTkzNzgsIm5iZiI6MTc1MDY3MDM3OCwianRpIjoiTGFzZXJTbWFydENsaWVudC0wIiwiYXVkIjoiTGFzZXJTbWFydENsaWVudCIsImlzcyI6Ikxhc2VyU21hcnRTZXJ2ZXIiLCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwicGVybWlzc2lvbnMiOlsicmVhZDphcGkiLCJ3cml0ZTphcGkiLCJhZG1pbjphcGkiXSwibWV0YWRhdGEiOnsidXNlcl9uYW1lIjoiYWRtaW5pc3RyYXRvciIsInVzZXJfcGVybWlzc2lvbnMiOiJyZWFkOmFwaSB3cml0ZTphcGkgYWRtaW46YXBpIiwicmVkaXJlY3RfdXJpIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6ODA4MC9jbGllbnQvIiwidXNlcl9pZCI6ImFkbWluaXN0cmF0b3IiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJhZG1pbmlzdHJhdG9yIn19.FIOrRkw5wrJKyQ7p-GQVuOcZc2MqZ2vTy7VDw6TqS_0_8fHGO7qvzddgj3mABi4cpEViKjO_wguFalqpkpkQIlUdHkTH1PSF2aoEgle3w7znP5YwACHiI9SRaNPvsx5Jny3wDdyEikmaZ-6jc3J7Fq41brQooQCxv9zRSqiP83n-e7XU-sZwU0S8UJdTPRsXxTkNbX-kZ0VrGHKDXEGGsNS3ZxkzxfqcL4ZvCUyM7NplYUu6TDdSU_WuHTB1FnFSuDys6JZcqfx2Utr-MLvadge4k8ZkLZlPtyflFlIcPhrKdf_pJss-CtWWiaonN07zZbXI8tMmDA5QlyR45ducUPLVPHpywiR1CSscQMTKZor2AgnyZ3C434CpU5mpaj0EcJ5tddLj1gH7EDcrkSgonA8yp0cp_yMMN71hpXosajvrDDc6Q1A21-_IKmK8F06aw_uYOj9NEK1Z49Dp_CMX_ULtA5_HaxhQlXWK6auvcIb-_NwnkK1jYGaMgLP23IEruIuxadwJe8oXuJKTT3yODWRiy_Fny-2TvHT6PbbfoFKnTzuhfkclxzzqQh-aoFp6joWaPzWSUJ0_oD92ymGleqSpysyD8K-F8LW-jAeVIbzuVU_wZbPfKmeGCdk10x_S-0nKtFT1sGsjt3q3Gx487PaauCk1KcsNijrePzM6xzA" # Token generated with `create_token -c config.example.yaml -u administrator -i LaserSmartClient -d 13149000`
             timeout_ms: 2000
@@ -334,7 +334,7 @@ processing:
 
     # Redis Pub/Sub Driver - For real-time data streaming
     - id: "redis_stream_display" 
-      node_type: "action_universal_display"
+      node_type: "action_universal"
       parameters:
         buffer_capacity: 100                    # Minimal buffer for real-time streaming
         monitored_nodes:
@@ -354,7 +354,7 @@ processing:
 
     # Kafka Driver - For enterprise event streaming
     - id: "kafka_events_display"
-      node_type: "action_universal_display"
+      node_type: "action_universal"
       parameters:
         buffer_capacity: 1000                   # Longer history for event analysis
         monitored_nodes:
@@ -375,7 +375,7 @@ processing:
 
     # Legacy Example (for comparison) - Simple display without driver
     - id: "simple_display_action"
-      node_type: "action_universal_display"
+      node_type: "action_universal"
       parameters:
         buffer_capacity: 150                    # Store 150 historical data points
         monitored_nodes:
@@ -422,7 +422,7 @@ processing:
       to: streaming_bandpass_filter
     # Connect concentration data to all display outputs
     - from: concentration_calculator
-      to: web_dashboard_display
+      to: web_dashboard_action
     - from: concentration_calculator
       to: redis_stream_display
     - from: concentration_calculator
@@ -430,7 +430,7 @@ processing:
     - from: concentration_calculator
       to: simple_display_action
     # Display outputs continue the processing chain
-    - from: web_dashboard_display
+    - from: web_dashboard_action
       to: streaming_bandpass_filter
     - from: simple_display_action
       to: streaming_bandpass_filter

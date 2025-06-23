@@ -555,7 +555,7 @@
                       "streaming",
                       "computing_peak_finder",
                       "computing_concentration",
-                      "action_universal_display"
+                      "action_universal"
                     ],
                     "description": "Type of processing node"
                   },
@@ -911,7 +911,7 @@
                     "if": {
                       "properties": {
                         "node_type": {
-                          "const": "action_universal_display"
+                          "const": "action_universal"
                         }
                       }
                     },

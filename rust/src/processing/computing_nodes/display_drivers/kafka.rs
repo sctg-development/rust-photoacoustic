@@ -22,7 +22,7 @@ use super::{AlertData, DisplayData, DisplayDriver};
 /// Sends display data to Apache Kafka topics.
 /// Useful for integrating with data processing pipelines and event streams.
 // Note: FutureProducer doesn't implement Debug, so we manually implement Debug for the struct
-pub struct KafkaDisplayDriver {
+pub struct KafkaActionDriver {
     /// Kafka broker list (comma separated)
     brokers: String,
     /// Topic to publish display updates to
@@ -39,10 +39,10 @@ pub struct KafkaDisplayDriver {
     connection_status: String,
 }
 
-// Manually implement Debug for KafkaDisplayDriver since FutureProducer doesn't implement Debug
-impl fmt::Debug for KafkaDisplayDriver {
+// Manually implement Debug for KafkaActionDriver since FutureProducer doesn't implement Debug
+impl fmt::Debug for KafkaActionDriver {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("KafkaDisplayDriver")
+        f.debug_struct("KafkaActionDriver")
             .field("brokers", &self.brokers)
             .field("display_topic", &self.display_topic)
             .field("alert_topic", &self.alert_topic)
@@ -54,7 +54,7 @@ impl fmt::Debug for KafkaDisplayDriver {
     }
 }
 
-impl KafkaDisplayDriver {
+impl KafkaActionDriver {
     /// Create a new Kafka display driver
     ///
     /// # Arguments
@@ -142,13 +142,13 @@ impl KafkaDisplayDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for KafkaDisplayDriver {
+impl DisplayDriver for KafkaActionDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Create a producer to test connection
         self.ensure_producer()?;
 
         info!(
-            "KafkaDisplayDriver: Producer created for brokers: {}",
+            "KafkaActionDriver: Producer created for brokers: {}",
             self.brokers
         );
         self.connection_status = "Producer initialized".to_string();

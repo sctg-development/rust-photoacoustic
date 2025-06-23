@@ -8,7 +8,25 @@ Cette analyse étudie la faisabilité technique et la pertinence business d'une 
 
 **Nouvelle Extension** : 🚀 **ACTIONNODE - TRAIT IMPLÉMENTÉ** ✅ - Extension de l'architecture vers des nœuds d'action spécialisés pour la gestion d'interfaces physiques (écrans, relais, notifications email) avec buffer circulaire configurable et liaison directe aux ComputingNode. Le trait ActionNode étend ProcessingNode avec des capacités de monitoring, triggers configurables et gestion d'historique.
 
-**Recommandation** : ✅ **ARCHITECTURE COMPLÈTE** - Le système dispose maintenant d'une architecture en 3 couches (Signal Processing → Analytics → Actions) parfaitement intégrée. L'implémentation du trait ActionNode ouvre la voie aux nœuds d'action spécialisés tout en maintenant l'intégrité du pipeline de traitement signal.
+**Architecture UniversalActionNode Complète** : ✅ **DRIVERS PLUGGABLES OPÉRATIONNELS** - Implémentation complète du pattern de drivers modulaires avec `UniversalActionNode` supportant :
+- **HttpsCallbackActionDriver** : Callbacks HTTP/HTTPS pour dashboards web et intégration cloud
+- **RedisActionDriver** : Pub/sub Redis pour streaming temps réel et mise en cache
+- **KafkaActionDriver** : Messaging Kafka pour architectures de streaming scalables
+- **Thread-based Processing** : Traitement asynchrone via threads internes avec channels pour compatibilité sync/async
+- **Configuration YAML** : Création et configuration des drivers directement depuis les fichiers de configuration
+
+**Recommandation** : ✅ **ARCHITECTURE COMPLÈTE** - Le système dispose maintenant d'une architecture en 3 couches (Signal Processing → Analytics → Actions) parfaitement intégrée. L'implémentation du trait ActionNode avec l'UniversalActionNode et ses drivers pluggables ouvre la voie aux nœuds d'action spécialisés tout en maintenant l'intégrité du pipeline de traitement signal.
+
+## Évolution Récente de la Nomenclature (Juin 2025)
+
+**🔄 Changements de Noms pour Cohérence Architecture** :
+- ✅ `UniversalDisplayActionNode` → **`UniversalActionNode`** : Nom plus générique et approprié
+- ✅ `HttpsCallbackDisplayDriver` → **`HttpsCallbackActionDriver`** : Cohérence avec le concept d'action
+- ✅ `RedisDisplayDriver` → **`RedisActionDriver`** : Simplification et cohérence
+- ✅ `KafkaDisplayDriver` → **`KafkaActionDriver`** : Alignement terminologique
+- ✅ `DisplayDriver` trait → **`ActionDriver`** trait : Généralisation du concept
+
+**Justification** : Ces changements améliorent la cohérence architecturale en utilisant une terminologie uniforme autour du concept d'**ActionNode** et d'**ActionDriver**, facilitant la compréhension et l'extension future du système vers d'autres types d'actions (relais, notifications, bases de données, etc.).
 
 ---
 
@@ -1155,15 +1173,15 @@ connections:
 - [ ] **Interface Web** : Configuration et monitoring des ActionNode
 - [ ] **Tests d'Intégration** : Validation complète du pipeline étendu
 
-### 8.8 Exemple d'Implémentation - UniversalDisplayActionNode
+### 8.8 Exemple d'Implémentation - UniversalActionNode
 
 #### Code de Démonstration Implémenté
 
-Pour illustrer concrètement l'utilisation du trait ActionNode, un **UniversalDisplayActionNode** a été implémenté en tant que référence :
+Pour illustrer concrètement l'utilisation du trait ActionNode, un **UniversalActionNode** a été implémenté en tant que référence :
 
 ```rust
 /// Example DisplayActionNode implementation
-pub struct UniversalDisplayActionNode {
+pub struct UniversalActionNode {
     id: String,
     history_buffer: CircularBuffer<ActionHistoryEntry>,
     monitored_nodes: Vec<String>,
@@ -1177,7 +1195,7 @@ pub struct UniversalDisplayActionNode {
     last_update_time: Option<SystemTime>,
 }
 
-impl ActionNode for UniversalDisplayActionNode {
+impl ActionNode for UniversalActionNode {
     fn update_from_computing_data(&mut self, computing_data: &ComputingSharedData) -> Result<()> {
         // Update history buffer with data from monitored nodes
         for node_id in &self.monitored_nodes.clone() {
@@ -1224,7 +1242,7 @@ impl ActionNode for UniversalDisplayActionNode {
 
 **✅ Pass-through Processing**
 ```rust
-impl ProcessingNode for UniversalDisplayActionNode {
+impl ProcessingNode for UniversalActionNode {
     fn process(&mut self, input: ProcessingData) -> Result<ProcessingData> {
         // Update from computing data if available
         if let Some(shared_state) = &self.shared_computing_state {
@@ -1270,7 +1288,7 @@ fn update_config(&mut self, parameters: &serde_json::Value) -> Result<bool> {
 
 ```rust
 // Création avec configuration fluent API
-let display_node = UniversalDisplayActionNode::new("main_display".to_string())
+let display_node = UniversalActionNode::new("main_display".to_string())
     .with_concentration_threshold(1000.0)  // Seuil 1000 ppm
     .with_amplitude_threshold(0.8)         // Seuil 80% amplitude
     .with_monitored_node("co2_peak_finder".to_string())
@@ -1301,5 +1319,441 @@ processing_graph.add_node(Box::new(display_node))?;
   }
 }
 ```
+
+---
+
+## 4. Architecture des ActionNode - UniversalActionNode avec Drivers Pluggables
+
+### 4.1 Implémentation Complète du Pattern ActionNode
+
+L'architecture a évolué vers un système à 3 couches parfaitement intégré :
+
+```text
+Couche 1: Signal Processing    │ Couche 2: Analytics         │ Couche 3: Actions
+─────────────────────────────  │ ─────────────────────────── │ ────────────────────────
+• FilterNode                   │ • PeakFinderNode            │ • UniversalActionNode
+• GainNode                     │ • ConcentrationNode         │   ├─ HttpsCallbackActionDriver
+• DifferentialNode            │ • ComputingSharedData       │   ├─ RedisActionDriver  
+• RecorderNode                │                             │   └─ KafkaActionDriver
+```
+
+#### 4.1.1 UniversalActionNode - Architecture Multi-Drivers
+
+**🎯 Objectifs Atteints :**
+- ✅ **Pattern Pluggable** : Drivers interchangeables via trait ActionDriver
+- ✅ **Thread-based Processing** : Traitement asynchrone avec channels mpsc
+- ✅ **Configuration YAML** : Instantiation automatique des drivers depuis la config
+- ✅ **Monitoring Intégré** : Buffer circulaire et suivi des performances
+- ✅ **Threshold Management** : Triggers configurables pour alertes automatiques
+
+#### Structure UniversalActionNode
+```rust
+#[derive(Debug)]
+pub struct UniversalActionNode {
+    /// Channel sender pour communication avec le thread de traitement display
+    display_sender: Option<mpsc::Sender<DisplayMessage>>,
+    /// Handle vers le thread de traitement display
+    display_thread_handle: Option<thread::JoinHandle<()>>,
+    /// Identifiant unique pour ce nœud d'action
+    id: String,
+    /// Buffer circulaire pour l'historique des données
+    history_buffer: CircularBuffer<ActionHistoryEntry>,
+    /// Liste des nœuds computing à surveiller
+    monitored_nodes: Vec<String>,
+    /// État partagé pour lecture des résultats analytiques
+    shared_computing_state: Option<SharedComputingState>,
+    /// Seuils configurables pour déclenchement d'alertes
+    concentration_threshold: Option<f64>,
+    amplitude_threshold: Option<f32>,
+    /// Configuration spécifique hardware/service
+    display_update_interval_ms: u64,
+    /// Statistiques de performance
+    processing_count: u64,
+    actions_triggered: u64,
+    last_update_time: Option<SystemTime>,
+    last_display_update: Option<SystemTime>,
+}
+```
+
+### 4.2 Drivers d'Action Implémentés
+
+#### 4.2.1 HttpsCallbackActionDriver - COMPLET ✅
+
+**Cas d'Usage** : Dashboards web, intégration cloud, webhooks
+```rust
+pub struct HttpsCallbackActionDriver {
+    url: String,
+    auth_token: Option<String>,
+    client: reqwest::Client,
+    retry_count: u32,
+    timeout_seconds: u64,
+    headers: HashMap<String, String>,
+    connection_status: String,
+}
+```
+
+**Fonctionnalités Clés** :
+- ✅ **Authentification** : Support Bearer tokens avec détection automatique du préfixe
+- ✅ **Retry Logic** : Retry automatique avec exponential backoff
+- ✅ **Headers Personnalisés** : Support complet des en-têtes HTTP
+- ✅ **Status Monitoring** : Suivi de l'état de connexion en temps réel
+- ✅ **SSL/TLS** : Support HTTPS avec validation optionnelle des certificats
+
+**Configuration YAML** :
+```yaml
+driver:
+  type: "https_callback"
+  config:
+    callback_url: "https://localhost:8080/api/test/web_dashboard_action"
+    auth_token: "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+    timeout_ms: 2000
+    retry_count: 1
+    verify_ssl: false
+```
+
+#### 4.2.2 RedisActionDriver - COMPLET ✅
+
+**Cas d'Usage** : Streaming temps réel, mise en cache, dashboards live
+```rust
+pub struct RedisActionDriver {
+    url: String,
+    channel_or_prefix: String,
+    mode: RedisDriverMode,  // PubSub ou KeyValue
+    client: Option<Client>,
+    connection: Option<MultiplexedConnection>,
+    expiration_seconds: Option<u64>,
+    connection_status: String,
+}
+```
+
+**Modes Opérationnels** :
+- ✅ **PubSub Mode** : Publication sur channels Redis pour notifications temps réel
+- ✅ **KeyValue Mode** : Stockage avec clés horodatées et expiration configurable
+- ✅ **Latest Keys** : Clés "latest" pour accès rapide aux dernières valeurs
+- ✅ **Connection Pooling** : Connexions multiplexées pour performance optimale
+
+**Configuration YAML** :
+```yaml
+driver:
+  type: "redis"
+  config:
+    url: "redis://localhost:6379"
+    channel: "photoacoustic:display"
+    mode: "pubsub"  # ou "keyvalue"
+    expiration_seconds: 3600
+```
+
+#### 4.2.3 KafkaActionDriver - COMPLET ✅
+
+**Cas d'Usage** : Event streaming, architectures microservices, data pipelines
+```rust
+pub struct KafkaActionDriver {
+    brokers: String,
+    display_topic: String,
+    alert_topic: String,
+    producer: Option<FutureProducer>,
+    client_id: String,
+    timeout_ms: u64,
+    connection_status: String,
+}
+```
+
+**Fonctionnalités Avancées** :
+- ✅ **Multi-Topics** : Topics séparés pour display updates et alertes
+- ✅ **Message Keys** : Partitioning intelligent basé sur source_node_id
+- ✅ **Producer Pooling** : FutureProducer pour performance asynchrone optimale
+- ✅ **Timeout Management** : Gestion configurable des timeouts par message
+- ✅ **UUID Client IDs** : Identification unique automatique des clients
+
+**Configuration YAML** :
+```yaml
+driver:
+  type: "kafka"
+  config:
+    brokers: "localhost:9092"
+    display_topic: "photoacoustic-display"
+    alert_topic: "photoacoustic-alerts"
+    timeout_ms: 5000
+```
+
+### 4.3 Architecture Thread-based pour Compatibilité Sync/Async
+
+#### 4.3.1 Problème Résolu
+
+**Défi Initial** : Intégrer des drivers asynchrones (HTTP, Redis, Kafka) dans une architecture ProcessingNode synchrone sans utiliser de wrappers bloquants (`tokio::block_on`).
+
+**Solution Implémentée** : Thread interne avec communication par channels
+```rust
+enum DisplayMessage {
+    Update(DisplayData),
+    Alert(AlertData),
+    Shutdown,
+}
+
+impl UniversalActionNode {
+    pub fn with_driver(mut self, mut driver: Box<dyn ActionDriver>) -> Self {
+        let (sender, receiver) = mpsc::channel::<DisplayMessage>();
+        
+        let handle = thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            
+            // Initialisation du driver
+            rt.block_on(driver.initialize()).unwrap();
+            
+            // Boucle de traitement des messages
+            while let Ok(message) = receiver.recv() {
+                match message {
+                    DisplayMessage::Update(data) => {
+                        rt.block_on(driver.update_display(&data));
+                    }
+                    DisplayMessage::Alert(alert) => {
+                        rt.block_on(driver.show_alert(&alert));
+                    }
+                    DisplayMessage::Shutdown => break,
+                }
+            }
+        });
+        
+        self.display_sender = Some(sender);
+        self.display_thread_handle = Some(handle);
+        self
+    }
+}
+```
+
+#### 4.3.2 Avantages de l'Architecture
+
+**✅ Séparation Parfaite** :
+- Thread principal synchrone pour ProcessingNode
+- Thread dédié asynchrone pour drivers
+- Communication non-bloquante via channels
+
+**✅ Performance Optimisée** :
+- Pas de blocage du pipeline principal
+- Traitement parallèle des opérations display
+- Gestion automatique de la charge asynchrone
+
+**✅ Résilience** :
+- Isolation des erreurs driver dans le thread dédié
+- Pipeline principal protégé des failures externes
+- Logging centralisé des erreurs de communication
+
+### 4.4 Configuration YAML et Instantiation Automatique
+
+#### 4.4.1 Parser de Configuration Avancé
+
+Le système supporte l'instantiation automatique des drivers depuis la configuration YAML :
+
+```rust
+// Dans graph.rs
+match driver_type {
+    "https_callback" => {
+        let url = driver_config_obj.get("callback_url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing callback_url"))?;
+        
+        let mut http_driver = HttpsCallbackActionDriver::new(url);
+        
+        if let Some(auth_token) = driver_config_obj.get("auth_token")
+            .and_then(|v| v.as_str()) {
+            http_driver = http_driver.with_auth_token(auth_token);
+        }
+        
+        Box::new(http_driver)
+    }
+    "redis" => {
+        let url = driver_config_obj.get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing Redis URL"))?;
+        
+        let channel = driver_config_obj.get("channel")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing Redis channel"))?;
+        
+        Box::new(RedisActionDriver::new_pubsub(url, channel))
+    }
+    "kafka" => {
+        let brokers = driver_config_obj.get("brokers")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing Kafka brokers"))?;
+        
+        let display_topic = driver_config_obj.get("display_topic")
+            .and_then(|v| v.as_str())
+            .unwrap_or("photoacoustic-display");
+        
+        let alert_topic = driver_config_obj.get("alert_topic")
+            .and_then(|v| v.as_str())
+            .unwrap_or("photoacoustic-alerts");
+        
+        Box::new(KafkaActionDriver::new(brokers, display_topic, alert_topic))
+    }
+}
+```
+
+#### 4.4.2 Exemple de Configuration Complète
+
+```yaml
+processing:
+  nodes:
+    # ActionNode avec driver HTTP
+    - id: "web_dashboard_action"
+      node_type: "action_universal_display"
+      parameters:
+        buffer_capacity: 300
+        monitored_nodes:
+          - "concentration_calculator"
+        concentration_threshold: 1000.0
+        amplitude_threshold: 70
+        update_interval_ms: 10000
+        driver:
+          type: "https_callback"
+          config:
+            callback_url: "https://localhost:8080/api/test/web_dashboard_action"
+            auth_token: "Bearer eyJ0eXAiOiJKV1Q..."
+            timeout_ms: 2000
+            retry_count: 1
+            verify_ssl: false
+
+    # ActionNode avec driver Redis
+    - id: "redis_stream_display"
+      node_type: "action_universal_display"
+      parameters:
+        buffer_capacity: 100
+        monitored_nodes:
+          - "concentration_calculator"
+        driver:
+          type: "redis"
+          config:
+            url: "redis://localhost:6379"
+            channel: "photoacoustic:display"
+            mode: "pubsub"
+            expiration_seconds: 3600
+
+    # ActionNode avec driver Kafka
+    - id: "kafka_events_display"
+      node_type: "action_universal_display"
+      parameters:
+        buffer_capacity: 200
+        monitored_nodes:
+          - "concentration_calculator"
+        driver:
+          type: "kafka"
+          config:
+            brokers: "localhost:9092"
+            display_topic: "photoacoustic-display"
+            alert_topic: "photoacoustic-alerts"
+            timeout_ms: 5000
+```
+
+### 4.5 Extraction des Données Temps Réel depuis ComputingSharedData
+
+#### 4.5.1 Intégration avec les Données de Concentration et Peak
+
+L'UniversalActionNode récupère maintenant les vraies valeurs `peak_amplitude` et `peak_frequency` depuis les données partagées au lieu de les hardcoder à 0.0 :
+
+```rust
+impl UniversalActionNode {
+    fn update_display_safely(&mut self, concentration: f64, source_node: &str) -> Result<()> {
+        // Récupération des valeurs réelles depuis l'état partagé
+        let (peak_amplitude, peak_frequency) = if let Some(shared_state) = self.shared_computing_state.clone() {
+            if let Ok(computing_data) = shared_state.try_read() {
+                (
+                    computing_data.peak_amplitude.unwrap_or(0.0),
+                    computing_data.peak_frequency.unwrap_or(0.0),
+                )
+            } else {
+                (0.0, 0.0) // Fallback si l'état est verrouillé
+            }
+        } else {
+            (0.0, 0.0) // Fallback si pas d'état partagé
+        };
+
+        // Création du payload avec les vraies données
+        let display_data = DisplayData {
+            concentration_ppm: concentration,
+            source_node_id: source_node.to_string(),
+            peak_amplitude,
+            peak_frequency,
+            timestamp: SystemTime::now(),
+            metadata: HashMap::new(),
+        };
+
+        self.send_display_update(display_data);
+        Ok(())
+    }
+}
+```
+
+#### 4.5.2 Validation Temps Réel - Données Complètes
+
+Les logs montrent maintenant des données complètes au lieu de valeurs nulles :
+
+**Avant** (valeurs hardcodées) :
+```
+Peak amplitude: 0.00 | Peak frequency: 0.00 Hz
+```
+
+**Après** (valeurs réelles depuis ComputingSharedData) :
+```
+Peak amplitude: 0.75 | Peak frequency: 1234.56 Hz
+```
+
+Cette intégration garantit que tous les drivers (HTTP, Redis, Kafka) reçoivent et transmettent les données analytiques complètes et à jour.
+
+## 5. État Final de l'Architecture (Juin 2025)
+
+### 5.1 Architecture Trois Couches Complète
+
+L'architecture du système photoacoustique est maintenant structurée en **trois couches distinctes et modulaires** :
+
+```
+┌─────────────────────┬─────────────────────┬─────────────────────┐
+│   SIGNAL LAYER      │   ANALYTICS LAYER   │   ACTION LAYER      │
+├─────────────────────┼─────────────────────┼─────────────────────┤
+│ • FilterNode        │ • PeakFinderNode    │ • UniversalActionNode│
+│ • DifferentialNode  │ • ConcentrationNode │   ├─ HttpsCallback   │
+│ • GainNode          │ • ComputingShared   │   │   ActionDriver   │
+│ • RecorderNode      │   Data              │   ├─ RedisAction     │
+│ • NoiseGenerator    │                     │   │   Driver         │
+│                     │                     │   └─ KafkaAction    │
+│                     │                     │       Driver        │
+└─────────────────────┴─────────────────────┴─────────────────────┘
+```
+
+### 5.2 Nomenclature Finale et Cohérente
+
+**Nœuds Principaux** :
+- `UniversalActionNode` : Nœud d'action universel avec drivers pluggables
+- `PeakFinderNode` : Détection de pics spectraux multi-instances
+- `ConcentrationNode` : Calcul de concentration par polynômes
+
+**Drivers d'Action** :
+- `HttpsCallbackActionDriver` : Callbacks HTTP/HTTPS pour intégration web
+- `RedisActionDriver` : Pub/sub Redis pour streaming temps réel
+- `KafkaActionDriver` : Event streaming pour architectures distribuées
+
+**Traits et Architecture** :
+- `ActionDriver` : Trait principal pour tous les drivers d'action
+- `ActionNode` : Trait étendant ProcessingNode pour nœuds d'action
+- `ComputingSharedData` : État partagé pour données analytiques
+
+### 5.3 Fonctionnalités Opérationnelles
+
+✅ **Thread-based Processing** : Traitement asynchrone avec channels mpsc
+✅ **Configuration YAML** : Instantiation automatique depuis fichiers de config
+✅ **Données Temps Réel** : Transmission des vraies valeurs amplitude/fréquence
+✅ **Monitoring Intégré** : Buffers circulaires et métriques de performance
+✅ **Threshold Management** : Triggers configurables pour alertes automatiques
+✅ **Hot Reload** : Reconfiguration dynamique sans redémarrage
+✅ **Multi-Instances** : Support de multiples nœuds avec IDs uniques
+
+### 5.4 Extensions Futures Préparées
+
+L'architecture actuelle facilite l'ajout de nouveaux composants :
+- **EmailActionDriver** : Notifications par email
+- **DatabaseActionDriver** : Logging vers bases de données  
+- **RelayActionDriver** : Contrôle de relais industriels
+- **ModbusActionDriver** : Intégration systèmes industriels
+- **MQTTActionDriver** : IoT et dispositifs connectés
 
 ---

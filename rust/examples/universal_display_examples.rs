@@ -1,29 +1,29 @@
-//! Example usage of UniversalDisplayActionNode with different drivers
+//! Example usage of UniversalActionNode with different drivers
 //!
-//! This example demonstrates how to configure and use the UniversalDisplayActionNode
+//! This example demonstrates how to configure and use the UniversalActionNode
 //! with various display drivers for different output scenarios.
 
 use anyhow::Result;
 use env_logger;
 use rust_photoacoustic::processing::{
     computing_nodes::{
-        display_drivers::{HttpsCallbackDisplayDriver, KafkaDisplayDriver, RedisDisplayDriver},
-        UniversalDisplayActionNode,
+        display_drivers::{HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver},
+        UniversalActionNode,
     },
     ProcessingNode,
 };
 
 /// Example: HTTP callback driver for web dashboard integration
-pub fn create_web_dashboard_display() -> Result<UniversalDisplayActionNode> {
+pub fn create_web_dashboard_display() -> Result<UniversalActionNode> {
     // Configure HTTP driver for remote dashboard
-    let http_driver = HttpsCallbackDisplayDriver::new(
+    let http_driver = HttpsCallbackActionDriver::new(
         "https://dashboard.mycompany.com/api/photoacoustic/display",
     )
     .with_auth_token("Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...")
     .with_timeout_seconds(5)
     .with_retry_count(3);
 
-    let display_node = UniversalDisplayActionNode::new("web_dashboard".to_string())
+    let display_node = UniversalActionNode::new("web_dashboard".to_string())
         .with_history_buffer_capacity(300) // 5 minutes at 1Hz
         .with_driver(Box::new(http_driver))
         .with_concentration_threshold(1000.0) // Alert at 1000 ppm CO2
@@ -36,15 +36,15 @@ pub fn create_web_dashboard_display() -> Result<UniversalDisplayActionNode> {
 }
 
 /// Example: Redis driver for real-time data streaming
-pub fn create_redis_stream_display() -> Result<UniversalDisplayActionNode> {
+pub fn create_redis_stream_display() -> Result<UniversalActionNode> {
     // Configure Redis driver for real-time streaming
-    let redis_driver = RedisDisplayDriver::new_pubsub(
+    let redis_driver = RedisActionDriver::new_pubsub(
         "redis://redis-cluster.company.com:6379",
         "photoacoustic:realtime:sensor_data",
     )
     .with_expiration_seconds(3600); // Data expires after 1 hour
 
-    let display_node = UniversalDisplayActionNode::new("redis_stream".to_string())
+    let display_node = UniversalActionNode::new("redis_stream".to_string())
         .with_history_buffer_capacity(100) // Minimal buffer for streaming
         .with_driver(Box::new(redis_driver))
         .with_concentration_threshold(500.0) // Lower threshold for streaming
@@ -55,15 +55,15 @@ pub fn create_redis_stream_display() -> Result<UniversalDisplayActionNode> {
 }
 
 /// Example: Kafka driver for enterprise event streaming
-pub fn create_kafka_event_display() -> Result<UniversalDisplayActionNode> {
+pub fn create_kafka_event_display() -> Result<UniversalActionNode> {
     // Configure Kafka driver for enterprise integration
-    let kafka_driver = KafkaDisplayDriver::new(
+    let kafka_driver = KafkaActionDriver::new(
         "kafka1.company.com:9092,kafka2.company.com:9092",
         "industrial.sensors.photoacoustic.display",
         "industrial.sensors.photoacoustic.alerts", // Alert topic for important messages
     );
 
-    let display_node = UniversalDisplayActionNode::new("kafka_events".to_string())
+    let display_node = UniversalActionNode::new("kafka_events".to_string())
         .with_history_buffer_capacity(1000) // Longer history for events
         .with_driver(Box::new(kafka_driver))
         .with_concentration_threshold(750.0)
@@ -76,22 +76,19 @@ pub fn create_kafka_event_display() -> Result<UniversalDisplayActionNode> {
 }
 
 /// Example: Multiple display outputs with different drivers
-pub async fn setup_multi_output_system() -> Result<Vec<UniversalDisplayActionNode>> {
+pub async fn setup_multi_output_system() -> Result<Vec<UniversalActionNode>> {
     let mut displays = Vec::new();
 
     // Web dashboard for operators
-    let mut web_display = create_web_dashboard_display()?;
-    web_display.initialize_driver().await?;
+    let web_display = create_web_dashboard_display()?;
     displays.push(web_display);
 
     // Redis stream for real-time monitoring
-    let mut redis_display = create_redis_stream_display()?;
-    redis_display.initialize_driver().await?;
+    let redis_display = create_redis_stream_display()?;
     displays.push(redis_display);
 
     // Kafka events for enterprise integration
-    let mut kafka_display = create_kafka_event_display()?;
-    kafka_display.initialize_driver().await?;
+    let kafka_display = create_kafka_event_display()?;
     displays.push(kafka_display);
 
     println!(
@@ -103,15 +100,15 @@ pub async fn setup_multi_output_system() -> Result<Vec<UniversalDisplayActionNod
 }
 
 /// Example: Configuration-driven driver selection
-pub fn create_display_from_config(config: &DisplayConfig) -> Result<UniversalDisplayActionNode> {
+pub fn create_display_from_config(config: &DisplayConfig) -> Result<UniversalActionNode> {
     let driver: Box<
         dyn rust_photoacoustic::processing::computing_nodes::display_drivers::DisplayDriver,
     > = match config.driver_type.as_str() {
         "http" => Box::new(
-            HttpsCallbackDisplayDriver::new(&config.endpoint)
+            HttpsCallbackActionDriver::new(&config.endpoint)
                 .with_timeout_seconds(config.timeout_ms.unwrap_or(5000) / 1000),
         ),
-        "redis" => Box::new(RedisDisplayDriver::new_pubsub(
+        "redis" => Box::new(RedisActionDriver::new_pubsub(
             &config.endpoint,
             &config
                 .channel
@@ -126,7 +123,7 @@ pub fn create_display_from_config(config: &DisplayConfig) -> Result<UniversalDis
 
             // If there's an explicit alert topic, use new(), otherwise use default alert topic
             if let Some(alert_topic) = &config.alert_topic {
-                Box::new(KafkaDisplayDriver::new(
+                Box::new(KafkaActionDriver::new(
                     &config.endpoint,
                     &display_topic,
                     alert_topic,
@@ -134,7 +131,7 @@ pub fn create_display_from_config(config: &DisplayConfig) -> Result<UniversalDis
             } else {
                 // Default alert topic is display_topic + ".alerts"
                 let default_alert_topic = format!("{}.alerts", display_topic);
-                Box::new(KafkaDisplayDriver::new(
+                Box::new(KafkaActionDriver::new(
                     &config.endpoint,
                     &display_topic,
                     &default_alert_topic,
@@ -149,7 +146,7 @@ pub fn create_display_from_config(config: &DisplayConfig) -> Result<UniversalDis
         }
     };
 
-    let display_node = UniversalDisplayActionNode::new(config.node_id.clone())
+    let display_node = UniversalActionNode::new(config.node_id.clone())
         .with_history_buffer_capacity(config.buffer_capacity.unwrap_or(100))
         .with_driver(driver)
         .with_concentration_threshold(config.concentration_threshold.unwrap_or(1000.0))

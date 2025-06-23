@@ -11,7 +11,10 @@ use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::computing_nodes::{
-    ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalDisplayActionNode,
+    display_drivers::{
+        DisplayDriver, HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver,
+    },
+    ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalActionNode,
 };
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
@@ -1322,9 +1325,9 @@ impl ProcessingGraph {
 
                 Ok(Box::new(GainNode::new(config.id.clone(), gain_db)))
             }
-            "action_universal_display" => {
+            "action_universal" => {
                 // Extract example display action parameters
-                let mut action_node = UniversalDisplayActionNode::new_with_shared_state(
+                let mut action_node = UniversalActionNode::new_with_shared_state(
                     config.id.clone(),
                     computing_state.clone(),
                 );
@@ -1368,6 +1371,114 @@ impl ProcessingGraph {
                     if let Some(interval_value) = params.get("update_interval_ms") {
                         if let Some(interval) = interval_value.as_u64() {
                             action_node = action_node.with_update_interval(interval);
+                        }
+                    }
+
+                    // Extract driver configuration
+                    if let Some(driver_config) = params.get("driver") {
+                        if let Some(driver_obj) = driver_config.as_object() {
+                            if let Some(driver_type) =
+                                driver_obj.get("type").and_then(|v| v.as_str())
+                            {
+                                if let Some(driver_config_obj) =
+                                    driver_obj.get("config").and_then(|v| v.as_object())
+                                {
+                                    let driver: Box<dyn DisplayDriver> = match driver_type {
+                                        "https_callback" => {
+                                            let url = driver_config_obj.get("callback_url")
+                                                .and_then(|v| v.as_str())
+                                                .ok_or_else(|| anyhow::anyhow!("Missing callback_url for https_callback driver"))?;
+
+                                            let mut http_driver =
+                                                HttpsCallbackActionDriver::new(url);
+
+                                            // Optional auth token
+                                            if let Some(auth_token) = driver_config_obj
+                                                .get("auth_token")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                http_driver =
+                                                    http_driver.with_auth_token(auth_token);
+                                            }
+
+                                            // Optional timeout
+                                            if let Some(timeout_ms) = driver_config_obj
+                                                .get("timeout_ms")
+                                                .and_then(|v| v.as_u64())
+                                            {
+                                                http_driver = http_driver
+                                                    .with_timeout_seconds(timeout_ms / 1000);
+                                            }
+
+                                            // Optional retry count
+                                            if let Some(retry_count) = driver_config_obj
+                                                .get("retry_count")
+                                                .and_then(|v| v.as_u64())
+                                            {
+                                                http_driver = http_driver
+                                                    .with_retry_count(retry_count as u32);
+                                            }
+
+                                            Box::new(http_driver)
+                                        }
+                                        "redis" => {
+                                            let connection_string = driver_config_obj.get("connection_string")
+                                                .and_then(|v| v.as_str())
+                                                .ok_or_else(|| anyhow::anyhow!("Missing connection_string for redis driver"))?;
+
+                                            let channel = driver_config_obj
+                                                .get("channel")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("photoacoustic:display");
+
+                                            let mut redis_driver = RedisActionDriver::new_pubsub(
+                                                connection_string,
+                                                channel,
+                                            );
+
+                                            // Optional expiration
+                                            if let Some(expiration_seconds) = driver_config_obj
+                                                .get("expiration_seconds")
+                                                .and_then(|v| v.as_u64())
+                                            {
+                                                redis_driver = redis_driver
+                                                    .with_expiration_seconds(expiration_seconds);
+                                            }
+
+                                            Box::new(redis_driver)
+                                        }
+                                        "kafka" => {
+                                            let bootstrap_servers = driver_config_obj.get("bootstrap_servers")
+                                                .and_then(|v| v.as_str())
+                                                .ok_or_else(|| anyhow::anyhow!("Missing bootstrap_servers for kafka driver"))?;
+
+                                            let topic = driver_config_obj
+                                                .get("topic")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("photoacoustic.display");
+
+                                            let alert_topic = driver_config_obj
+                                                .get("alert_topic")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("photoacoustic.alerts");
+
+                                            Box::new(KafkaActionDriver::new(
+                                                bootstrap_servers,
+                                                topic,
+                                                alert_topic,
+                                            ))
+                                        }
+                                        _ => {
+                                            return Err(anyhow::anyhow!(
+                                                "Unsupported driver type: {}",
+                                                driver_type
+                                            ))
+                                        }
+                                    };
+
+                                    action_node = action_node.with_driver(driver);
+                                }
+                            }
                         }
                     }
                 }
