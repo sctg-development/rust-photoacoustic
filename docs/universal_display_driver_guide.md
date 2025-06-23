@@ -159,7 +159,7 @@ To create a new display driver, implement the `ActionDriver` trait:
 
 ```rust
 use async_trait::async_trait;
-use crate::processing::computing_nodes::display_drivers::{ActionDriver, MeasurementData, AlertData};
+use crate::processing::computing_nodes::action_drivers::{ActionDriver, MeasurementData, AlertData};
 
 #[derive(Debug)]
 pub struct MyCustomDisplayDriver {

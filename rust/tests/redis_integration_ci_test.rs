@@ -9,8 +9,8 @@
 
 use anyhow::Result;
 use redis::{Client, Commands};
-use rust_photoacoustic::processing::computing_nodes::display_drivers::{
-    AlertData, MeasurementData, ActionDriver, RedisActionDriver, RedisDriverMode,
+use rust_photoacoustic::processing::computing_nodes::action_drivers::{
+    ActionDriver, AlertData, MeasurementData, RedisActionDriver, RedisDriverMode,
 };
 use serde_json::json;
 use std::collections::HashMap;

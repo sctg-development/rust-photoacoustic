@@ -11,7 +11,7 @@ use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::computing_nodes::{
-    display_drivers::{
+    action_drivers::{
         ActionDriver, HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver,
     },
     ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalActionNode,

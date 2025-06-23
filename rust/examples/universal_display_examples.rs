@@ -7,7 +7,7 @@ use anyhow::Result;
 use env_logger;
 use rust_photoacoustic::processing::{
     computing_nodes::{
-        display_drivers::{HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver},
+        action_drivers::{HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver},
         UniversalActionNode,
     },
     ProcessingNode,
@@ -101,7 +101,7 @@ pub async fn setup_multi_output_system() -> Result<Vec<UniversalActionNode>> {
 /// Example: Configuration-driven driver selection
 pub fn create_display_from_config(config: &DisplayConfig) -> Result<UniversalActionNode> {
     let driver: Box<
-        dyn rust_photoacoustic::processing::computing_nodes::display_drivers::ActionDriver,
+        dyn rust_photoacoustic::processing::computing_nodes::action_drivers::ActionDriver,
     > = match config.driver_type.as_str() {
         "http" => Box::new(
             HttpsCallbackActionDriver::new(&config.endpoint)

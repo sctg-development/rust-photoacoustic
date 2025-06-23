@@ -44,7 +44,7 @@
 //! ```rust,ignore
 //! use crate::processing::computing_nodes::{
 //!     UniversalActionNode,
-//!     display_drivers::{HttpsCallbackActionDriver, RedisActionDriver}
+//!     action_drivers::{HttpsCallbackActionDriver, RedisActionDriver}
 //! };
 //!
 //! // HTTP callback driver for web dashboard
@@ -87,7 +87,7 @@
 //! use serde_json::{json, Value};
 //! use std::collections::HashMap;
 //! use std::time::SystemTime;
-//! use crate::processing::computing_nodes::display_drivers::{ActionDriver, MeasurementData, AlertData};
+//! use crate::processing::computing_nodes::action_drivers::{ActionDriver, MeasurementData, AlertData};
 //!
 //! #[derive(Debug)]
 //! pub struct MyCustomDisplayDriver {
@@ -221,7 +221,7 @@
 //! - **Builder Pattern Configuration**: Fluent API for setup and customization
 
 use crate::processing::computing_nodes::{
-    display_drivers::{ActionDriver, AlertData, MeasurementData},
+    action_drivers::{ActionDriver, AlertData, MeasurementData},
     ActionHistoryEntry, ActionNode, ActionNodeHelper, ActionTrigger, CircularBuffer,
     ComputingSharedData, SharedComputingState,
 };
@@ -567,7 +567,7 @@ impl UniversalActionNode {
     ///
     /// # Example
     /// ```rust,ignore
-    /// use crate::processing::computing_nodes::display_drivers::*;
+    /// use crate::processing::computing_nodes::action_drivers::*;
     ///
     /// // HTTP callback driver
     /// let http_driver = HttpsCallbackActionDriver::new("https://myserver.com/action");
@@ -674,7 +674,7 @@ impl UniversalActionNode {
     }
 
     /// Send a action update message to the processing thread
-    fn send_display_update(&self, data: MeasurementData) {
+    fn send_action_update(&self, data: MeasurementData) {
         if let Some(ref sender) = self.action_sender {
             if let Err(e) = sender.send(ActionMessage::Update(data)) {
                 error!("Failed to send action update to thread: {}", e);
@@ -733,7 +733,7 @@ impl UniversalActionNode {
     ///
     /// Updates the action with concentration data - no longer a sync wrapper
     /// This version handles both sync and async contexts safely
-    fn update_display_safely(&mut self, concentration: f64, source_node: &str) -> Result<()> {
+    fn update_action_safely(&mut self, concentration: f64, source_node: &str) -> Result<()> {
         // Log the update
         info!(
             "Display Update Queued [{}]: {:.2} ppm from node '{}'",
@@ -756,7 +756,7 @@ impl UniversalActionNode {
             };
 
         // Send action data to the processing thread
-        let display_data = MeasurementData {
+        let measurement_data = MeasurementData {
             concentration_ppm: concentration,
             source_node_id: source_node.to_string(),
             peak_amplitude,
@@ -765,7 +765,7 @@ impl UniversalActionNode {
             metadata: HashMap::new(),
         };
 
-        self.send_display_update(display_data);
+        self.send_action_update(measurement_data);
 
         // Update the timestamp to prevent too frequent updates
         self.last_action_update = Some(SystemTime::now());
@@ -774,7 +774,7 @@ impl UniversalActionNode {
     }
 
     /// Sends a flash action alert to the processing thread
-    fn flash_display_safely(&mut self, reason: &str) -> Result<()> {
+    fn flash_action_safely(&mut self, reason: &str) -> Result<()> {
         // Log the alert
         warn!("Display Alarm Queued [{}]: {}", self.id, reason);
 
@@ -812,7 +812,7 @@ impl UniversalActionNode {
     /// # Returns
     /// * `true` - Enough time has passed, safe to update
     /// * `false` - Too soon, skip this update
-    fn should_update_display(&self) -> bool {
+    fn should_update_action(&self) -> bool {
         if let Some(last_update) = self.last_action_update {
             if let Ok(elapsed) = last_update.elapsed() {
                 elapsed.as_millis() >= self.action_update_interval_ms as u128
@@ -916,13 +916,13 @@ impl ProcessingNode for UniversalActionNode {
     ///
     /// # PATTERN: Node type naming convention
     /// Use "action_" prefix followed by your specific type:
-    /// - "action_display" for action management
+    /// - "action_generic" for generic action management
     /// - "action_relay" for GPIO/relay control  
     /// - "action_email" for email notifications
     /// - "action_webhook" for HTTP callbacks
     /// - "action_database" for data logging
     fn node_type(&self) -> &str {
-        "action_display_example"
+        "action_generic_example"
     }
 
     /// Check if this node can accept the given input type (required by ProcessingNode)
@@ -1094,7 +1094,7 @@ impl ActionNode for UniversalActionNode {
     /// ```yaml
     /// action_nodes:
     ///   - id: "co2_display"
-    ///     type: "action_display_example"
+    ///     type: "action_generic_example"
     ///     monitored_nodes: ["concentration_co2"]  # NOT "peak_finder_co2"
     ///     concentration_threshold: 1000.0
     ///     amplitude_threshold: 0.8
@@ -1309,9 +1309,9 @@ impl ActionNode for UniversalActionNode {
         }
 
         // Update action if enough time has passed
-        if self.should_update_display() {
+        if self.should_update_action() {
             if let Some(latest_concentration) = computing_data.get_latest_concentration_result() {
-                self.update_display_safely(
+                self.update_action_safely(
                     latest_concentration.concentration_ppm,
                     &latest_concentration.source_peak_finder_id,
                 )?;
@@ -1416,7 +1416,7 @@ impl ActionNode for UniversalActionNode {
                 source_node_id,
             } => {
                 if value > threshold {
-                    self.flash_display_safely(&format!(
+                    self.flash_action_safely(&format!(
                         "Concentration threshold exceeded: {:.2} ppm > {:.2} ppm (from {})",
                         value, threshold, source_node_id
                     ))?;
@@ -1431,7 +1431,7 @@ impl ActionNode for UniversalActionNode {
                 source_node_id,
             } => {
                 if value > threshold {
-                    self.flash_display_safely(&format!(
+                    self.flash_action_safely(&format!(
                         "Amplitude threshold exceeded: {:.3} > {:.3} (from {})",
                         value, threshold, source_node_id
                     ))?;
@@ -1446,7 +1446,7 @@ impl ActionNode for UniversalActionNode {
                 source_node_id,
             } => {
                 if elapsed_seconds > timeout_seconds {
-                    self.flash_display_safely(&format!(
+                    self.flash_action_safely(&format!(
                         "Data timeout from node '{}': {} seconds",
                         source_node_id, elapsed_seconds
                     ))?;
@@ -1463,7 +1463,7 @@ impl ActionNode for UniversalActionNode {
             } => {
                 let deviation = (value - expected).abs();
                 if deviation > tolerance {
-                    self.flash_display_safely(&format!(
+                    self.flash_action_safely(&format!(
                         "Frequency deviation from node '{}': {:.1} Hz (expected {:.1} ± {:.1})",
                         source_node_id, value, expected, tolerance
                     ))?;
@@ -1657,45 +1657,45 @@ mod tests {
     /// }
     /// ```
     #[tokio::test]
-    async fn test_example_display_action_node_creation() {
-        let display_node = UniversalActionNode::new("test_display".to_string())
+    async fn test_example_action_node_creation() {
+        let action_node = UniversalActionNode::new("test_display".to_string())
             .with_history_buffer_capacity(150) // REQUIRED: explicit buffer capacity
             .with_concentration_threshold(500.0)
             .with_amplitude_threshold(0.6)
             .with_monitored_node("concentration_co2".to_string())
             .with_update_interval(2000);
 
-        assert_eq!(display_node.node_id(), "test_display");
-        assert_eq!(display_node.node_type(), "action_display_example");
-        assert_eq!(display_node.buffer_size(), 150); // Test the configured capacity
+        assert_eq!(action_node.node_id(), "test_display");
+        assert_eq!(action_node.node_type(), "action_generic_example");
+        assert_eq!(action_node.buffer_size(), 150); // Test the configured capacity
         assert_eq!(
-            display_node.get_monitored_node_ids(),
+            action_node.get_monitored_node_ids(),
             vec!["concentration_co2"]
         );
-        assert_eq!(display_node.concentration_threshold, Some(500.0));
-        assert_eq!(display_node.amplitude_threshold, Some(0.6));
+        assert_eq!(action_node.concentration_threshold, Some(500.0));
+        assert_eq!(action_node.amplitude_threshold, Some(0.6));
     }
 
     #[tokio::test]
     async fn test_action_node_monitoring() -> Result<()> {
-        let mut display_node =
+        let mut action_node =
             UniversalActionNode::new("test_display".to_string()).with_history_buffer_capacity(50); // REQUIRED: explicit buffer capacity
 
         // Test adding monitored nodes
-        display_node.add_monitored_node("node1".to_string())?;
-        display_node.add_monitored_node("node2".to_string())?;
+        action_node.add_monitored_node("node1".to_string())?;
+        action_node.add_monitored_node("node2".to_string())?;
 
-        assert_eq!(display_node.get_monitored_node_ids().len(), 2);
-        assert!(display_node.is_monitoring_node("node1"));
-        assert!(display_node.is_monitoring_node("node2"));
+        assert_eq!(action_node.get_monitored_node_ids().len(), 2);
+        assert!(action_node.is_monitoring_node("node1"));
+        assert!(action_node.is_monitoring_node("node2"));
 
         // Test removing monitored node
-        assert!(display_node.remove_monitored_node("node1")?);
-        assert!(!display_node.remove_monitored_node("nonexistent")?);
+        assert!(action_node.remove_monitored_node("node1")?);
+        assert!(!action_node.remove_monitored_node("nonexistent")?);
 
-        assert_eq!(display_node.get_monitored_node_ids().len(), 1);
-        assert!(!display_node.is_monitoring_node("node1"));
-        assert!(display_node.is_monitoring_node("node2"));
+        assert_eq!(action_node.get_monitored_node_ids().len(), 1);
+        assert!(!action_node.is_monitoring_node("node1"));
+        assert!(action_node.is_monitoring_node("node2"));
 
         Ok(())
     }
@@ -1759,7 +1759,7 @@ mod tests {
     /// - **Error conditions**: Test trigger_action error handling
     #[tokio::test]
     async fn test_action_node_triggers() -> Result<()> {
-        let mut display_node = UniversalActionNode::new("test_display".to_string())
+        let mut action_node = UniversalActionNode::new("test_display".to_string())
             .with_history_buffer_capacity(100) // REQUIRED: explicit buffer capacity
             .with_concentration_threshold(1000.0)
             .with_amplitude_threshold(0.8);
@@ -1771,8 +1771,8 @@ mod tests {
             source_node_id: "test_node".to_string(),
         };
 
-        assert!(display_node.trigger_action(trigger)?);
-        assert_eq!(display_node.actions_triggered, 1);
+        assert!(action_node.trigger_action(trigger)?);
+        assert_eq!(action_node.actions_triggered, 1);
 
         // Test amplitude threshold trigger (below threshold)
         let trigger = ActionTrigger::AmplitudeThreshold {
@@ -1781,26 +1781,26 @@ mod tests {
             source_node_id: "test_node".to_string(),
         };
 
-        assert!(!display_node.trigger_action(trigger)?);
-        assert_eq!(display_node.actions_triggered, 1); // No change
+        assert!(!action_node.trigger_action(trigger)?);
+        assert_eq!(action_node.actions_triggered, 1); // No change
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_action_node_buffer_management() -> Result<()> {
-        let mut display_node =
+        let mut action_node =
             UniversalActionNode::new("test_display".to_string()).with_history_buffer_capacity(25); // REQUIRED: explicit buffer capacity
 
         // Verify initial buffer size is as configured
-        assert_eq!(display_node.buffer_size(), 25);
+        assert_eq!(action_node.buffer_size(), 25);
 
         // Test buffer resize
-        display_node.set_buffer_size(50)?;
-        assert_eq!(display_node.buffer_size(), 50);
+        action_node.set_buffer_size(50)?;
+        assert_eq!(action_node.buffer_size(), 50);
 
         // Test invalid buffer size
-        assert!(display_node.set_buffer_size(0).is_err());
+        assert!(action_node.set_buffer_size(0).is_err());
 
         Ok(())
     }

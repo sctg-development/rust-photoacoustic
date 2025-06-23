@@ -24,10 +24,10 @@ UniversalActionNode
 
 ### 1. Structure de Base
 
-Créez un nouveau fichier dans `src/processing/computing_nodes/display_drivers/` :
+Créez un nouveau fichier dans `src/processing/computing_nodes/action_drivers/` :
 
 ```rust
-// src/processing/computing_nodes/display_drivers/my_driver.rs
+// src/processing/computing_nodes/action_drivers/my_driver.rs
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -192,7 +192,7 @@ impl ActionDriver for MyCustomDriver {
 
 ### 2. Mise à Jour du Module Parent
 
-Ajoutez votre driver dans `src/processing/computing_nodes/display_drivers/mod.rs` :
+Ajoutez votre driver dans `src/processing/computing_nodes/action_drivers/mod.rs` :
 
 ```rust
 // Ajoutez votre module
@@ -207,7 +207,7 @@ pub use self::my_driver::MyCustomDriver;
 ```rust
 use crate::processing::computing_nodes::{
     UniversalActionNode,
-    display_drivers::MyCustomDriver
+    action_drivers::MyCustomDriver
 };
 
 // Créer et configurer votre driver
