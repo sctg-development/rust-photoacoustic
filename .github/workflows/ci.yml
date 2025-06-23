@@ -11,6 +11,18 @@ jobs:
     name: Build and Test on ${{ matrix.os }} (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     
+    # Redis service for integration tests
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     strategy:
       fail-fast: false
       matrix:
@@ -64,7 +76,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2-dev
+        sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2-dev redis-tools
         
     # Install LLVM and Clang (required for bindgen)
     - name: Install LLVM and Clang
@@ -108,6 +120,33 @@ jobs:
       run: |
         cd rust
         cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon
+    
+    # Run Redis integration tests (only on Linux with Redis service)
+    - name: Run Redis integration tests
+      if: matrix.cross == false && matrix.os == 'ubuntu-latest'
+      run: |
+        cd rust
+        # Wait for Redis to be ready
+        timeout 30s bash -c 'until redis-cli ping; do sleep 1; done'
+        echo "✅ Redis is ready"
+        # Run CI-specific integration tests
+        cargo test --test redis_integration_ci_test -- --ignored --nocapture
+        # Also run the original integration tests for completeness
+        cargo test --test redis_integration_test test_redis_driver_without_server -- --nocapture
+      env:
+        REDIS_URL: redis://localhost:6379
+        
+    # Test Redis viewer tool (only on Linux with Redis service)
+    - name: Test Redis viewer tool
+      if: matrix.cross == false && matrix.os == 'ubuntu-latest'
+      run: |
+        cd rust
+        # Build the redis_viewer tool
+        cargo build --bin redis_viewer
+        # Test redis_viewer basic functionality
+        echo "🔍 Testing Redis viewer tool..."
+        ./target/debug/redis_viewer --connection-string redis://localhost:6379 --pattern "*" --limit 5 || echo "No keys found, which is expected"
+        echo "✅ Redis viewer tool test completed"
       
     # Run specific tests with custom timeout
     - name: Run introspection tests

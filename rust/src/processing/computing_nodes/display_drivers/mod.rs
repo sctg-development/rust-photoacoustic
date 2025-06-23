@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 //! Display drivers for UniversalActionNode
 //!
 //! This module provides a pluggable driver architecture for display outputs in the
@@ -26,7 +30,7 @@ mod redis;
 // Re-export driver implementations
 pub use self::http::HttpsCallbackActionDriver;
 pub use self::kafka::KafkaActionDriver;
-pub use self::redis::RedisActionDriver;
+pub use self::redis::{RedisActionDriver, RedisDriverMode};
 
 use anyhow::Result;
 use async_trait::async_trait;

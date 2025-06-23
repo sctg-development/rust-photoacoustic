@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 // Test direct du RedisActionDriver en mode key_value
 use rust_photoacoustic::processing::computing_nodes::display_drivers::redis::RedisActionDriver;
 use rust_photoacoustic::processing::computing_nodes::display_drivers::{
