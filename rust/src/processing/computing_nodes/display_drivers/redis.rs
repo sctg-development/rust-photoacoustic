@@ -15,7 +15,7 @@ use redis::{aio::MultiplexedConnection, Client};
 use serde_json::{json, Value};
 use std::time::SystemTime;
 
-use super::{AlertData, DisplayData, DisplayDriver};
+use super::{ActionDriver, AlertData, MeasurementData};
 
 /// Redis display driver modes
 #[derive(Debug, Clone)]
@@ -149,7 +149,7 @@ impl RedisActionDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for RedisActionDriver {
+impl ActionDriver for RedisActionDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Test Redis connection
         let conn = self.get_connection().await?;
@@ -174,7 +174,7 @@ impl DisplayDriver for RedisActionDriver {
         }
     }
 
-    async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+    async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
         // Clone values that we'll need after borrowing self
         let mode = self.mode.clone();
         let channel_or_prefix = self.channel_or_prefix.clone();
@@ -395,7 +395,7 @@ impl DisplayDriver for RedisActionDriver {
         }
     }
 
-    async fn clear_display(&mut self) -> Result<()> {
+    async fn clear_action(&mut self) -> Result<()> {
         // Clone values that we'll need after borrowing self
         let mode = self.mode.clone();
         let channel_or_prefix = self.channel_or_prefix.clone();

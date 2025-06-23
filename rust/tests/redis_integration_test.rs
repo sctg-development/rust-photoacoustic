@@ -10,7 +10,7 @@
 use anyhow::Result;
 use redis::{Client, Commands};
 use rust_photoacoustic::processing::computing_nodes::display_drivers::{
-    AlertData, DisplayData, DisplayDriver, RedisActionDriver, RedisDriverMode,
+    ActionDriver, AlertData, MeasurementData, RedisActionDriver, RedisDriverMode,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -107,7 +107,7 @@ async fn stop_redis_container() -> Result<()> {
 }
 
 /// Helper to create test display data
-fn create_test_display_data() -> DisplayData {
+fn create_test_display_data() -> MeasurementData {
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("test".to_string(), serde_json::Value::Bool(true));
     metadata.insert(
@@ -115,7 +115,7 @@ fn create_test_display_data() -> DisplayData {
         serde_json::Value::String("integration_test".to_string()),
     );
 
-    DisplayData {
+    MeasurementData {
         concentration_ppm: 123.45,
         source_node_id: "test_concentration_node".to_string(),
         peak_amplitude: 75.5,
@@ -175,7 +175,7 @@ async fn test_redis_driver_key_value_mode() -> Result<()> {
 
     // Test display data
     let display_data = create_test_display_data();
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
     println!("Display data sent successfully");
 
     // Test alert data
@@ -210,7 +210,7 @@ async fn test_redis_driver_key_value_mode() -> Result<()> {
     assert_eq!(parsed_alert["alert_type"], "concentration_threshold");
 
     // Test clear display
-    driver.clear_display().await?;
+    driver.clear_action().await?;
     println!("Clear display sent successfully");
 
     // Check status
@@ -266,7 +266,7 @@ async fn test_redis_driver_pubsub_mode() -> Result<()> {
     });
 
     // Send display data
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
     println!("Display data published successfully");
 
     // Send alert data
@@ -320,7 +320,7 @@ async fn test_redis_driver_reconnection() -> Result<()> {
 
     // Send initial data
     let display_data = create_test_display_data();
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
     println!("Initial data sent successfully");
 
     // Stop Redis container to simulate connection loss
@@ -356,7 +356,7 @@ async fn test_redis_driver_reconnection() -> Result<()> {
 
     // Try to send data again - should reconnect automatically
     let display_data2 = create_test_display_data();
-    let result = driver.update_display(&display_data2).await;
+    let result = driver.update_action(&display_data2).await;
 
     match result {
         Ok(_) => println!("Reconnection test successful"),
@@ -388,7 +388,7 @@ async fn test_redis_driver_without_server() -> Result<()> {
 
     // Update should also fail
     let display_data = create_test_display_data();
-    let update_result = driver.update_display(&display_data).await;
+    let update_result = driver.update_action(&display_data).await;
     assert!(
         update_result.is_err(),
         "Update should fail without Redis connection"
@@ -416,7 +416,7 @@ async fn test_redis_driver_local() -> Result<()> {
     driver.initialize().await?;
 
     let display_data = create_test_display_data();
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
 
     println!("Local Redis test completed - check redis-cli for data");
     Ok(())

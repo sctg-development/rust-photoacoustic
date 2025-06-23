@@ -7,7 +7,7 @@
 //! These tests focus on testing the driver logic without requiring a Redis server.
 
 use rust_photoacoustic::processing::computing_nodes::display_drivers::{
-    AlertData, DisplayData, DisplayDriver, RedisActionDriver, RedisDriverMode,
+    AlertData, MeasurementData, ActionDriver, RedisActionDriver, RedisDriverMode,
 };
 use serde_json::json;
 use std::time::SystemTime;
@@ -83,7 +83,7 @@ fn test_display_data_creation() {
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("test".to_string(), serde_json::Value::Bool(true));
 
-    let display_data = DisplayData {
+    let display_data = MeasurementData {
         concentration_ppm: 42.5,
         source_node_id: "test_node".to_string(),
         peak_amplitude: 65.0,

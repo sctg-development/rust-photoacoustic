@@ -2,14 +2,14 @@
 
 ## Overview
 
-The `UniversalActionNode` provides a flexible, pluggable architecture for outputting photoacoustic sensor data to various display technologies. Through the `DisplayDriver` trait, the same ActionNode can output to web dashboards, message queues, databases, physical displays, and future output technologies without changing the core processing logic.
+The `UniversalActionNode` provides a flexible, pluggable architecture for outputting photoacoustic sensor data to various display technologies. Through the `ActionDriver` trait, the same ActionNode can output to web dashboards, message queues, databases, physical displays, and future output technologies without changing the core processing logic.
 
 ## Architecture
 
 ```text
 UniversalActionNode
           ↓
-   DisplayDriver trait
+   ActionDriver trait
           ↓
 ┌─────────────┬─────────────┬─────────────┬─────────────┐
 │   HTTPS     │    Redis    │    Kafka    │  Physical   │
@@ -155,11 +155,11 @@ let event_node = UniversalActionNode::new("kafka_events".to_string())
 
 ## Creating Custom Drivers
 
-To create a new display driver, implement the `DisplayDriver` trait:
+To create a new display driver, implement the `ActionDriver` trait:
 
 ```rust
 use async_trait::async_trait;
-use crate::processing::computing_nodes::display_drivers::{DisplayDriver, DisplayData, AlertData};
+use crate::processing::computing_nodes::display_drivers::{ActionDriver, MeasurementData, AlertData};
 
 #[derive(Debug)]
 pub struct MyCustomDisplayDriver {
@@ -170,14 +170,14 @@ pub struct MyCustomDisplayDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for MyCustomDisplayDriver {
+impl ActionDriver for MyCustomDisplayDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Initialize hardware/service connection
         self.connection = Some(MyConnection::new(&self.config)?);
         Ok(())
     }
 
-    async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+    async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
         // Update your display with concentration data
         if let Some(ref mut conn) = self.connection {
             conn.send_update(data.concentration_ppm, data.timestamp).await?;
@@ -309,11 +309,11 @@ All drivers implement graceful error handling:
 ```rust
 #[derive(Debug)]
 pub struct MockDisplayDriver {
-    pub updates: Vec<DisplayData>,
+    pub updates: Vec<MeasurementData>,
     pub alerts: Vec<AlertData>,
 }
 
-// Implement DisplayDriver trait for testing
+// Implement ActionDriver trait for testing
 // Collects all calls for verification in tests
 ```
 

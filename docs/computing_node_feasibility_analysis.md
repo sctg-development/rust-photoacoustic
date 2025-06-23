@@ -24,7 +24,7 @@ Cette analyse étudie la faisabilité technique et la pertinence business d'une 
 - ✅ `HttpsCallbackDisplayDriver` → **`HttpsCallbackActionDriver`** : Cohérence avec le concept d'action
 - ✅ `RedisDisplayDriver` → **`RedisActionDriver`** : Simplification et cohérence
 - ✅ `KafkaDisplayDriver` → **`KafkaActionDriver`** : Alignement terminologique
-- ✅ `DisplayDriver` trait → **`ActionDriver`** trait : Généralisation du concept
+- ✅ `ActionDriver` trait → **`ActionDriver`** trait : Généralisation du concept
 
 **Justification** : Ces changements améliorent la cohérence architecturale en utilisant une terminologie uniforme autour du concept d'**ActionNode** et d'**ActionDriver**, facilitant la compréhension et l'extension future du système vers d'autres types d'actions (relais, notifications, bases de données, etc.).
 

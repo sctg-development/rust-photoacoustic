@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use std::fmt;
 use std::time::{Duration, SystemTime};
 
-use super::{AlertData, DisplayData, DisplayDriver};
+use super::{ActionDriver, AlertData, MeasurementData};
 
 /// Kafka display driver
 ///
@@ -142,7 +142,7 @@ impl KafkaActionDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for KafkaActionDriver {
+impl ActionDriver for KafkaActionDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Create a producer to test connection
         self.ensure_producer()?;
@@ -156,7 +156,7 @@ impl DisplayDriver for KafkaActionDriver {
         Ok(())
     }
 
-    async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+    async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
         // Clone the data we need to avoid borrowing self
         let display_topic = self.display_topic.clone();
 
@@ -195,7 +195,7 @@ impl DisplayDriver for KafkaActionDriver {
         self.send_to_topic(&alert_topic, &key, &json_str).await
     }
 
-    async fn clear_display(&mut self) -> Result<()> {
+    async fn clear_action(&mut self) -> Result<()> {
         // Clone the data we need to avoid borrowing self
         let display_topic = self.display_topic.clone();
 

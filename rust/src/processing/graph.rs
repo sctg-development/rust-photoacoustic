@@ -12,7 +12,7 @@ use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
 use crate::processing::computing_nodes::{
     display_drivers::{
-        DisplayDriver, HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver,
+        ActionDriver, HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver,
     },
     ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalActionNode,
 };
@@ -1383,7 +1383,7 @@ impl ProcessingGraph {
                                 if let Some(driver_config_obj) =
                                     driver_obj.get("config").and_then(|v| v.as_object())
                                 {
-                                    let driver: Box<dyn DisplayDriver> = match driver_type {
+                                    let driver: Box<dyn ActionDriver> = match driver_type {
                                         "https_callback" => {
                                             let url = driver_config_obj.get("callback_url")
                                                 .and_then(|v| v.as_str())

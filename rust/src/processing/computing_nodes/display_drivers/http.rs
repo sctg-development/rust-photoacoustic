@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use super::{AlertData, DisplayData, DisplayDriver};
+use super::{ActionDriver, AlertData, MeasurementData};
 
 /// HTTP/HTTPS callback display driver
 ///
@@ -186,7 +186,7 @@ impl HttpsCallbackActionDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for HttpsCallbackActionDriver {
+impl ActionDriver for HttpsCallbackActionDriver {
     async fn initialize(&mut self) -> Result<()> {
         // Validate URL
         if !self.url.starts_with("https://") && !self.url.starts_with("http://") {
@@ -225,7 +225,7 @@ impl DisplayDriver for HttpsCallbackActionDriver {
         }
     }
 
-    async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+    async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
         let payload = json!({
             "type": "display_update",
             "concentration_ppm": data.concentration_ppm,
@@ -252,7 +252,7 @@ impl DisplayDriver for HttpsCallbackActionDriver {
         self.send_with_retry(&payload).await
     }
 
-    async fn clear_display(&mut self) -> Result<()> {
+    async fn clear_action(&mut self) -> Result<()> {
         let payload = json!({
             "type": "clear_display",
             "timestamp": SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()

@@ -4,8 +4,8 @@
 
 //! Display drivers for UniversalActionNode
 //!
-//! This module provides a pluggable driver architecture for display outputs in the
-//! UniversalActionNode. Drivers abstract different display technologies and
+//! This module provides a pluggable driver architecture for action outputs in the
+//! UniversalActionNode. Drivers abstract different action technologies and
 //! communication protocols, allowing the same ActionNode to output to various endpoints.
 //!
 //! # Architecture
@@ -13,7 +13,7 @@
 //! ```text
 //! UniversalActionNode
 //!           ↓
-//!    DisplayDriver trait
+//!    ActionDriver trait
 //!           ↓
 //! ┌─────────────┬─────────────┬─────────────┬─────────────┐
 //! │   HTTPS     │    Redis    │    Kafka    │  Physical   │
@@ -38,9 +38,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-/// Core display data passed to drivers
+/// Core action data passed to drivers
 #[derive(Debug, Clone)]
-pub struct DisplayData {
+pub struct MeasurementData {
     /// Current concentration value in ppm
     pub concentration_ppm: f64,
     /// Source node ID that generated this data
@@ -51,11 +51,11 @@ pub struct DisplayData {
     pub peak_frequency: f32,
     /// Timestamp of the measurement
     pub timestamp: SystemTime,
-    /// Additional metadata for the display
+    /// Additional metadata for the action
     pub metadata: HashMap<String, Value>,
 }
 
-/// Alert/alarm data for special display states
+/// Alert/alarm data for special action states
 #[derive(Debug, Clone)]
 pub struct AlertData {
     /// Type of alert (concentration, amplitude, timeout, etc.)
@@ -70,13 +70,13 @@ pub struct AlertData {
     pub timestamp: SystemTime,
 }
 
-/// Trait for all display drivers
+/// Trait for all action drivers
 ///
-/// This trait abstracts different display technologies and communication protocols.
-/// Each driver implements the specific logic for updating its display type while
+/// This trait abstracts different action technologies and communication protocols.
+/// Each driver implements the specific logic for updating its action type while
 /// providing a common interface to the UniversalActionNode.
 #[async_trait]
-pub trait DisplayDriver: Send + Sync + std::fmt::Debug {
+pub trait ActionDriver: Send + Sync + std::fmt::Debug {
     /// Initialize the driver and establish connection
     ///
     /// This method is called when the driver is first configured.
@@ -87,41 +87,41 @@ pub trait DisplayDriver: Send + Sync + std::fmt::Debug {
     /// * `Err(anyhow::Error)` - Initialization failed
     async fn initialize(&mut self) -> Result<()>;
 
-    /// Update display with current concentration data
+    /// Update action with current concentration data
     ///
     /// This is the primary method called when new concentration data is available.
-    /// The driver should format and display the data according to its capabilities.
+    /// The driver should format and action the data according to its capabilities.
     ///
     /// # Arguments
-    /// * `data` - Current display data with concentration, amplitude, etc.
+    /// * `data` - Current action data with concentration, amplitude, etc.
     ///
     /// # Returns
     /// * `Ok(())` - Display updated successfully
     /// * `Err(anyhow::Error)` - Display update failed
-    async fn update_display(&mut self, data: &DisplayData) -> Result<()>;
+    async fn update_action(&mut self, data: &MeasurementData) -> Result<()>;
 
-    /// Flash/alert display for alarm conditions
+    /// Flash/alert action for alarm conditions
     ///
     /// Called when threshold conditions are met and an alert needs to be displayed.
-    /// The driver should implement appropriate visual/audio alerts for its display type.
+    /// The driver should implement appropriate visual/audio alerts for its action type.
     ///
     /// # Arguments
     /// * `alert` - Alert data with type, severity, and message
     ///
     /// # Returns
-    /// * `Ok(())` - Alert displayed successfully
-    /// * `Err(anyhow::Error)` - Alert display failed
+    /// * `Ok(())` - Alert actioned successfully
+    /// * `Err(anyhow::Error)` - Alert action failed
     async fn show_alert(&mut self, alert: &AlertData) -> Result<()>;
 
-    /// Clear display and return to idle state
+    /// Clear action and return to idle state
     ///
     /// Called when the system is shutting down or resetting.
-    /// The driver should clear any active displays and return to a safe state.
+    /// The driver should clear any active actions and return to a safe state.
     ///
     /// # Returns
     /// * `Ok(())` - Display cleared successfully
     /// * `Err(anyhow::Error)` - Clear operation failed
-    async fn clear_display(&mut self) -> Result<()>;
+    async fn clear_action(&mut self) -> Result<()>;
 
     /// Get driver status and health information
     ///
@@ -143,7 +143,7 @@ pub trait DisplayDriver: Send + Sync + std::fmt::Debug {
 
     /// Check if driver supports real-time updates
     ///
-    /// Some drivers (like physical displays) support real-time updates,
+    /// Some drivers (like physical actions) support real-time updates,
     /// while others (like batch data export) may only support periodic updates.
     ///
     /// # Returns

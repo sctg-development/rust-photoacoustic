@@ -10,7 +10,7 @@
 use anyhow::Result;
 use redis::{Client, Commands};
 use rust_photoacoustic::processing::computing_nodes::display_drivers::{
-    AlertData, DisplayData, DisplayDriver, RedisActionDriver, RedisDriverMode,
+    AlertData, MeasurementData, ActionDriver, RedisActionDriver, RedisDriverMode,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ async fn redis_ready(url: &str) -> bool {
 }
 
 /// Helper to create test display data
-fn create_test_display_data() -> DisplayData {
+fn create_test_display_data() -> MeasurementData {
     let mut metadata = HashMap::new();
     metadata.insert("test".to_string(), serde_json::Value::Bool(true));
     metadata.insert(
@@ -45,7 +45,7 @@ fn create_test_display_data() -> DisplayData {
         serde_json::Value::String("github_actions".to_string()),
     );
 
-    DisplayData {
+    MeasurementData {
         concentration_ppm: 42.0,
         source_node_id: "ci_test_node".to_string(),
         peak_amplitude: 80.0,
@@ -92,7 +92,7 @@ async fn test_redis_driver_key_value_mode_ci() -> Result<()> {
 
     // Test display data
     let display_data = create_test_display_data();
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
     println!("✅ Display data sent successfully");
 
     // Test alert data
@@ -101,7 +101,7 @@ async fn test_redis_driver_key_value_mode_ci() -> Result<()> {
     println!("✅ Alert data sent successfully");
 
     // Test clear display
-    driver.clear_display().await?;
+    driver.clear_action().await?;
     println!("✅ Clear display sent successfully");
 
     // Verify data was stored using standard Redis client
@@ -168,7 +168,7 @@ async fn test_redis_driver_pubsub_mode_ci() -> Result<()> {
 
     // Test display data (publishing)
     let display_data = create_test_display_data();
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
     println!("✅ Display data published successfully");
 
     // Test alert data (publishing)
@@ -177,7 +177,7 @@ async fn test_redis_driver_pubsub_mode_ci() -> Result<()> {
     println!("✅ Alert data published successfully");
 
     // Test clear display (publishing)
-    driver.clear_display().await?;
+    driver.clear_action().await?;
     println!("✅ Clear display published successfully");
 
     // Check status
@@ -217,7 +217,7 @@ async fn test_redis_driver_reconnection_ci() -> Result<()> {
 
     // Send initial data
     let display_data = create_test_display_data();
-    driver.update_display(&display_data).await?;
+    driver.update_action(&display_data).await?;
     println!("✅ Initial data sent successfully");
 
     // Simulate connection issues by creating a temporary driver with wrong URL
@@ -232,7 +232,7 @@ async fn test_redis_driver_reconnection_ci() -> Result<()> {
 
     // Main driver should still work and auto-reconnect if needed
     let display_data2 = create_test_display_data();
-    driver.update_display(&display_data2).await?;
+    driver.update_action(&display_data2).await?;
     println!("✅ Reconnection test successful");
 
     // Cleanup
@@ -266,7 +266,7 @@ async fn test_redis_driver_no_server_ci() -> Result<()> {
 
     // Update should also fail
     let display_data = create_test_display_data();
-    let update_result = driver.update_display(&display_data).await;
+    let update_result = driver.update_action(&display_data).await;
     assert!(
         update_result.is_err(),
         "Update should fail without Redis connection"

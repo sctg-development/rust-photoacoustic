@@ -1,17 +1,17 @@
-# Guide du Développeur : Implémentation d'un Driver DisplayDriver
+# Guide du Développeur : Implémentation d'un Driver ActionDriver
 
 Ce guide explique comment implémenter un nouveau driver pour le système `UniversalActionNode` de rust-photoacoustic.
 
 ## Vue d'ensemble
 
-Le système utilise une architecture pluggable avec le trait `DisplayDriver` qui permet d'abstraire différentes technologies d'affichage et protocoles de communication.
+Le système utilise une architecture pluggable avec le trait `ActionDriver` qui permet d'abstraire différentes technologies d'affichage et protocoles de communication.
 
 ## Architecture du Système
 
 ```text
 UniversalActionNode
         ↓
- DisplayDriver trait  
+ ActionDriver trait  
         ↓
 ┌─────────────┬─────────────┬─────────────┬─────────────┐
 │   HTTPS     │    Redis    │    Kafka    │  Physical   │
@@ -36,7 +36,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use super::{AlertData, DisplayData, DisplayDriver};
+use super::{AlertData, MeasurementData, ActionDriver};
 
 /// Mon driver personnalisé pour [décrire votre technologie]
 #[derive(Debug)]
@@ -81,7 +81,7 @@ impl MyCustomDriver {
 }
 
 #[async_trait]
-impl DisplayDriver for MyCustomDriver {
+impl ActionDriver for MyCustomDriver {
     async fn initialize(&mut self) -> Result<()> {
         info!("Initializing MyCustomDriver with endpoint: {}", self.endpoint_url);
         
@@ -97,7 +97,7 @@ impl DisplayDriver for MyCustomDriver {
         Ok(())
     }
 
-    async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+    async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
         if !self.is_connected {
             return Err(anyhow::anyhow!("Driver not initialized"));
         }
@@ -224,9 +224,9 @@ let display_node = UniversalActionNode::new("my_display".to_string())
 
 ## Types de Données
 
-### DisplayData
+### MeasurementData
 ```rust
-pub struct DisplayData {
+pub struct MeasurementData {
     pub concentration_ppm: f64,        // Concentration actuelle en ppm
     pub source_node_id: String,        // ID du nœud source
     pub peak_amplitude: f32,           // Amplitude du pic (0.0-1.0)
@@ -281,7 +281,7 @@ pub struct AlertData {
 // Utiliser reqwest pour HTTP
 use reqwest::Client;
 
-async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
     let client = Client::new();
     let payload = json!({
         "concentration": data.concentration_ppm,
@@ -307,7 +307,7 @@ async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
 ### Driver GPIO/Hardware
 ```rust
 // Utiliser rppal ou gpio-utils pour Raspberry Pi
-async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
     // Exemple : contrôler des LEDs selon la concentration
     if data.concentration_ppm > 1000.0 {
         self.red_led.set_high();
@@ -323,7 +323,7 @@ async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
 ### Driver Base de Données
 ```rust
 // Utiliser sqlx ou diesel
-async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
+async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
     sqlx::query!(
         "INSERT INTO display_data (concentration, source_node, timestamp) VALUES ($1, $2, $3)",
         data.concentration_ppm,
@@ -359,7 +359,7 @@ mod tests {
         let mut driver = MyCustomDriver::new("test://localhost".to_string());
         driver.initialize().await.unwrap();
         
-        let data = DisplayData {
+        let data = MeasurementData {
             concentration_ppm: 500.0,
             source_node_id: "test_node".to_string(),
             peak_amplitude: 0.5,
