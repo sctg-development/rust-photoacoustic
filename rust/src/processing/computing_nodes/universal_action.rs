@@ -48,11 +48,9 @@
 //! };
 //!
 //! // HTTP callback driver for web dashboard
-//! let http_driver = HttpsCallbackActionDriver::new()
-//!     .with_callback_url("https://dashboard.company.com/api/display")
-//!     .with_auth_token("Bearer your_api_token_here")
-//!     .with_timeout_ms(5000)
-//!     .build()?;
+//! let http_driver = HttpsCallbackActionDriver::new("https://dashboard.company.com/api/display".to_string())
+//!     .with_auth_header("Authorization".to_string(), "Bearer your_api_token_here".to_string())
+//!     .with_timeout_ms(5000);
 //!
 //! let web_display_node = UniversalActionNode::new("web_display".to_string())
 //!     .with_history_buffer_capacity(100)
@@ -61,16 +59,22 @@
 //!     .with_monitored_node("co2_concentration".to_string());
 //!
 //! // Redis pub/sub driver for real-time streaming
-//! let redis_driver = RedisActionDriver::new()
-//!     .with_connection_string("redis://localhost:6379")
-//!     .with_channel("photoacoustic:realtime:display")
-//!     .with_expiry_seconds(3600)
-//!     .build()?;
+//! let redis_driver = RedisActionDriver::new_pubsub("redis://localhost:6379", "photoacoustic:realtime:display");
 //!
 //! let redis_display_node = UniversalActionNode::new("redis_stream".to_string())
 //!     .with_history_buffer_capacity(50)
 //!     .with_driver(Box::new(redis_driver))
 //!     .with_amplitude_threshold(0.8);
+//!     
+//! // Redis key-value driver with expiration
+//! let redis_kv_driver = RedisActionDriver::new_key_value("redis://localhost:6379", "photoacoustic")
+//!     .with_expiration_seconds(3600); // 1 hour expiration
+//!
+//! let redis_kv_node = UniversalActionNode::new("redis_storage".to_string())
+//!     .with_history_buffer_capacity(200)
+//!     .with_driver(Box::new(redis_kv_driver))
+//!     .with_concentration_threshold(500.0)
+//!     .with_update_interval(2000); // Update every 2 seconds
 //! ```
 //!
 //! # Driver Development
@@ -79,33 +83,127 @@
 //!
 //! ```rust,ignore
 //! use async_trait::async_trait;
+//! use anyhow::Result;
+//! use serde_json::{json, Value};
+//! use std::collections::HashMap;
+//! use std::time::SystemTime;
 //! use crate::processing::computing_nodes::display_drivers::{DisplayDriver, DisplayData, AlertData};
 //!
 //! #[derive(Debug)]
 //! pub struct MyCustomDisplayDriver {
-//!     // Your driver-specific fields
+//!     endpoint_url: String,
+//!     connection_timeout_ms: u64,
+//!     is_connected: bool,
+//!     // Add your driver-specific fields here
+//! }
+//!
+//! impl MyCustomDisplayDriver {
+//!     pub fn new(endpoint_url: String) -> Self {
+//!         Self {
+//!             endpoint_url,
+//!             connection_timeout_ms: 5000,
+//!             is_connected: false,
+//!         }
+//!     }
+//!     
+//!     pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
+//!         self.connection_timeout_ms = timeout_ms;
+//!         self
+//!     }
 //! }
 //!
 //! #[async_trait]
 //! impl DisplayDriver for MyCustomDisplayDriver {
 //!     async fn initialize(&mut self) -> Result<()> {
 //!         // Initialize your display hardware/service
+//!         // Example: establish network connection, test hardware, etc.
+//!         log::info!("Initializing MyCustomDisplayDriver");
+//!         self.is_connected = true;
 //!         Ok(())
 //!     }
 //!
 //!     async fn update_display(&mut self, data: &DisplayData) -> Result<()> {
 //!         // Update your display with concentration data
+//!         // data.concentration_ppm contains the current value
+//!         // data.timestamp contains when the measurement was taken
+//!         log::debug!("Updating display: {:.2} ppm", data.concentration_ppm);
 //!         Ok(())
 //!     }
 //!
 //!     async fn show_alert(&mut self, alert: &AlertData) -> Result<()> {
 //!         // Show alert/alarm on your display
+//!         // alert.severity: "info", "warning", "critical"
+//!         // alert.message: human-readable alert text
+//!         log::warn!("Showing {} alert: {}", alert.severity, alert.message);
 //!         Ok(())
 //!     }
-//!
-//!     // ... implement other required methods
+//!     
+//!     async fn clear_display(&mut self) -> Result<()> {
+//!         // Clear the display and return to idle state
+//!         log::debug!("Clearing display");
+//!         Ok(())
+//!     }
+//!     
+//!     async fn get_status(&self) -> Result<Value> {
+//!         // Return status information for monitoring
+//!         Ok(json!({
+//!             "driver_type": self.driver_type(),
+//!             "endpoint_url": self.endpoint_url,
+//!             "is_connected": self.is_connected,
+//!             "timeout_ms": self.connection_timeout_ms
+//!         }))
+//!     }
+//!     
+//!     fn driver_type(&self) -> &str {
+//!         "my_custom_driver"
+//!     }
+//!     
+//!     async fn shutdown(&mut self) -> Result<()> {
+//!         // Clean up resources when shutting down
+//!         log::info!("Shutting down MyCustomDisplayDriver");
+//!         self.is_connected = false;
+//!         Ok(())
+//!     }
 //! }
 //! ```
+//!
+//! ## Required Dependencies
+//!
+//! Add these to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! async-trait = "0.1"
+//! anyhow = "1.0"
+//! serde_json = "1.0"
+//! log = "0.4"
+//! tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+//! ```
+//!
+//! ## Usage Example
+//!
+//! ```rust,ignore
+//! // Create and configure your driver
+//! let my_driver = MyCustomDisplayDriver::new("https://my-api.com/display".to_string())
+//!     .with_timeout(10000);
+//!
+//! // Use the driver in an ActionNode
+//! let display_node = UniversalActionNode::new("my_display".to_string())
+//!     .with_history_buffer_capacity(100)
+//!     .with_driver(Box::new(my_driver))
+//!     .with_concentration_threshold(1000.0);
+//! ```
+//!
+//! ## Driver Development Tips
+//!
+//! 1. **Error Handling**: Always use `anyhow::Result` and log errors appropriately
+//! 2. **Async Operations**: Use `async/await` for I/O operations, avoid blocking calls
+//! 3. **Configuration**: Implement builder pattern for flexible configuration
+//! 4. **Status Monitoring**: Provide detailed status information for debugging
+//! 5. **Resource Cleanup**: Implement proper shutdown to avoid resource leaks
+//! 6. **Testing**: Create unit tests for your driver methods
+//!
+//! For a complete development guide, see: `docs/display_driver_development_guide.md`
 //!
 //! # ActionNode Template
 //!
