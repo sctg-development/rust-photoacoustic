@@ -311,12 +311,12 @@ processing:
     - id: "display_action"
       node_type: "action_example_display"
       parameters:
-        buffer_capacity: 150          # Store 150 historical data points (about 2.5 minutes at 1Hz)
-        monitored_nodes:              # List of computing nodes to monitor
+        buffer_capacity: 150           # Store 150 historical data points (about 2.5 minutes at 1Hz)
+        monitored_nodes:               # List of computing nodes to monitor
           - "concentration_calculator" # Monitor the concentration calculator results
-        concentration_threshold: 50.0 # Trigger alert when CO₂ exceeds 50 ppm
-        amplitude_threshold: 75      # Trigger alert when signal amplitude exceeds 75dB
-        update_interval_ms: 1000      # Update display maximum once per second
+        concentration_threshold: 50.0  # Trigger alert when CO₂ exceeds 50 ppm
+        amplitude_threshold: 75        # Trigger alert when signal amplitude exceeds 75dB
+        update_interval_ms: 10000      # Update display maximum once per 10 seconds
 
     # Apply gain adjustment (+3 dB amplification)
     - id: "gain_amplifier"
