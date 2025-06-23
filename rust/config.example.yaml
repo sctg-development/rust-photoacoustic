@@ -306,6 +306,18 @@ processing:
         min_amplitude_threshold: 0.001 # Minimum amplitude threshold for valid concentration calculation
         max_concentration_ppm: 100.0  # Maximum concentration limit for safety/validation
 
+    # Example ActionNode - Display/Alert System (DEMONSTRATION)
+    # This node monitors concentration data and triggers display updates/alerts when thresholds are exceeded
+    - id: "display_action"
+      node_type: "action_example_display"
+      parameters:
+        buffer_capacity: 150          # Store 150 historical data points (about 2.5 minutes at 1Hz)
+        monitored_nodes:              # List of computing nodes to monitor
+          - "concentration_calculator" # Monitor the concentration calculator results
+        concentration_threshold: 50.0 # Trigger alert when CO₂ exceeds 50 ppm
+        amplitude_threshold: 75      # Trigger alert when signal amplitude exceeds 75dB
+        update_interval_ms: 1000      # Update display maximum once per second
+
     # Apply gain adjustment (+3 dB amplification)
     - id: "gain_amplifier"
       node_type: "gain"
@@ -340,6 +352,10 @@ processing:
     - from: peak_detector
       to: concentration_calculator
     - from: concentration_calculator
+      to: streaming_bandpass_filter
+    - from: concentration_calculator
+      to: display_action
+    - from: display_action
       to: streaming_bandpass_filter
     - from: streaming_bandpass_filter
       to: processed_recorder

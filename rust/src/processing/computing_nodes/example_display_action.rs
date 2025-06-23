@@ -185,6 +185,43 @@ impl ExampleDisplayActionNode {
         }
     }
 
+    /// Create a new ExampleDisplayActionNode with shared computing state
+    ///
+    /// # PATTERN: Shared state constructor for ActionNode
+    /// This constructor is used by the ProcessingGraph when creating ActionNodes
+    /// that need access to shared computing data from PeakFinder and Concentration nodes.
+    ///
+    /// # Arguments
+    /// * `id` - Unique identifier for this ActionNode instance
+    /// * `shared_state` - Optional shared computing state. If None, creates a new one.
+    ///
+    /// # Returns
+    /// A new ActionNode instance with the provided or new shared state
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let shared_state = Some(Arc::new(RwLock::new(ComputingSharedData::default())));
+    /// let node = ExampleDisplayActionNode::new_with_shared_state(
+    ///     "display".to_string(),
+    ///     shared_state
+    /// ).with_history_buffer_capacity(100);
+    /// ```
+    pub fn new_with_shared_state(id: String, shared_state: Option<SharedComputingState>) -> Self {
+        Self {
+            id,
+            history_buffer: CircularBuffer::new(1), // Minimal buffer - MUST configure with with_history_buffer_capacity()
+            monitored_nodes: Vec::new(),            // Empty: add nodes via with_monitored_node()
+            shared_computing_state: shared_state,   // Use provided shared state
+            concentration_threshold: Some(1000.0),  // Default: 1000 ppm CO2 alarm
+            amplitude_threshold: Some(0.8),         // Default: 80% amplitude alarm
+            display_update_interval_ms: 1000,       // Default: update every second
+            processing_count: 0,                    // Performance counter
+            actions_triggered: 0,                   // Action counter
+            last_update_time: None,                 // No updates yet
+            last_display_update: None,              // No display updates yet
+        }
+    }
+
     /// Configure the history buffer capacity - REQUIRED METHOD
     ///
     /// # PATTERN: Explicit buffer capacity configuration

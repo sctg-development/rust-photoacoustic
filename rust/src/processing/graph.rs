@@ -10,7 +10,9 @@
 use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
 use crate::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
-use crate::processing::computing_nodes::{ConcentrationNode, PeakFinderNode, SharedComputingState};
+use crate::processing::computing_nodes::{
+    ConcentrationNode, ExampleDisplayActionNode, PeakFinderNode, SharedComputingState,
+};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
     InputNode, MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
@@ -1319,6 +1321,58 @@ impl ProcessingGraph {
                     })? as f32;
 
                 Ok(Box::new(GainNode::new(config.id.clone(), gain_db)))
+            }
+            "action_example_display" => {
+                // Extract example display action parameters
+                let mut action_node = ExampleDisplayActionNode::new_with_shared_state(
+                    config.id.clone(),
+                    computing_state.clone(),
+                );
+
+                if let Some(params) = config.parameters.as_object() {
+                    // Extract buffer_capacity parameter (optional, maps to history_buffer_capacity)
+                    if let Some(buffer_capacity_value) = params.get("buffer_capacity") {
+                        if let Some(buffer_capacity) = buffer_capacity_value.as_u64() {
+                            action_node =
+                                action_node.with_history_buffer_capacity(buffer_capacity as usize);
+                        }
+                    }
+
+                    // Extract monitored_nodes parameter (optional array of node IDs)
+                    if let Some(monitored_value) = params.get("monitored_nodes") {
+                        if let Some(monitored_array) = monitored_value.as_array() {
+                            for node_id_value in monitored_array {
+                                if let Some(node_id) = node_id_value.as_str() {
+                                    action_node =
+                                        action_node.with_monitored_node(node_id.to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    // Extract concentration_threshold parameter (optional)
+                    if let Some(threshold_value) = params.get("concentration_threshold") {
+                        if let Some(threshold) = threshold_value.as_f64() {
+                            action_node = action_node.with_concentration_threshold(threshold);
+                        }
+                    }
+
+                    // Extract amplitude_threshold parameter (optional)
+                    if let Some(threshold_value) = params.get("amplitude_threshold") {
+                        if let Some(threshold) = threshold_value.as_f64() {
+                            action_node = action_node.with_amplitude_threshold(threshold as f32);
+                        }
+                    }
+
+                    // Extract update_interval_ms parameter (optional)
+                    if let Some(interval_value) = params.get("update_interval_ms") {
+                        if let Some(interval) = interval_value.as_u64() {
+                            action_node = action_node.with_update_interval(interval);
+                        }
+                    }
+                }
+
+                Ok(Box::new(action_node))
             }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),
         }
