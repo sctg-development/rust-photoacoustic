@@ -333,20 +333,26 @@ processing:
             verify_ssl: false
 
     # Redis Pub/Sub Driver - For real-time data streaming
+    # Will record data like:
+    # 🔑 Key 4: photoacoustic:realtime:sensor_data:alert:1750692833
+    # Type: string
+    # TTL: 3588 seconds
+    # Value: {"alert_type":"threshold_exceeded","data":{},"message":"Data timeout from node 'concentration_calculator': 31 seconds","severity":"warning","timestamp":1750692833,"type":"alert"}
     - id: "redis_stream_action" 
       node_type: "action_universal"
       parameters:
         buffer_capacity: 100                    # Minimal buffer for real-time streaming
         monitored_nodes:
           - "concentration_calculator"
-        concentration_threshold: 500.0          # Lower threshold for streaming
-        amplitude_threshold: 60                 # Alert at 60dB amplitude
+        concentration_threshold: 100.0          # Lower threshold for streaming
+        amplitude_threshold: 65                 # Alert at 60dB amplitude
         update_interval_ms: 5000                # 5 seconds updates
         driver:
           type: "redis"
           config:
-            connection_string: "redis://redis-cluster.company.com:6379"
-            channel: "photoacoustic:realtime:sensor_data"
+            connection_string: "redis://localhost:6379"
+            mode: "key_value"                   # Use key-value storage mode
+            channel_or_prefix: "photoacoustic:realtime:sensor_data"
             expiry_seconds: 3600                # Data expires after 1 hour
             max_retries: 5
             password: null                      # Optional Redis password

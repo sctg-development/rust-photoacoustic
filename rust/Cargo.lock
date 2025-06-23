@@ -3713,6 +3713,7 @@ dependencies = [
  "dasp_window",
  "env_logger",
  "evalexpr",
+ "futures",
  "handlebars",
  "hound",
  "include_dir",

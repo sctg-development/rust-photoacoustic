@@ -8,6 +8,7 @@ description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 [dependencies]
 # System monitoring
 sysinfo = "0.35.2"         # Cross-platform system information
+futures = "0.3.31"         # Async utilities
 
 # Audio processing
 cpal = "0.16.0"           # Audio input

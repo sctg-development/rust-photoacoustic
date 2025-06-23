@@ -1426,20 +1426,54 @@ impl ProcessingGraph {
                                                 .and_then(|v| v.as_str())
                                                 .ok_or_else(|| anyhow::anyhow!("Missing connection_string for redis driver"))?;
 
-                                            let channel = driver_config_obj
-                                                .get("channel")
+                                            // Get mode (default to key_value for backward compatibility)
+                                            let mode = driver_config_obj
+                                                .get("mode")
                                                 .and_then(|v| v.as_str())
-                                                .unwrap_or("photoacoustic:display");
+                                                .unwrap_or("key_value");
 
-                                            let mut redis_driver = RedisActionDriver::new_pubsub(
-                                                connection_string,
-                                                channel,
-                                            );
+                                            // Get channel or prefix (support both 'channel' and 'channel_or_prefix')
+                                            let channel_or_prefix = driver_config_obj
+                                                .get("channel_or_prefix")
+                                                .and_then(|v| v.as_str())
+                                                .or_else(|| {
+                                                    driver_config_obj
+                                                        .get("channel")
+                                                        .and_then(|v| v.as_str())
+                                                })
+                                                .unwrap_or("photoacoustic");
 
-                                            // Optional expiration
+                                            let mut redis_driver = match mode {
+                                                "pub_sub" | "pubsub" => {
+                                                    RedisActionDriver::new_pubsub(
+                                                        connection_string,
+                                                        channel_or_prefix,
+                                                    )
+                                                }
+                                                "key_value" | "keyvalue" => {
+                                                    RedisActionDriver::new_key_value(
+                                                        connection_string,
+                                                        channel_or_prefix,
+                                                    )
+                                                }
+                                                _ => {
+                                                    log::warn!("Unknown Redis mode '{}', defaulting to key_value", mode);
+                                                    RedisActionDriver::new_key_value(
+                                                        connection_string,
+                                                        channel_or_prefix,
+                                                    )
+                                                }
+                                            };
+
+                                            // Optional expiration (support both 'expiration_seconds' and 'expiry_seconds')
                                             if let Some(expiration_seconds) = driver_config_obj
                                                 .get("expiration_seconds")
                                                 .and_then(|v| v.as_u64())
+                                                .or_else(|| {
+                                                    driver_config_obj
+                                                        .get("expiry_seconds")
+                                                        .and_then(|v| v.as_u64())
+                                                })
                                             {
                                                 redis_driver = redis_driver
                                                     .with_expiration_seconds(expiration_seconds);
