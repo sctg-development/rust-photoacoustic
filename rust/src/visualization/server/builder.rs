@@ -174,13 +174,11 @@ pub async fn build_rocket(
     let rocket_builder =
         add_visualization_routes(rocket_builder, visualization_state, &mut openapi_spec);
 
-    let (openapi_routes_base, openapi_spec_base) = openapi_get_routes_spec![
-        webclient_index,
-        webclient_index_html,
-        options,
-        test_api,
-        test_post_api
-    ];
+    // Add test routes for API testing
+    let rocket_builder = add_test_routes(rocket_builder, &mut openapi_spec);
+
+    let (openapi_routes_base, openapi_spec_base) =
+        openapi_get_routes_spec![webclient_index, webclient_index_html, options,];
 
     // Merge base routes OpenAPI spec
     if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
@@ -253,6 +251,21 @@ pub async fn get_generix_config(
 ) -> Result<Json<GenerixConfig>, Status> {
     // Access the generix config through the managed Config state
     Ok(Json(config.read().await.generix.clone()))
+}
+
+/// Add test routes for API testing
+///
+/// This function mounts the test routes for API testing and merges their OpenAPI specification
+fn add_test_routes(rocket_builder: Rocket<Build>, openapi_spec: &mut OpenApi) -> Rocket<Build> {
+    // Add test routes for API testing
+    let (openapi_routes_test, openapi_spec_test) = get_test_routes();
+    // Merge OpenAPI specs into the main spec
+    if let Err(e) =
+        rocket_okapi::okapi::merge::merge_specs(openapi_spec, &"/".to_string(), &openapi_spec_test)
+    {
+        warn!("Failed to merge graph OpenAPI spec: {}", e);
+    }
+    rocket_builder.mount("/", openapi_routes_test)
 }
 
 /// Add visualization and graph routes if state is available
