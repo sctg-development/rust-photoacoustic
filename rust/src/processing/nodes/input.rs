@@ -125,4 +125,8 @@ impl ProcessingNode for InputNode {
     fn supports_hot_reload(&self) -> bool {
         false // InputNode has no configurable parameters
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

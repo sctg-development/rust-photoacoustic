@@ -206,6 +206,10 @@ impl ProcessingNode for DifferentialNode {
 
         Ok(false) // No hot-reload support currently - requires node reconstruction
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]

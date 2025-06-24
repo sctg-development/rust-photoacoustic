@@ -208,6 +208,10 @@ impl ProcessingNode for ChannelSelectorNode {
 
         Ok(false) // No matching parameters found for hot-reload
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Channel mixer node that combines two channels using various strategies
@@ -489,6 +493,10 @@ impl ProcessingNode for ChannelMixerNode {
         }
 
         Ok(false) // No matching parameters found for hot-reload
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

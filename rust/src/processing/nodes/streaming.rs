@@ -286,6 +286,10 @@ impl ProcessingNode for StreamingNode {
     fn supports_hot_reload(&self) -> bool {
         false // StreamingNode doesn't implement hot-reload yet
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl Drop for StreamingNode {

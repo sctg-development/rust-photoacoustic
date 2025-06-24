@@ -387,6 +387,10 @@ impl ProcessingNode for GainNode {
             anyhow::bail!("Parameters must be a JSON object");
         }
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]

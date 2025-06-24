@@ -838,6 +838,10 @@ impl ProcessingNode for PeakFinderNode {
     fn get_shared_computing_state(&self) -> Option<SharedComputingState> {
         Some(self.shared_state.clone())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]

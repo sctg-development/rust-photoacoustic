@@ -34,12 +34,14 @@ pub use self::redis::{RedisActionDriver, RedisDriverMode};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use rocket_okapi::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
 /// Core action data passed to drivers
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct MeasurementData {
     /// Current concentration value in ppm
     pub concentration_ppm: f64,
@@ -164,5 +166,46 @@ pub trait ActionDriver: Send + Sync + std::fmt::Debug {
     async fn shutdown(&mut self) -> Result<()> {
         // Default implementation does nothing
         Ok(())
+    }
+
+    /// Get recent history entries from the driver's buffer
+    ///
+    /// This method allows external systems (like REST APIs) to retrieve
+    /// historical measurement data stored by the ActionNode. Each driver
+    /// can implement its own history retention policy.
+    ///
+    /// # Arguments
+    /// * `limit` - Maximum number of entries to return (None = all entries)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<MeasurementData>)` - Vector of historical data, newest first
+    /// * `Err(anyhow::Error)` - Failed to retrieve history
+    ///
+    /// # Default Implementation
+    /// Returns empty vector - drivers should override if they support history
+    async fn get_history(&self, _limit: Option<usize>) -> Result<Vec<MeasurementData>> {
+        Ok(Vec::new()) // Default: no history
+    }
+
+    /// Get history statistics and buffer information
+    ///
+    /// Returns metadata about the driver's history buffer including
+    /// capacity, current size, oldest/newest timestamps, etc.
+    ///
+    /// # Returns
+    /// * `Ok(Value)` - JSON object with buffer statistics
+    /// * `Err(anyhow::Error)` - Failed to get statistics
+    ///
+    /// # Default Implementation
+    /// Returns basic statistics - drivers should override for detailed info
+    async fn get_history_stats(&self) -> Result<Value> {
+        Ok(serde_json::json!({
+            "driver_type": self.driver_type(),
+            "history_supported": false,
+            "buffer_capacity": 0,
+            "buffer_size": 0,
+            "oldest_entry": null,
+            "newest_entry": null
+        }))
     }
 }

@@ -1961,6 +1961,65 @@ impl ProcessingGraph {
 
         results
     }
+
+    /// Get a specific UniversalActionNode by ID
+    ///
+    /// This method provides access to UniversalActionNode instances for
+    /// retrieving their measurement history and statistics.
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the UniversalActionNode to retrieve
+    ///
+    /// # Returns
+    /// * `Some(&UniversalActionNode)` - Reference to the action node if found
+    /// * `None` - Node not found or not a UniversalActionNode
+    pub fn get_universal_action_node(&self, node_id: &str) -> Option<&UniversalActionNode> {
+        self.nodes
+            .get(node_id)
+            .and_then(|node| node.as_any().downcast_ref::<UniversalActionNode>())
+    }
+
+    /// Get all UniversalActionNode instances in the graph
+    ///
+    /// This method returns all UniversalActionNode instances in the processing graph,
+    /// allowing enumeration and access to their measurement histories.
+    ///
+    /// # Returns
+    /// A vector of (node_id, node_reference) tuples for all UniversalActionNode instances
+    pub fn get_all_universal_action_nodes(&self) -> Vec<(String, &UniversalActionNode)> {
+        self.nodes
+            .iter()
+            .filter_map(|(id, node)| {
+                node.as_any()
+                    .downcast_ref::<UniversalActionNode>()
+                    .map(|action_node| (id.clone(), action_node))
+            })
+            .collect()
+    }
+
+    /// Get all UniversalActionNode IDs in the graph
+    ///
+    /// This method returns the IDs of all UniversalActionNode instances,
+    /// useful for listing available action nodes without accessing the nodes themselves.
+    ///
+    /// # Returns
+    /// A vector of node IDs for all UniversalActionNode instances
+    pub fn get_universal_action_node_ids(&self) -> Vec<String> {
+        self.nodes
+            .iter()
+            .filter_map(|(id, node)| {
+                if node
+                    .as_any()
+                    .downcast_ref::<UniversalActionNode>()
+                    .is_some()
+                {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 /// Represents a connection between two nodes in serializable format

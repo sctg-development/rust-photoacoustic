@@ -495,6 +495,10 @@ impl ProcessingNode for RecordNode {
     fn supports_hot_reload(&self) -> bool {
         false // RecordNode doesn't implement hot-reload yet (would require file management)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl Drop for RecordNode {

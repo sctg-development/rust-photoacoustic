@@ -297,4 +297,31 @@ pub trait ProcessingNode: Send + Sync {
         // Default implementation: no shared computing state available
         None
     }
+
+    /// Get a reference to this node as Any for downcasting
+    ///
+    /// This method allows safe downcasting of ProcessingNode trait objects
+    /// to concrete types when needed for specialized access.
+    ///
+    /// ### Returns
+    ///
+    /// * `&dyn std::any::Any` - Reference that can be downcast to concrete type
+    ///
+    /// ### Examples
+    ///
+    /// ```ignore
+    /// use rust_photoacoustic::processing::computing_nodes::UniversalActionNode;
+    /// use rust_photoacoustic::processing::nodes::ProcessingNode;
+    ///
+    /// let node: Box<dyn ProcessingNode> = Box::new(
+    ///     UniversalActionNode::new("action".to_string())
+    ///         .with_history_buffer_capacity(100)
+    /// );
+    ///
+    /// if let Some(action_node) = node.as_any().downcast_ref::<UniversalActionNode>() {
+    ///     let history = action_node.get_measurement_history(None);
+    ///     println!("History contains {} entries", history.len());
+    /// }
+    /// ```
+    fn as_any(&self) -> &dyn std::any::Any;
 }

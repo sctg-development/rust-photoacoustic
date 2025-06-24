@@ -289,4 +289,8 @@ impl ProcessingNode for PhotoacousticOutputNode {
     fn supports_hot_reload(&self) -> bool {
         false // PhotoacousticOutputNode doesn't implement hot-reload yet
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

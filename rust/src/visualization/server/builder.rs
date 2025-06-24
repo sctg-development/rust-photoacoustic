@@ -15,6 +15,7 @@ use crate::include_png_as_base64;
 use crate::processing::computing_nodes::SharedComputingState;
 use crate::processing::nodes::streaming_registry::StreamingNodeRegistry;
 use crate::thermal_regulation::SharedThermalState;
+use crate::visualization::api::action::get_action_routes;
 use crate::visualization::api::graph::graph::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
@@ -169,6 +170,20 @@ pub async fn build_rocket(
     }
 
     let rocket_builder = rocket_builder.mount("/", openapi_routes_config);
+
+    // Add action routes for node history
+    let (openapi_routes_action, openapi_spec_action) = get_action_routes();
+
+    // Merge action OpenAPI spec
+    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+        &mut openapi_spec,
+        &"/".to_string(),
+        &openapi_spec_action,
+    ) {
+        warn!("Failed to merge action OpenAPI spec: {}", e);
+    }
+
+    let rocket_builder = rocket_builder.mount("/", openapi_routes_action);
 
     // Add visualization routes if state is available
     let rocket_builder =

@@ -857,6 +857,125 @@ impl UniversalActionNode {
             // If try_read() fails, skip this update cycle (non-blocking behavior)
         }
     }
+
+    /// Get measurement history from the action node's buffer
+    ///
+    /// This method retrieves measurement data stored in the action node's history buffer,
+    /// allowing external systems to access historical data without creating dedicated logging nodes.
+    ///
+    /// # Arguments
+    /// * `limit` - Optional maximum number of entries to return (newest first)
+    ///
+    /// # Returns
+    /// Vector of MeasurementData entries in chronological order (newest first)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let action_node = UniversalActionNode::new("redis_stream".to_string())
+    ///     .with_history_buffer_capacity(100);
+    ///
+    /// // Get last 50 measurements
+    /// let recent_history = action_node.get_measurement_history(Some(50));
+    ///
+    /// // Get all available measurements
+    /// let full_history = action_node.get_measurement_history(None);
+    /// ```
+    pub fn get_measurement_history(&self, limit: Option<usize>) -> Vec<MeasurementData> {
+        let buffer_data = self.history_buffer.iter().collect::<Vec<_>>();
+
+        // Convert ActionHistoryEntry to MeasurementData
+        let measurements: Vec<MeasurementData> = buffer_data
+            .into_iter()
+            .rev() // Newest first
+            .map(|entry| MeasurementData {
+                concentration_ppm: entry
+                    .concentration_data
+                    .as_ref()
+                    .map(|c| c.concentration_ppm)
+                    .unwrap_or(0.0),
+                source_node_id: entry.source_node_id.clone(),
+                peak_amplitude: entry.peak_data.as_ref().map(|p| p.amplitude).unwrap_or(0.0),
+                peak_frequency: entry.peak_data.as_ref().map(|p| p.frequency).unwrap_or(0.0),
+                timestamp: entry.timestamp,
+                metadata: entry
+                    .metadata
+                    .iter()
+                    .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                    .collect(),
+            })
+            .take(limit.unwrap_or(usize::MAX))
+            .collect();
+
+        measurements
+    }
+
+    /// Get statistics about the action node's history buffer
+    ///
+    /// This method returns comprehensive statistics about the action node including
+    /// buffer usage, configuration, and performance metrics.
+    ///
+    /// # Returns
+    /// JSON object containing detailed statistics
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let action_node = UniversalActionNode::new("web_dashboard".to_string())
+    ///     .with_history_buffer_capacity(100);
+    ///
+    /// let stats = action_node.get_history_statistics();
+    /// println!("Buffer capacity: {}", stats["history_buffer"]["capacity"]);
+    /// ```
+    pub fn get_history_statistics(&self) -> serde_json::Value {
+        let buffer_data = self.history_buffer.iter().collect::<Vec<_>>();
+
+        let oldest_timestamp = buffer_data.first().map(|entry| {
+            entry
+                .timestamp
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        });
+
+        let newest_timestamp = buffer_data.last().map(|entry| {
+            entry
+                .timestamp
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        });
+
+        serde_json::json!({
+            "node_id": self.id,
+            "node_type": "action_universal",
+            "history_buffer": {
+                "capacity": self.history_buffer.capacity(),
+                "current_size": self.history_buffer.len(),
+                "is_full": self.history_buffer.len() == self.history_buffer.capacity(),
+                "oldest_entry_timestamp": oldest_timestamp,
+                "newest_entry_timestamp": newest_timestamp
+            },
+            "configuration": {
+                "monitored_nodes": self.monitored_nodes,
+                "concentration_threshold": self.concentration_threshold,
+                "amplitude_threshold": self.amplitude_threshold,
+                "update_interval_ms": self.action_update_interval_ms
+            },
+            "driver_info": {
+                "has_driver": self.has_driver(),
+                "driver_type": if self.has_driver() { "configured" } else { "none" }
+            },
+            "performance": {
+                "processing_count": self.processing_count,
+                "actions_triggered": self.actions_triggered,
+                "last_update_time": self.last_update_time.map(|t|
+                    t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()
+                ),
+                "last_action_update": self.last_action_update.map(|t|
+                    t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()
+                )
+            }
+        })
+    }
 }
 
 // ============================================================================
@@ -1025,6 +1144,10 @@ impl ProcessingNode for UniversalActionNode {
 
     fn get_shared_computing_state(&self) -> Option<SharedComputingState> {
         self.shared_computing_state.clone()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

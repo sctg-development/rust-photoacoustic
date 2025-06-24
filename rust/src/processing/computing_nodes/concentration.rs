@@ -619,4 +619,8 @@ impl ProcessingNode for ConcentrationNode {
 
         Ok(updated)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
