@@ -32,7 +32,7 @@ jobs:
 
     - name: Clean runner for Docker builds
       if: matrix.os == 'ubuntu-latest'
-      uses: sctg-development/clean-image-for-docker:v1
+      uses: sctg-development/clean-image-for-docker@v1
       # Optional parameters
       with:
         remove-development-tools: 'false'
