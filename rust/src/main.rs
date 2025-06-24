@@ -120,6 +120,20 @@ pub struct Args {
 
 #[rocket::main]
 async fn main() -> Result<()> {
+    // Initialize the default crypto provider for rustls (required for TLS connections)
+    // This must be done once at the start of the application before any TLS operations
+    if rustls::crypto::ring::default_provider()
+        .install_default()
+        .is_err()
+    {
+        // If ring crypto provider fails, try to use aws-lc-rs as fallback
+        if let Err(_) = rustls::crypto::aws_lc_rs::default_provider().install_default() {
+            return Err(anyhow::anyhow!(
+                "Failed to install any crypto provider for rustls. TLS functionality will not be available."
+            ));
+        }
+    }
+
     // Initialize logger with appropriate level based on verbose and quiet flags
     let args = Args::parse();
 

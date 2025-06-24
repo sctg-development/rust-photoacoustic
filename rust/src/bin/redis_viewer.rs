@@ -16,6 +16,17 @@ use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize the default crypto provider for rustls (required for TLS connections)
+    if rustls::crypto::ring::default_provider()
+        .install_default()
+        .is_err()
+    {
+        // If ring fails, try to use any available provider
+        if let Err(_) = rustls::crypto::aws_lc_rs::default_provider().install_default() {
+            eprintln!("Warning: Failed to install any crypto provider for rustls");
+        }
+    }
+
     env_logger::init();
 
     let matches = Command::new("redis-viewer")
