@@ -2,6 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
+use crate::config::visualization::VisualizationOutputItem;
 use crate::config::Config;
 use rocket::get;
 use rocket::serde::json::Json;
@@ -138,7 +139,18 @@ pub async fn get_config_schema() -> Json<serde_json::Value> {
     }
 }
 
+/// Get the visualization.output configuration
+///
+/// **Endpoint:** `GET /api/config/visualization/output`
+///
+/// Returns the current visualization output configuration
+#[openapi_protect_get("/api/config/visualization/output", "read:api", tag = "Configuration")]
+pub async fn get_visualization_output(config: &ConfigState) -> Json<Vec<VisualizationOutputItem>> {
+    let config = config.inner().read().await;
+    Json(config.visualization.output.clone())
+}
+
 /// Centralized function to get all config routes with OpenAPI documentation
 pub fn get_config_routes() -> (Vec<rocket::Route>, OpenApi) {
-    openapi_get_routes_spec![get_config, get_config_schema]
+    openapi_get_routes_spec![get_config, get_config_schema, get_visualization_output]
 }

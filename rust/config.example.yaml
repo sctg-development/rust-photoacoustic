@@ -80,6 +80,13 @@ visualization:
   # Enable or disable compression at the rocket server level.
   # This is useful for reducing bandwidth usage, especially for large data transfers.
   compression: true
+  output:
+    - id: "LaserSmartClient_main"
+      action_node_id: "web_dashboard_action"
+      molecule: "H₂S"
+      unit: "sample_temperature"
+      display_order: 10
+      description: "H₂S concentration"
   
 # =========================
 # Modbus TCP server settings

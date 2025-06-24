@@ -67,6 +67,48 @@
           "type": "boolean",
           "default": true,
           "description": "Enable compression at the Rocket level"
+        },
+        "output": {
+          "type": "array",
+          "description": "Configuration for visualization output display items",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique identifier for this output configuration"
+              },
+              "action_node_id": {
+                "type": "string",
+                "description": "ID of the action node providing the measurement data"
+              },
+              "molecule": {
+                "type": "string",
+                "description": "Name of the molecule being measured (e.g., 'H₂S', 'CO₂', 'CH₄')"
+              },
+              "unit": {
+                "type": "string",
+                "description": "Unit of measurement (e.g., 'ppm', 'mg/m³', '%')"
+              },
+              "display_order": {
+                "type": "integer",
+                "description": "Display order in the interface (negative values hide the item)"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the measurement (e.g., 'Spectral ray 3963nm')"
+              }
+            },
+            "required": [
+              "id",
+              "action_node_id",
+              "molecule",
+              "unit",
+              "display_order",
+              "description"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [

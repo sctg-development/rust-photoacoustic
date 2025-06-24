@@ -11,6 +11,31 @@ use base64::Engine;
 use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Configuration item for visualization output display
+///
+/// Each item represents a specific measurement that will be displayed
+/// in the visualization interface, with customizable properties.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct VisualizationOutputItem {
+    /// Unique identifier for this output configuration
+    pub id: String,
+
+    /// ID of the action node providing the measurement data
+    pub action_node_id: String,
+
+    /// Name of the molecule being measured (e.g., "H₂S", "CO₂", "CH₄")
+    pub molecule: String,
+
+    /// Unit of measurement (e.g., "ppm", "mg/m³", "%")
+    pub unit: String,
+
+    /// Display order in the interface (negative values hide the item)
+    pub display_order: i32,
+
+    /// Description of the measurement (e.g., "Spectral ray 3963nm")
+    pub description: String,
+}
+
 /// Configuration for the visualization web server.
 ///
 /// This structure contains all settings required for the visualization server component,
@@ -105,6 +130,14 @@ pub struct VisualizationConfig {
     /// Default is `true`, meaning compression is enabled.
     #[serde(default = "default_enabled")]
     pub enable_compression: bool,
+
+    /// List of output items to be displayed in the visualization interface.
+    ///
+    /// Each item represents a specific measurement with customizable display properties.
+    /// The order of items in this list determines their display order in the interface.
+    /// Items with negative display order values will be hidden.
+    #[serde(default = "default_output_items")]
+    pub output: Vec<VisualizationOutputItem>,
 }
 
 /// Provides the default TCP port (8080) for the visualization server.
@@ -212,6 +245,16 @@ fn default_session_secret() -> String {
     base64::engine::general_purpose::STANDARD.encode(secret)
 }
 
+/// Provides the default list of output items for visualization.
+///
+/// This function returns an empty list of `VisualizationOutputItem`
+/// instances, which means no measurements will be displayed by default.
+/// Users can customize this list in the configuration file to show
+/// specific measurements in the visualization interface.
+fn default_output_items() -> Vec<VisualizationOutputItem> {
+    Vec::new()
+}
+
 impl Default for VisualizationConfig {
     fn default() -> Self {
         Self {
@@ -226,6 +269,7 @@ impl Default for VisualizationConfig {
             enabled: default_enabled(),
             session_secret: default_session_secret(),
             enable_compression: default_enabled(),
+            output: default_output_items(),
         }
     }
 }
