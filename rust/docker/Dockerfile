@@ -14,8 +14,7 @@ RUN apk update && apk add \
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o rustup.sh &&\
     chmod +x rustup.sh &&\
-    ./rustup.sh -y &&\
-    /root/.cargo/bin/rustup target add x86_64-unknown-linux-musl
+    ./rustup.sh -y 
 
 # Add Rust to PATH for all subsequent commands
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -66,29 +65,96 @@ RUN cd /tmp && \
 RUN git clone --recurse-submodules https://github.com/sctg-development/rust-photoacoustic.git 
 WORKDIR /rust-photoacoustic
 
-ENV RUSTFLAGS="-C target-feature=+crt-static"
-ENV CC_x86_64_unknown_linux_musl="clang"
-ENV CXX_x86_64_unknown_linux_musl="clang++"
-
 # Build the Rust application with additional environment variables
 RUN cd rust && \
-    cp config.example.yaml config.yaml && \
-    LIBRDKAFKA_SYS_USE_PKG_CONFIG=1 \
-    RDKAFKA_SYS_USE_PKG_CONFIG=1 \
-    PKG_CONFIG_ALLOW_CROSS=1 
-RUN cd rust &&\
-    source ~/.cargo/env && cargo build --release --target x86_64-unknown-linux-musl --verbose
+    cp config.example.yaml config.yaml
+
+# Set environment variables for all subsequent commands
+ENV LIBRDKAFKA_SYS_USE_PKG_CONFIG=1
+ENV RDKAFKA_SYS_USE_PKG_CONFIG=1  
+ENV PKG_CONFIG_ALLOW_CROSS=1
+
+# Build for different architectures with proper error handling
+RUN cd rust && \
+    if [ "$(uname -m)" = "armv7l" ]; then \
+       echo "Building for armv7l architecture" && \
+       . /root/.cargo/env && rustup target add armv7-unknown-linux-musleabihf && \
+       ln -svf /usr/bin/ar /usr/bin/arm-linux-musleabihf-ar && \
+       ln -svf /usr/bin/strip /usr/bin/arm-linux-musleabihf-strip && \
+       ln -svf /usr/bin/ranlib /usr/bin/arm-linux-musleabihf-ranlib && \
+       echo "armv7-unknown-linux-musleabihf" > _target && \
+       cargo build --release --target armv7-unknown-linux-musleabihf --verbose && \
+       echo "Build completed successfully for armv7l" && \
+       ls -la target/armv7-unknown-linux-musleabihf/release/; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+       echo "Building for aarch64 architecture" && \
+       . /root/.cargo/env && rustup target add aarch64-unknown-linux-musl && \
+       ln -svf /usr/bin/ar /usr/bin/aarch64-linux-musl-ar && \
+       ln -svf /usr/bin/strip /usr/bin/aarch64-linux-musl-strip && \
+       ln -svf /usr/bin/ranlib /usr/bin/aarch64-linux-musl-ranlib && \
+       echo "aarch64-unknown-linux-musl" > _target && \
+       cargo build --release --target aarch64-unknown-linux-musl --verbose && \
+       echo "Build completed successfully for aarch64" && \
+       ls -la target/aarch64-unknown-linux-musl/release/; \
+    elif [ "$(uname -m)" = "x86_64" ]; then \
+       echo "Building for x86_64 architecture" && \
+       . /root/.cargo/env && rustup target add x86_64-unknown-linux-musl && \
+       echo "x86_64-unknown-linux-musl" > _target && \
+       cargo build --release --target x86_64-unknown-linux-musl --verbose && \
+       echo "Build completed successfully for x86_64" && \
+       ls -la target/x86_64-unknown-linux-musl/release/; \
+    else \
+       echo "Unsupported architecture: $(uname -m)" && exit 1; \
+    fi
 
 FROM alpine:3.18 AS runtime
-COPY --from=builder /rust-photoacoustic/rust/target/release/photoacoustic /usr/local/bin/photoacoustic
-COPY --from=builder /rust-photoacoustic/rust/target/release/create_token /usr/local/bin/create_token
-COPY --from=builder /rust-photoacoustic/rust/target/release/analyze_spectrum /usr/local/bin/analyze_spectrum
-COPY --from=builder /rust-photoacoustic/rust/target/release/debug_config /usr/local/bin/debug_config
-COPY --from=builder /rust-photoacoustic/rust/target/release/differential /usr/local/bin/differential
-COPY --from=builder /rust-photoacoustic/rust/target/release/filters /usr/local/bin/filters
-COPY --from=builder /rust-photoacoustic/rust/target/release/modbus_client /usr/local/bin/modbus_client
-COPY --from=builder /rust-photoacoustic/rust/target/release/noise_generator /usr/local/bin/noise_generator
-COPY --from=builder /rust-photoacoustic/rust/target/release/pid_tuner /usr/local/bin/pid_tuner
-COPY --from=builder /rust-photoacoustic/rust/target/release/redis_viewer /usr/local/bin/redis_viewer
-COPY --from=builder /rust-photoacoustic/rust/target/release/rs256keygen /usr/local/bin/rs256keygen
-COPY --from=builder /rust-photoacoustic/rust/target/release/rust_photoacoustic /usr/local/bin/rust_photoacoustic
+RUN apk add --no-cache ca-certificates
+
+# Set up runtime user for security
+RUN adduser -D -s /bin/sh photoacoustic
+
+# Create necessary directories
+RUN mkdir -p /app/config /app/data && \
+    chown -R photoacoustic:photoacoustic /app
+
+# Copy default configuration
+COPY --from=builder /rust-photoacoustic/rust/config.yaml /app/config/config.yaml
+RUN chown photoacoustic:photoacoustic /app/config/config.yaml
+
+# Create a script to copy binaries from the correct target directory
+RUN mkdir -p /tmp/copy-binaries
+
+# Copy the target file created during build to determine the architecture
+COPY --from=builder /rust-photoacoustic/rust/_target /tmp/_target
+
+# Copy binaries based on the target architecture
+RUN TARGET=$(cat /tmp/_target) && \
+    echo "Copying binaries from target: $TARGET" && \
+    mkdir -p /usr/local/bin
+
+COPY --from=builder /rust-photoacoustic/rust/target/ /tmp/target/
+
+# Copy only existing binaries to avoid errors
+RUN TARGET=$(cat /tmp/_target) && \
+    echo "Available binaries in /tmp/target/$TARGET/release/:" && \
+    ls -la "/tmp/target/$TARGET/release/" && \
+    for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
+        if [ -f "/tmp/target/$TARGET/release/$binary" ]; then \
+            echo "Copying $binary" && \
+            cp "/tmp/target/$TARGET/release/$binary" /usr/local/bin/ && \
+            chmod +x "/usr/local/bin/$binary"; \
+        else \
+            echo "Warning: $binary not found in build output"; \
+        fi; \
+    done && \
+    rm -rf /tmp/target /tmp/_target
+
+USER photoacoustic
+WORKDIR /app
+
+# Expose the default port
+EXPOSE 8080
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/rust_photoacoustic"]
+CMD ["--config", "/app/config/config.yaml"]

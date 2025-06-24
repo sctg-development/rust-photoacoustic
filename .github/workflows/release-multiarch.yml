@@ -1,0 +1,298 @@
+# Copyright 2025 SCTG Development - Ronan LE MEILLAT
+# This workflow builds multi-architecture static binaries for rust-photoacoustic
+# and creates GitHub releases with all photoacoustic tools
+
+name: Generate multi-arch Docker image and release linux binaries
+
+permissions:
+  id-token: write
+  contents: write
+  attestations: write
+  packages: write
+
+on:
+  release:
+    types: [published]
+  # Uncomment for manual testing:
+  workflow_dispatch:
+
+jobs:
+  push_to_registry:
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
+      attestations: write
+    name: Push Docker image to Docker Hub and release binaries
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_ARMHF_EXPERIMENTAL: enabled # Set to 'enabled' to enable armhf build
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v1
+        # Optional parameters
+        with:
+            remove-development-tools: 'true'
+            remove-browsers: 'true'
+            remove-databases: 'true'
+            remove-cloud-tools: 'true'
+            show-top-packages: 'true'
+
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+        
+      - name: Set release tag
+        id: set_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # For manual workflow dispatch, use nightly tag with current date
+            TAG="nightly-$(date +'%Y%m%d')"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "Using nightly tag: $TAG"
+          else
+            # For release events, use the release tag
+            TAG="${{ github.event.release.tag_name }}"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "Using release tag: $TAG"
+          fi
+
+      - name: Create release for nightly builds
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          echo "Creating nightly release: $TAG"
+          gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
+        
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: 'linux/arm64,linux/arm/v7,linux/amd64'
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: Extract metadata (tags, labels) for Docker photoacoustic image
+        id: metaphotoacoustic
+        uses: docker/metadata-action@v5
+        with:
+          images: sctg/rust-photoacoustic
+        
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile
+          platforms: linux/arm64,linux/amd64,linux/arm/v7
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: ${{ steps.metaphotoacoustic.outputs.tags }}
+          labels: ${{ steps.metaphotoacoustic.outputs.labels }}
+
+      - name: Pull and extract files from Docker image (amd64)
+        continue-on-error: true
+        run: |
+          export TAG=${{ steps.set_tag.outputs.tag }}
+          mkdir -p /tmp/amd64/
+          docker pull sctg/rust-photoacoustic:latest
+          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:latest
+          
+          # Extract all photoacoustic binaries
+          docker cp temp-container-amd64:/usr/local/bin/photoacoustic /tmp/amd64/ || echo "photoacoustic not found"
+          docker cp temp-container-amd64:/usr/local/bin/create_token /tmp/amd64/ || echo "create_token not found"
+          docker cp temp-container-amd64:/usr/local/bin/analyze_spectrum /tmp/amd64/ || echo "analyze_spectrum not found"
+          docker cp temp-container-amd64:/usr/local/bin/debug_config /tmp/amd64/ || echo "debug_config not found"
+          docker cp temp-container-amd64:/usr/local/bin/differential /tmp/amd64/ || echo "differential not found"
+          docker cp temp-container-amd64:/usr/local/bin/filters /tmp/amd64/ || echo "filters not found"
+          docker cp temp-container-amd64:/usr/local/bin/modbus_client /tmp/amd64/ || echo "modbus_client not found"
+          docker cp temp-container-amd64:/usr/local/bin/noise_generator /tmp/amd64/ || echo "noise_generator not found"
+          docker cp temp-container-amd64:/usr/local/bin/pid_tuner /tmp/amd64/ || echo "pid_tuner not found"
+          docker cp temp-container-amd64:/usr/local/bin/redis_viewer /tmp/amd64/ || echo "redis_viewer not found"
+          docker cp temp-container-amd64:/usr/local/bin/rs256keygen /tmp/amd64/ || echo "rs256keygen not found"
+          docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
+          
+          docker rm temp-container-amd64
+          
+          # Rename binaries with architecture suffix
+          cd /tmp/amd64/
+          for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            if [ -f "$binary" ]; then
+              mv "$binary" "${binary}_linux_amd64_static_${{ steps.set_tag.outputs.tag }}"
+            fi
+          done
+
+      - name: Pull and extract files from Docker image (arm64)
+        continue-on-error: true
+        run: |
+          export TAG=${{ steps.set_tag.outputs.tag }}
+          mkdir -p /tmp/arm64/
+          docker pull sctg/rust-photoacoustic:latest
+          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:latest
+          
+          # Extract all photoacoustic binaries
+          docker cp temp-container-arm64:/usr/local/bin/photoacoustic /tmp/arm64/ || echo "photoacoustic not found"
+          docker cp temp-container-arm64:/usr/local/bin/create_token /tmp/arm64/ || echo "create_token not found"
+          docker cp temp-container-arm64:/usr/local/bin/analyze_spectrum /tmp/arm64/ || echo "analyze_spectrum not found"
+          docker cp temp-container-arm64:/usr/local/bin/debug_config /tmp/arm64/ || echo "debug_config not found"
+          docker cp temp-container-arm64:/usr/local/bin/differential /tmp/arm64/ || echo "differential not found"
+          docker cp temp-container-arm64:/usr/local/bin/filters /tmp/arm64/ || echo "filters not found"
+          docker cp temp-container-arm64:/usr/local/bin/modbus_client /tmp/arm64/ || echo "modbus_client not found"
+          docker cp temp-container-arm64:/usr/local/bin/noise_generator /tmp/arm64/ || echo "noise_generator not found"
+          docker cp temp-container-arm64:/usr/local/bin/pid_tuner /tmp/arm64/ || echo "pid_tuner not found"
+          docker cp temp-container-arm64:/usr/local/bin/redis_viewer /tmp/arm64/ || echo "redis_viewer not found"
+          docker cp temp-container-arm64:/usr/local/bin/rs256keygen /tmp/arm64/ || echo "rs256keygen not found"
+          docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
+          
+          docker rm temp-container-arm64
+          
+          # Rename binaries with architecture suffix
+          cd /tmp/arm64/
+          for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            if [ -f "$binary" ]; then
+              mv "$binary" "${binary}_linux_arm64_static_${{ steps.set_tag.outputs.tag }}"
+            fi
+          done
+
+      - name: Pull and extract files from Docker image (armhf)
+        continue-on-error: true
+        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' }}
+        run: |
+          export TAG=${{ steps.set_tag.outputs.tag }}
+          mkdir -p /tmp/armhf/
+          docker pull sctg/rust-photoacoustic:latest
+          docker create --platform linux/arm/v7 --name temp-container-armhf sctg/rust-photoacoustic:latest
+          
+          # Extract all photoacoustic binaries
+          docker cp temp-container-armhf:/usr/local/bin/photoacoustic /tmp/armhf/ || echo "photoacoustic not found"
+          docker cp temp-container-armhf:/usr/local/bin/create_token /tmp/armhf/ || echo "create_token not found"
+          docker cp temp-container-armhf:/usr/local/bin/analyze_spectrum /tmp/armhf/ || echo "analyze_spectrum not found"
+          docker cp temp-container-armhf:/usr/local/bin/debug_config /tmp/armhf/ || echo "debug_config not found"
+          docker cp temp-container-armhf:/usr/local/bin/differential /tmp/armhf/ || echo "differential not found"
+          docker cp temp-container-armhf:/usr/local/bin/filters /tmp/armhf/ || echo "filters not found"
+          docker cp temp-container-armhf:/usr/local/bin/modbus_client /tmp/armhf/ || echo "modbus_client not found"
+          docker cp temp-container-armhf:/usr/local/bin/noise_generator /tmp/armhf/ || echo "noise_generator not found"
+          docker cp temp-container-armhf:/usr/local/bin/pid_tuner /tmp/armhf/ || echo "pid_tuner not found"
+          docker cp temp-container-armhf:/usr/local/bin/redis_viewer /tmp/armhf/ || echo "redis_viewer not found"
+          docker cp temp-container-armhf:/usr/local/bin/rs256keygen /tmp/armhf/ || echo "rs256keygen not found"
+          docker cp temp-container-armhf:/usr/local/bin/rust_photoacoustic /tmp/armhf/ || echo "rust_photoacoustic not found"
+          
+          docker rm temp-container-armhf
+          
+          # Rename binaries with architecture suffix
+          cd /tmp/armhf/
+          for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            if [ -f "$binary" ]; then
+              mv "$binary" "${binary}_linux_armhf_static_${{ steps.set_tag.outputs.tag }}"
+            fi
+          done
+
+      - name: Upload amd64 Release binaries
+        continue-on-error: true
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            echo "Uploading amd64 binaries..."
+            ls -la /tmp/amd64/
+            for binary in /tmp/amd64/*_linux_amd64_static_${{ steps.set_tag.outputs.tag }}; do
+              if [ -f "$binary" ]; then
+                echo "Uploading: $binary"
+                gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
+              fi
+            done
+
+      - name: Upload arm64 Release binaries
+        continue-on-error: true
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            echo "Uploading arm64 binaries..."
+            ls -la /tmp/arm64/
+            for binary in /tmp/arm64/*_linux_arm64_static_${{ steps.set_tag.outputs.tag }}; do
+              if [ -f "$binary" ]; then
+                echo "Uploading: $binary"
+                gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
+              fi
+            done
+
+      - name: Upload armhf Release binaries
+        continue-on-error: true
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' }}
+        run: |
+            echo "Uploading armhf binaries..."
+            ls -la /tmp/armhf/
+            for binary in /tmp/armhf/*_linux_armhf_static_${{ steps.set_tag.outputs.tag }}; do
+              if [ -f "$binary" ]; then
+                echo "Uploading: $binary"
+                gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
+              fi
+            done
+
+      - name: Create attestation for release binaries
+        uses: actions/attest-build-provenance@v1
+        continue-on-error: true
+        with:
+          subject-path: |
+            /tmp/amd64/*_linux_amd64_static_${{ steps.set_tag.outputs.tag }}
+            /tmp/arm64/*_linux_arm64_static_${{ steps.set_tag.outputs.tag }}
+            /tmp/armhf/*_linux_armhf_static_${{ steps.set_tag.outputs.tag }}
+
+      - name: Generate release summary
+        run: |
+          echo "## 🚀 Multi-Architecture Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Released Binaries" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture | Binaries |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------------|----------|" >> $GITHUB_STEP_SUMMARY
+          
+          # AMD64 summary
+          echo -n "| **amd64** | " >> $GITHUB_STEP_SUMMARY
+          ls /tmp/amd64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo " binaries |" >> $GITHUB_STEP_SUMMARY
+          
+          # ARM64 summary
+          echo -n "| **arm64** | " >> $GITHUB_STEP_SUMMARY
+          ls /tmp/arm64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo " binaries |" >> $GITHUB_STEP_SUMMARY
+          
+          # ARMHF summary
+          if [ "${{ env.DOCKER_ARMHF_EXPERIMENTAL }}" = "enabled" ]; then
+            echo -n "| **armhf** | " >> $GITHUB_STEP_SUMMARY
+            ls /tmp/armhf/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+            echo " binaries |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Available Tools" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> $GITHUB_STEP_SUMMARY
+          echo "- **photoacoustic**: Photoacoustic processing tool" >> $GITHUB_STEP_SUMMARY
+          echo "- **create_token**: JWT token generation utility" >> $GITHUB_STEP_SUMMARY
+          echo "- **analyze_spectrum**: Spectrum analysis tool" >> $GITHUB_STEP_SUMMARY
+          echo "- **debug_config**: Configuration debugging utility" >> $GITHUB_STEP_SUMMARY
+          echo "- **differential**: Differential signal processing" >> $GITHUB_STEP_SUMMARY
+          echo "- **filters**: Signal filtering utilities" >> $GITHUB_STEP_SUMMARY
+          echo "- **modbus_client**: Modbus communication client" >> $GITHUB_STEP_SUMMARY
+          echo "- **noise_generator**: Noise generation for testing" >> $GITHUB_STEP_SUMMARY
+          echo "- **pid_tuner**: PID controller tuning tool" >> $GITHUB_STEP_SUMMARY
+          echo "- **redis_viewer**: Redis data viewer" >> $GITHUB_STEP_SUMMARY
+          echo "- **rs256keygen**: RS256 key generation utility" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Multi-architecture Docker image available at: \`sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
