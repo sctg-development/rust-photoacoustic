@@ -20,8 +20,12 @@ import { I18nIcon, LanguageSwitch } from "./language-switch";
 import { LoginLogoutButton, LoginLogoutLink } from "@/authentication";
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
-import { GithubIcon, HeartFilledIcon, SearchIcon } from "@/components/icons";
-import { Logo } from "@/components/icons";
+import {
+  GithubIcon,
+  HeartFilledIcon,
+  LaserIcon,
+  SearchIcon,
+} from "@/components/icons";
 import { availableLanguages } from "@/i18n";
 
 export const Navbar = () => {
@@ -56,7 +60,7 @@ export const Navbar = () => {
             color="foreground"
             href="/"
           >
-            <Logo />
+            <LaserIcon />
             <p className="font-bold text-inherit">LaserSmart</p>
           </Link>
         </NavbarBrand>

@@ -1,9 +1,9 @@
 /**
  * IndexPage Component - Main Measurement Dashboard
- * 
+ *
  * This component provides a comprehensive dashboard for monitoring photoacoustic
  * measurement data with real-time gauges and historical charts.
- * 
+ *
  * Features:
  * - Real-time concentration gauges for each configured molecule
  * - Historical concentration chart with customizable data points
@@ -11,13 +11,13 @@
  * - Dynamic Y-axis scaling for optimal chart visualization
  * - Responsive grid layout for gauges
  * - Internationalization support
- * 
+ *
  * Data Flow:
  * 1. Fetches visualization output configuration (outputItems)
  * 2. Filters items with display_order > 0 and sorts by display_order
  * 3. Fetches measurement history for each visible item
  * 4. Displays gauges with latest values and chart with historical data
- * 
+ *
  * @returns JSX.Element The main dashboard component
  */
 
@@ -111,13 +111,13 @@ export default function IndexPage() {
   /**
    * Fetches the visualization output configuration from the API
    * This determines which molecules/measurements should be displayed in the dashboard
-   * 
+   *
    * The function:
    * 1. Fetches all output configurations from the API
    * 2. Filters items with display_order > 0 (only visible items)
    * 3. Sorts by display_order ascending (left to right, top to bottom)
    * 4. Updates the outputItems state
-   * 
+   *
    * @throws Error if the API request fails
    */
   const fetchOutputItems = async () => {
@@ -146,17 +146,17 @@ export default function IndexPage() {
   /**
    * Fetches measurement history data for all visible output items
    * This populates the gauges and chart with actual measurement data
-   * 
+   *
    * The function:
    * 1. Determines the number of data points to fetch based on user selection
    * 2. Makes parallel API requests for all visible items using Promise.all
    * 3. Maintains the order of results to match outputItems array
    * 4. Updates the measurements state with a 2D array structure
-   * 
+   *
    * Data structure: measurements[itemIndex][measurementIndex]
    * - itemIndex corresponds to outputItems array index
    * - measurementIndex goes from 0 (most recent) to limit-1 (oldest)
-   * 
+   *
    * @throws Error if any API request fails
    */
   const fetchMeasurements = async () => {
@@ -193,13 +193,13 @@ export default function IndexPage() {
   /**
    * Loads all initial data for the dashboard
    * This is the main data loading function called on component mount
-   * 
+   *
    * The function:
    * 1. Validates authentication and configuration
    * 2. Clears any previous errors
    * 3. Fetches output items configuration
    * 4. Handles errors and updates loading state
-   * 
+   *
    * Note: fetchMeasurements is called separately via useEffect when outputItems changes
    */
   const loadAllData = async () => {
@@ -251,7 +251,7 @@ export default function IndexPage() {
   /**
    * Effect: Auto-refresh functionality
    * Manages the automatic refresh interval for live monitoring
-   * 
+   *
    * Behavior:
    * - Clears any existing interval when dependencies change
    * - Sets up new interval only if auto-refresh is enabled and user is authenticated
@@ -298,7 +298,7 @@ export default function IndexPage() {
   /**
    * Handles data points selection change
    * Updates the number of measurement points to fetch and display
-   * 
+   *
    * @param keys - Selected keys from the Select component
    */
   const handleDataPointsChange = (keys: any) => {
@@ -314,10 +314,10 @@ export default function IndexPage() {
   /**
    * Gets the latest (most recent) measurement value for a specific gauge
    * Used to display current values in gauges and beneath them
-   * 
+   *
    * @param index - Index of the output item in the outputItems array
    * @returns The concentration value in ppm, or 0 if no data available
-   * 
+   *
    * Note: measurements[index][0] is the most recent value because the API
    * returns data in reverse chronological order (newest first)
    */
@@ -332,14 +332,14 @@ export default function IndexPage() {
   /**
    * Prepares data for the Chart.js line chart component
    * Transforms measurement data into the format expected by Chart.js
-   * 
+   *
    * The function:
    * 1. Validates that measurement data exists
    * 2. Assigns colors to each molecule/dataset
    * 3. Sorts measurements chronologically for proper chart display
    * 4. Converts Rust SystemTime timestamps to JavaScript Date objects
    * 5. Creates Chart.js dataset format with styling
-   * 
+   *
    * @returns Chart.js compatible data object or null if no data
    */
   const prepareConcentrationChartData = () => {
@@ -382,7 +382,7 @@ export default function IndexPage() {
             // secs_since_epoch is Unix timestamp in seconds
             // nanos_since_epoch is additional nanoseconds for precision
             measurement.timestamp.secs_since_epoch * 1000 +
-            measurement.timestamp.nanos_since_epoch / 1000000,
+              measurement.timestamp.nanos_since_epoch / 1000000,
           ),
           y: measurement.concentration_ppm, // Y-axis value
         })),
@@ -398,18 +398,18 @@ export default function IndexPage() {
   /**
    * Calculates dynamic Y-axis range for optimal chart visualization
    * Instead of always starting from 0, this centers the chart around actual data values
-   * 
+   *
    * The function:
    * 1. Collects all concentration values from all measurements
    * 2. Finds the minimum and maximum values
    * 3. Calculates an appropriate margin (10% of range or at least 1 unit)
    * 4. Returns min/max values with margins applied
-   * 
+   *
    * Example: If data ranges from 24-26 ppm:
    * - Range = 2 ppm
    * - Margin = max(2 * 0.1, 1) = 1 ppm
    * - Chart shows: 23-27 ppm
-   * 
+   *
    * @returns Object with min/max values for Y-axis, or undefined if no data
    */
   const calculateYAxisRange = () => {
@@ -564,7 +564,6 @@ export default function IndexPage() {
         {/* Main Dashboard Content - Shown when data is loaded and user is authenticated */}
         {outputItems.length > 0 && isAuthenticated && (
           <div className="container mx-auto px-4 max-w-7xl w-full">
-
             {/* Control Panel - Auto-refresh toggle and data points selector */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div className="flex items-center gap-4">
@@ -622,11 +621,10 @@ export default function IndexPage() {
                   {/* Gauge Card Body - Gauge chart and current value */}
                   <CardBody className="pt-2">
                     <div className="flex flex-col items-center">
-
                       {/* Gauge Chart Container */}
                       <div className="w-48 h-32 mb-4">
                         {measurements[index] &&
-                          measurements[index].length > 0 ? (
+                        measurements[index].length > 0 ? (
                           <GaugeChart
                             formatTextValue={(value: number) =>
                               `${value.toFixed(1)} ${item.unit}`
@@ -637,8 +635,8 @@ export default function IndexPage() {
                                 // Calculate percentage within the configured range
                                 (getLatestValue(index) -
                                   item.concentration_min) /
-                                (item.concentration_max -
-                                  item.concentration_min),
+                                  (item.concentration_max -
+                                    item.concentration_min),
                                 0, // Minimum 0%
                               ),
                               1, // Maximum 100%
