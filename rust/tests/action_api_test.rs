@@ -70,23 +70,34 @@ async fn test_action_endpoints_integration() -> Result<()> {
         .send()
         .await?;
 
-    assert_eq!(response.status(), 200, "Action list endpoint should return 200 OK");
+    assert_eq!(
+        response.status(),
+        200,
+        "Action list endpoint should return 200 OK"
+    );
 
     let action_nodes: Value = response.json().await?;
-    println!("Action nodes response: {}", serde_json::to_string_pretty(&action_nodes)?);
+    println!(
+        "Action nodes response: {}",
+        serde_json::to_string_pretty(&action_nodes)?
+    );
 
     // The response should be an array
-    assert!(action_nodes.is_array(), "Response should be an array of action nodes");
-    
+    assert!(
+        action_nodes.is_array(),
+        "Response should be an array of action nodes"
+    );
+
     let nodes_array = action_nodes.as_array().unwrap();
     println!("Found {} action nodes", nodes_array.len());
 
     // If we have action nodes, test accessing their data
     if !nodes_array.is_empty() {
         let first_node = &nodes_array[0];
-        let node_id = first_node["id"].as_str()
+        let node_id = first_node["id"]
+            .as_str()
             .expect("Action node should have an id field");
-        
+
         println!("Testing endpoints for action node: {}", node_id);
 
         // Test 2: Get history for the first action node
@@ -97,52 +108,94 @@ async fn test_action_endpoints_integration() -> Result<()> {
             .send()
             .await?;
 
-        assert_eq!(history_response.status(), 200, "History endpoint should return 200 OK");
+        assert_eq!(
+            history_response.status(),
+            200,
+            "History endpoint should return 200 OK"
+        );
 
         let history_data: Value = history_response.json().await?;
-        println!("History data: {}", serde_json::to_string_pretty(&history_data)?);
-        
+        println!(
+            "History data: {}",
+            serde_json::to_string_pretty(&history_data)?
+        );
+
         // Should be an array of measurements
-        assert!(history_data.is_array(), "History should be an array of measurements");
+        assert!(
+            history_data.is_array(),
+            "History should be an array of measurements"
+        );
 
         // Test 3: Get history with limit parameter
-        println!("\n=== Testing /api/action/{}/history?limit=5 endpoint ===", node_id);
+        println!(
+            "\n=== Testing /api/action/{}/history?limit=5 endpoint ===",
+            node_id
+        );
         let limited_history_response = client
-            .get(&format!("{}/api/action/{}/history?limit=5", api_base_url, node_id))
+            .get(&format!(
+                "{}/api/action/{}/history?limit=5",
+                api_base_url, node_id
+            ))
             .header("Authorization", format!("Bearer {}", access_token))
             .send()
             .await?;
 
-        assert_eq!(limited_history_response.status(), 200, "Limited history endpoint should return 200 OK");
+        assert_eq!(
+            limited_history_response.status(),
+            200,
+            "Limited history endpoint should return 200 OK"
+        );
 
         let limited_history_data: Value = limited_history_response.json().await?;
         let limited_array = limited_history_data.as_array().unwrap();
-        
+
         // Should have at most 5 entries
-        assert!(limited_array.len() <= 5, "Limited history should have at most 5 entries");
+        assert!(
+            limited_array.len() <= 5,
+            "Limited history should have at most 5 entries"
+        );
         println!("Limited history returned {} entries", limited_array.len());
 
         // Test 4: Get statistics for the action node
-        println!("\n=== Testing /api/action/{}/history/stats endpoint ===", node_id);
+        println!(
+            "\n=== Testing /api/action/{}/history/stats endpoint ===",
+            node_id
+        );
         let stats_response = client
-            .get(&format!("{}/api/action/{}/history/stats", api_base_url, node_id))
+            .get(&format!(
+                "{}/api/action/{}/history/stats",
+                api_base_url, node_id
+            ))
             .header("Authorization", format!("Bearer {}", access_token))
             .send()
             .await?;
 
-        assert_eq!(stats_response.status(), 200, "Stats endpoint should return 200 OK");
+        assert_eq!(
+            stats_response.status(),
+            200,
+            "Stats endpoint should return 200 OK"
+        );
 
         let stats_data: Value = stats_response.json().await?;
         println!("Stats data: {}", serde_json::to_string_pretty(&stats_data)?);
-        
+
         // Should be an object with statistics
         assert!(stats_data.is_object(), "Stats should be an object");
-        
+
         // Verify it has expected fields
-        assert!(stats_data.get("node_id").is_some(), "Stats should have node_id");
-        assert!(stats_data.get("node_type").is_some(), "Stats should have node_type");
-        
-        println!("✓ All action node endpoints working correctly for node: {}", node_id);
+        assert!(
+            stats_data.get("node_id").is_some(),
+            "Stats should have node_id"
+        );
+        assert!(
+            stats_data.get("node_type").is_some(),
+            "Stats should have node_type"
+        );
+
+        println!(
+            "✓ All action node endpoints working correctly for node: {}",
+            node_id
+        );
     } else {
         println!("⚠ No action nodes found in the processing graph");
         println!("This might indicate that the example configuration doesn't contain UniversalActionNode instances");
@@ -203,7 +256,10 @@ async fn test_action_endpoints_authentication() -> Result<()> {
     assert_eq!(response.status(), 401, "Should require authentication");
 
     let response = client
-        .get(&format!("{}/api/action/test_node/history/stats", api_base_url))
+        .get(&format!(
+            "{}/api/action/test_node/history/stats",
+            api_base_url
+        ))
         .send()
         .await?;
     assert_eq!(response.status(), 401, "Should require authentication");
@@ -255,15 +311,27 @@ async fn test_action_endpoints_openapi() -> Result<()> {
         .await?;
 
     assert_eq!(response.status(), 200, "OpenAPI spec should be available");
-    
+
     let openapi_spec = response.text().await?;
-    
+
     // Verify that our action endpoints are documented in the OpenAPI spec
-    assert!(openapi_spec.contains("/api/action"), "Should document /api/action endpoint");
-    assert!(openapi_spec.contains("/api/action/{node_id}/history"), "Should document history endpoint");
-    assert!(openapi_spec.contains("/api/action/{node_id}/history/stats"), "Should document stats endpoint");
-    assert!(openapi_spec.contains("Action History"), "Should include our tag");
-    
+    assert!(
+        openapi_spec.contains("/api/action"),
+        "Should document /api/action endpoint"
+    );
+    assert!(
+        openapi_spec.contains("/api/action/{node_id}/history"),
+        "Should document history endpoint"
+    );
+    assert!(
+        openapi_spec.contains("/api/action/{node_id}/history/stats"),
+        "Should document stats endpoint"
+    );
+    assert!(
+        openapi_spec.contains("Action History"),
+        "Should include our tag"
+    );
+
     println!("✓ Action endpoints are properly documented in OpenAPI spec");
 
     // Clean shutdown
