@@ -116,6 +116,10 @@ pub struct Args {
     /// Must be a valid HTTP or HTTPS URL (e.g., http://localhost:3000 or https://example.com)
     #[arg(long = "external-web-client", value_name = "URL")]
     external_web_client: Option<String>,
+
+    /// Return a working demo configuration file with comments use --get-demo-config > demo.yaml
+    #[arg(long = "get-demo-config")]
+    get_demo_config: bool,
 }
 
 #[rocket::main]
@@ -148,6 +152,16 @@ async fn main() -> Result<()> {
         env::set_var("EXTERNAL_WEB_CLIENT", external_client);
     }
 
+    // If --get-demo-config is set, output the content of config.example.yaml configuration file and exit
+    // the config.example.yaml was embedded in the binary using the `include_str!` macro at compile time
+    if args.get_demo_config {
+        let demo_config = include_str!("../config.example.yaml");
+        println!(
+            "#Save this demo configuration file in a yaml file\n#    and use --config FILE:\n#\n{}",
+            demo_config
+        );
+        return Ok(());
+    }
     if args.list_devices {
         // List available audio input devices
         let devices = utility::cpal::list_audio_devices()?;
