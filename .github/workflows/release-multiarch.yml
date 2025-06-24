@@ -26,7 +26,7 @@ jobs:
     name: Push Docker image to Docker Hub and release binaries
     runs-on: ubuntu-latest
     env:
-      DOCKER_ARMHF_EXPERIMENTAL: enabled # Set to 'enabled' to enable armhf build
+      DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
