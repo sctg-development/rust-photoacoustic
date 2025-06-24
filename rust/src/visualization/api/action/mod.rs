@@ -37,6 +37,7 @@
 
 use anyhow::{anyhow, Result};
 use auth_macros::openapi_protect_get;
+use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, State};
 use rocket_okapi::okapi::openapi3::OpenApi;
@@ -46,6 +47,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::processing::computing_nodes::action_drivers::MeasurementData;
+use crate::processing::computing_nodes::action_trait::ActionNode;
 use crate::processing::computing_nodes::UniversalActionNode;
 use crate::visualization::shared_state::SharedVisualizationState;
 
@@ -110,29 +112,43 @@ pub struct ActionNodeInfo {
     "read:api",
     tag = "Action History"
 )]
-pub fn get_action_history(
+pub async fn get_action_history(
     node_id: &str,
     limit: Option<usize>,
     state: &State<SharedVisualizationState>,
-) -> Result<Json<Vec<MeasurementData>>, rocket::http::Status> {
-    // Pour l'instant, retourner des données simulées
-    // TODO: Implémenter l'accès réel aux données du ProcessingGraph
-    let mock_data = vec![MeasurementData {
-        concentration_ppm: 123.45,
-        source_node_id: "concentration_calculator".to_string(),
-        peak_amplitude: 0.75,
-        peak_frequency: 2000.0,
-        timestamp: std::time::SystemTime::now(),
-        metadata: HashMap::new(),
-    }];
-
-    let limited_data = if let Some(limit) = limit {
-        mock_data.into_iter().take(limit).collect()
+) -> Result<Json<Vec<MeasurementData>>, Status> {
+    let result = if let Some(live_graph) = state.get_live_processing_graph().await {
+        // Try to access the live processing graph
+        if let Ok(graph_lock) =
+            tokio::time::timeout(std::time::Duration::from_millis(100), live_graph.read()).await
+        {
+            // Get the specific UniversalActionNode
+            if let Some(action_node) = graph_lock.get_universal_action_node(node_id) {
+                // Get measurement history from the action node
+                let history = action_node.get_measurement_history(limit);
+                Ok(Json(history))
+            } else {
+                // Node not found
+                Err(Status::NotFound)
+            }
+        } else {
+            // Timeout occurred
+            Err(Status::InternalServerError)
+        }
     } else {
-        mock_data
+        // Fallback to mock data if live graph is not available
+        let mock_data = vec![MeasurementData {
+            concentration_ppm: 123.45,
+            source_node_id: "concentration_calculator".to_string(),
+            peak_amplitude: 0.75,
+            peak_frequency: 2000.0,
+            timestamp: std::time::SystemTime::now(),
+            metadata: HashMap::new(),
+        }];
+        Ok(Json(mock_data))
     };
 
-    Ok(Json(limited_data))
+    result
 }
 
 /// Get statistics about an action node's history buffer
@@ -183,27 +199,47 @@ pub fn get_action_history(
     "read:api",
     tag = "Action History"
 )]
-pub fn get_action_history_stats(
+pub async fn get_action_history_stats(
     node_id: &str,
     state: &State<SharedVisualizationState>,
-) -> Result<Json<Value>, rocket::http::Status> {
-    // Pour l'instant, retourner des données simulées
-    // TODO: Implémenter l'accès réel aux données du ProcessingGraph
-    let mut stats = serde_json::Map::new();
-    stats.insert("node_id".to_string(), Value::String(node_id.to_string()));
-    stats.insert(
-        "node_type".to_string(),
-        Value::String("action_universal".to_string()),
-    );
+) -> Result<Json<Value>, Status> {
+    let result = if let Some(live_graph) = state.get_live_processing_graph().await {
+        // Try to access the live processing graph
+        if let Ok(graph_lock) =
+            tokio::time::timeout(std::time::Duration::from_millis(100), live_graph.read()).await
+        {
+            // Get the specific UniversalActionNode
+            if let Some(action_node) = graph_lock.get_universal_action_node(node_id) {
+                // Get real statistics from the action node (this already returns a complete serde_json::Value)
+                let stats = action_node.get_history_statistics();
+                Ok(Json(stats))
+            } else {
+                // Node not found
+                Err(Status::NotFound)
+            }
+        } else {
+            // Timeout occurred
+            Err(Status::InternalServerError)
+        }
+    } else {
+        // Fallback to mock data if live graph is not available
+        let mut stats = serde_json::Map::new();
+        stats.insert("node_id".to_string(), Value::String(node_id.to_string()));
+        stats.insert(
+            "node_type".to_string(),
+            Value::String("action_universal".to_string()),
+        );
 
-    let mut history_buffer = serde_json::Map::new();
-    history_buffer.insert("capacity".to_string(), Value::Number(100.into()));
-    history_buffer.insert("current_size".to_string(), Value::Number(50.into()));
-    history_buffer.insert("is_full".to_string(), Value::Bool(false));
+        let mut history_buffer = serde_json::Map::new();
+        history_buffer.insert("capacity".to_string(), Value::Number(100.into()));
+        history_buffer.insert("current_size".to_string(), Value::Number(50.into()));
+        history_buffer.insert("is_full".to_string(), Value::Bool(false));
 
-    stats.insert("history_buffer".to_string(), Value::Object(history_buffer));
+        stats.insert("history_buffer".to_string(), Value::Object(history_buffer));
+        Ok(Json(Value::Object(stats)))
+    };
 
-    Ok(Json(Value::Object(stats)))
+    result
 }
 
 /// List all available action nodes
@@ -237,31 +273,54 @@ pub fn get_action_history_stats(
 /// ]
 /// ```
 #[openapi_protect_get("/api/action", "read:api", tag = "Action History")]
-pub fn list_action_nodes(
+pub async fn list_action_nodes(
     state: &State<SharedVisualizationState>,
-) -> Result<Json<Vec<ActionNodeInfo>>, rocket::http::Status> {
-    // Pour l'instant, retourner des données simulées
-    // TODO: Implémenter l'accès réel aux données du ProcessingGraph
-    let mock_nodes = vec![
-        ActionNodeInfo {
-            id: "redis_stream_action".to_string(),
-            node_type: "action_universal".to_string(),
-            has_driver: true,
-            monitored_nodes_count: 1,
-            buffer_size: 50,
-            buffer_capacity: 100,
-        },
-        ActionNodeInfo {
-            id: "web_dashboard_action".to_string(),
-            node_type: "action_universal".to_string(),
-            has_driver: true,
-            monitored_nodes_count: 1,
-            buffer_size: 25,
-            buffer_capacity: 200,
-        },
-    ];
+) -> Result<Json<Vec<ActionNodeInfo>>, Status> {
+    let result = if let Some(live_graph) = state.get_live_processing_graph().await {
+        // Try to access the live processing graph
+        if let Ok(graph_lock) =
+            tokio::time::timeout(std::time::Duration::from_millis(100), live_graph.read()).await
+        {
+            // Get all UniversalActionNode instances
+            let action_nodes = graph_lock.get_all_universal_action_nodes();
 
-    Ok(Json(mock_nodes))
+            let mut node_infos = Vec::new();
+            for (node_id, action_node) in action_nodes {
+                let history_stats = action_node.get_history_statistics();
+
+                node_infos.push(ActionNodeInfo {
+                    id: node_id,
+                    node_type: "action_universal".to_string(),
+                    has_driver: action_node.has_driver(),
+                    monitored_nodes_count: action_node.get_monitored_node_ids().len(),
+                    buffer_size: history_stats["history_buffer"]["current_size"]
+                        .as_u64()
+                        .unwrap_or(0) as usize,
+                    buffer_capacity: history_stats["history_buffer"]["capacity"]
+                        .as_u64()
+                        .unwrap_or(0) as usize,
+                });
+            }
+
+            Ok(Json(node_infos))
+        } else {
+            // Timeout occurred
+            Err(Status::InternalServerError)
+        }
+    } else {
+        // Fallback to mock data if live graph is not available
+        let mock_nodes = vec![ActionNodeInfo {
+            id: "mock_action_node".to_string(),
+            node_type: "action_universal".to_string(),
+            has_driver: false,
+            monitored_nodes_count: 0,
+            buffer_size: 0,
+            buffer_capacity: 0,
+        }];
+        Ok(Json(mock_nodes))
+    };
+
+    result
 }
 
 /// Get the route handlers for action endpoints

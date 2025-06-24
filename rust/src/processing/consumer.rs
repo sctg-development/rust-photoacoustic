@@ -215,6 +215,11 @@ impl ProcessingConsumer {
             visualization_state
                 .update_processing_graph(serializable_graph)
                 .await;
+
+            // Share the live processing graph for direct API access
+            visualization_state
+                .set_live_processing_graph(Arc::clone(&self.processing_graph))
+                .await;
         }
 
         // Create the audio stream consumer

@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::processing::graph::ProcessingGraphStatistics;
+use crate::processing::graph::{ProcessingGraph, ProcessingGraphStatistics};
 use crate::processing::SerializableProcessingGraph;
 
 /// Global shared state for the visualization server
@@ -15,7 +15,7 @@ use crate::processing::SerializableProcessingGraph;
 /// This structure contains runtime data that needs to be accessed by both
 /// the daemon components (like ProcessingConsumer) and the web API endpoints.
 /// All data is protected by async RwLock for safe concurrent access.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SharedVisualizationState {
     /// Current processing graph statistics
     ///
@@ -29,6 +29,14 @@ pub struct SharedVisualizationState {
     /// including nodes, connections, and topology information.
     /// Updated when the processing graph is initialized or modified.
     processing_graph: Arc<RwLock<Option<SerializableProcessingGraph>>>,
+
+    /// Live processing graph reference
+    ///
+    /// Direct access to the live ProcessingGraph instance from ProcessingConsumer.
+    /// This allows API endpoints to access real-time data from UniversalActionNode
+    /// instances without copying data. The graph is wrapped in Arc<RwLock<>> to
+    /// allow safe concurrent access between ProcessingConsumer and API endpoints.
+    live_processing_graph: Arc<RwLock<Option<Arc<RwLock<ProcessingGraph>>>>>,
 }
 
 impl Default for SharedVisualizationState {
@@ -43,6 +51,7 @@ impl SharedVisualizationState {
         Self {
             processing_statistics: Arc::new(RwLock::new(None)),
             processing_graph: Arc::new(RwLock::new(None)),
+            live_processing_graph: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -113,13 +122,13 @@ impl SharedVisualizationState {
         let mut processing_graph = self.processing_graph.write().await;
         *processing_graph = None;
     }
-
     /// Clear all processing data
     ///
     /// This should be called when processing stops or is reset.
     pub async fn clear_all_processing_data(&self) {
         self.clear_processing_statistics().await;
         self.clear_processing_graph().await;
+        self.clear_live_processing_graph().await;
     }
 
     /// Check if processing statistics are available
@@ -131,7 +140,6 @@ impl SharedVisualizationState {
         let processing_stats = self.processing_statistics.read().await;
         processing_stats.is_some()
     }
-
     /// Check if processing graph is available
     ///
     /// ### Returns
@@ -140,6 +148,69 @@ impl SharedVisualizationState {
     pub async fn has_processing_graph(&self) -> bool {
         let processing_graph = self.processing_graph.read().await;
         processing_graph.is_some()
+    }
+
+    /// Set the live processing graph reference
+    ///
+    /// This should be called by ProcessingConsumer when it initializes
+    /// to share its ProcessingGraph with the API endpoints.
+    ///
+    /// ### Parameters
+    ///
+    /// * `graph` - Shared reference to the live ProcessingGraph
+    pub async fn set_live_processing_graph(&self, graph: Arc<RwLock<ProcessingGraph>>) {
+        let mut live_graph = self.live_processing_graph.write().await;
+        *live_graph = Some(graph);
+    }
+
+    /// Get the live processing graph reference
+    ///
+    /// Returns the shared reference to the live ProcessingGraph for
+    /// direct access to UniversalActionNode instances and their data.
+    ///
+    /// ### Returns
+    ///
+    /// The live processing graph reference, or None if unavailable
+    pub async fn get_live_processing_graph(&self) -> Option<Arc<RwLock<ProcessingGraph>>> {
+        let live_graph = self.live_processing_graph.read().await;
+        live_graph.clone()
+    }
+
+    /// Clear the live processing graph
+    ///
+    /// This should be called when processing stops or is reset.
+    pub async fn clear_live_processing_graph(&self) {
+        let mut live_graph = self.live_processing_graph.write().await;
+        *live_graph = None;
+    }
+
+    /// Check if live processing graph is available
+    ///
+    /// ### Returns
+    ///
+    /// True if live processing graph is available, false otherwise
+    pub async fn has_live_processing_graph(&self) -> bool {
+        let live_graph = self.live_processing_graph.read().await;
+        live_graph.is_some()
+    }
+}
+
+impl std::fmt::Debug for SharedVisualizationState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedVisualizationState")
+            .field(
+                "processing_statistics",
+                &"Arc<RwLock<Option<ProcessingGraphStatistics>>>",
+            )
+            .field(
+                "processing_graph",
+                &"Arc<RwLock<Option<SerializableProcessingGraph>>>",
+            )
+            .field(
+                "live_processing_graph",
+                &"Arc<RwLock<Option<Arc<RwLock<ProcessingGraph>>>>>",
+            )
+            .finish()
     }
 }
 
