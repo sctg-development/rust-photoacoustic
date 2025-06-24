@@ -29,6 +29,7 @@ fn test_config_load_and_save() -> Result<()> {
                 .encode((include_str!("../resources/pub.key")).as_bytes()),
             session_secret: "session-secret".to_string(),
             enable_compression: true,
+            output: vec![],
         },
         acquisition: AcquisitionConfig {
             enabled: false,
