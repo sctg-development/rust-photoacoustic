@@ -345,7 +345,7 @@
 //!
 //! #### Error responses:
 //!
-//! ```
+//! ```text
 //! HTTP 404 Not Found        - Node not found
 //! HTTP 500 Internal Server  - Failed to access processing graph
 //! ```

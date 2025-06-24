@@ -80,18 +80,18 @@ pub struct ActionNodeInfo {
 /// Returns measurement data stored in the action node's history buffer.
 /// The data is returned in chronological order (newest first).
 ///
-/// # Path Parameters
+/// ### Path Parameters
 /// - `node_id`: The ID of the action node to query
 ///
-/// # Query Parameters
+/// ### Query Parameters
 /// - `limit`: Maximum number of entries to return (optional)
 ///
-/// # Returns
+/// ### Returns
 /// - `200 OK`: Array of measurement data
 /// - `404 Not Found`: Action node with the specified ID not found
 /// - `500 Internal Server Error`: Failed to access processing graph
 ///
-/// # Example Response
+/// ### Example Response
 /// ```json
 /// [
 ///   {
@@ -156,15 +156,15 @@ pub async fn get_action_history(
 /// Returns metadata about the action node including buffer statistics,
 /// configuration, and performance metrics.
 ///
-/// # Path Parameters
+/// ### Path Parameters
 /// - `node_id`: The ID of the action node to query
 ///
-/// # Returns
+/// ### Returns
 /// - `200 OK`: Statistics object
 /// - `404 Not Found`: Action node with the specified ID not found
 /// - `500 Internal Server Error`: Failed to access processing graph
 ///
-/// # Example Response
+/// ### Example Response
 /// ```json
 /// {
 ///   "node_id": "redis_stream_action",
@@ -247,11 +247,11 @@ pub async fn get_action_history_stats(
 /// Returns a summary of all UniversalActionNode instances in the processing graph,
 /// including their basic configuration and status information.
 ///
-/// # Returns
+/// ### Returns
 /// - `200 OK`: Array of action node information
 /// - `500 Internal Server Error`: Failed to access processing graph
 ///
-/// # Example Response
+/// ### Example Response
 /// ```json
 /// [
 ///   {
