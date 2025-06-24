@@ -29,6 +29,17 @@ jobs:
             cross: true
     
     steps:
+
+    - name: Clean runner for Docker builds
+      if: matrix.os == 'ubuntu-latest'
+      uses: sctg-development/clean-image-for-docker:v1
+      # Optional parameters
+      with:
+        remove-development-tools: 'false'
+        remove-browsers: 'true'
+        remove-databases: 'true'
+        remove-cloud-tools: 'true'
+        show-top-packages: 'true'
     - uses: actions/checkout@v4
       with: # fetch all submodules
         submodules: 'recursive'
