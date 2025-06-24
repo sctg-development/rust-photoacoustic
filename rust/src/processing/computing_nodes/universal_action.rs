@@ -122,7 +122,7 @@
 //!         Ok(())
 //!     }
 //!
-//!     async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
+//!     async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
 //!         // Update your action with concentration data
 //!         // data.concentration_ppm contains the current value
 //!         // data.timestamp contains when the measurement was taken
@@ -138,7 +138,7 @@
 //!         Ok(())
 //!     }
 //!     
-//!     async fn clear_display(&mut self) -> Result<()> {
+//!     async fn clear_action(&mut self) -> Result<()> {
 //!         // Clear the action and return to idle state
 //!         log::debug!("Clearing action");
 //!         Ok(())

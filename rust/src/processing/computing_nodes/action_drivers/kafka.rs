@@ -200,7 +200,7 @@ impl ActionDriver for KafkaActionDriver {
         let display_topic = self.display_topic.clone();
 
         let payload = json!({
-            "type": "clear_display",
+            "type": "clear_action",
             "timestamp": SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()
         });
 

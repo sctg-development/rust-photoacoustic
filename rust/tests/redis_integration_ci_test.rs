@@ -117,10 +117,10 @@ async fn test_redis_driver_key_value_mode_ci() -> Result<()> {
     );
 
     let parsed_data: serde_json::Value = serde_json::from_str(&stored_data.unwrap())?;
-    // The latest operation should be either display_update or clear_display
+    // The latest operation should be either display_update or clear_action
     assert!(
-        parsed_data["type"] == "display_update" || parsed_data["type"] == "clear_display",
-        "Latest data type should be display_update or clear_display, got: {}",
+        parsed_data["type"] == "display_update" || parsed_data["type"] == "clear_action",
+        "Latest data type should be display_update or clear_action, got: {}",
         parsed_data["type"]
     );
     println!("✅ Latest data verified in Redis: {}", parsed_data["type"]);

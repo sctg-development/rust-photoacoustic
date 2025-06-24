@@ -30,9 +30,15 @@ async fn test_action_endpoints_integration() -> Result<()> {
 
     // Load the example configuration which contains action nodes
     let config_path = PathBuf::from("config.example.yaml");
-    let config = Config::from_file(&config_path)?;
+    let mut config = Config::from_file(&config_path)?;
 
-    println!("Loaded configuration from: {:?}", config_path);
+    // Use specific port to avoid conflict with other tests
+    config.visualization.port = 8081;
+
+    println!(
+        "Loaded configuration from: {:?}, using port {}",
+        config_path, config.visualization.port
+    );
 
     // Create shared configuration for the daemon
     let config_arc = Arc::new(RwLock::new(config.clone()));
@@ -45,7 +51,7 @@ async fn test_action_endpoints_integration() -> Result<()> {
 
     // Wait for the system to initialize
     println!("Waiting for processing system to initialize...");
-    sleep(Duration::from_secs(3)).await;
+    sleep(Duration::from_secs(10)).await;
 
     // Create JWT token for API authentication
     let access_token = create_admin_jwt_token(&config)?;
@@ -221,7 +227,15 @@ async fn test_action_endpoints_authentication() -> Result<()> {
 
     // Load configuration
     let config_path = PathBuf::from("config.example.yaml");
-    let config = Config::from_file(&config_path)?;
+    let mut config = Config::from_file(&config_path)?;
+
+    // Use specific port to avoid conflict with other tests
+    config.visualization.port = 8082;
+
+    println!(
+        "Authentication test using port {}",
+        config.visualization.port
+    );
     let config_arc = Arc::new(RwLock::new(config.clone()));
 
     // Create and launch daemon
@@ -284,7 +298,12 @@ async fn test_action_endpoints_openapi() -> Result<()> {
 
     // Load configuration
     let config_path = PathBuf::from("config.example.yaml");
-    let config = Config::from_file(&config_path)?;
+    let mut config = Config::from_file(&config_path)?;
+
+    // Use specific port to avoid conflict with other tests
+    config.visualization.port = 8083;
+
+    println!("OpenAPI test using port {}", config.visualization.port);
     let config_arc = Arc::new(RwLock::new(config.clone()));
 
     // Create and launch daemon

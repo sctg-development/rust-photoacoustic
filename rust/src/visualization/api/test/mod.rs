@@ -62,9 +62,9 @@ pub async fn test_api_post_web_dashboard_display(
                 display_data.retry_attempt
             );
         }
-        "clear_display" => {
+        "clear_action" => {
             log::info!(
-                "test_api_web_dashboard_display received CLEAR_DISPLAY command | Timestamp: {} | Retry attempt: {:?}",
+                "test_api_web_dashboard_display received CLEAR_ACTION command | Timestamp: {} | Retry attempt: {:?}",
                 display_data.timestamp,
                 display_data.retry_attempt
             );
@@ -96,7 +96,7 @@ pub async fn test_api_post_web_dashboard_display(
             display_data.message.as_deref().unwrap_or("no message"),
             display_data.timestamp
         ),
-        "clear_display" => format!(
+        "clear_action" => format!(
             "Clear display command received - Timestamp: {}",
             display_data.timestamp
         ),
@@ -116,7 +116,7 @@ pub async fn test_api_post_web_dashboard_display(
             "Successfully processed alert: {}",
             display_data.message.as_deref().unwrap_or("no message")
         )),
-        "clear_display" => Some("Successfully processed clear display command".to_string()),
+        "clear_action" => Some("Successfully processed clear display command".to_string()),
         _ => Some(format!(
             "Processed unknown data type: {}",
             display_data.data_type

@@ -171,23 +171,13 @@ pub async fn build_rocket(
 
     let rocket_builder = rocket_builder.mount("/", openapi_routes_config);
 
-    // Add action routes for node history
-    let (openapi_routes_action, openapi_spec_action) = get_action_routes();
-
-    // Merge action OpenAPI spec
-    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+    // Add visualization, system, and action routes if visualization state is available
+    // All these routes depend on SharedVisualizationState
+    let rocket_builder = add_visualization_state_dependent_routes(
+        rocket_builder,
+        visualization_state,
         &mut openapi_spec,
-        &"/".to_string(),
-        &openapi_spec_action,
-    ) {
-        warn!("Failed to merge action OpenAPI spec: {}", e);
-    }
-
-    let rocket_builder = rocket_builder.mount("/", openapi_routes_action);
-
-    // Add visualization routes if state is available
-    let rocket_builder =
-        add_visualization_routes(rocket_builder, visualization_state, &mut openapi_spec);
+    );
 
     // Add test routes for API testing
     let rocket_builder = add_test_routes(rocket_builder, &mut openapi_spec);
@@ -283,10 +273,11 @@ fn add_test_routes(rocket_builder: Rocket<Build>, openapi_spec: &mut OpenApi) ->
     rocket_builder.mount("/", openapi_routes_test)
 }
 
-/// Add visualization and graph routes if state is available
+/// Add all routes that depend on SharedVisualizationState
 ///
-/// Updates the OpenAPI specification with graph and system routes
-fn add_visualization_routes(
+/// Updates the OpenAPI specification with graph, system, and action routes
+/// All these routes require the SharedVisualizationState to be available
+fn add_visualization_state_dependent_routes(
     rocket_builder: Rocket<Build>,
     visualization_state: Option<Arc<SharedVisualizationState>>,
     openapi_spec: &mut OpenApi,
@@ -295,8 +286,13 @@ fn add_visualization_routes(
         debug!("Adding SharedVisualizationState to Rocket state management");
         // Extract the value from Arc to match the expected type for State<SharedVisualizationState>
         let shared_state = (*vis_state).clone();
+
+        // Get graph and system routes
         let (openapi_routes_graph, openapi_spec_graph) = get_graph_routes();
         let (openapi_routes_system, openapi_spec_system) = get_system_routes();
+
+        // Get action routes (moved from build_rocket to here since they require SharedVisualizationState)
+        let (openapi_routes_action, openapi_spec_action) = get_action_routes();
 
         // Merge OpenAPI specs into the main spec
         if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
@@ -313,11 +309,19 @@ fn add_visualization_routes(
         ) {
             warn!("Failed to merge system OpenAPI spec: {}", e);
         }
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_action,
+        ) {
+            warn!("Failed to merge action OpenAPI spec: {}", e);
+        }
 
         rocket_builder
             .manage(shared_state)
             .mount("/", openapi_routes_graph)
             .mount("/", openapi_routes_system)
+            .mount("/", openapi_routes_action)
     } else {
         debug!("No visualization state provided, API will return 404 for statistics");
         rocket_builder

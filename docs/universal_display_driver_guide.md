@@ -177,7 +177,7 @@ impl ActionDriver for MyCustomDisplayDriver {
         Ok(())
     }
 
-    async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
+    async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
         // Update your display with concentration data
         if let Some(ref mut conn) = self.connection {
             conn.send_update(data.concentration_ppm, data.timestamp).await?;
@@ -193,7 +193,7 @@ impl ActionDriver for MyCustomDisplayDriver {
         Ok(())
     }
 
-    async fn clear_display(&mut self) -> Result<()> {
+    async fn clear_action(&mut self) -> Result<()> {
         // Clear display and return to idle state
         if let Some(ref mut conn) = self.connection {
             conn.clear().await?;

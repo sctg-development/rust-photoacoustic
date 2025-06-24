@@ -44,7 +44,7 @@
 //!     fn update_from_computing_data(&mut self, computing_data: &ComputingSharedData) -> anyhow::Result<()> {
 //!         // Update display with latest concentration values
 //!         if let Some(latest_result) = computing_data.get_latest_concentration_result() {
-//!             self.update_display(latest_result.concentration_ppm)?;
+//!             self.update_action(latest_result.concentration_ppm)?;
 //!         }
 //!         Ok(())
 //!     }

@@ -97,7 +97,7 @@ impl ActionDriver for MyCustomDriver {
         Ok(())
     }
 
-    async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
+    async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
         if !self.is_connected {
             return Err(anyhow::anyhow!("Driver not initialized"));
         }
@@ -138,7 +138,7 @@ impl ActionDriver for MyCustomDriver {
         Ok(())
     }
 
-    async fn clear_display(&mut self) -> Result<()> {
+    async fn clear_action(&mut self) -> Result<()> {
         debug!("MyCustomDriver: Clearing display");
 
         // TODO: Implémentez votre logique de nettoyage ici
@@ -281,7 +281,7 @@ pub struct AlertData {
 // Utiliser reqwest pour HTTP
 use reqwest::Client;
 
-async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
+async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
     let client = Client::new();
     let payload = json!({
         "concentration": data.concentration_ppm,
@@ -307,7 +307,7 @@ async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
 ### Driver GPIO/Hardware
 ```rust
 // Utiliser rppal ou gpio-utils pour Raspberry Pi
-async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
+async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
     // Exemple : contrôler des LEDs selon la concentration
     if data.concentration_ppm > 1000.0 {
         self.red_led.set_high();
@@ -323,7 +323,7 @@ async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
 ### Driver Base de Données
 ```rust
 // Utiliser sqlx ou diesel
-async fn update_display(&mut self, data: &MeasurementData) -> Result<()> {
+async fn update_action(&mut self, data: &MeasurementData) -> Result<()> {
     sqlx::query!(
         "INSERT INTO display_data (concentration, source_node, timestamp) VALUES ($1, $2, $3)",
         data.concentration_ppm,
@@ -368,7 +368,7 @@ mod tests {
             metadata: HashMap::new(),
         };
         
-        assert!(driver.update_display(&data).await.is_ok());
+        assert!(driver.update_action(&data).await.is_ok());
     }
 }
 ```

@@ -70,6 +70,9 @@ use anyhow::Result;
 ///     fn clone_node(&self) -> Box<dyn ProcessingNode> {
 ///         Box::new(GainNode::new(self.id.clone(), self.gain))
 ///     }
+///     fn as_any(&self) -> &dyn std::any::Any {
+///        self
+///    }
 /// }
 /// ```
 pub trait ProcessingNode: Send + Sync {
