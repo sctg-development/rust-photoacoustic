@@ -51,7 +51,7 @@ oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 redis = { version = "0.32.2", features = ["tokio-comp", "aio", "tokio-rustls-comp"] }
 rustls = { version = "0.23", features = ["ring", "aws_lc_rs"] }
-rdkafka = { version = "0.36.2", features = ["cmake-build"] }
+rdkafka = { version = "0.37.0" }
 rocket_okapi = { git = "https://github.com/sctg-development/okapi", features = [
     "rapidoc",
     "swagger",
