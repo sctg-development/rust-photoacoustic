@@ -338,5 +338,21 @@
   "choose-stream-to-analyze": "اختر التدفق للتحليل",
   "stream-url": "رابط التدفق",
   "stats-url": "رابط الإحصائيات",
-  "audio-streaming-analysis": "تحليل تدفق الصوت"
+  "audio-streaming-analysis": "تحليل تدفق الصوت",
+  "measurement-dashboard": "لوحة معلومات القياسات",
+  "concentration-monitoring": "مراقبة التركيز",
+  "no-measurement-data": "لا توجد بيانات قياس متاحة",
+  "loading-measurement-data": "جاري تحميل بيانات القياس...",
+  "measurement-data-error": "خطأ في تحميل بيانات القياس",
+  "data-points": "نقاط البيانات",
+  "last-10-points": "آخر 10 نقاط",
+  "last-50-points": "آخر 50 نقطة",
+  "last-100-points": "آخر 100 نقطة",
+  "last-200-points": "آخر 200 نقطة",
+  "concentration-history": "تاريخ التركيز",
+  "concentration-ppm": "التركيز (جزء في المليون)",
+  "time": "الوقت",
+  "molecule": "الجزيء",
+  "current-value": "القيمة الحالية",
+  "no-data-available": "لا توجد بيانات متاحة"
 }

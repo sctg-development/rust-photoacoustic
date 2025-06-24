@@ -338,5 +338,21 @@
   "choose-stream-to-analyze": "בחר זרם לניתוח",
   "stream-url": "כתובת הזרם",
   "stats-url": "כתובת הסטטיסטיקות",
-  "audio-streaming-analysis": "ניתוח הזרמת שמע"
+  "audio-streaming-analysis": "ניתוח הזרמת שמע",
+  "measurement-dashboard": "לוח בקרה של מדידות",
+  "concentration-monitoring": "ניטור ריכוז",
+  "no-measurement-data": "אין נתוני מדידה זמינים",
+  "loading-measurement-data": "טוען נתוני מדידה...",
+  "measurement-data-error": "שגיאה בטעינת נתוני מדידה",
+  "data-points": "נקודות נתונים",
+  "last-10-points": "10 נקודות אחרונות",
+  "last-50-points": "50 נקודות אחרונות",
+  "last-100-points": "100 נקודות אחרונות",
+  "last-200-points": "200 נקודות אחרונות",
+  "concentration-history": "היסטוריית ריכוז",
+  "concentration-ppm": "ריכוז (ppm)",
+  "time": "זמן",
+  "molecule": "מולקולה",
+  "current-value": "ערך נוכחי",
+  "no-data-available": "אין נתונים זמינים"
 }

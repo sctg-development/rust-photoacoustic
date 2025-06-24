@@ -338,5 +338,21 @@
   "choose-stream-to-analyze": "Choisir le flux à analyser",
   "stream-url": "URL du flux",
   "stats-url": "URL des statistiques",
-  "audio-streaming-analysis": "Analyse de streaming audio"
+  "audio-streaming-analysis": "Analyse de streaming audio",
+  "measurement-dashboard": "Tableau de bord des mesures",
+  "concentration-monitoring": "Surveillance de la concentration",
+  "no-measurement-data": "Aucune donnée de mesure disponible",
+  "loading-measurement-data": "Chargement des données de mesure...",
+  "measurement-data-error": "Erreur lors du chargement des données de mesure",
+  "data-points": "Points de données",
+  "last-10-points": "10 derniers points",
+  "last-50-points": "50 derniers points",
+  "last-100-points": "100 derniers points",
+  "last-200-points": "200 derniers points",
+  "concentration-history": "Historique de concentration",
+  "concentration-ppm": "Concentration (ppm)",
+  "time": "Temps",
+  "molecule": "Molécule",
+  "current-value": "Valeur actuelle",
+  "no-data-available": "Aucune donnée disponible"
 }

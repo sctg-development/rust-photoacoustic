@@ -338,5 +338,21 @@
   "choose-stream-to-analyze": "选择要分析的流",
   "stream-url": "流URL",
   "stats-url": "统计URL",
-  "audio-streaming-analysis": "音频流分析"
+  "audio-streaming-analysis": "音频流分析",
+  "measurement-dashboard": "测量仪表盘",
+  "concentration-monitoring": "浓度监控",
+  "no-measurement-data": "无可用测量数据",
+  "loading-measurement-data": "正在加载测量数据...",
+  "measurement-data-error": "加载测量数据时出错",
+  "data-points": "数据点",
+  "last-10-points": "最近10个点",
+  "last-50-points": "最近50个点",
+  "last-100-points": "最近100个点",
+  "last-200-points": "最近200个点",
+  "concentration-history": "浓度历史",
+  "concentration-ppm": "浓度 (ppm)",
+  "time": "时间",
+  "molecule": "分子",
+  "current-value": "当前值",
+  "no-data-available": "无可用数据"
 }

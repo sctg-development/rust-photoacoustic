@@ -9,3 +9,4 @@ export * from "./audio-streaming";
 export * from "./computing";
 export * from "./processing-graph";
 export * from "./thermal";
+export * from "./visualization";
