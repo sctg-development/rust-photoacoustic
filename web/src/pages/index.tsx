@@ -8,6 +8,7 @@ import { siteConfig } from "@/config/site";
 import { title, subtitle } from "@/components/primitives";
 import { GithubIcon } from "@/components/icons";
 import DefaultLayout from "@/layouts/default";
+// import { useGenerixConfig } from "@/authentication/providers/generix-config";
 
 export default function IndexPage() {
   const { t } = useTranslation();

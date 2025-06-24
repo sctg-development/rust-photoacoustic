@@ -97,7 +97,16 @@
               "description": {
                 "type": "string",
                 "description": "Description of the measurement (e.g., 'Spectral ray 3963nm')"
+              },
+              "concentration_min": {
+                "type": "number",
+                "description": "Minimum concentration value for display (e.g., 0.0 for no lower limit)"
+              },
+              "concentration_max": {
+                "type": "number",
+                "description": "Maximum concentration value for display (e.g., 10000.0 for no upper limit)"
               }
+
             },
             "required": [
               "id",
@@ -105,7 +114,9 @@
               "molecule",
               "unit",
               "display_order",
-              "description"
+              "description",
+              "concentration_min",
+              "concentration_max"
             ],
             "additionalProperties": false
           }

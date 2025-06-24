@@ -34,6 +34,12 @@ pub struct VisualizationOutputItem {
 
     /// Description of the measurement (e.g., "Spectral ray 3963nm")
     pub description: String,
+
+    /// Minimal concentration value to display (below this value, the item is hidden)
+    pub concentration_min: f64,
+
+    /// Maximum concentration value to display (above this value, the item is hidden)
+    pub concentration_max: f64,
 }
 
 /// Configuration for the visualization web server.
