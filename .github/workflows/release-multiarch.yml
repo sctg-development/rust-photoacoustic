@@ -51,7 +51,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # For manual workflow dispatch, use nightly tag with current date
-            TAG="nightly-$(date +'%Y%m%d')"
+            TAG="nightly.$(date +'%Y%m%d')"
             echo "tag=$TAG" >> $GITHUB_OUTPUT
             echo "Using nightly tag: $TAG"
           else
@@ -96,12 +96,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           
-      - name: Extract metadata (tags, labels) for Docker photoacoustic image
-        id: metaphotoacoustic
-        uses: docker/metadata-action@v5
-        with:
-          images: sctg/rust-photoacoustic
-        
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -111,16 +105,21 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           push: true
-          tags: ${{ steps.metaphotoacoustic.outputs.tags }}
-          labels: ${{ steps.metaphotoacoustic.outputs.labels }}
+          tags: sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}
+          labels: |
+            org.opencontainers.image.title=rust-photoacoustic
+            org.opencontainers.image.description=Photoacoustic signal processing
+            org.opencontainers.image.version=${{ steps.set_tag.outputs.tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Pull and extract files from Docker image (amd64)
         continue-on-error: true
         run: |
           export TAG=${{ steps.set_tag.outputs.tag }}
           mkdir -p /tmp/amd64/
-          docker pull sctg/rust-photoacoustic:latest
-          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:latest
+          docker pull sctg/rust-photoacoustic:${TAG}
+          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}
           
           # Extract all photoacoustic binaries
           docker cp temp-container-amd64:/usr/local/bin/photoacoustic /tmp/amd64/ || echo "photoacoustic not found"
@@ -151,8 +150,8 @@ jobs:
         run: |
           export TAG=${{ steps.set_tag.outputs.tag }}
           mkdir -p /tmp/arm64/
-          docker pull sctg/rust-photoacoustic:latest
-          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:latest
+          docker pull sctg/rust-photoacoustic:${TAG}
+          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}
           
           # Extract all photoacoustic binaries
           docker cp temp-container-arm64:/usr/local/bin/photoacoustic /tmp/arm64/ || echo "photoacoustic not found"
