@@ -92,12 +92,17 @@ jobs:
         channels: conda-forge,defaults
         channel-priority: true
         activate-environment: test-env
+        use-mamba: false
+        conda-solver: classic
         
     # Configure Python environment variables for PyO3
     - name: Configure Python environment
-      shell: bash
+      shell: bash -l {0}
       run: |
-        # Activate conda environment and set environment variables
+        # Activate conda environment
+        conda activate test-env
+        
+        # Set environment variables
         if [[ "${{ runner.os }}" == "Windows" ]]; then
           echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/python.exe" >> $GITHUB_ENV
           echo "PYTHONPATH=$CONDA/envs/test-env/Lib/site-packages" >> $GITHUB_ENV
@@ -154,19 +159,16 @@ jobs:
     # Run Python integration tests with python-driver feature
     - name: Run Python integration tests
       if: matrix.cross == false
-      shell: bash
+      shell: bash -l {0}
       run: |
         cd rust
-        # Activate conda environment and run Python tests
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          export PATH="$CONDA/envs/test-env/Scripts:$CONDA/envs/test-env:$PATH"
-        else
-          export PATH="$CONDA/envs/test-env/bin:$PATH"
-        fi
+        # Activate conda environment
+        conda activate test-env
         
         # Verify Python setup
         echo "Python executable: $PYTHON_SYS_EXECUTABLE"
-        $PYTHON_SYS_EXECUTABLE --version
+        python --version
+        which python
         
         # Run Python integration tests
         cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
