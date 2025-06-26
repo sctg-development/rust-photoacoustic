@@ -5,6 +5,10 @@ edition = "2021"
 authors = ["Ronan Le Meillat"]
 description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 
+[features]
+default = ["python-driver"]
+python-driver = ["pyo3"]
+
 [dependencies]
 # System monitoring
 sysinfo = "0.35.2"         # Cross-platform system information
@@ -72,6 +76,9 @@ async-trait = "0.1.88"
 uuid = { version = "1.17.0", features = ["v4"] }
 schemars = "0.8"
 evalexpr = "12.0.2"
+
+# Python integration (optional)
+pyo3 = { version = "0.20", optional = true, features = ["auto-initialize"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rdkafka = { version = "0.37.0", features = ["tokio"] }

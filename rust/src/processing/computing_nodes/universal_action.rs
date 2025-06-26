@@ -31,6 +31,7 @@
 //! - **HttpsCallbackActionDriver**: HTTP/HTTPS webhooks for remote dashboards
 //! - **RedisActionDriver**: Redis pub/sub for real-time data streams
 //! - **KafkaActionDriver**: Apache Kafka for scalable message streaming
+//! - **PythonActionDriver**: Custom Python scripts for flexible action logic
 //!
 //! ## Physical Hardware Drivers (Planned)
 //! - **USBDisplayDriver**: USB-connected actions and HID devices

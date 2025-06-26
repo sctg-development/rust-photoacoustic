@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Display drivers for UniversalActionNode
+//! Action drivers for UniversalActionNode
 //!
 //! This module provides a pluggable driver architecture for action outputs in the
 //! UniversalActionNode. Drivers abstract different action technologies and
@@ -15,11 +15,11 @@
 //!           ↓
 //!    ActionDriver trait
 //!           ↓
-//! ┌─────────────┬─────────────┬─────────────┬─────────────┐
-//! │   HTTPS     │    Redis    │    Kafka    │  Physical   │
-//! │  Callback   │   Driver    │   Driver    │   Drivers   │
-//! │   Driver    │             │             │             │
-//! └─────────────┴─────────────┴─────────────┴─────────────┘
+//! ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
+//! │   HTTPS     │    Redis    │    Kafka    │   Python    │  Physical   │
+//! │  Callback   │   Driver    │   Driver    │   Driver    │   Drivers   │
+//! │   Driver    │             │             │             │             │
+//! └─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
 //! ```
 
 // Core modules containing driver implementations
@@ -27,10 +27,17 @@ mod http;
 mod kafka;
 mod redis;
 
+// Python driver (feature-gated)
+#[cfg(feature = "python-driver")]
+mod python;
+
 // Re-export driver implementations
 pub use self::http::HttpsCallbackActionDriver;
 pub use self::kafka::KafkaActionDriver;
 pub use self::redis::{RedisActionDriver, RedisDriverMode};
+
+#[cfg(feature = "python-driver")]
+pub use self::python::{PythonActionDriver, PythonDriverConfig};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -58,7 +65,7 @@ pub struct MeasurementData {
 }
 
 /// Alert/alarm data for special action states
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct AlertData {
     /// Type of alert (concentration, amplitude, timeout, etc.)
     pub alert_type: String,

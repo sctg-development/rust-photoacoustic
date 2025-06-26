@@ -1,0 +1,300 @@
+# Exemple de configuration pour PythonActionDriver
+# Ce fichier montre comment configurer des nœuds d'action Python
+# dans le système rust-photoacoustic selon la structure exacte de config.example.yaml
+
+# =========================
+# Configuration de base (conforme à config.example.yaml)
+# =========================
+visualization:
+  port: 8080
+  address: "::0"
+  name: LaserSmartApiServer/0.1.0
+  session_secret: 6wcVSUhxt1+YPEondChFXtesCL1boh57gqHv2gnEH7U=
+  hmac_secret: my-super-secret-jwt-key-for-photoacoustic-app
+
+photoacoustic:
+  input_file: input.wav
+  frequency: 2000.0
+  bandwidth: 100.0
+  frame_size: 4096
+  sampling_rate: 44100
+  averages: 10
+
+access:
+  iss: LaserSmartServer
+  users:
+    - user: administrator
+      pass: JDUkcVc2NUtlSTVwb2ZRMC5VTCRmTnl2Vjh4MTJQMnBvcXlGa2htUnNRRWhLRFV3LzIuUVpseDc1UEFxeWdECg==
+      permissions:
+        - "read:api"
+        - "write:api"
+        - "admin:api"
+  clients:
+    - client_id: LaserSmartClient
+      default_scope: "openid profile email"
+      allowed_callbacks:
+        - "https://localhost:8080/client/"
+
+generix:
+  issuer: LaserSmartServer
+  provider: generix
+  api_base_url: https://localhost:8080/api
+  client_id: LaserSmartClient
+  scope: openid email profile read:api write:api
+  redirect_uri: https://localhost:8080/client/
+  domain: localhost
+
+# =========================
+# Signal processing avec Python ActionDrivers
+# =========================
+processing:
+  enabled: true
+  result_buffer_size: 1000
+  default_graph:
+    id: default
+    nodes:
+    # Standard processing nodes (unchanged)
+    - id: input
+      node_type: input
+      parameters: null
+      
+    - id: "differential_detection"
+      node_type: "channel_mixer"
+      parameters:
+        strategy: add
+        
+    - id: bandpass_filter
+      node_type: filter
+      parameters:
+        type: bandpass
+        center_frequency: 2000.0
+        bandwidth: 200.0
+        order: 2
+        
+    - id: "peak_detector"
+      node_type: "computing_peak_finder"
+      parameters:
+        detection_threshold: 0.1
+        frequency_min: 1800.0
+        frequency_max: 2200.0
+        smoothing_factor: 0.7
+        
+    - id: "concentration_calculator"
+      node_type: "computing_concentration"
+      parameters:
+        computing_peak_finder_id: "peak_detector"
+        polynomial_coefficients:
+          - 0.0
+          - 0.5892
+          - -0.003
+          - 0.000001
+          - 0.000000001
+        temperature_compensation: false
+        spectral_line_id: CO₂_4.26μm
+        min_amplitude_threshold: 0.001
+        max_concentration_ppm: 100.0
+
+    # ===========================================
+    # Python ActionDrivers Examples
+    # ===========================================
+    
+    # Exemple 1: Action Python simple pour LEDs
+    - id: "led_controller"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 100
+        monitored_nodes: 
+          - "concentration_calculator"
+        concentration_threshold: 1000.0
+        amplitude_threshold: 0.8
+        update_interval_ms: 500
+        driver:
+          type: "python"
+          config:
+            script_path: "/opt/photoacoustic/scripts/led_controller.py"
+            timeout_seconds: 10
+            auto_reload: false
+            functions:
+              update: "on_measurement"
+              alert: "on_alert"
+              init: "initialize"
+              shutdown: "shutdown"
+              status: "get_status"
+
+    # Exemple 2: Action Python avancée avec environnement virtuel
+    - id: "cloud_uploader"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 1000
+        monitored_nodes: ["concentration_calculator"]
+        concentration_threshold: 500.0
+        update_interval_ms: 2000
+        driver:
+          type: "python"
+          config:
+            script_path: "/opt/photoacoustic/scripts/cloud_uploader.py"
+            venv_path: "/opt/photoacoustic/venv"
+            timeout_seconds: 30
+            auto_reload: false
+            python_paths:
+              - "/opt/photoacoustic/lib"
+              - "/usr/local/lib/python-custom"
+
+    # Exemple 3: Action Python pour développement (auto-reload)
+    - id: "debug_display"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 50
+        monitored_nodes: ["concentration_calculator", "peak_detector"]
+        concentration_threshold: 0.0
+        update_interval_ms: 100
+        driver:
+          type: "python"
+          config:
+            script_path: "/home/developer/debug_action.py"
+            timeout_seconds: 5
+            auto_reload: true
+            functions:
+              update: "debug_measurement"
+              alert: "debug_alert"
+              init: "setup_debug"
+
+    # Exemple 4: Action Python pour contrôle hardware série
+    - id: "serial_controller"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 200
+        monitored_nodes: ["concentration_calculator"]
+        concentration_threshold: 2000.0
+        amplitude_threshold: 0.9
+        update_interval_ms: 1000
+        driver:
+          type: "python"
+          config:
+            script_path: "/opt/photoacoustic/scripts/serial_controller.py"
+            venv_path: "/opt/photoacoustic/venv"
+            timeout_seconds: 15
+            auto_reload: false
+
+    # Exemple 5: Action Python pour analyse ML
+    - id: "ml_analyzer"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 500
+        monitored_nodes: ["concentration_calculator", "peak_detector"]
+        concentration_threshold: 100.0
+        update_interval_ms: 1000
+        driver:
+          type: "python"
+          config:
+            script_path: "/opt/photoacoustic/ml/pattern_analyzer.py"
+            venv_path: "/opt/photoacoustic/ml-venv"
+            timeout_seconds: 60
+            auto_reload: false
+            python_paths:
+              - "/opt/photoacoustic/ml/models"
+              - "/opt/ml-libraries"
+
+    # ===========================================
+    # Drivers réseau pour comparaison
+    # ===========================================
+    
+    # Driver HTTP pour comparaison
+    - id: "web_dashboard"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 300
+        monitored_nodes: ["concentration_calculator"]
+        concentration_threshold: 1000.0
+        amplitude_threshold: 60
+        update_interval_ms: 10000
+        driver:
+          type: "https_callback"
+          config:
+            callback_url: "https://localhost:8080/api/test/web_dashboard"
+            auth_header: "Authorization"
+            auth_token: "Bearer YOUR_TOKEN_HERE"
+            timeout_ms: 2000
+            retry_count: 1
+            verify_ssl: false
+            
+    # Driver Redis pour comparaison  
+    - id: "redis_stream"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 100
+        monitored_nodes: ["concentration_calculator", "peak_detector"]
+        concentration_threshold: 100.0
+        update_interval_ms: 5000
+        driver:
+          type: "redis"
+          config:
+            connection_string: "redis://localhost:6379"
+            mode: "key_value"
+            channel_or_prefix: "photoacoustic:realtime:sensor_data"
+            expiry_seconds: 3600
+            max_retries: 5
+
+    # Standard processing output
+    - id: "streaming_output"
+      node_type: "streaming"
+      parameters: null
+
+    # Connexions dans le graphe de traitement
+    connections:
+    - from: input
+      to: differential_detection
+    - from: differential_detection
+      to: bandpass_filter
+    - from: bandpass_filter
+      to: peak_detector
+    - from: peak_detector
+      to: concentration_calculator
+    # Connexions vers les actions Python
+    - from: concentration_calculator
+      to: led_controller
+    - from: concentration_calculator
+      to: cloud_uploader
+    - from: concentration_calculator
+      to: debug_display
+    - from: concentration_calculator
+      to: serial_controller
+    - from: concentration_calculator
+      to: ml_analyzer
+    # Connexions vers les drivers réseau
+    - from: concentration_calculator
+      to: web_dashboard
+    - from: concentration_calculator
+      to: redis_stream
+    # Sortie finale
+    - from: concentration_calculator
+      to: streaming_output
+
+  performance:
+    max_processing_time_us: 10000
+    enable_stats: true
+    stats_interval_ms: 1000
+
+# =========================
+# Configuration optionnelle pour les scripts Python
+# =========================
+
+# Les variables d'environnement peuvent être définies au niveau système
+# ou dans un fichier .env pour les scripts Python :
+#
+# CLOUD_API_KEY=your_api_key_here
+# CLOUD_ENDPOINT=https://api.sensors.company.com
+# SERIAL_PORT=/dev/ttyUSB0
+# SERIAL_BAUDRATE=9600
+# LED_GPIO_PINS=18,19,20
+# ML_MODEL_PATH=/opt/photoacoustic/ml/models/concentration_predictor.joblib
+# ML_PREDICTION_THRESHOLD=0.8
+
+# Configuration de sécurité recommandée pour les scripts Python :
+#
+# - Limiter les chemins autorisés pour les scripts
+# - Utiliser des environnements virtuels isolés
+# - Définir des timeouts appropriés
+# - Éviter l'exécution de code arbitraire (eval, exec, os.system)
+# - Valider les entrées dans les scripts Python
+# - Utiliser des permissions minimales pour les processus Python
