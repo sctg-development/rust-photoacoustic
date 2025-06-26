@@ -83,6 +83,35 @@ jobs:
       with:
         version: "14.0"
 
+    # Install Anaconda3 for Python support (needed for python-driver feature tests)
+    - name: Setup Anaconda3
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.12'
+        channels: conda-forge,defaults
+        channel-priority: true
+        activate-environment: test-env
+        
+    # Configure Python environment variables for PyO3
+    - name: Configure Python environment
+      shell: bash
+      run: |
+        # Activate conda environment and set environment variables
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/python.exe" >> $GITHUB_ENV
+          echo "PYTHONPATH=$CONDA/envs/test-env/Lib/site-packages" >> $GITHUB_ENV
+          echo "$CONDA/envs/test-env/Scripts" >> $GITHUB_PATH
+          echo "$CONDA/envs/test-env" >> $GITHUB_PATH
+        else
+          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/bin/python" >> $GITHUB_ENV
+          echo "PYTHONPATH=$CONDA/envs/test-env/lib/python3.12/site-packages" >> $GITHUB_ENV
+          echo "$CONDA/envs/test-env/bin" >> $GITHUB_PATH
+        fi
+        
+        # Install required Python packages
+        conda install -n test-env numpy scipy matplotlib -y
+
     # Cache Dependencies
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
@@ -116,9 +145,31 @@ jobs:
     # Run tests (only on non-cross compilation targets)
     - name: Run tests
       if: matrix.cross == false
+      shell: bash
       run: |
         cd rust
+        # Run standard tests without python-driver feature
         cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon
+        
+    # Run Python integration tests with python-driver feature
+    - name: Run Python integration tests
+      if: matrix.cross == false
+      shell: bash
+      run: |
+        cd rust
+        # Activate conda environment and run Python tests
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          export PATH="$CONDA/envs/test-env/Scripts:$CONDA/envs/test-env:$PATH"
+        else
+          export PATH="$CONDA/envs/test-env/bin:$PATH"
+        fi
+        
+        # Verify Python setup
+        echo "Python executable: $PYTHON_SYS_EXECUTABLE"
+        $PYTHON_SYS_EXECUTABLE --version
+        
+        # Run Python integration tests
+        cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
       
     # Run specific tests with custom timeout
     - name: Run introspection tests
