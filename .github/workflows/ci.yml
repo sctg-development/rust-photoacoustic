@@ -29,6 +29,15 @@ jobs:
             cross: true
     
     steps:
+    
+    # Set UTF-8 encoding for Windows to handle Unicode characters in Python scripts
+    - name: Set UTF-8 encoding (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
+        echo "LANG=en_US.UTF-8" >> $env:GITHUB_ENV
+        echo "LC_ALL=en_US.UTF-8" >> $env:GITHUB_ENV
+      shell: pwsh
 
     - name: Clean runner for Docker builds
       if: matrix.os == 'ubuntu-latest'
@@ -113,6 +122,11 @@ jobs:
           echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/bin/python" >> $GITHUB_ENV
           echo "PYTHONPATH=$CONDA/envs/test-env/lib/python3.12/site-packages" >> $GITHUB_ENV
           echo "$CONDA/envs/test-env/bin" >> $GITHUB_PATH
+          
+          # Configure dynamic library path for macOS
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "DYLD_LIBRARY_PATH=$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+          fi
         fi
         
         # Install required Python packages
@@ -166,13 +180,29 @@ jobs:
         # Activate conda environment
         conda activate test-env
         
+        # Configure macOS dynamic library path if needed
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          export DYLD_LIBRARY_PATH="$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH"
+          echo "DYLD_LIBRARY_PATH set to: $DYLD_LIBRARY_PATH"
+        fi
+        
         # Verify Python setup
         echo "Python executable: $PYTHON_SYS_EXECUTABLE"
         python --version
         which python
         
+        # List available Python libraries on macOS for debugging
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          echo "Python library path: $CONDA/envs/test-env/lib"
+          ls -la "$CONDA/envs/test-env/lib/" | grep -i python || echo "No python libraries found"
+        fi
+        
         # Run Python integration tests
         cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
+        
+        # Run doctests with python-driver feature
+        echo "Running doctests..."
+        cargo test --doc --features python-driver --target ${{ matrix.target }}
       
     # Run specific tests with custom timeout
     - name: Run introspection tests
