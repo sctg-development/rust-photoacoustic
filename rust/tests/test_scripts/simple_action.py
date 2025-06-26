@@ -49,15 +49,15 @@ def on_alert(alert):
     _state["alert_count"] += 1
     _state["last_alert"] = alert
     
-    print(f"🚨 ALERT #{_state['alert_count']}: {alert['severity']} - {alert['message']}")
+    print(f"[ALERT] ALERT #{_state['alert_count']}: {alert['severity']} - {alert['message']}")
     
     # Example: Different responses based on severity
     if alert["severity"] == "critical":
-        print("🔴 CRITICAL ALERT - Emergency protocols activated!")
+        print("[CRITICAL] CRITICAL ALERT - Emergency protocols activated!")
     elif alert["severity"] == "warning":
-        print("🟡 WARNING - Monitoring closely")
+        print("[WARNING] WARNING - Monitoring closely")
     else:
-        print("🔵 INFO - Noted")
+        print("[INFO] INFO - Noted")
     
     return {
         "alert_handled": True,
@@ -68,7 +68,7 @@ def on_alert(alert):
 
 def clear_action():
     """Called when the system is being cleared/reset."""
-    print("🧹 Clearing action - returning to safe state")
+    print("[CLEAR] Clearing action - returning to safe state")
     
     # Reset counters but keep initialization state
     old_count = _state["measurement_count"]
@@ -111,7 +111,7 @@ def shutdown():
         "shutdown_timestamp": time.time()
     }
     
-    print(f"📈 Final stats: {final_stats}")
+    print(f"[STATS] Final stats: {final_stats}")
     
     return {
         "shutdown": "complete",
