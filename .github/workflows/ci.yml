@@ -102,63 +102,20 @@ jobs:
         # Activate conda environment
         conda activate test-env
         
-        # Set environment variables for PyO3
-        python_executable=$(which python)
-        echo "PYTHON_SYS_EXECUTABLE=$python_executable" >> $GITHUB_ENV
-        
-        # Get Python configuration for PyO3
-        python_version=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-        python_config_dir=$(python -c "import sysconfig; print(sysconfig.get_path('stdlib'))")
-        python_lib_dir=$(python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-        
-        # Set macOS deployment target for compatibility
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
-          echo "SYSTEM_VERSION_COMPAT=0" >> $GITHUB_ENV
-          
-          # Set PyO3 specific variables for macOS
-          echo "PYO3_PYTHON=$python_executable" >> $GITHUB_ENV
-          
-          # Find the actual Python library
-          python_lib_name=$(python -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))")
-          if [[ -z "$python_lib_name" ]]; then
-            python_lib_name="libpython${python_version}.dylib"
-          fi
-          
-          # Set library search paths
-          conda_lib_dir="$CONDA/envs/test-env/lib"
-          echo "DYLD_LIBRARY_PATH=$conda_lib_dir:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "RUSTFLAGS=-L $conda_lib_dir -l python${python_version}" >> $GITHUB_ENV
-          
-          echo "Python library dir: $conda_lib_dir"
-          echo "Python library name: $python_lib_name"
-          ls -la "$conda_lib_dir" | grep python || echo "No python libs found"
-        fi
-        
-        # Set library path for PyO3
+        # Set environment variables
         if [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/python.exe" >> $GITHUB_ENV
           echo "PYTHONPATH=$CONDA/envs/test-env/Lib/site-packages" >> $GITHUB_ENV
           echo "$CONDA/envs/test-env/Scripts" >> $GITHUB_PATH
           echo "$CONDA/envs/test-env" >> $GITHUB_PATH
-          
-          # Set UTF-8 encoding for Windows to handle Unicode characters (emojis)
-          echo "PYTHONIOENCODING=utf-8" >> $GITHUB_ENV
-          echo "PYTHONUTF8=1" >> $GITHUB_ENV
         else
-          echo "PYTHONPATH=$python_config_dir" >> $GITHUB_ENV
-          echo "$(dirname $python_executable)" >> $GITHUB_PATH
-          echo "LD_LIBRARY_PATH=$python_lib_dir:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/bin/python" >> $GITHUB_ENV
+          echo "PYTHONPATH=$CONDA/envs/test-env/lib/python3.12/site-packages" >> $GITHUB_ENV
+          echo "$CONDA/envs/test-env/bin" >> $GITHUB_PATH
         fi
         
         # Install required Python packages
         conda install -n test-env numpy scipy matplotlib -y
-        
-        # Verify Python installation
-        echo "Python version: $(python --version)"
-        echo "Python executable: $python_executable"
-        echo "Python config dir: $python_config_dir"
-        echo "Python lib dir: $python_lib_dir"
-        python -c "import numpy, scipy, matplotlib; print('All packages imported successfully')"
 
     # Cache Dependencies
     - name: Cache dependencies
@@ -185,48 +142,17 @@ jobs:
     
     # Build project
     - name: Build
-      shell: bash -l {0}
       run: |
           cd rust
-          # Activate conda environment for build
-          conda activate test-env
-          
-          # Set deployment target for macOS
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=11.0
-            export SYSTEM_VERSION_COMPAT=0
-            export PYO3_PYTHON=$PYTHON_SYS_EXECUTABLE
-            export DYLD_LIBRARY_PATH=$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH
-          fi
-          
-          # Debug environment variables
-          echo "PYTHON_SYS_EXECUTABLE: $PYTHON_SYS_EXECUTABLE"
-          echo "PYO3_PYTHON: $PYO3_PYTHON"
-          echo "RUSTFLAGS: $RUSTFLAGS"
-          
           cargo build --target ${{ matrix.target }}
+      shell: bash
     
     # Run tests (only on non-cross compilation targets)
     - name: Run tests
       if: matrix.cross == false
-      shell: bash -l {0}
+      shell: bash
       run: |
         cd rust
-        # Activate conda environment
-        conda activate test-env
-        
-        # Set deployment target for macOS
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          export MACOSX_DEPLOYMENT_TARGET=11.0
-          export SYSTEM_VERSION_COMPAT=0
-        fi
-        
-        # Set UTF-8 encoding for Windows
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          export PYTHONIOENCODING=utf-8
-          export PYTHONUTF8=1
-        fi
-        
         # Run standard tests without python-driver feature
         cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon
         
@@ -239,34 +165,10 @@ jobs:
         # Activate conda environment
         conda activate test-env
         
-        # Set deployment target for macOS
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          export MACOSX_DEPLOYMENT_TARGET=11.0
-          export SYSTEM_VERSION_COMPAT=0
-          export PYO3_PYTHON=$PYTHON_SYS_EXECUTABLE
-          export DYLD_LIBRARY_PATH=$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH
-        fi
-        
-        # Set UTF-8 encoding for Windows to handle Unicode characters
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          export PYTHONIOENCODING=utf-8
-          export PYTHONUTF8=1
-          export PYTHONLEGACYWINDOWSSTDIO=0
-        fi
-        
         # Verify Python setup
         echo "Python executable: $PYTHON_SYS_EXECUTABLE"
-        echo "PYO3_PYTHON: $PYO3_PYTHON"
-        echo "RUSTFLAGS: $RUSTFLAGS"
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          echo "PYTHONIOENCODING: $PYTHONIOENCODING"
-          echo "PYTHONUTF8: $PYTHONUTF8"
-        fi
         python --version
         which python
-        python -c "import sys; print(f'Python path: {sys.executable}')"
-        python -c "import sys; print(f'Default encoding: {sys.getdefaultencoding()}')"
-        python -c "import sys; print(f'Stdout encoding: {sys.stdout.encoding}')"
         
         # Run Python integration tests
         cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
