@@ -94,6 +94,7 @@ jobs:
         activate-environment: test-env
         use-mamba: false
         conda-solver: classic
+        auto-activate-base: true
         
     # Configure Python environment variables for PyO3
     - name: Configure Python environment
