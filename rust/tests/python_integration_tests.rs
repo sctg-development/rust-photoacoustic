@@ -41,7 +41,10 @@ mod python_integration_tests {
     fn create_test_measurement_data(concentration: f64, node_id: &str) -> MeasurementData {
         let mut metadata = HashMap::new();
         metadata.insert("test".to_string(), Value::String("true".to_string()));
-        metadata.insert("sequence".to_string(), Value::Number(serde_json::Number::from(1)));
+        metadata.insert(
+            "sequence".to_string(),
+            Value::Number(serde_json::Number::from(1)),
+        );
 
         MeasurementData {
             concentration_ppm: concentration,
@@ -55,7 +58,10 @@ mod python_integration_tests {
 
     fn create_test_alert_data(severity: &str, message: &str) -> AlertData {
         let mut alert_data = HashMap::new();
-        alert_data.insert("threshold".to_string(), Value::Number(serde_json::Number::from(1000)));
+        alert_data.insert(
+            "threshold".to_string(),
+            Value::Number(serde_json::Number::from(1000)),
+        );
 
         AlertData {
             alert_type: "concentration_high".to_string(),
@@ -71,7 +77,11 @@ mod python_integration_tests {
         println!("🧪 Testing basic Python driver functionality...");
 
         let script_path = get_test_script_path("simple_action.py");
-        assert!(script_path.exists(), "Test script not found: {:?}", script_path);
+        assert!(
+            script_path.exists(),
+            "Test script not found: {:?}",
+            script_path
+        );
 
         let mut config = PythonDriverConfig {
             script_path,
@@ -93,7 +103,10 @@ mod python_integration_tests {
         driver.initialize().await?;
 
         let status = driver.get_status().await?;
-        println!("📊 Initial status: {}", serde_json::to_string_pretty(&status)?);
+        println!(
+            "📊 Initial status: {}",
+            serde_json::to_string_pretty(&status)?
+        );
 
         // Test measurement processing
         println!("📊 Testing measurement processing...");
@@ -118,7 +131,10 @@ mod python_integration_tests {
         // Test status after operations
         println!("📈 Testing status after operations...");
         let final_status = driver.get_status().await?;
-        println!("📊 Final status: {}", serde_json::to_string_pretty(&final_status)?);
+        println!(
+            "📊 Final status: {}",
+            serde_json::to_string_pretty(&final_status)?
+        );
 
         // Verify history
         println!("📚 Testing history...");
@@ -126,7 +142,10 @@ mod python_integration_tests {
         assert_eq!(history.len(), 2, "Should have 2 measurements in history");
 
         let history_stats = driver.get_history_stats().await?;
-        println!("📊 History stats: {}", serde_json::to_string_pretty(&history_stats)?);
+        println!(
+            "📊 History stats: {}",
+            serde_json::to_string_pretty(&history_stats)?
+        );
 
         // Test clear action
         println!("🧹 Testing clear action...");
@@ -145,7 +164,11 @@ mod python_integration_tests {
         println!("🧪 Testing advanced Python driver features...");
 
         let script_path = get_test_script_path("advanced_action.py");
-        assert!(script_path.exists(), "Advanced test script not found: {:?}", script_path);
+        assert!(
+            script_path.exists(),
+            "Advanced test script not found: {:?}",
+            script_path
+        );
 
         let mut config = PythonDriverConfig {
             script_path,
@@ -167,11 +190,11 @@ mod python_integration_tests {
         // Test multiple measurements to trigger statistics
         println!("📊 Testing statistical analysis...");
         let test_concentrations = vec![100.0, 200.0, 500.0, 1200.0, 800.0, 300.0, 1500.0];
-        
+
         for (i, concentration) in test_concentrations.iter().enumerate() {
             let test_data = create_test_measurement_data(*concentration, &format!("sensor_{}", i));
             driver.update_action(&test_data).await?;
-            
+
             // Small delay to simulate real timing
             sleep(Duration::from_millis(10)).await;
         }
@@ -179,7 +202,10 @@ mod python_integration_tests {
         // Test status with statistics
         println!("📈 Testing advanced status...");
         let status = driver.get_status().await?;
-        println!("📊 Advanced status: {}", serde_json::to_string_pretty(&status)?);
+        println!(
+            "📊 Advanced status: {}",
+            serde_json::to_string_pretty(&status)?
+        );
 
         // Test alert frequency
         println!("🚨 Testing alert frequency...");
@@ -191,7 +217,10 @@ mod python_integration_tests {
 
         // Test final status
         let final_status = driver.get_status().await?;
-        println!("📊 Final advanced status: {}", serde_json::to_string_pretty(&final_status)?);
+        println!(
+            "📊 Final advanced status: {}",
+            serde_json::to_string_pretty(&final_status)?
+        );
 
         // Shutdown
         driver.shutdown().await?;
@@ -294,7 +323,10 @@ mod python_integration_tests {
                 script_path: get_test_script_path("advanced_action.py"),
                 venv_path: Some(anaconda_path.clone()),
                 timeout_seconds: 20,
-                python_paths: vec![anaconda_path.join("lib").join("python3.11").join("site-packages")],
+                python_paths: vec![anaconda_path
+                    .join("lib")
+                    .join("python3.11")
+                    .join("site-packages")],
                 ..Default::default()
             };
 
@@ -310,7 +342,10 @@ mod python_integration_tests {
             driver.update_action(&test_data).await?;
 
             let status = driver.get_status().await?;
-            println!("📊 Anaconda test status: {}", serde_json::to_string_pretty(&status)?);
+            println!(
+                "📊 Anaconda test status: {}",
+                serde_json::to_string_pretty(&status)?
+            );
 
             driver.shutdown().await?;
             println!("✅ Anaconda integration test completed!");
@@ -369,9 +404,7 @@ async fn test_python_scripts_self_test() -> Result<()> {
             println!("🐍 Testing {}", script);
 
             // Try to run the script directly with Python
-            let output = Command::new("python3")
-                .arg(&script_path)
-                .output();
+            let output = Command::new("python3").arg(&script_path).output();
 
             match output {
                 Ok(output) => {

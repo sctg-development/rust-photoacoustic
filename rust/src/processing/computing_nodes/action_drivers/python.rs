@@ -62,7 +62,7 @@ impl Default for PythonDriverConfig {
 }
 
 /// Python action driver that executes Python scripts for custom actions
-/// 
+///
 /// This driver does NOT store a Python interpreter instance to avoid Send/Sync issues.
 /// Instead, it acquires the GIL for each Python operation, which is safer in async contexts.
 pub struct PythonActionDriver {
@@ -211,138 +211,163 @@ impl PythonActionDriver {
         let timeout = Duration::from_secs(self.config.timeout_seconds);
         let func_name = func_name.to_string();
         let args = args.to_vec();
-        
+
         // Execute Python code in a blocking task with timeout
-        let result = tokio::time::timeout(timeout, tokio::task::spawn_blocking(move || {
-            Python::with_gil(|py| -> Result<Value> {
-                // Load the script as a module
-                let code = std::fs::read_to_string(&script_path)
-                    .map_err(|e| anyhow!("Failed to read Python script: {}", e))?;
+        let result = tokio::time::timeout(
+            timeout,
+            tokio::task::spawn_blocking(move || {
+                Python::with_gil(|py| -> Result<Value> {
+                    // Load the script as a module
+                    let code = std::fs::read_to_string(&script_path)
+                        .map_err(|e| anyhow!("Failed to read Python script: {}", e))?;
 
-                let module = PyModule::from_code(py, &code, "action_script.py", "action_script")
-                    .map_err(|e| anyhow!("Failed to load Python module: {}", e))?;
+                    let module =
+                        PyModule::from_code(py, &code, "action_script.py", "action_script")
+                            .map_err(|e| anyhow!("Failed to load Python module: {}", e))?;
 
-                // Check if the function exists
-                if !module.hasattr(func_name.as_str())? {
-                    debug!("Python function '{}' not found, skipping", func_name);
-                    return Ok(Value::Null);
-                }
+                    // Check if the function exists
+                    if !module.hasattr(func_name.as_str())? {
+                        debug!("Python function '{}' not found, skipping", func_name);
+                        return Ok(Value::Null);
+                    }
 
-                // Get the function
-                let func = module.getattr(func_name.as_str())?;
+                    // Get the function
+                    let func = module.getattr(func_name.as_str())?;
 
-                // Call the function
-                let result = if args.is_empty() {
-                    func.call0()?
-                } else {
-                    // Convert args to Python objects and call
-                    let py_args: PyResult<Vec<PyObject>> = args.iter().map(|v| {
-                        // Simple conversion for basic types
-                        match v {
-                            Value::Null => Ok(py.None()),
-                            Value::Bool(b) => Ok(b.to_object(py)),
-                            Value::Number(n) => {
-                                if let Some(i) = n.as_i64() {
-                                    Ok(i.to_object(py))
-                                } else if let Some(f) = n.as_f64() {
-                                    Ok(f.to_object(py))
-                                } else {
-                                    Ok(py.None())
-                                }
-                            },
-                            Value::String(s) => Ok(s.to_object(py)),
-                            Value::Array(arr) => {
-                                let py_list = PyList::new(py, arr.iter().map(|item| {
-                                    // Recursively convert array items
-                                    match item {
-                                        Value::Null => py.None(),
-                                        Value::Bool(b) => b.to_object(py),
-                                        Value::Number(n) => {
-                                            if let Some(i) = n.as_i64() {
-                                                i.to_object(py)
-                                            } else if let Some(f) = n.as_f64() {
-                                                f.to_object(py)
-                                            } else {
-                                                py.None()
-                                            }
-                                        },
-                                        Value::String(s) => s.to_object(py),
-                                        _ => {
-                                            // For complex nested types, serialize to JSON string
-                                            serde_json::to_string(item).unwrap_or_default().to_object(py)
+                    // Call the function
+                    let result = if args.is_empty() {
+                        func.call0()?
+                    } else {
+                        // Convert args to Python objects and call
+                        let py_args: PyResult<Vec<PyObject>> = args
+                            .iter()
+                            .map(|v| {
+                                // Simple conversion for basic types
+                                match v {
+                                    Value::Null => Ok(py.None()),
+                                    Value::Bool(b) => Ok(b.to_object(py)),
+                                    Value::Number(n) => {
+                                        if let Some(i) = n.as_i64() {
+                                            Ok(i.to_object(py))
+                                        } else if let Some(f) = n.as_f64() {
+                                            Ok(f.to_object(py))
+                                        } else {
+                                            Ok(py.None())
                                         }
                                     }
-                                }));
-                                Ok(py_list.to_object(py))
-                            },
-                            Value::Object(obj) => {
-                                let py_dict = PyDict::new(py);
-                                for (key, value) in obj {
-                                    let py_value = match value {
-                                        Value::Null => py.None(),
-                                        Value::Bool(b) => b.to_object(py),
-                                        Value::Number(n) => {
-                                            if let Some(i) = n.as_i64() {
-                                                i.to_object(py)
-                                            } else if let Some(f) = n.as_f64() {
-                                                f.to_object(py)
-                                            } else {
-                                                py.None()
-                                            }
-                                        },
-                                        Value::String(s) => s.to_object(py),
-                                        _ => {
-                                            // For complex nested types, serialize to JSON string
-                                            serde_json::to_string(value).unwrap_or_default().to_object(py)
+                                    Value::String(s) => Ok(s.to_object(py)),
+                                    Value::Array(arr) => {
+                                        let py_list = PyList::new(
+                                            py,
+                                            arr.iter().map(|item| {
+                                                // Recursively convert array items
+                                                match item {
+                                                    Value::Null => py.None(),
+                                                    Value::Bool(b) => b.to_object(py),
+                                                    Value::Number(n) => {
+                                                        if let Some(i) = n.as_i64() {
+                                                            i.to_object(py)
+                                                        } else if let Some(f) = n.as_f64() {
+                                                            f.to_object(py)
+                                                        } else {
+                                                            py.None()
+                                                        }
+                                                    }
+                                                    Value::String(s) => s.to_object(py),
+                                                    _ => {
+                                                        // For complex nested types, serialize to JSON string
+                                                        serde_json::to_string(item)
+                                                            .unwrap_or_default()
+                                                            .to_object(py)
+                                                    }
+                                                }
+                                            }),
+                                        );
+                                        Ok(py_list.to_object(py))
+                                    }
+                                    Value::Object(obj) => {
+                                        let py_dict = PyDict::new(py);
+                                        for (key, value) in obj {
+                                            let py_value = match value {
+                                                Value::Null => py.None(),
+                                                Value::Bool(b) => b.to_object(py),
+                                                Value::Number(n) => {
+                                                    if let Some(i) = n.as_i64() {
+                                                        i.to_object(py)
+                                                    } else if let Some(f) = n.as_f64() {
+                                                        f.to_object(py)
+                                                    } else {
+                                                        py.None()
+                                                    }
+                                                }
+                                                Value::String(s) => s.to_object(py),
+                                                _ => {
+                                                    // For complex nested types, serialize to JSON string
+                                                    serde_json::to_string(value)
+                                                        .unwrap_or_default()
+                                                        .to_object(py)
+                                                }
+                                            };
+                                            py_dict.set_item(key, py_value)?;
                                         }
-                                    };
-                                    py_dict.set_item(key, py_value)?;
+                                        Ok(py_dict.to_object(py))
+                                    }
                                 }
-                                Ok(py_dict.to_object(py))
-                            }
-                        }
-                    }).collect();
+                            })
+                            .collect();
 
-                    let py_args = py_args.map_err(|e| anyhow!("Python conversion error: {}", e))?;
-                    func.call1(PyTuple::new(py, py_args))?
-                };
+                        let py_args =
+                            py_args.map_err(|e| anyhow!("Python conversion error: {}", e))?;
+                        func.call1(PyTuple::new(py, py_args))?
+                    };
 
-                // Convert result back to JSON
-                if result.is_none() {
-                    Ok(Value::Null)
-                } else if let Ok(b) = result.extract::<bool>() {
-                    Ok(Value::Bool(b))
-                } else if let Ok(i) = result.extract::<i64>() {
-                    Ok(Value::Number(i.into()))
-                } else if let Ok(f) = result.extract::<f64>() {
-                    Ok(Value::Number(serde_json::Number::from_f64(f).unwrap_or(0.into())))
-                } else if let Ok(s) = result.extract::<String>() {
-                    Ok(Value::String(s))
-                } else {
-                    // Try to convert to string representation
-                    let str_repr = result.str()?.to_string();
-                    Ok(Value::String(str_repr))
-                }
-            })
-        })).await;
+                    // Convert result back to JSON
+                    if result.is_none() {
+                        Ok(Value::Null)
+                    } else if let Ok(b) = result.extract::<bool>() {
+                        Ok(Value::Bool(b))
+                    } else if let Ok(i) = result.extract::<i64>() {
+                        Ok(Value::Number(i.into()))
+                    } else if let Ok(f) = result.extract::<f64>() {
+                        Ok(Value::Number(
+                            serde_json::Number::from_f64(f).unwrap_or(0.into()),
+                        ))
+                    } else if let Ok(s) = result.extract::<String>() {
+                        Ok(Value::String(s))
+                    } else {
+                        // Try to convert to string representation
+                        let str_repr = result.str()?.to_string();
+                        Ok(Value::String(str_repr))
+                    }
+                })
+            }),
+        )
+        .await;
 
         match result {
             Ok(task_result) => task_result.map_err(|e| anyhow!("Task error: {}", e))?,
-            Err(_) => return Err(anyhow!("Python function call timed out after {} seconds", self.config.timeout_seconds)),
+            Err(_) => {
+                return Err(anyhow!(
+                    "Python function call timed out after {} seconds",
+                    self.config.timeout_seconds
+                ))
+            }
         }
     }
 
     /// Call a Python function without the python-driver feature
     #[cfg(not(feature = "python-driver"))]
     async fn call_python_function(&self, _func_name: &str, _args: &[Value]) -> Result<Value> {
-        Err(anyhow!("Python driver not compiled - missing python-driver feature"))
+        Err(anyhow!(
+            "Python driver not compiled - missing python-driver feature"
+        ))
     }
 
     /// Add measurement to history
     fn add_to_history(&self, data: &MeasurementData) {
         let mut history = self.history.lock().unwrap();
         history.push(data.clone());
-        
+
         // Keep only the last max_history entries
         let len = history.len();
         if len > self.max_history {
@@ -364,20 +389,29 @@ impl ActionDriver for PythonActionDriver {
     }
 
     async fn initialize(&mut self) -> Result<()> {
-        info!("Initializing Python action driver with script: {}", self.config.script_path.display());
-        
+        info!(
+            "Initializing Python action driver with script: {}",
+            self.config.script_path.display()
+        );
+
         #[cfg(feature = "python-driver")]
         {
             // Check if script exists
             if !self.config.script_path.exists() {
-                return Err(anyhow!("Python script not found: {}", self.config.script_path.display()));
+                return Err(anyhow!(
+                    "Python script not found: {}",
+                    self.config.script_path.display()
+                ));
             }
 
             self.update_mtime();
             self.update_status("Initialized".to_string());
 
             // Call initialization function if it exists
-            match self.call_python_function(&self.config.init_function, &[]).await {
+            match self
+                .call_python_function(&self.config.init_function, &[])
+                .await
+            {
                 Ok(_) => debug!("Python initialization function completed successfully"),
                 Err(e) => warn!("Python initialization function failed: {}", e),
             }
@@ -385,9 +419,11 @@ impl ActionDriver for PythonActionDriver {
 
         #[cfg(not(feature = "python-driver"))]
         {
-            return Err(anyhow!("Python driver not compiled - missing python-driver feature"));
+            return Err(anyhow!(
+                "Python driver not compiled - missing python-driver feature"
+            ));
         }
-        
+
         Ok(())
     }
 
@@ -407,11 +443,14 @@ impl ActionDriver for PythonActionDriver {
             let json_data = serde_json::to_value(data)?;
 
             // Call the update function
-            match self.call_python_function(&self.config.update_function, &[json_data]).await {
+            match self
+                .call_python_function(&self.config.update_function, &[json_data])
+                .await
+            {
                 Ok(result) => {
                     debug!("Python update function completed: {:?}", result);
                     self.update_status("Active".to_string());
-                },
+                }
                 Err(e) => {
                     error!("Python update function failed: {}", e);
                     self.update_status(format!("Error: {}", e));
@@ -424,7 +463,7 @@ impl ActionDriver for PythonActionDriver {
         {
             return Err(anyhow!("Python driver not compiled"));
         }
-        
+
         Ok(())
     }
 
@@ -434,7 +473,10 @@ impl ActionDriver for PythonActionDriver {
             // Convert alert data to JSON for Python
             let json_alert = serde_json::to_value(alert)?;
 
-            match self.call_python_function(&self.config.alert_function, &[json_alert]).await {
+            match self
+                .call_python_function(&self.config.alert_function, &[json_alert])
+                .await
+            {
                 Ok(_) => debug!("Python alert function completed successfully"),
                 Err(e) => {
                     error!("Python alert function failed: {}", e);
@@ -447,7 +489,7 @@ impl ActionDriver for PythonActionDriver {
         {
             return Err(anyhow!("Python driver not compiled"));
         }
-        
+
         Ok(())
     }
 
@@ -458,7 +500,7 @@ impl ActionDriver for PythonActionDriver {
                 Ok(_) => {
                     debug!("Python clear function completed successfully");
                     self.update_status("Cleared".to_string());
-                },
+                }
                 Err(e) => {
                     warn!("Python clear function failed: {}", e);
                     // Don't return error as clear is often optional
@@ -470,7 +512,7 @@ impl ActionDriver for PythonActionDriver {
         {
             return Err(anyhow!("Python driver not compiled"));
         }
-        
+
         Ok(())
     }
 
@@ -478,9 +520,12 @@ impl ActionDriver for PythonActionDriver {
         #[cfg(feature = "python-driver")]
         {
             let status = self.status.lock().unwrap().clone();
-            
+
             // Try to get status from Python function
-            match self.call_python_function(&self.config.status_function, &[]).await {
+            match self
+                .call_python_function(&self.config.status_function, &[])
+                .await
+            {
                 Ok(py_status) => Ok(json!({
                     "type": "python",
                     "script_path": self.config.script_path,
@@ -496,7 +541,7 @@ impl ActionDriver for PythonActionDriver {
                     "python_status": "function not available",
                     "auto_reload": self.config.auto_reload,
                     "history_size": self.history.lock().unwrap().len()
-                }))
+                })),
             }
         }
 
@@ -510,11 +555,14 @@ impl ActionDriver for PythonActionDriver {
 
     async fn shutdown(&mut self) -> Result<()> {
         info!("Shutting down Python action driver");
-        
+
         #[cfg(feature = "python-driver")]
         {
             // Call shutdown function if it exists
-            match self.call_python_function(&self.config.shutdown_function, &[]).await {
+            match self
+                .call_python_function(&self.config.shutdown_function, &[])
+                .await
+            {
                 Ok(_) => debug!("Python shutdown function completed successfully"),
                 Err(e) => warn!("Python shutdown function failed: {}", e),
             }
@@ -526,7 +574,7 @@ impl ActionDriver for PythonActionDriver {
         {
             return Err(anyhow!("Python driver not compiled"));
         }
-        
+
         Ok(())
     }
 
