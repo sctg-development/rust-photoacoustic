@@ -32,11 +32,11 @@ def on_measurement(data):
     _state["measurement_count"] += 1
     _state["last_concentration"] = data["concentration_ppm"]
     
-    print(f"📊 Measurement #{_state['measurement_count']}: {data['concentration_ppm']:.2f} ppm from {data['source_node_id']}")
+    print(f"[MEASUREMENT] #{_state['measurement_count']}: {data['concentration_ppm']:.2f} ppm from {data['source_node_id']}")
     
     # Example logic: react to high concentrations
     if data["concentration_ppm"] > 1000:
-        print("⚠️  High concentration detected!")
+        print("[WARNING] High concentration detected!")
     
     return {
         "processed": True,
@@ -102,7 +102,7 @@ def get_status():
 
 def shutdown():
     """Called when the driver is being shut down."""
-    print("🔄 Python script shutting down")
+    print("[SHUTDOWN] Python script shutting down")
     
     final_stats = {
         "total_measurements": _state["measurement_count"],
@@ -121,7 +121,7 @@ def shutdown():
 # Test helper function (not part of standard API)
 def test_script():
     """Self-test function for debugging."""
-    print("🧪 Running self-test...")
+    print("[TEST] Running self-test...")
     
     # Test initialization
     init_result = initialize()
@@ -162,7 +162,7 @@ def test_script():
     shutdown_result = shutdown()
     print(f"Shutdown result: {shutdown_result}")
     
-    print("✅ Self-test complete!")
+    print("[TEST] Self-test complete!")
 
 if __name__ == "__main__":
     test_script()

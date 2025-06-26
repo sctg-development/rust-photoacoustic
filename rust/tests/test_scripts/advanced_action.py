@@ -45,7 +45,7 @@ state = ActionState()
 def initialize():
     """Initialize the advanced action script."""
     try:
-        print("🚀 Advanced Python action script initializing...")
+        print("[INIT] Advanced Python action script initializing...")
         
         state.initialized = True
         state.start_time = time.time()
@@ -54,9 +54,9 @@ def initialize():
         import math
         test_calculation = math.sqrt(16) + math.pi
         
-        print(f"✅ Math test passed: √16 + π = {test_calculation:.3f}")
-        print(f"🐍 Python version: {sys.version}")
-        print(f"📊 Buffer sizes: measurements={state.measurements.maxlen}, alerts={state.alerts.maxlen}")
+        print(f"[MATH] Math test passed: √16 + π = {test_calculation:.3f}")
+        print(f"[PYTHON] Python version: {sys.version}")
+        print(f"[BUFFERS] Buffer sizes: measurements={state.measurements.maxlen}, alerts={state.alerts.maxlen}")
         
         return {
             "status": "ready",
@@ -66,7 +66,7 @@ def initialize():
             "features": ["statistics", "thresholds", "buffering"]
         }
     except Exception as e:
-        print(f"❌ Initialization error: {e}")
+        print(f"[ERROR] Initialization error: {e}")
         return {"status": "error", "error": str(e)}
 
 def on_measurement(data):
@@ -105,8 +105,8 @@ def on_measurement(data):
             elif recent_avg < older_avg * 0.9:
                 trend = "falling"
         
-        print(f"📊 Measurement #{state.statistics['total_measurements']}: {concentration:.2f} ppm [{level}] - Trend: {trend}")
-        print(f"📈 Stats: avg={state.statistics['avg_concentration']:.1f}, min={state.statistics['min_concentration']:.1f}, max={state.statistics['max_concentration']:.1f}")
+        print(f"[MEASUREMENT] #{state.statistics['total_measurements']}: {concentration:.2f} ppm [{level}] - Trend: {trend}")
+        print(f"[STATS] Stats: avg={state.statistics['avg_concentration']:.1f}, min={state.statistics['min_concentration']:.1f}, max={state.statistics['max_concentration']:.1f}")
         
         result = {
             "processed": True,
@@ -131,7 +131,7 @@ def on_measurement(data):
         return result
         
     except Exception as e:
-        print(f"❌ Error processing measurement: {e}")
+        print(f"[ERROR] Error processing measurement: {e}")
         return {"processed": False, "error": str(e)}
 
 def on_alert(alert):
@@ -153,12 +153,12 @@ def on_alert(alert):
         
         # Severity-based responses
         icons = {
-            "info": "🔵",
-            "warning": "🟡", 
-            "critical": "🔴"
+            "info": "[INFO]",
+            "warning": "[WARN]", 
+            "critical": "[CRIT]"
         }
         
-        icon = icons.get(severity, "⚪")
+        icon = icons.get(severity, "[UNKN]")
         print(f"{icon} ALERT #{state.statistics['total_alerts']}: {severity.upper()} - {alert_record['message']}")
         
         # Calculate alert frequency
@@ -166,7 +166,7 @@ def on_alert(alert):
         alert_frequency = len(recent_alerts)
         
         if alert_frequency > 5:
-            print("⚠️  High alert frequency detected - possible system issue!")
+            print("[WARNING] High alert frequency detected - possible system issue!")
         
         # Advanced response logic
         response = {
@@ -190,13 +190,13 @@ def on_alert(alert):
         return response
         
     except Exception as e:
-        print(f"❌ Error handling alert: {e}")
+        print(f"[ERROR] Error handling alert: {e}")
         return {"alert_handled": False, "error": str(e)}
 
 def clear_action():
     """Clear action with data preservation."""
     try:
-        print("🧹 Clearing action - preserving historical data")
+        print("[CLEAR] Clearing action - preserving historical data")
         
         # Preserve statistics but reset active counters
         preserved_stats = {
@@ -209,7 +209,7 @@ def clear_action():
         # Keep data in buffers but reset counters
         # (In a real system, you might want to archive this data)
         
-        print(f"📊 Preserved stats: {preserved_stats}")
+        print(f"[PRESERVE] Preserved stats: {preserved_stats}")
         
         return {
             "cleared": True,
@@ -220,7 +220,7 @@ def clear_action():
         }
         
     except Exception as e:
-        print(f"❌ Error during clear: {e}")
+        print(f"[ERROR] Error during clear: {e}")
         return {"cleared": False, "error": str(e)}
 
 def get_status():
@@ -261,13 +261,13 @@ def get_status():
         return json.dumps(status, indent=2)
         
     except Exception as e:
-        print(f"❌ Error getting status: {e}")
+        print(f"[ERROR] Error getting status: {e}")
         return json.dumps({"status": "error", "error": str(e)})
 
 def shutdown():
     """Graceful shutdown with final reporting."""
     try:
-        print("🔄 Advanced Python script shutting down...")
+        print("[SHUTDOWN] Advanced Python script shutting down...")
         
         uptime = time.time() - (state.start_time or time.time())
         
@@ -291,7 +291,7 @@ def shutdown():
             "shutdown_timestamp": time.time()
         }
         
-        print(f"📋 Final Report:")
+        print(f"[REPORT] Final Report:")
         print(f"   Uptime: {uptime/60:.1f} minutes")
         print(f"   Measurements: {state.statistics['total_measurements']}")
         print(f"   Alerts: {state.statistics['total_alerts']}")
@@ -300,7 +300,7 @@ def shutdown():
         return final_report
         
     except Exception as e:
-        print(f"❌ Error during shutdown: {e}")
+        print(f"[ERROR] Error during shutdown: {e}")
         return {"shutdown": "error", "error": str(e)}
 
 def get_concentration_level(concentration):
@@ -319,7 +319,7 @@ def get_concentration_level(concentration):
 # Self-test functionality
 def test_advanced_features():
     """Test advanced features of this script."""
-    print("🧪 Running advanced feature tests...")
+    print("[TEST] Running advanced feature tests...")
     
     # Test statistics
     test_concentrations = [100, 200, 300, 1200, 800]
@@ -335,7 +335,7 @@ def test_advanced_features():
         result = on_measurement(test_data)
         print(f"   Test measurement {i+1}: {result.get('concentration_level', 'unknown')} level")
     
-    print("✅ Advanced tests complete!")
+    print("[TEST] Advanced tests complete!")
 
 if __name__ == "__main__":
     # Initialize and run self-test
