@@ -366,6 +366,28 @@ processing:
             max_retries: 5
             password: null                      # Optional Redis password
 
+    # Python Action Driver - For custom Python processing
+    # This driver allows executing custom Python code for advanced processing
+    - id: "python_action_node"
+      node_type: "action_universal"
+      parameters:
+        buffer_capacity: 500                    # Moderate buffer for Python processing
+        monitored_nodes:
+          - "concentration_calculator"
+        concentration_threshold: 500.0          # Higher threshold for Python processing
+        amplitude_threshold: 70                 # Alert at 70dB amplitude
+        update_interval_ms: 15000               # 15 seconds updates
+        driver:
+          type: "python"
+          config:
+            script_path: "./action.py"  # Path to custom Python script
+            auto_reload: true  # Automatically reload script on changes
+            timeout_seconds: 10  # Timeout for script execution
+            init_function: initialize  # Function to call on initialization
+            update_function: on_measurement  # Function to call on each measurement
+            alert_function: on_alert  # Function to call on alerts
+            status_function: get_status  # Function to call for status updates
+            shutdown_function: shutdown  # Function to call on shutdown
     # Kafka Driver - For enterprise event streaming
     - id: "kafka_events_display"
       node_type: "action_universal"
@@ -443,6 +465,8 @@ processing:
       to: kafka_events_display
     - from: concentration_calculator
       to: simple_display_action
+    - from: concentration_calculator
+      to: python_action_node
     # Display outputs continue the processing chain
     - from: web_dashboard_action
       to: streaming_bandpass_filter

@@ -1012,7 +1012,7 @@
                               "properties": {
                                 "type": {
                                   "type": "string",
-                                  "enum": ["https_callback", "redis", "kafka","log"],
+                                  "enum": ["https_callback", "redis", "kafka","python"],
                                   "description": "Type of display driver"
                                 },
                                 "config": {

@@ -16,6 +16,10 @@ use crate::processing::computing_nodes::{
     },
     ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalActionNode,
 };
+
+// Import PythonActionDriver when feature is enabled
+#[cfg(feature = "python-driver")]
+use crate::processing::computing_nodes::action_drivers::{PythonActionDriver, PythonDriverConfig};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
     InputNode, MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,
@@ -1500,6 +1504,96 @@ impl ProcessingGraph {
                                                 bootstrap_servers,
                                                 topic,
                                                 alert_topic,
+                                            ))
+                                        }
+                                        #[cfg(feature = "python-driver")]
+                                        "python" => {
+                                            // Extract required script_path
+                                            let script_path = driver_config_obj.get("script_path")
+                                                .and_then(|v| v.as_str())
+                                                .ok_or_else(|| anyhow::anyhow!("Missing script_path for python driver"))?;
+
+                                            // Create configuration with required script_path
+                                            let mut config = PythonDriverConfig {
+                                                script_path: script_path.into(),
+                                                ..Default::default()
+                                            };
+
+                                            // Configure optional parameters
+                                            if let Some(auto_reload) = driver_config_obj
+                                                .get("auto_reload")
+                                                .and_then(|v| v.as_bool())
+                                            {
+                                                config.auto_reload = auto_reload;
+                                            }
+
+                                            if let Some(timeout_seconds) = driver_config_obj
+                                                .get("timeout_seconds")
+                                                .and_then(|v| v.as_u64())
+                                            {
+                                                config.timeout_seconds = timeout_seconds;
+                                            }
+
+                                            if let Some(update_function) = driver_config_obj
+                                                .get("update_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.update_function = update_function.to_string();
+                                            }
+
+                                            if let Some(alert_function) = driver_config_obj
+                                                .get("alert_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.alert_function = alert_function.to_string();
+                                            }
+
+                                            if let Some(init_function) = driver_config_obj
+                                                .get("init_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.init_function = init_function.to_string();
+                                            }
+
+                                            if let Some(shutdown_function) = driver_config_obj
+                                                .get("shutdown_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.shutdown_function = shutdown_function.to_string();
+                                            }
+
+                                            if let Some(status_function) = driver_config_obj
+                                                .get("status_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.status_function = status_function.to_string();
+                                            }
+
+                                            if let Some(venv_path) = driver_config_obj
+                                                .get("venv_path")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.venv_path = Some(venv_path.into());
+                                            }
+
+                                            // Handle python_paths array
+                                            if let Some(python_paths_arr) = driver_config_obj
+                                                .get("python_paths")
+                                                .and_then(|v| v.as_array())
+                                            {
+                                                config.python_paths = python_paths_arr
+                                                    .iter()
+                                                    .filter_map(|v| v.as_str())
+                                                    .map(|s| s.into())
+                                                    .collect();
+                                            }
+
+                                            Box::new(PythonActionDriver::new(config))
+                                        }
+                                        #[cfg(not(feature = "python-driver"))]
+                                        "python" => {
+                                            return Err(anyhow::anyhow!(
+                                                "Python driver requested but not compiled (missing python-driver feature)"
                                             ))
                                         }
                                         _ => {

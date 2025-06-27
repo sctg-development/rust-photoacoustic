@@ -73,6 +73,31 @@
 //!     return {"status": "shutdown"}
 //! ```
 //!
+//!```yaml
+//! # Python Action Driver - For custom Python processing
+//! # This driver allows executing custom Python code for advanced processing
+//! - id: "python_action_node"
+//!   node_type: "action_universal"
+//!   parameters:
+//!     buffer_capacity: 500                    # Moderate buffer for Python processing
+//!     monitored_nodes:
+//!       - "concentration_calculator"
+//!     concentration_threshold: 500.0          # Higher threshold for Python processing
+//!     amplitude_threshold: 70                 # Alert at 70dB amplitude
+//!     update_interval_ms: 15000               # 15 seconds updates
+//!     driver:
+//!       type: "python"
+//!       config:
+//!         script_path: "./action.py"  # Path to custom Python script
+//!         auto_reload: true  # Automatically reload script on changes
+//!         timeout_seconds: 10  # Timeout for script execution
+//!         init_function: initialize  # Function to call on initialization
+//!         update_function: on_measurement  # Function to call on each measurement
+//!         alert_function: on_alert  # Function to call on alerts
+//!         status_function: get_status  # Function to call for status updates
+//!         shutdown_function: shutdown  # Function to call on shutdown
+//!```
+//!
 //! # Usage Example
 //!
 //! ```rust,no_run
@@ -663,33 +688,47 @@ impl PythonActionDriver {
             timeout,
             tokio::task::spawn_blocking(move || {
                 Python::with_gil(|py| -> Result<Value> {
-                    // Load the script as a module
+                    // Capture Python stdout/stderr
+                    let sys = py.import("sys")?;
+                    let io = py.import("io")?;
+
+                    // Create StringIO objects to capture output
+                    let stdout_capture = io.call_method0("StringIO")?;
+                    let stderr_capture = io.call_method0("StringIO")?;
+
+                    // Save original stdout/stderr
+                    let original_stdout = sys.getattr("stdout")?;
+                    let original_stderr = sys.getattr("stderr")?;
+
+                    // Redirect stdout/stderr to our capture objects
+                    sys.setattr("stdout", stdout_capture)?;
+                    sys.setattr("stderr", stderr_capture)?;
+
+                    // Load and execute the script
                     let code = std::fs::read_to_string(&script_path)
                         .map_err(|e| anyhow!("Failed to read Python script: {}", e))?;
 
-                    let module =
-                        PyModule::from_code(py, &code, "action_script.py", "action_script")
-                            .map_err(|e| anyhow!("Failed to load Python module: {}", e))?;
+                    let result = Python::with_gil(|py| -> PyResult<PyObject> {
+                        let module =
+                            PyModule::from_code(py, &code, "action_script.py", "action_script")?;
 
-                    // Check if the function exists
-                    if !module.hasattr(func_name.as_str())? {
-                        debug!("Python function '{}' not found, skipping", func_name);
-                        return Ok(Value::Null);
-                    }
+                        // Check if the function exists
+                        if !module.hasattr(func_name.as_str())? {
+                            debug!("Python function '{}' not found, skipping", func_name);
+                            return Ok(py.None());
+                        }
 
-                    // Get the function
-                    let func = module.getattr(func_name.as_str())?;
+                        // Get the function
+                        let func = module.getattr(func_name.as_str())?;
 
-                    // Call the function
-                    let result = if args.is_empty() {
-                        func.call0()?
-                    } else {
-                        // Convert args to Python objects and call
-                        let py_args: PyResult<Vec<PyObject>> = args
-                            .iter()
-                            .map(|v| {
-                                // Simple conversion for basic types
-                                match v {
+                        // Call the function
+                        if args.is_empty() {
+                            func.call0().map(|v| v.into())
+                        } else {
+                            // Convert args to Python objects
+                            let py_args: PyResult<Vec<PyObject>> = args
+                                .iter()
+                                .map(|v| match v {
                                     Value::Null => Ok(py.None()),
                                     Value::Bool(b) => Ok(b.to_object(py)),
                                     Value::Number(n) => {
@@ -705,28 +744,22 @@ impl PythonActionDriver {
                                     Value::Array(arr) => {
                                         let py_list = PyList::new(
                                             py,
-                                            arr.iter().map(|item| {
-                                                // Recursively convert array items
-                                                match item {
-                                                    Value::Null => py.None(),
-                                                    Value::Bool(b) => b.to_object(py),
-                                                    Value::Number(n) => {
-                                                        if let Some(i) = n.as_i64() {
-                                                            i.to_object(py)
-                                                        } else if let Some(f) = n.as_f64() {
-                                                            f.to_object(py)
-                                                        } else {
-                                                            py.None()
-                                                        }
-                                                    }
-                                                    Value::String(s) => s.to_object(py),
-                                                    _ => {
-                                                        // For complex nested types, serialize to JSON string
-                                                        serde_json::to_string(item)
-                                                            .unwrap_or_default()
-                                                            .to_object(py)
+                                            arr.iter().map(|item| match item {
+                                                Value::Null => py.None(),
+                                                Value::Bool(b) => b.to_object(py),
+                                                Value::Number(n) => {
+                                                    if let Some(i) = n.as_i64() {
+                                                        i.to_object(py)
+                                                    } else if let Some(f) = n.as_f64() {
+                                                        f.to_object(py)
+                                                    } else {
+                                                        py.None()
                                                     }
                                                 }
+                                                Value::String(s) => s.to_object(py),
+                                                _ => serde_json::to_string(item)
+                                                    .unwrap_or_default()
+                                                    .to_object(py),
                                             }),
                                         );
                                         Ok(py_list.to_object(py))
@@ -747,42 +780,63 @@ impl PythonActionDriver {
                                                     }
                                                 }
                                                 Value::String(s) => s.to_object(py),
-                                                _ => {
-                                                    // For complex nested types, serialize to JSON string
-                                                    serde_json::to_string(value)
-                                                        .unwrap_or_default()
-                                                        .to_object(py)
-                                                }
+                                                _ => serde_json::to_string(value)
+                                                    .unwrap_or_default()
+                                                    .to_object(py),
                                             };
                                             py_dict.set_item(key, py_value)?;
                                         }
                                         Ok(py_dict.to_object(py))
                                     }
-                                }
-                            })
-                            .collect();
+                                })
+                                .collect();
 
-                        let py_args =
-                            py_args.map_err(|e| anyhow!("Python conversion error: {}", e))?;
-                        func.call1(PyTuple::new(py, py_args))?
-                    };
+                            let py_args = py_args?;
+                            func.call1(PyTuple::new(py, py_args)).map(|v| v.into())
+                        }
+                    });
+
+                    // Restore original stdout/stderr
+                    sys.setattr("stdout", original_stdout)?;
+                    sys.setattr("stderr", original_stderr)?;
+
+                    // Get captured output
+                    let stdout_output = stdout_capture
+                        .call_method0("getvalue")?
+                        .extract::<String>()
+                        .unwrap_or_default();
+                    let stderr_output = stderr_capture
+                        .call_method0("getvalue")?
+                        .extract::<String>()
+                        .unwrap_or_default();
+
+                    // Log captured output using Rust logging
+                    if !stdout_output.trim().is_empty() {
+                        info!("[Python:{}] {}", func_name, stdout_output.trim());
+                    }
+                    if !stderr_output.trim().is_empty() {
+                        warn!("[Python:{}] stderr: {}", func_name, stderr_output.trim());
+                    }
+
+                    // Handle the result
+                    let result = result.map_err(|e| anyhow!("Python execution error: {}", e))?;
 
                     // Convert result back to JSON
-                    if result.is_none() {
+                    if result.is_none(py) {
                         Ok(Value::Null)
-                    } else if let Ok(b) = result.extract::<bool>() {
+                    } else if let Ok(b) = result.extract::<bool>(py) {
                         Ok(Value::Bool(b))
-                    } else if let Ok(i) = result.extract::<i64>() {
+                    } else if let Ok(i) = result.extract::<i64>(py) {
                         Ok(Value::Number(i.into()))
-                    } else if let Ok(f) = result.extract::<f64>() {
+                    } else if let Ok(f) = result.extract::<f64>(py) {
                         Ok(Value::Number(
                             serde_json::Number::from_f64(f).unwrap_or(0.into()),
                         ))
-                    } else if let Ok(s) = result.extract::<String>() {
+                    } else if let Ok(s) = result.extract::<String>(py) {
                         Ok(Value::String(s))
                     } else {
                         // Try to convert to string representation
-                        let str_repr = result.str()?.to_string();
+                        let str_repr = result.as_ref(py).str()?.to_string();
                         Ok(Value::String(str_repr))
                     }
                 })
@@ -792,12 +846,10 @@ impl PythonActionDriver {
 
         match result {
             Ok(task_result) => task_result.map_err(|e| anyhow!("Task error: {}", e))?,
-            Err(_) => {
-                return Err(anyhow!(
-                    "Python function call timed out after {} seconds",
-                    self.config.timeout_seconds
-                ))
-            }
+            Err(_) => Err(anyhow!(
+                "Python function call timed out after {} seconds",
+                self.config.timeout_seconds
+            )),
         }
     }
 
