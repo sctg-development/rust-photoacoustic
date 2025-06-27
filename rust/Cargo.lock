@@ -3327,6 +3327,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pythonize"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffd1c3ef39c725d63db5f9bc455461bafd80540cb7824c61afb823501921a850"
+dependencies = [
+ "pyo3",
+ "serde",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3933,6 +3943,7 @@ dependencies = [
  "oxide-auth-rocket",
  "pwhash",
  "pyo3",
+ "pythonize",
  "quote",
  "rand 0.9.1",
  "rcgen",

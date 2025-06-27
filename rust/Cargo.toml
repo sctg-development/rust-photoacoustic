@@ -7,7 +7,7 @@ description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 
 [features]
 default = ["python-driver"]
-python-driver = ["pyo3"]
+python-driver = ["pyo3", "pythonize"]
 static = ["pyo3"]
 
 [dependencies]
@@ -80,6 +80,7 @@ evalexpr = "12.0.2"
 
 # Python integration (optional)
 pyo3 = { version = "0.20", optional = true, features = ["auto-initialize"], default-features = false }
+pythonize = { version = "0.20", optional = true }
 
 [target.'cfg(not(feature = "static"))'.dependencies]
 # Empty section - uses the default pyo3 config above

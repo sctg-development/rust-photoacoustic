@@ -1325,6 +1325,87 @@ impl ProcessingGraph {
 
                 Ok(Box::new(GainNode::new(config.id.clone(), gain_db)))
             }
+            "python" => {
+                use crate::processing::nodes::{PythonNode, PythonNodeConfig};
+
+                // Extract python node parameters
+                let params = config
+                    .parameters
+                    .as_object()
+                    .ok_or_else(|| anyhow::anyhow!("Python node requires parameters"))?;
+
+                // Extract script_path (required)
+                let script_path = params
+                    .get("script_path")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Python node requires 'script_path' parameter")
+                    })?;
+
+                let mut python_config = PythonNodeConfig {
+                    script_path: std::path::PathBuf::from(script_path),
+                    ..Default::default()
+                };
+
+                // Extract optional parameters
+                if let Some(venv_path) = params.get("venv_path").and_then(|v| v.as_str()) {
+                    python_config.venv_path = Some(std::path::PathBuf::from(venv_path));
+                }
+
+                if let Some(process_function) =
+                    params.get("process_function").and_then(|v| v.as_str())
+                {
+                    python_config.process_function = process_function.to_string();
+                }
+
+                if let Some(init_function) = params.get("init_function").and_then(|v| v.as_str()) {
+                    python_config.init_function = init_function.to_string();
+                }
+
+                if let Some(shutdown_function) =
+                    params.get("shutdown_function").and_then(|v| v.as_str())
+                {
+                    python_config.shutdown_function = shutdown_function.to_string();
+                }
+
+                if let Some(status_function) =
+                    params.get("status_function").and_then(|v| v.as_str())
+                {
+                    python_config.status_function = status_function.to_string();
+                }
+
+                if let Some(timeout_seconds) =
+                    params.get("timeout_seconds").and_then(|v| v.as_u64())
+                {
+                    python_config.timeout_seconds = timeout_seconds;
+                }
+
+                if let Some(auto_reload) = params.get("auto_reload").and_then(|v| v.as_bool()) {
+                    python_config.auto_reload = auto_reload;
+                }
+
+                if let Some(python_paths) = params.get("python_paths").and_then(|v| v.as_array()) {
+                    python_config.python_paths = python_paths
+                        .iter()
+                        .filter_map(|v| v.as_str().map(std::path::PathBuf::from))
+                        .collect();
+                }
+
+                if let Some(accepted_types) =
+                    params.get("accepted_types").and_then(|v| v.as_array())
+                {
+                    python_config.accepted_types = accepted_types
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
+                }
+
+                if let Some(output_type) = params.get("output_type").and_then(|v| v.as_str()) {
+                    python_config.output_type = Some(output_type.to_string());
+                }
+
+                Ok(Box::new(PythonNode::new(config.id.clone(), python_config)))
+            }
             "action_universal" => {
                 // Extract example display action parameters
                 let mut action_node = UniversalActionNode::new_with_shared_state(
@@ -1502,6 +1583,98 @@ impl ProcessingGraph {
                                                 alert_topic,
                                             ))
                                         }
+                                        #[cfg(feature = "python-driver")]
+                                        "python" => {
+                                            // Extract required script_path
+
+                                            use crate::processing::{computing_nodes::action_drivers::PythonDriverConfig, PythonActionDriver};
+                                            let script_path = driver_config_obj.get("script_path")
+                                                .and_then(|v| v.as_str())
+                                                .ok_or_else(|| anyhow::anyhow!("Missing script_path for python driver"))?;
+
+                                            // Create configuration with required script_path
+                                            let mut config = PythonDriverConfig {
+                                                script_path: script_path.into(),
+                                                ..Default::default()
+                                            };
+
+                                            // Configure optional parameters
+                                            if let Some(auto_reload) = driver_config_obj
+                                                .get("auto_reload")
+                                                .and_then(|v| v.as_bool())
+                                            {
+                                                config.auto_reload = auto_reload;
+                                            }
+
+                                            if let Some(timeout_seconds) = driver_config_obj
+                                                .get("timeout_seconds")
+                                                .and_then(|v| v.as_u64())
+                                            {
+                                                config.timeout_seconds = timeout_seconds;
+                                            }
+
+                                            if let Some(update_function) = driver_config_obj
+                                                .get("update_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.update_function = update_function.to_string();
+                                            }
+
+                                            if let Some(alert_function) = driver_config_obj
+                                                .get("alert_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.alert_function = alert_function.to_string();
+                                            }
+
+                                            if let Some(init_function) = driver_config_obj
+                                                .get("init_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.init_function = init_function.to_string();
+                                            }
+
+                                            if let Some(shutdown_function) = driver_config_obj
+                                                .get("shutdown_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.shutdown_function = shutdown_function.to_string();
+                                            }
+
+                                            if let Some(status_function) = driver_config_obj
+                                                .get("status_function")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.status_function = status_function.to_string();
+                                            }
+
+                                            if let Some(venv_path) = driver_config_obj
+                                                .get("venv_path")
+                                                .and_then(|v| v.as_str())
+                                            {
+                                                config.venv_path = Some(venv_path.into());
+                                            }
+
+                                            // Handle python_paths array
+                                            if let Some(python_paths_arr) = driver_config_obj
+                                                .get("python_paths")
+                                                .and_then(|v| v.as_array())
+                                            {
+                                                config.python_paths = python_paths_arr
+                                                    .iter()
+                                                    .filter_map(|v| v.as_str())
+                                                    .map(|s| s.into())
+                                                    .collect();
+                                            }
+
+                                            Box::new(PythonActionDriver::new(config))
+                                        }
+                                        #[cfg(not(feature = "python-driver"))]
+                                        "python" => {
+                                            return Err(anyhow::anyhow!(
+                                                "Python driver requested but not compiled (missing python-driver feature)"
+                                            ))
+                                        }
                                         _ => {
                                             return Err(anyhow::anyhow!(
                                                 "Unsupported driver type: {}",
@@ -1516,7 +1689,6 @@ impl ProcessingGraph {
                         }
                     }
                 }
-
                 Ok(Box::new(action_node))
             }
             _ => Err(anyhow::anyhow!("Unknown node type: {}", config.node_type)),

@@ -106,7 +106,6 @@
                 "type": "number",
                 "description": "Maximum concentration value for display (e.g., 10000.0 for no upper limit)"
               }
-
             },
             "required": [
               "id",
@@ -603,6 +602,7 @@
                       "channel_selector",
                       "channel_mixer",
                       "gain",
+                      "python",
                       "photoacoustic_output",
                       "record",
                       "streaming",
@@ -1012,7 +1012,12 @@
                               "properties": {
                                 "type": {
                                   "type": "string",
-                                  "enum": ["https_callback", "redis", "kafka","log"],
+                                  "enum": [
+                                    "https_callback",
+                                    "redis",
+                                    "kafka",
+                                    "log"
+                                  ],
                                   "description": "Type of display driver"
                                 },
                                 "config": {
@@ -1021,7 +1026,9 @@
                                   "additionalProperties": true
                                 }
                               },
-                              "required": ["type"]
+                              "required": [
+                                "type"
+                              ]
                             }
                           },
                           "additionalProperties": false
@@ -1128,7 +1135,11 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["native", "cp2112","mock"],
+                  "enum": [
+                    "native",
+                    "cp2112",
+                    "mock"
+                  ],
                   "description": "I2C bus type"
                 },
                 "device": {
@@ -1172,7 +1183,9 @@
                         "description": "PWM frequency in Hz"
                       }
                     },
-                    "required": ["address"],
+                    "required": [
+                      "address"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -1207,12 +1220,21 @@
                       },
                       "gain": {
                         "type": "string",
-                        "enum": ["GAIN_TWOTHIRDS", "GAIN_ONE", "GAIN_TWO", "GAIN_FOUR", "GAIN_EIGHT", "GAIN_SIXTEEN"],
+                        "enum": [
+                          "GAIN_TWOTHIRDS",
+                          "GAIN_ONE",
+                          "GAIN_TWO",
+                          "GAIN_FOUR",
+                          "GAIN_EIGHT",
+                          "GAIN_SIXTEEN"
+                        ],
                         "default": "GAIN_TWO",
                         "description": "ADC gain setting"
                       }
                     },
-                    "required": ["address"],
+                    "required": [
+                      "address"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -1240,12 +1262,18 @@
                       },
                       "function": {
                         "type": "string",
-                        "enum": ["h_bridge_control", "general_purpose", "status_indication"],
+                        "enum": [
+                          "h_bridge_control",
+                          "general_purpose",
+                          "status_indication"
+                        ],
                         "default": "h_bridge_control",
                         "description": "Primary function of GPIO controller"
                       }
                     },
-                    "required": ["address"],
+                    "required": [
+                      "address"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -1277,7 +1305,10 @@
                   "additionalProperties": false
                 }
               },
-              "required": ["type", "device"],
+              "required": [
+                "type",
+                "device"
+              ],
               "additionalProperties": false
             }
           },
@@ -1326,12 +1357,22 @@
                   },
                   "sensor_type": {
                     "type": "string",
-                    "enum": ["thermocouple_k", "thermocouple_j", "rtd_pt100", "rtd_pt1000", "thermistor_ntc", "generic"],
+                    "enum": [
+                      "thermocouple_k",
+                      "thermocouple_j",
+                      "rtd_pt100",
+                      "rtd_pt1000",
+                      "thermistor_ntc",
+                      "generic"
+                    ],
                     "default": "generic",
                     "description": "Temperature sensor type"
                   }
                 },
-                "required": ["adc_address", "adc_channel"],
+                "required": [
+                  "adc_address",
+                  "adc_channel"
+                ],
                 "additionalProperties": false
               },
               "actuators": {
@@ -1356,7 +1397,10 @@
                             "description": "PWM channel number"
                           }
                         },
-                        "required": ["address", "channel"],
+                        "required": [
+                          "address",
+                          "channel"
+                        ],
                         "additionalProperties": false
                       },
                       "direction_controller": {
@@ -1390,11 +1434,18 @@
                                 "description": "H-Bridge enable GPIO pin"
                               }
                             },
-                            "required": ["h_bridge_in1", "h_bridge_in2", "h_bridge_enable"],
+                            "required": [
+                              "h_bridge_in1",
+                              "h_bridge_in2",
+                              "h_bridge_enable"
+                            ],
                             "additionalProperties": false
                           }
                         },
-                        "required": ["address", "gpio_pins"],
+                        "required": [
+                          "address",
+                          "gpio_pins"
+                        ],
                         "additionalProperties": false
                       },
                       "thermal_modes": {
@@ -1409,7 +1460,10 @@
                               },
                               "h_bridge_direction": {
                                 "type": "string",
-                                "enum": ["forward", "reverse"],
+                                "enum": [
+                                  "forward",
+                                  "reverse"
+                                ],
                                 "description": "H-Bridge direction"
                               },
                               "power_range": {
@@ -1425,7 +1479,11 @@
                                 "description": "Maximum power percentage"
                               }
                             },
-                            "required": ["description", "h_bridge_direction", "power_range"],
+                            "required": [
+                              "description",
+                              "h_bridge_direction",
+                              "power_range"
+                            ],
                             "additionalProperties": false
                           },
                           "cooling_tec": {
@@ -1437,7 +1495,10 @@
                               },
                               "h_bridge_direction": {
                                 "type": "string",
-                                "enum": ["forward", "reverse"],
+                                "enum": [
+                                  "forward",
+                                  "reverse"
+                                ],
                                 "description": "H-Bridge direction"
                               },
                               "power_range": {
@@ -1453,7 +1514,11 @@
                                 "description": "Maximum power percentage"
                               }
                             },
-                            "required": ["description", "h_bridge_direction", "power_range"],
+                            "required": [
+                              "description",
+                              "h_bridge_direction",
+                              "power_range"
+                            ],
                             "additionalProperties": false
                           },
                           "heating_resistive": {
@@ -1465,7 +1530,10 @@
                               },
                               "h_bridge_direction": {
                                 "type": "string",
-                                "enum": ["forward", "reverse"],
+                                "enum": [
+                                  "forward",
+                                  "reverse"
+                                ],
                                 "description": "H-Bridge direction"
                               },
                               "power_range": {
@@ -1481,19 +1549,33 @@
                                 "description": "Maximum power percentage"
                               }
                             },
-                            "required": ["description", "h_bridge_direction", "power_range"],
+                            "required": [
+                              "description",
+                              "h_bridge_direction",
+                              "power_range"
+                            ],
                             "additionalProperties": false
                           }
                         },
-                        "required": ["heating_tec", "cooling_tec", "heating_resistive"],
+                        "required": [
+                          "heating_tec",
+                          "cooling_tec",
+                          "heating_resistive"
+                        ],
                         "additionalProperties": false
                       }
                     },
-                    "required": ["pwm_controller", "direction_controller", "thermal_modes"],
+                    "required": [
+                      "pwm_controller",
+                      "direction_controller",
+                      "thermal_modes"
+                    ],
                     "additionalProperties": false
                   }
                 },
-                "required": ["thermal_control"],
+                "required": [
+                  "thermal_control"
+                ],
                 "additionalProperties": false
               },
               "temperature_conversion": {
@@ -1518,12 +1600,21 @@
                   },
                   "conversion_type": {
                     "type": "string",
-                    "enum": ["ntc_thermistor","polynomial", "linear", "lookup_table"],
+                    "enum": [
+                      "ntc_thermistor",
+                      "polynomial",
+                      "linear",
+                      "lookup_table"
+                    ],
                     "default": "polynomial",
                     "description": "Conversion algorithm type"
                   }
                 },
-                "required": ["formula", "adc_resolution", "voltage_reference"],
+                "required": [
+                  "formula",
+                  "adc_resolution",
+                  "voltage_reference"
+                ],
                 "additionalProperties": false
               },
               "pid_parameters": {
@@ -1564,7 +1655,15 @@
                     "description": "Maximum integral value (anti-windup)"
                   }
                 },
-                "required": ["kp", "ki", "kd", "setpoint", "output_min", "output_max", "integral_max"],
+                "required": [
+                  "kp",
+                  "ki",
+                  "kd",
+                  "setpoint",
+                  "output_min",
+                  "output_max",
+                  "integral_max"
+                ],
                 "additionalProperties": false
               },
               "control_parameters": {
@@ -1583,7 +1682,10 @@
                     "description": "PWM frequency in Hz"
                   }
                 },
-                "required": ["sampling_frequency_hz", "pwm_frequency_hz"],
+                "required": [
+                  "sampling_frequency_hz",
+                  "pwm_frequency_hz"
+                ],
                 "additionalProperties": false
               },
               "safety_limits": {
@@ -1614,11 +1716,26 @@
                     "description": "Maximum cooling duty cycle percentage"
                   }
                 },
-                "required": ["min_temperature_k", "max_temperature_k", "max_heating_duty", "max_cooling_duty"],
+                "required": [
+                  "min_temperature_k",
+                  "max_temperature_k",
+                  "max_heating_duty",
+                  "max_cooling_duty"
+                ],
                 "additionalProperties": false
               }
             },
-            "required": ["id", "name", "i2c_bus", "temperature_sensor", "actuators", "temperature_conversion", "pid_parameters", "control_parameters", "safety_limits"],
+            "required": [
+              "id",
+              "name",
+              "i2c_bus",
+              "temperature_sensor",
+              "actuators",
+              "temperature_conversion",
+              "pid_parameters",
+              "control_parameters",
+              "safety_limits"
+            ],
             "additionalProperties": false
           }
         },
