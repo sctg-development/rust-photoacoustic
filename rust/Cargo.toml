@@ -118,6 +118,7 @@ rcgen = "0.13.2"                                     # Certificate generation
 time = "0.3.41"                                       # Time handling for certificates
 anyhow = "1.0.98"                                  # Error handling
 rsa = "0.9.8"
+chrono = { version = "0.4.41", features = ["serde"] } # For build timestamps
 
 [patch."https://github.com/197g/oxide-auth"]
 oxide-auth-rocket = { path = "./oxide-auth-patched/oxide-auth-rocket" }

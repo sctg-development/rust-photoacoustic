@@ -4,6 +4,7 @@
 
 // Main entry point for the photoacoustic water vapor analyzer
 mod acquisition;
+mod build_info;
 mod config;
 mod daemon;
 mod modbus;
@@ -98,6 +99,18 @@ pub struct Args {
     #[arg(long)]
     modbus_port: Option<u16>,
 
+    /// Print version information and exit
+    #[arg(long)]
+    show_version: bool,
+
+    /// Print detailed build information and exit
+    #[arg(long)]
+    build_info: bool,
+
+    /// Print version hash and exit (for maintenance purposes)
+    #[arg(long)]
+    get_version_hash: bool,
+
     /// Enable verbose logging (debug level)
     #[arg(short = 'v', long = "verbose")]
     verbose: bool,
@@ -124,6 +137,25 @@ pub struct Args {
 
 #[rocket::main]
 async fn main() -> Result<()> {
+    // Parse command line arguments first
+    let args = Args::parse();
+
+    // Handle version-related options early (before any other initialization)
+    if args.show_version {
+        build_info::print_version_info();
+        return Ok(());
+    }
+
+    if args.build_info {
+        build_info::print_build_info();
+        return Ok(());
+    }
+
+    if args.get_version_hash {
+        println!("{}", build_info::get_version_hash());
+        return Ok(());
+    }
+
     // Initialize the default crypto provider for rustls (required for TLS connections)
     // This must be done once at the start of the application before any TLS operations
     if rustls::crypto::ring::default_provider()
@@ -139,7 +171,6 @@ async fn main() -> Result<()> {
     }
 
     // Initialize logger with appropriate level based on verbose and quiet flags
-    let args = Args::parse();
 
     // If --external-web-client is set, validate the URL
     if let Some(external_client) = &args.external_web_client {

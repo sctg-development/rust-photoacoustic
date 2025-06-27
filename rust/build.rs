@@ -695,12 +695,122 @@ fn build_rapidoc() -> Result<()> {
     println!("cargo:warning=Rapidoc built successfully");
     Ok(())
 }
+
+/// Extract Git commit information for build metadata
+fn get_git_info() -> Result<(String, String, String)> {
+    // Get current commit hash (short)
+    let commit_hash_short = Command::new("git")
+        .args(&["rev-parse", "--short", "HEAD"])
+        .output()
+        .context("Failed to execute git rev-parse --short HEAD")?;
+
+    if !commit_hash_short.status.success() {
+        return Err(anyhow::anyhow!(
+            "Git command failed: {}",
+            String::from_utf8_lossy(&commit_hash_short.stderr)
+        ));
+    }
+
+    // Get current commit hash (full)
+    let commit_hash_full = Command::new("git")
+        .args(&["rev-parse", "HEAD"])
+        .output()
+        .context("Failed to execute git rev-parse HEAD")?;
+
+    if !commit_hash_full.status.success() {
+        return Err(anyhow::anyhow!(
+            "Git command failed: {}",
+            String::from_utf8_lossy(&commit_hash_full.stderr)
+        ));
+    }
+
+    // Get commit date
+    let commit_date = Command::new("git")
+        .args(&["log", "-1", "--format=%ci"])
+        .output()
+        .context("Failed to execute git log for commit date")?;
+
+    if !commit_date.status.success() {
+        return Err(anyhow::anyhow!(
+            "Git command failed: {}",
+            String::from_utf8_lossy(&commit_date.stderr)
+        ));
+    }
+
+    // Check if working directory is dirty
+    let git_status = Command::new("git")
+        .args(&["status", "--porcelain"])
+        .output()
+        .context("Failed to execute git status")?;
+
+    let is_dirty = !git_status.stdout.is_empty();
+
+    let short_hash = String::from_utf8_lossy(&commit_hash_short.stdout)
+        .trim()
+        .to_string();
+    let full_hash = String::from_utf8_lossy(&commit_hash_full.stdout)
+        .trim()
+        .to_string();
+    let date = String::from_utf8_lossy(&commit_date.stdout)
+        .trim()
+        .to_string();
+
+    // Add dirty marker if working directory has uncommitted changes
+    let final_short_hash = if is_dirty {
+        format!("{}-dirty", short_hash)
+    } else {
+        short_hash
+    };
+
+    let final_full_hash = if is_dirty {
+        format!("{}-dirty", full_hash)
+    } else {
+        full_hash
+    };
+
+    Ok((final_short_hash, final_full_hash, date))
+}
+
 #[tokio::main]
 async fn main() {
     // Tells Cargo to rerun build.rs if any files in the web folder change or certificate files change
     println!("cargo:rerun-if-changed=web");
     println!("cargo:rerun-if-changed=resources/cert.pem");
     println!("cargo:rerun-if-changed=resources/cert.key");
+    // Rerun if .git directory changes (for commit hash updates)
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=.git/refs");
+
+    // Extract Git information and set environment variables
+    match get_git_info() {
+        Ok((short_hash, full_hash, commit_date)) => {
+            println!("cargo:rustc-env=GIT_COMMIT_HASH_SHORT={}", short_hash);
+            println!("cargo:rustc-env=GIT_COMMIT_HASH_FULL={}", full_hash);
+            println!("cargo:rustc-env=GIT_COMMIT_DATE={}", commit_date);
+            println!("cargo:warning=Git info: {} ({})", short_hash, commit_date);
+        }
+        Err(e) => {
+            println!("cargo:warning=Failed to get Git information: {}", e);
+            // Set fallback values
+            println!("cargo:rustc-env=GIT_COMMIT_HASH_SHORT=unknown");
+            println!("cargo:rustc-env=GIT_COMMIT_HASH_FULL=unknown");
+            println!("cargo:rustc-env=GIT_COMMIT_DATE=unknown");
+        }
+    }
+
+    // Set additional build information
+    let build_timestamp = chrono::Utc::now()
+        .format("%Y-%m-%d %H:%M:%S UTC")
+        .to_string();
+    println!("cargo:rustc-env=BUILD_TIMESTAMP={}", build_timestamp);
+
+    // Get Rust compiler version
+    let rustc_version = env::var("RUSTC_VERSION").unwrap_or_else(|_| "unknown".to_string());
+    println!("cargo:rustc-env=BUILD_RUSTC_VERSION={}", rustc_version);
+
+    // Get target triple
+    let target = env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
+    println!("cargo:rustc-env=BUILD_TARGET={}", target);
 
     // Generate certificate files if they don't exist
     if let Err(e) = create_certificate_files_if_needed() {
@@ -745,5 +855,17 @@ async fn main() {
     if let Err(e) = build_rapidoc() {
         eprintln!("cargo:warning=build_rapidoc failed: {}", e);
         panic!("Failed to build rapidoc helper: {}", e);
+    }
+
+    // Extract and print Git information
+    match get_git_info() {
+        Ok((short_hash, full_hash, date)) => {
+            println!("cargo:warning=Current Git short hash: {}", short_hash);
+            println!("cargo:warning=Current Git full hash: {}", full_hash);
+            println!("cargo:warning=Commit date: {}", date);
+        }
+        Err(e) => {
+            println!("cargo:warning=Failed to get Git info: {}", e);
+        }
     }
 }

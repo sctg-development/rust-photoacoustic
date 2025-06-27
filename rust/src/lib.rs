@@ -39,6 +39,12 @@
 /// This includes interfaces for working with microphones and file-based audio sources.
 pub mod acquisition;
 
+/// Build and version information for maintenance and debugging.
+///
+/// Provides access to Git commit hashes, build timestamps, and other metadata
+/// useful for tracking exact versions in deployed systems.
+pub mod build_info;
+
 /// Configuration handling for the photoacoustic application.
 ///
 /// Provides functionality for loading, validating, and managing application settings
