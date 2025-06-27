@@ -16,6 +16,10 @@ use crate::processing::computing_nodes::{
     },
     ConcentrationNode, PeakFinderNode, SharedComputingState, UniversalActionNode,
 };
+
+// Import PythonActionDriver when feature is enabled
+#[cfg(feature = "python-driver")]
+use crate::processing::computing_nodes::action_drivers::{PythonActionDriver, PythonDriverConfig};
 use crate::processing::nodes::{
     ChannelMixerNode, ChannelSelectorNode, ChannelTarget, DifferentialNode, FilterNode, GainNode,
     InputNode, MixStrategy, NodeId, PhotoacousticOutputNode, ProcessingData, ProcessingNode,

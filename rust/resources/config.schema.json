@@ -1016,7 +1016,7 @@
                                     "https_callback",
                                     "redis",
                                     "kafka",
-                                    "log"
+                                    "python"
                                   ],
                                   "description": "Type of display driver"
                                 },
