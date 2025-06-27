@@ -28,6 +28,7 @@
 //!   - `RedisActionDriver`: Publishes measurement data to Redis with optional TLS
 //!   - `HttpsCallbackActionDriver`: Sends data via HTTPS callbacks to external APIs
 //!   - `KafkaActionDriver`: Publishes measurement data to Kafka topics
+//!   - `PythonActionDriver`: Executes Python functions for custom actions
 //! - **ProcessingResult**: Final photoacoustic analysis result with metadata
 //! - **MeasurementData**: Structured measurement data for action driver consumption
 //!
@@ -472,6 +473,8 @@ pub use nodes::{
 pub use result::{PhotoacousticAnalysis, ProcessingResult};
 
 // Re-export action-related types from computing_nodes
+#[cfg(feature = "python-driver")]
+pub use computing_nodes::action_drivers::PythonActionDriver;
 pub use computing_nodes::{
     action_drivers::{
         ActionDriver, AlertData, HttpsCallbackActionDriver, KafkaActionDriver, MeasurementData,

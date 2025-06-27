@@ -26,7 +26,6 @@
 mod http;
 mod kafka;
 mod redis;
-
 // Python driver (feature-gated)
 #[cfg(feature = "python-driver")]
 mod python;
