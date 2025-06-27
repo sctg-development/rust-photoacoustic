@@ -159,6 +159,16 @@ use super::data::ProcessingData;
 use super::traits::ProcessingNode;
 use crate::acquisition::AudioFrame;
 
+#[cfg(feature = "python-driver")]
+use pyo3::prelude::*;
+
+/// Cached Python module to avoid recompilation overhead
+#[cfg(feature = "python-driver")]
+struct CachedPythonModule {
+    module_code: String,
+    last_modified: SystemTime,
+}
+
 /// Python processing node configuration
 ///
 /// This structure defines all the configuration options for the Python processing node.
@@ -300,6 +310,8 @@ pub struct PythonNode {
     last_modified: Arc<Mutex<Option<SystemTime>>>,
     initialized: Arc<Mutex<bool>>,
     status: Arc<Mutex<String>>,
+    #[cfg(feature = "python-driver")]
+    cached_module: Arc<Mutex<Option<CachedPythonModule>>>,
 }
 
 impl std::fmt::Debug for PythonNode {
@@ -344,6 +356,8 @@ impl PythonNode {
             last_modified: Arc::new(Mutex::new(None)),
             initialized: Arc::new(Mutex::new(false)),
             status: Arc::new(Mutex::new("created".to_string())),
+            #[cfg(feature = "python-driver")]
+            cached_module: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -521,7 +535,7 @@ impl PythonNode {
         }
     }
 
-    /// Call a Python function with the given arguments
+    /// Call a Python function with the given arguments (optimized with module caching)
     #[cfg(feature = "python-driver")]
     fn call_python_function(&self, function_name: &str, args: Value) -> Result<Value> {
         use pyo3::prelude::*;
@@ -531,7 +545,13 @@ impl PythonNode {
         let start_time = Instant::now();
 
         Python::with_gil(|py| -> Result<Value> {
-            // Set up Python path if specified
+            // Get or create cached module
+            let module_code = self.get_or_load_module_code()?;
+
+            // Create module from cached code (this is much faster than file I/O)
+            let module = PyModule::from_code(py, &module_code, "processor.py", "processor")?;
+
+            // Set up Python path if specified (only do this once during initialization ideally)
             if !self.config.python_paths.is_empty() {
                 let sys = py.import("sys")?;
                 let path = sys.getattr("path")?;
@@ -541,18 +561,6 @@ impl PythonNode {
                     }
                 }
             }
-
-            // Load the script
-            let script_content =
-                std::fs::read_to_string(&self.config.script_path).map_err(|e| {
-                    anyhow!(
-                        "Failed to read script file {:?}: {}",
-                        self.config.script_path,
-                        e
-                    )
-                })?;
-
-            let module = PyModule::from_code(py, &script_content, "processor.py", "processor")?;
 
             // Check if function exists
             if !module.hasattr(function_name)? {
@@ -593,6 +601,79 @@ impl PythonNode {
             );
             Ok(json_result)
         })
+    }
+
+    /// Get module code, using cache when possible
+    #[cfg(feature = "python-driver")]
+    fn get_or_load_module_code(&self) -> Result<String> {
+        // Check if we need to reload the script
+        let should_reload = if self.config.auto_reload {
+            self.script_modified()?
+        } else {
+            // If auto_reload is false, only reload if we haven't loaded yet
+            let cached = self
+                .cached_module
+                .lock()
+                .map_err(|e| anyhow!("Failed to lock cached_module: {}", e))?;
+            cached.is_none()
+        };
+
+        if should_reload {
+            // Load script from disk
+            let script_content =
+                std::fs::read_to_string(&self.config.script_path).map_err(|e| {
+                    anyhow!(
+                        "Failed to read script file {:?}: {}",
+                        self.config.script_path,
+                        e
+                    )
+                })?;
+
+            let metadata = std::fs::metadata(&self.config.script_path)?;
+            let modified = metadata.modified()?;
+
+            // Cache the module
+            let mut cached = self
+                .cached_module
+                .lock()
+                .map_err(|e| anyhow!("Failed to lock cached_module: {}", e))?;
+            *cached = Some(CachedPythonModule {
+                module_code: script_content.clone(),
+                last_modified: modified,
+            });
+
+            // Update last_modified
+            let mut last_modified = self
+                .last_modified
+                .lock()
+                .map_err(|e| anyhow!("Failed to lock last_modified: {}", e))?;
+            *last_modified = Some(modified);
+
+            info!(
+                "Loaded Python script from disk: {:?}",
+                self.config.script_path
+            );
+            Ok(script_content)
+        } else {
+            // Use cached version
+            let cached = self
+                .cached_module
+                .lock()
+                .map_err(|e| anyhow!("Failed to lock cached_module: {}", e))?;
+            match &*cached {
+                Some(cached_module) => Ok(cached_module.module_code.clone()),
+                None => {
+                    // Fallback: load from disk
+                    std::fs::read_to_string(&self.config.script_path).map_err(|e| {
+                        anyhow!(
+                            "Failed to read script file {:?}: {}",
+                            self.config.script_path,
+                            e
+                        )
+                    })
+                }
+            }
+        }
     }
 
     #[cfg(not(feature = "python-driver"))]
@@ -943,6 +1024,11 @@ impl ProcessingNode for PythonNode {
         {
             let mut last_modified = self.last_modified.lock().unwrap();
             *last_modified = None;
+        }
+        #[cfg(feature = "python-driver")]
+        {
+            let mut cached = self.cached_module.lock().unwrap();
+            *cached = None;
         }
 
         debug!("Python node '{}' reset", self.id);

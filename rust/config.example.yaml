@@ -290,16 +290,17 @@ processing:
     # It can be used for advanced filtering, machine learning inference, or custom algorithms
     # This nodes is useful for developers to implement custom algorithms
     # and integrate them into the processing pipeline without modifying the core system.
-    - id: "python_filter"
-      node_type: "python"
-      parameters:
-        script_path: scipy_bandpass_filter.py # Path to the Python script processing the audio data
-        auto_reload: true                     # Automatically reload script on changes
-        timeout_seconds: 5                    # Timeout for script execution
-        process_function: process_data        # Function to process audio data
-        init_function: initialize             # Function to initialize resources
-        shutdown_function: shutdown           # Function to clean up resources
-        status_function: get_status           # Function to get status information
+    # Note: this node is 100x slower than the rust filter node, so use it only for specific tasks.
+    # - id: "python_filter"
+    #   node_type: "python"
+    #   parameters:
+    #     script_path: scipy_bandpass_filter.py     # Path to the Python script processing the audio data
+    #     auto_reload: true                         # Automatically reload script on changes (use it only in development)
+    #     timeout_seconds: 5                        # Timeout for script execution
+    #     process_function: process_data            # Function to process audio data
+    #     init_function: initialize                 # Function to initialize resources
+    #     shutdown_function: shutdown               # Function to clean up resources
+    #     status_function: get_status               # Function to get status information
 
     # Peak finder for real-time frequency analysis (pass-through)
     # Note: fft_size uses photoacoustic.frame_size and sample_rate uses photoacoustic.sample_rate

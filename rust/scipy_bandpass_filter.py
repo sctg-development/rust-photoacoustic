@@ -46,8 +46,8 @@ import json
 # -----------------------------
 
 # Filter configuration
-LOW_FREQ = 300.0   # Low cutoff frequency in Hz
-HIGH_FREQ = 3000.0 # High cutoff frequency in Hz
+LOW_FREQ = 2000.5   # Low cutoff frequency in Hz
+HIGH_FREQ = 2201.0 # High cutoff frequency in Hz
 FILTER_ORDER = 5   # Butterworth filter order
 
 
