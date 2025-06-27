@@ -134,6 +134,9 @@ jobs:
           docker cp temp-container-amd64:/usr/local/bin/redis_viewer /tmp/amd64/ || echo "redis_viewer not found"
           docker cp temp-container-amd64:/usr/local/bin/rs256keygen /tmp/amd64/ || echo "rs256keygen not found"
           docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
+          # copy also the python binary and libpython static library
+          docker cp temp-container-amd64:/usr/local/bin/python3 /tmp/amd64/ || echo "python3 not found"
+          docker cp temp-container-amd64:/usr/local/lib/libpython3.12.a /tmp/amd64/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-amd64
           
@@ -166,6 +169,9 @@ jobs:
           docker cp temp-container-arm64:/usr/local/bin/redis_viewer /tmp/arm64/ || echo "redis_viewer not found"
           docker cp temp-container-arm64:/usr/local/bin/rs256keygen /tmp/arm64/ || echo "rs256keygen not found"
           docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
+          # copy also the python binary and libpython static library
+          docker cp temp-container-arm64:/usr/local/bin/python3 /tmp/arm64/ || echo "python3 not found"
+          docker cp temp-container-arm64:/usr/local/lib/libpython3.12.a /tmp/arm64/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-arm64
           
@@ -199,6 +205,9 @@ jobs:
           docker cp temp-container-armhf:/usr/local/bin/redis_viewer /tmp/armhf/ || echo "redis_viewer not found"
           docker cp temp-container-armhf:/usr/local/bin/rs256keygen /tmp/armhf/ || echo "rs256keygen not found"
           docker cp temp-container-armhf:/usr/local/bin/rust_photoacoustic /tmp/armhf/ || echo "rust_photoacoustic not found"
+          # copy also the python binary and libpython static library
+          docker cp temp-container-armhf:/usr/local/bin/python3 /tmp/armhf/ || echo "python3 not found"
+          docker cp temp-container-armhf:/usr/local/lib/libpython3.12.a /tmp/armhf/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-armhf
           

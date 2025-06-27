@@ -66,7 +66,8 @@ RUN cd /tmp && \
                 CFLAGS="-fPIC -static" && \
     make -j$(nproc) && \
     make install && \
-    mv /usr/local/lib/libasound.a /usr/lib/libasound.a 
+    mv /usr/local/lib/libasound.a /usr/lib/libasound.a &&\
+    rm -v /usr/lib/libasound.so*
 
 # Compile python and libpython3.12.2 statically
 RUN curl -sl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz | tar xz -C / && \
@@ -84,12 +85,13 @@ RUN curl -sl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VE
                 LINKFORSHARED=" " \
                 DYNLOADFILE="dynload_stub.o" && \
     make -j$(nproc) python && \
-    cp /Python-$PYTHON_VERSION/python /usr/local/bin/python3 && \
-    cp /Python-$PYTHON_VERSION/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a && \
+    make -j$(nproc) install 2> /dev/null || true && \
+    # cp /Python-$PYTHON_VERSION/python /usr/local/bin/python3 && \
+    # cp /Python-$PYTHON_VERSION/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a && \
     # Copy Python headers - essential for PyO3 compilation
-    mkdir -p /usr/local/include/python$PYTHON_SHORT_VERSION && \
-    cp -r /Python-$PYTHON_VERSION/Include/* /usr/local/include/python$PYTHON_SHORT_VERSION/ && \
-    cp /Python-$PYTHON_VERSION/pyconfig.h /usr/local/include/python$PYTHON_SHORT_VERSION/ && \
+    # mkdir -p /usr/local/include/python$PYTHON_SHORT_VERSION && \
+    # cp -r /Python-$PYTHON_VERSION/Include/* /usr/local/include/python$PYTHON_SHORT_VERSION/ && \
+    # cp /Python-$PYTHON_VERSION/pyconfig.h /usr/local/include/python$PYTHON_SHORT_VERSION/ && \
     ln -s /usr/local/bin/python3 /usr/local/bin/python && \
     ln -s /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython3.a && \
     ln -s /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython.a && \
@@ -135,8 +137,20 @@ ENV LIBRDKAFKA_SYS_USE_PKG_CONFIG=1
 ENV RDKAFKA_SYS_USE_PKG_CONFIG=1  
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
+# Remove auto-initialize feature from PyO3 to avoid issues with static linking
+RUN cd /rust-photoacoustic/rust && \
+    sed -i '/^pyo3.*$/s/, features = \["auto-initialize"\]//' Cargo.toml
+
 # Build for different architectures with proper error handling
-RUN cd rust && \
+RUN cd /rust-photoacoustic/rust && \
+    # Remove some .so for avoiding issues with static linking
+    rm -f /usr/local/lib/libpython3.so* && \
+    rm -f /usr/local/lib/libpython3.13.so* && \
+    rm -f /usr/local/lib/libpython3.13.so && \
+    rm -f /usr/local/lib/libpython3.so && \
+    rm -f /usr/lib/libcrypto.so* && \
+    rm -f /usr/lib/libssl.so* && \
+    rm -f /usr/lib/libcrypto.so && \
     if [ "$(uname -m)" = "armv7l" ]; then \
        echo "Building for armv7l architecture" && \
        . /root/.cargo/env && rustup target add armv7-unknown-linux-musleabihf && \
@@ -144,7 +158,7 @@ RUN cd rust && \
        ln -svf /usr/bin/strip /usr/bin/arm-linux-musleabihf-strip && \
        ln -svf /usr/bin/ranlib /usr/bin/arm-linux-musleabihf-ranlib && \
        echo "armv7-unknown-linux-musleabihf" > _target && \
-       cargo build --release --target armv7-unknown-linux-musleabihf --feature static --verbose && \
+       cargo build --release --target armv7-unknown-linux-musleabihf --verbose && \
        echo "Build completed successfully for armv7l" && \
        ls -la target/armv7-unknown-linux-musleabihf/release/; \
     elif [ "$(uname -m)" = "aarch64" ]; then \
@@ -154,14 +168,14 @@ RUN cd rust && \
        ln -svf /usr/bin/strip /usr/bin/aarch64-linux-musl-strip && \
        ln -svf /usr/bin/ranlib /usr/bin/aarch64-linux-musl-ranlib && \
        echo "aarch64-unknown-linux-musl" > _target && \
-       cargo build --release --target aarch64-unknown-linux-musl --feature static --verbose && \
+       cargo build --release --target aarch64-unknown-linux-musl --verbose && \
        echo "Build completed successfully for aarch64" && \
        ls -la target/aarch64-unknown-linux-musl/release/; \
     elif [ "$(uname -m)" = "x86_64" ]; then \
        echo "Building for x86_64 architecture" && \
        . /root/.cargo/env && rustup target add x86_64-unknown-linux-musl && \
        echo "x86_64-unknown-linux-musl" > _target && \
-       cargo build --release --target x86_64-unknown-linux-musl --feature static --verbose && \
+       cargo build --release --target x86_64-unknown-linux-musl --verbose && \
        echo "Build completed successfully for x86_64" && \
        ls -la target/x86_64-unknown-linux-musl/release/; \
     else \
@@ -169,6 +183,11 @@ RUN cd rust && \
     fi
 
 FROM alpine:3.18 AS runtime
+ARG PYTHON_VERSION=3.12.11
+ARG PYTHON_SHORT_VERSION=3.12
+ENV PYTHON_VERSION=$PYTHON_VERSION
+ENV PYTHON_SHORT_VERSION=$PYTHON_SHORT_VERSION
+
 RUN apk add --no-cache ca-certificates
 
 # Set up runtime user for security
@@ -186,8 +205,8 @@ RUN chown photoacoustic:photoacoustic /app/config/config.yaml
 RUN mkdir -p /Python-$PYTHON_VERSION/copy-binaries
 
 # Copy python and libpython3.13.5 statically built in the builder stage
-COPY --from=builder /usr/local/bin/python3 /usr/local/bin/python3
-COPY --from=builder /usr/local/lib/libpython3.13.a /usr/local/lib/libpython3.13.a
+COPY --from=builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
+COPY --from=builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
 
 # Copy the target file created during build to determine the architecture
 COPY --from=builder /rust-photoacoustic/rust/_target /Python-$PYTHON_VERSION/_target
