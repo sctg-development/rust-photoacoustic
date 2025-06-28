@@ -365,6 +365,7 @@ jobs:
     needs: build_release_binaries
     env:
       DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
+      INDIVIDUAL_STATIC_RELEASES: off # Set to 'enabled' to enable individual static releases
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
@@ -585,6 +586,7 @@ jobs:
           done
 
       - name: Upload amd64 Release binaries
+        if: ${{ env.INDIVIDUAL_STATIC_RELEASES == 'enabled' }}
         continue-on-error: true
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -608,6 +610,7 @@ jobs:
             fi
 
       - name: Upload arm64 Release binaries
+        if: ${{ env.INDIVIDUAL_STATIC_RELEASES == 'enabled' }}
         continue-on-error: true
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -634,7 +637,7 @@ jobs:
         continue-on-error: true
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' }}
+        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' && env.INDIVIDUAL_STATIC_RELEASES == 'enabled' }} 
         run: |
             echo "Uploading armhf binaries..."
             ls -la /tmp/armhf/
