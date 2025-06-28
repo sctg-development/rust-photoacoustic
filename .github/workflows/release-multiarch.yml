@@ -226,9 +226,12 @@ jobs:
         fi
         
         # Copy all binaries
-        for binary in rust_photoacoustic pid_tuner; do
+        for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
           if [ -f "target/${{ matrix.target }}/release/${binary}${EXE_EXT}" ]; then
             cp "target/${{ matrix.target }}/release/${binary}${EXE_EXT}" "package/bin/"
+            echo "Packaged binary: ${binary}${EXE_EXT}"
+          else
+            echo "Binary not found: ${binary}${EXE_EXT}"
           fi
         done
         
@@ -240,24 +243,27 @@ jobs:
           cp "$CONDA/envs/release-env/lib/${PYTHON_LIB_NAME}" package/lib/ || echo "Python library not found"
         fi
         
-        # Create launch scripts
+        # Create launch scripts for all binaries
         if [[ "${{ runner.os }}" == "Windows" ]]; then
-          # Windows batch script
-          cat > package/rust_photoacoustic.bat << 'EOF'
+          # Windows batch scripts
+          for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
+            if [ -f "package/bin/${binary}.exe" ]; then
+              cat > "package/${binary}.bat" << 'EOFBAT'
         @echo off
         set SCRIPT_DIR=%~dp0
         set PATH=%SCRIPT_DIR%lib;%PATH%
-        "%SCRIPT_DIR%bin\rust_photoacoustic.exe" %*
-        EOF
-          cat > package/pid_tuner.bat << 'EOF'
-        @echo off
-        set SCRIPT_DIR=%~dp0
-        set PATH=%SCRIPT_DIR%lib;%PATH%
-        "%SCRIPT_DIR%bin\pid_tuner.exe" %*
-        EOF
+        "%SCRIPT_DIR%bin\${binary}.exe" %*
+        EOFBAT
+              # Replace ${binary} in the generated file
+              sed -i "s/\${binary}/${binary}/g" "package/${binary}.bat"
+              echo "Created launch script: ${binary}.bat"
+            fi
+          done
         else
-          # Unix shell script
-          cat > package/rust_photoacoustic << 'EOF'
+          # Unix shell scripts
+          for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
+            if [ -f "package/bin/${binary}" ]; then
+              cat > "package/${binary}" << 'EOFSH'
         #!/bin/bash
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
         if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -265,19 +271,14 @@ jobs:
         else
             export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
         fi
-        exec "${SCRIPT_DIR}/bin/rust_photoacoustic" "$@"
-        EOF
-          cat > package/pid_tuner << 'EOF'
-        #!/bin/bash
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            export DYLD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${DYLD_LIBRARY_PATH}"
-        else
-            export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
-        fi
-        exec "${SCRIPT_DIR}/bin/pid_tuner" "$@"
-        EOF
-          chmod +x package/rust_photoacoustic package/pid_tuner
+        exec "${SCRIPT_DIR}/bin/BINARYNAME" "$@"
+        EOFSH
+              # Replace BINARYNAME with actual binary name
+              sed -i "s/BINARYNAME/${binary}/g" "package/${binary}"
+              chmod +x "package/${binary}"
+              echo "Created launch script: ${binary}"
+            fi
+          done
         fi
         
         # Create README
@@ -289,8 +290,23 @@ jobs:
         ## Contents
         
         - `bin/`: Executable binaries
-        - `lib/`: Required Python libraries
+        - `lib/`: Required Python libraries  
         - Launch scripts for easy execution
+        
+        ## Available Tools
+        
+        - **rust_photoacoustic**: Main photoacoustic analysis server
+        - **analyze_spectrum**: Spectrum analysis tool
+        - **create_token**: JWT token generation utility
+        - **debug_config**: Configuration debugging utility
+        - **differential**: Differential signal processing
+        - **filters**: Signal filtering utilities
+        - **modbus_client**: Modbus communication client
+        - **noise_generator**: Noise generation for testing
+        - **pid_tuner**: PID controller tuning tool
+        - **redis_viewer**: Redis data viewer
+        - **rs256keygen**: RS256 key generation utility
+        - **standalone**: Standalone analysis tool
         
         ## Usage
         
@@ -298,12 +314,16 @@ jobs:
         ```
         rust_photoacoustic.bat [options]
         pid_tuner.bat [options]
+        analyze_spectrum.bat [options]
+        # ... (other tools available with .bat extension)
         ```
         
         ### On macOS/Linux:
         ```
         ./rust_photoacoustic [options]
         ./pid_tuner [options]
+        ./analyze_spectrum [options]
+        # ... (other tools available as executable scripts)
         ```
         
         ## Requirements
