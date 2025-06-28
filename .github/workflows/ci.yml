@@ -26,7 +26,7 @@ jobs:
             cross: false
           - os: macos-latest
             target: aarch64-apple-darwin
-            cross: true
+            cross: false
     
     steps:
     
@@ -131,21 +131,6 @@ jobs:
         
         # Install required Python packages
         conda install -n test-env numpy scipy matplotlib -y
-        
-        # Install additional packages for better compatibility
-        if [[ "${{ runner.os }}" == "Linux" ]]; then
-          # Install SciPy with all dependencies for Linux
-          conda install -n test-env scipy libgfortran blas lapack -y
-          # Install additional build tools
-          conda install -n test-env gcc_linux-64 gfortran_linux-64 -y
-        elif [[ "${{ runner.os }}" == "Windows" ]]; then
-          # Install Intel MKL for Windows to fix oneMKL issues
-          conda install -n test-env mkl mkl-service intel-openmp -y
-          # Install additional Python packages that might be needed
-          conda install -n test-env scipy numpy matplotlib -c intel -y
-          # Try alternative: install from conda-forge with explicit MKL
-          conda install -n test-env "blas=*=mkl" -y || echo "MKL BLAS installation failed"
-        fi
 
     # Cache Dependencies
     - name: Cache dependencies
@@ -184,7 +169,9 @@ jobs:
       run: |
         cd rust
         # Run standard tests without python-driver feature
-        cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon
+        cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon \
+            --skip test_python_node_scipy_bandpass_filter_single_channel \
+            --skip test_python_node_scipy_bandpass_filter_dual_channel
         
     # Run Python integration tests with python-driver feature
     - name: Run Python integration tests
@@ -206,64 +193,18 @@ jobs:
         python --version
         which python
         
-        # Test Python dependencies before running Rust tests
-        echo "Testing Python dependencies..."
-        python -c "import numpy; print(f'NumPy: {numpy.__version__}')" || echo "NumPy import failed"
-        python -c "import scipy; print(f'SciPy: {scipy.__version__}')" || echo "SciPy import failed"
-        python -c "import matplotlib; print(f'Matplotlib: {matplotlib.__version__}')" || echo "Matplotlib import failed"
-        
-        # Test SciPy functionality specifically
-        echo "Testing SciPy signal processing..."
-        python -c "
-        try:
-            import scipy.signal
-            print('SciPy signal module: OK')
-            # Test butter filter specifically
-            b, a = scipy.signal.butter(4, 0.2, 'low')
-            print('SciPy butter filter: OK')
-        except Exception as e:
-            print(f'SciPy signal test failed: {e}')
-            exit(1)
-        " || echo "SciPy signal functionality test failed - will skip related tests"
-        
-        # Store test result for conditional test execution
-        if python -c "import scipy.signal; scipy.signal.butter(4, 0.2, 'low')" 2>/dev/null; then
-          echo "SCIPY_WORKING=true" >> $GITHUB_ENV
-        else
-          echo "SCIPY_WORKING=false" >> $GITHUB_ENV
-          echo "⚠️ SciPy not working properly - some tests will be skipped"
-        fi
-        
         # List available Python libraries on macOS for debugging
         if [[ "${{ runner.os }}" == "macOS" ]]; then
           echo "Python library path: $CONDA/envs/test-env/lib"
           ls -la "$CONDA/envs/test-env/lib/" | grep -i python || echo "No python libraries found"
-        elif [[ "${{ runner.os }}" == "Windows" ]]; then
-          echo "Python library path: $CONDA/envs/test-env/Library/bin"
-          ls "$CONDA/envs/test-env/Library/bin/" | grep -i mkl || echo "No MKL libraries found"
-          echo "Checking for Intel OpenMP..."
-          ls "$CONDA/envs/test-env/Library/bin/" | grep -i openmp || echo "No OpenMP libraries found"
         fi
         
-        # Run Python integration tests with conditional SciPy tests
-        if [[ "$SCIPY_WORKING" == "true" ]]; then
-          echo "✅ Running full Python integration tests (SciPy working)"
-          cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
-        else
-          echo "⚠️ Running limited Python integration tests (SciPy issues detected)"
-          # Run tests but exclude the problematic SciPy-dependent tests
-          cargo test python_integration_tests --features python-driver --target ${{ matrix.target }} -- \
-            --skip test_python_node_scipy_bandpass_filter_single_channel \
-            --skip test_python_node_scipy_bandpass_filter_dual_channel
-        fi
+        # Run Python integration tests
+        cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
         
         # Run doctests with python-driver feature
         echo "Running doctests..."
-        if cargo test --doc --features python-driver --target ${{ matrix.target }}; then
-          echo "✅ Doctests passed"
-        else
-          echo "⚠️ Some doctests failed, but continuing..."
-        fi
+        cargo test --doc --features python-driver --target ${{ matrix.target }}
       
     # Run specific tests with custom timeout
     - name: Run introspection tests
@@ -283,26 +224,3 @@ jobs:
           cargo test --test introspection_test -- --nocapture
         fi
       shell: bash
-    
-    # Alternative Python tests for Windows (if main tests fail)
-    - name: Fallback Python tests (Windows)
-      if: matrix.cross == false && runner.os == 'Windows'
-      shell: bash -l {0}
-      continue-on-error: true
-      run: |
-        cd rust
-        conda activate test-env
-        
-        echo "🔄 Attempting alternative Python test execution for Windows..."
-        
-        # Set additional environment variables for Windows
-        export MKL_NUM_THREADS=1
-        export OMP_NUM_THREADS=1
-        export NUMBA_DISABLE_INTEL_SVML=1
-        
-        # Try running only the non-SciPy dependent tests
-        echo "Running basic Python integration tests..."
-        cargo test python_integration_tests --features python-driver --target ${{ matrix.target }} -- \
-          --skip test_python_node_scipy_bandpass_filter_single_channel \
-          --skip test_python_node_scipy_bandpass_filter_dual_channel \
-          --nocapture || echo "⚠️ Fallback tests also failed, but continuing CI..."
