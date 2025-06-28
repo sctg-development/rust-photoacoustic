@@ -1,0 +1,21 @@
+# Cargo configuration for rust-photoacoustic
+# This file handles platform-specific linking configurations
+
+[build]
+# Default build configuration
+
+[target.x86_64-apple-darwin]
+# Configure rpath for macOS Intel to find Python libraries
+rustflags = ["-C", "link-args=-Wl,-rpath,@executable_path/../lib"]
+
+[target.aarch64-apple-darwin]
+# Configure rpath for macOS Apple Silicon to find Python libraries  
+rustflags = ["-C", "link-args=-Wl,-rpath,@executable_path/../lib"]
+
+[target.x86_64-unknown-linux-gnu]
+# Configure rpath for Linux to find Python libraries
+rustflags = ["-C", "link-args=-Wl,-rpath,$ORIGIN/../lib"]
+
+# Windows doesn't need rpath configuration as it uses DLL search paths
+# [target.x86_64-pc-windows-msvc]
+# No specific rustflags needed for Windows

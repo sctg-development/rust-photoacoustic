@@ -17,6 +17,326 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Build non-static binaries for multiple platforms
+  build_release_binaries:
+    name: Build Release Binaries on ${{ matrix.os }} (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            cross: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            cross: false
+          - os: macos-13
+            target: x86_64-apple-darwin
+            cross: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            cross: true
+    
+    steps:
+    # Set UTF-8 encoding for Windows to handle Unicode characters in Python scripts
+    - name: Set UTF-8 encoding (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
+        echo "LANG=en_US.UTF-8" >> $env:GITHUB_ENV
+        echo "LC_ALL=en_US.UTF-8" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Clean runner for Docker builds
+      if: matrix.os == 'ubuntu-latest'
+      uses: sctg-development/clean-image-for-docker@v1
+      with:
+        remove-development-tools: 'false'
+        remove-browsers: 'true'
+        remove-databases: 'true'
+        remove-cloud-tools: 'true'
+        show-top-packages: 'true'
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+        fetch-depth: 0
+    
+    # Debug submodules
+    - name: Debug submodules
+      shell: bash
+      run: |
+        echo "=== Git submodule status ==="
+        git submodule status
+        echo "=== .gitmodules content ==="
+        cat .gitmodules || echo "No .gitmodules found"
+        echo "=== Checking rust directory ==="
+        ls -la rust/
+        echo "=== Force submodule sync and update ==="
+        git submodule sync --recursive
+        git submodule update --init --recursive --force
+        echo "=== Final submodule status ==="
+        git submodule status
+    
+    # Install Rust toolchain
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: 1.86.0
+        targets: ${{ matrix.target }}
+        components: rustfmt, clippy
+      
+    # Install dependencies for Linux
+    - name: Install Linux dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2-dev
+        
+    # Install LLVM and Clang (required for bindgen)
+    - name: Install LLVM and Clang
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: "14.0"
+
+    # Install Anaconda3 for Python support
+    - name: Setup Anaconda3
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.12'
+        channels: conda-forge,defaults
+        channel-priority: true
+        activate-environment: release-env
+        use-mamba: false
+        conda-solver: classic
+        auto-activate-base: true
+        
+    # Configure Python environment variables for PyO3
+    - name: Configure Python environment
+      shell: bash -l {0}
+      run: |
+        # Activate conda environment
+        conda activate release-env
+        
+        # Set environment variables
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/release-env/python.exe" >> $GITHUB_ENV
+          echo "PYTHONPATH=$CONDA/envs/release-env/Lib/site-packages" >> $GITHUB_ENV
+          echo "$CONDA/envs/release-env/Scripts" >> $GITHUB_PATH
+          echo "$CONDA/envs/release-env" >> $GITHUB_PATH
+        else
+          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/release-env/bin/python" >> $GITHUB_ENV
+          echo "PYTHONPATH=$CONDA/envs/release-env/lib/python3.12/site-packages" >> $GITHUB_ENV
+          echo "$CONDA/envs/release-env/bin" >> $GITHUB_PATH
+          
+          # Configure dynamic library path for macOS
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "DYLD_LIBRARY_PATH=$CONDA/envs/release-env/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+          fi
+        fi
+        
+        # Install required Python packages
+        conda install -n release-env numpy scipy matplotlib -y
+
+    # Set release tag
+    - name: Set release tag
+      id: set_tag
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # For manual workflow dispatch, use nightly tag with current date
+          TAG="nightly.$(date +'%Y%m%d')"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using nightly tag: $TAG"
+        else
+          # For release events, use the release tag
+          TAG="${{ github.event.release.tag_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using release tag: $TAG"
+        fi
+
+    # Cache Dependencies
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: "rust -> target"
+        key: rust-release-${{ matrix.os }}-${{ matrix.target }}
+  
+    - name: Create base configuration
+      run: |
+        cp rust/config.example.yaml rust/config.yaml
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: 'web/package-lock.json'
+    
+    - name: Install Node.js dependencies
+      run: |
+        cd web
+        npm install && npm run build
+    
+    # Build release binaries
+    - name: Build release binaries
+      shell: bash -l {0}
+      run: |
+        cd rust
+        # Activate conda environment
+        conda activate release-env
+        
+        # Configure macOS dynamic library path if needed
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          export DYLD_LIBRARY_PATH="$CONDA/envs/release-env/lib:$DYLD_LIBRARY_PATH"
+          echo "DYLD_LIBRARY_PATH set to: $DYLD_LIBRARY_PATH"
+        fi
+        
+        # Build all binaries in release mode
+        cargo build --release --target ${{ matrix.target }} --features python-driver
+
+    # Package binaries with Python dependencies
+    - name: Package binaries
+      shell: bash -l {0}
+      run: |
+        cd rust
+        conda activate release-env
+        
+        # Create package directory
+        mkdir -p package/bin
+        mkdir -p package/lib
+        
+        # Define file extensions based on OS
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          EXE_EXT=".exe"
+          LIB_EXT=".dll"
+          PYTHON_LIB_NAME="python312.dll"
+        else
+          EXE_EXT=""
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            LIB_EXT=".dylib"
+            PYTHON_LIB_NAME="libpython3.12.dylib"
+          else
+            LIB_EXT=".so"
+            PYTHON_LIB_NAME="libpython3.12.so.1.0"
+          fi
+        fi
+        
+        # Copy all binaries
+        for binary in rust_photoacoustic pid_tuner; do
+          if [ -f "target/${{ matrix.target }}/release/${binary}${EXE_EXT}" ]; then
+            cp "target/${{ matrix.target }}/release/${binary}${EXE_EXT}" "package/bin/"
+          fi
+        done
+        
+        # Copy Python library
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          cp "$CONDA/envs/release-env/${PYTHON_LIB_NAME}" package/lib/ || echo "Python library not found"
+          cp "$CONDA/envs/release-env/Library/bin/python312.dll" package/lib/ || echo "Python312.dll not found"
+        else
+          cp "$CONDA/envs/release-env/lib/${PYTHON_LIB_NAME}" package/lib/ || echo "Python library not found"
+        fi
+        
+        # Create launch scripts
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # Windows batch script
+          cat > package/rust_photoacoustic.bat << 'EOF'
+        @echo off
+        set SCRIPT_DIR=%~dp0
+        set PATH=%SCRIPT_DIR%lib;%PATH%
+        "%SCRIPT_DIR%bin\rust_photoacoustic.exe" %*
+        EOF
+          cat > package/pid_tuner.bat << 'EOF'
+        @echo off
+        set SCRIPT_DIR=%~dp0
+        set PATH=%SCRIPT_DIR%lib;%PATH%
+        "%SCRIPT_DIR%bin\pid_tuner.exe" %*
+        EOF
+        else
+          # Unix shell script
+          cat > package/rust_photoacoustic << 'EOF'
+        #!/bin/bash
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            export DYLD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${DYLD_LIBRARY_PATH}"
+        else
+            export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
+        fi
+        exec "${SCRIPT_DIR}/bin/rust_photoacoustic" "$@"
+        EOF
+          cat > package/pid_tuner << 'EOF'
+        #!/bin/bash
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            export DYLD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${DYLD_LIBRARY_PATH}"
+        else
+            export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
+        fi
+        exec "${SCRIPT_DIR}/bin/pid_tuner" "$@"
+        EOF
+          chmod +x package/rust_photoacoustic package/pid_tuner
+        fi
+        
+        # Create README
+        cat > package/README.md << 'EOF'
+        # Rust Photoacoustic - Release Package
+        
+        This package contains the Rust Photoacoustic binaries with Python integration.
+        
+        ## Contents
+        
+        - `bin/`: Executable binaries
+        - `lib/`: Required Python libraries
+        - Launch scripts for easy execution
+        
+        ## Usage
+        
+        ### On Windows:
+        ```
+        rust_photoacoustic.bat [options]
+        pid_tuner.bat [options]
+        ```
+        
+        ### On macOS/Linux:
+        ```
+        ./rust_photoacoustic [options]
+        ./pid_tuner [options]
+        ```
+        
+        ## Requirements
+        
+        - No additional Python installation required
+        - All dependencies are included in this package
+        EOF
+        
+        # Add build info to README
+        echo "" >> package/README.md
+        echo "## Version" >> package/README.md
+        echo "" >> package/README.md
+        echo "Built from: ${{ github.sha }}" >> package/README.md
+        echo "Target: ${{ matrix.target }}" >> package/README.md
+        echo "Build Date: $(date)" >> package/README.md
+        
+        # Create archive
+        ARCHIVE_NAME="rust-photoacoustic-${{ steps.set_tag.outputs.tag }}-${{ matrix.target }}"
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          7z a "${ARCHIVE_NAME}.zip" package/*
+          echo "ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
+        else
+          tar -czf "${ARCHIVE_NAME}.tar.gz" -C package .
+          echo "ARCHIVE_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+        fi
+
+    # Upload artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: rust-photoacoustic-${{ matrix.target }}
+        path: rust/${{ env.ARCHIVE_PATH }}
+        retention-days: 90
+
   push_to_registry:
     permissions:
       id-token: write
@@ -25,6 +345,7 @@ jobs:
       attestations: write
     name: Push Docker image to Docker Hub and release binaries
     runs-on: ubuntu-latest
+    needs: build_release_binaries
     env:
       DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
     steps:
@@ -70,6 +391,33 @@ jobs:
           TAG=${{ steps.set_tag.outputs.tag }}
           echo "Creating nightly release: $TAG"
           gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
+
+      # Download release artifacts from build job
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      # Upload non-static binaries to release
+      - name: Upload release artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          echo "Uploading release artifacts for tag: $TAG"
+          
+          # Upload all downloaded artifacts
+          for artifact_dir in artifacts/*/; do
+            if [ -d "$artifact_dir" ]; then
+              echo "Processing artifact directory: $artifact_dir"
+              for file in "$artifact_dir"*; do
+                if [ -f "$file" ]; then
+                  echo "Uploading: $file"
+                  gh release upload "$TAG" "$file" --clobber
+                fi
+              done
+            fi
+          done
         
       - name: Set Docker platforms
         id: set_platforms
@@ -122,7 +470,6 @@ jobs:
           docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}
           
           # Extract all photoacoustic binaries
-          docker cp temp-container-amd64:/usr/local/bin/photoacoustic /tmp/amd64/ || echo "photoacoustic not found"
           docker cp temp-container-amd64:/usr/local/bin/create_token /tmp/amd64/ || echo "create_token not found"
           docker cp temp-container-amd64:/usr/local/bin/analyze_spectrum /tmp/amd64/ || echo "analyze_spectrum not found"
           docker cp temp-container-amd64:/usr/local/bin/debug_config /tmp/amd64/ || echo "debug_config not found"
@@ -135,14 +482,14 @@ jobs:
           docker cp temp-container-amd64:/usr/local/bin/rs256keygen /tmp/amd64/ || echo "rs256keygen not found"
           docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
           # copy also the python binary and libpython static library
-          docker cp temp-container-amd64:/usr/local/bin/python3 /tmp/amd64/ || echo "python3 not found"
+          docker cp temp-container-amd64:/usr/local/bin/python3.12 /tmp/amd64/ || echo "python3 not found"
           docker cp temp-container-amd64:/usr/local/lib/libpython3.12.a /tmp/amd64/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-amd64
           
           # Rename binaries with architecture suffix
           cd /tmp/amd64/
-          for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_amd64_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -157,7 +504,6 @@ jobs:
           docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}
           
           # Extract all photoacoustic binaries
-          docker cp temp-container-arm64:/usr/local/bin/photoacoustic /tmp/arm64/ || echo "photoacoustic not found"
           docker cp temp-container-arm64:/usr/local/bin/create_token /tmp/arm64/ || echo "create_token not found"
           docker cp temp-container-arm64:/usr/local/bin/analyze_spectrum /tmp/arm64/ || echo "analyze_spectrum not found"
           docker cp temp-container-arm64:/usr/local/bin/debug_config /tmp/arm64/ || echo "debug_config not found"
@@ -170,14 +516,14 @@ jobs:
           docker cp temp-container-arm64:/usr/local/bin/rs256keygen /tmp/arm64/ || echo "rs256keygen not found"
           docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
           # copy also the python binary and libpython static library
-          docker cp temp-container-arm64:/usr/local/bin/python3 /tmp/arm64/ || echo "python3 not found"
+          docker cp temp-container-arm64:/usr/local/bin/python3.12 /tmp/arm64/ || echo "python3 not found"
           docker cp temp-container-arm64:/usr/local/lib/libpython3.12.a /tmp/arm64/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-arm64
           
           # Rename binaries with architecture suffix
           cd /tmp/arm64/
-          for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_arm64_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -193,7 +539,6 @@ jobs:
           docker create --platform linux/arm/v7 --name temp-container-armhf sctg/rust-photoacoustic:latest
           
           # Extract all photoacoustic binaries
-          docker cp temp-container-armhf:/usr/local/bin/photoacoustic /tmp/armhf/ || echo "photoacoustic not found"
           docker cp temp-container-armhf:/usr/local/bin/create_token /tmp/armhf/ || echo "create_token not found"
           docker cp temp-container-armhf:/usr/local/bin/analyze_spectrum /tmp/armhf/ || echo "analyze_spectrum not found"
           docker cp temp-container-armhf:/usr/local/bin/debug_config /tmp/armhf/ || echo "debug_config not found"
@@ -206,14 +551,14 @@ jobs:
           docker cp temp-container-armhf:/usr/local/bin/rs256keygen /tmp/armhf/ || echo "rs256keygen not found"
           docker cp temp-container-armhf:/usr/local/bin/rust_photoacoustic /tmp/armhf/ || echo "rust_photoacoustic not found"
           # copy also the python binary and libpython static library
-          docker cp temp-container-armhf:/usr/local/bin/python3 /tmp/armhf/ || echo "python3 not found"
+          docker cp temp-container-armhf:/usr/local/bin/python3.12 /tmp/armhf/ || echo "python3 not found"
           docker cp temp-container-armhf:/usr/local/lib/libpython3.12.a /tmp/armhf/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-armhf
           
           # Rename binaries with architecture suffix
           cd /tmp/armhf/
-          for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_armhf_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -277,41 +622,56 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Released Binaries" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Architecture | Binaries |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture | Static Binaries | Dynamic Binaries |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------------|-----------------|------------------|" >> $GITHUB_STEP_SUMMARY
           
           # AMD64 summary
-          echo -n "| **amd64** | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **Linux amd64** | " >> $GITHUB_STEP_SUMMARY
           ls /tmp/amd64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " binaries |" >> $GITHUB_STEP_SUMMARY
+          echo -n " static | " >> $GITHUB_STEP_SUMMARY
+          ls artifacts/rust-photoacoustic-x86_64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
           
           # ARM64 summary
-          echo -n "| **arm64** | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **Linux arm64** | " >> $GITHUB_STEP_SUMMARY
           ls /tmp/arm64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " binaries |" >> $GITHUB_STEP_SUMMARY
+          echo " static | N/A |" >> $GITHUB_STEP_SUMMARY
+          
+          # Windows summary
+          echo -n "| **Windows x64** | N/A | " >> $GITHUB_STEP_SUMMARY
+          ls artifacts/rust-photoacoustic-x86_64-pc-windows-msvc/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
+          
+          # macOS Intel summary
+          echo -n "| **macOS Intel** | N/A | " >> $GITHUB_STEP_SUMMARY
+          ls artifacts/rust-photoacoustic-x86_64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
+          
+          # macOS Apple Silicon summary
+          echo -n "| **macOS Apple Silicon** | N/A | " >> $GITHUB_STEP_SUMMARY
+          ls artifacts/rust-photoacoustic-aarch64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
           
           # ARMHF summary
           if [ "${{ env.DOCKER_ARMHF_EXPERIMENTAL }}" = "enabled" ]; then
-            echo -n "| **armhf** | " >> $GITHUB_STEP_SUMMARY
+            echo -n "| **Linux armhf** | " >> $GITHUB_STEP_SUMMARY
             ls /tmp/armhf/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-            echo " binaries |" >> $GITHUB_STEP_SUMMARY
+            echo " static | N/A |" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔧 Available Tools" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> $GITHUB_STEP_SUMMARY
-          echo "- **photoacoustic**: Photoacoustic processing tool" >> $GITHUB_STEP_SUMMARY
-          echo "- **create_token**: JWT token generation utility" >> $GITHUB_STEP_SUMMARY
-          echo "- **analyze_spectrum**: Spectrum analysis tool" >> $GITHUB_STEP_SUMMARY
-          echo "- **debug_config**: Configuration debugging utility" >> $GITHUB_STEP_SUMMARY
-          echo "- **differential**: Differential signal processing" >> $GITHUB_STEP_SUMMARY
-          echo "- **filters**: Signal filtering utilities" >> $GITHUB_STEP_SUMMARY
-          echo "- **modbus_client**: Modbus communication client" >> $GITHUB_STEP_SUMMARY
-          echo "- **noise_generator**: Noise generation for testing" >> $GITHUB_STEP_SUMMARY
           echo "- **pid_tuner**: PID controller tuning tool" >> $GITHUB_STEP_SUMMARY
-          echo "- **redis_viewer**: Redis data viewer" >> $GITHUB_STEP_SUMMARY
-          echo "- **rs256keygen**: RS256 key generation utility" >> $GITHUB_STEP_SUMMARY
+          echo "- **Static binaries**: Self-contained Linux binaries (no dependencies)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dynamic binaries**: Platform-specific binaries with Python integration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Package Contents" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Dynamic binary packages include:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`bin/\`: Executable binaries" >> $GITHUB_STEP_SUMMARY
+          echo "- \`lib/\`: Required Python libraries (.dylib/.dll/.so)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
