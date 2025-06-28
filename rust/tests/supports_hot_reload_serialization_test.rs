@@ -1,4 +1,4 @@
-use rust_photoacoustic::preprocessing::filters::BandpassFilter;
+use rust_photoacoustic::preprocessing::filter::BandpassFilter;
 use rust_photoacoustic::processing::graph::{ProcessingGraph, SerializableProcessingGraph};
 use rust_photoacoustic::processing::nodes::filter::FilterNode;
 use rust_photoacoustic::processing::nodes::input::InputNode;

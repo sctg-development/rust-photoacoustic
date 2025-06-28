@@ -5,7 +5,7 @@
 //! Example demonstrating the ProcessingGraph statistics functionality
 
 use anyhow::Result;
-use rust_photoacoustic::preprocessing::filters::BandpassFilter;
+use rust_photoacoustic::preprocessing::filter::BandpassFilter;
 use rust_photoacoustic::processing::graph::ProcessingGraph;
 use rust_photoacoustic::processing::nodes::{
     ChannelSelectorNode, ChannelTarget, FilterNode, InputNode, PhotoacousticOutputNode,

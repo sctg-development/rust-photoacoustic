@@ -21,7 +21,7 @@
 //! Tests generate output WAV files in the project's "out" directory for manual inspection
 //! and verification of filter behavior.
 
-use super::filters::{BandpassFilter, Filter};
+use super::filter::{standard_filters::BandpassFilter, Filter};
 use anyhow::Result;
 use std::fs;
 use std::path::PathBuf;

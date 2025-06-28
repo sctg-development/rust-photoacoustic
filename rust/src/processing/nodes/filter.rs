@@ -318,7 +318,7 @@ impl ProcessingNode for FilterNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::preprocessing::filters::LowpassFilter;
+    use crate::preprocessing::filter::LowpassFilter;
     use crate::processing::nodes::data::ProcessingData;
     use serde_json::json;
 

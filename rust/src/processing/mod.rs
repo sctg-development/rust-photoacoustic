@@ -357,7 +357,7 @@
 //! use rust_photoacoustic::processing::*;
 //! use rust_photoacoustic::processing::nodes::*;
 //! use rust_photoacoustic::processing::computing_nodes::action_drivers::*;
-//! use rust_photoacoustic::preprocessing::filters::{BandpassFilter, HighpassFilter, LowpassFilter};
+//! use rust_photoacoustic::preprocessing::filter::{BandpassFilter, HighpassFilter, LowpassFilter};
 //! use rust_photoacoustic::preprocessing::differential::SimpleDifferential;
 //! use rust_photoacoustic::acquisition::AudioFrame;
 //!

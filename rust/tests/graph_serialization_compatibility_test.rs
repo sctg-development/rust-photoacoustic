@@ -4,7 +4,7 @@
 
 // Note: Individual node configs don't exist as separate structs
 // Nodes are created with direct parameters
-use rust_photoacoustic::preprocessing::filters::BandpassFilter;
+use rust_photoacoustic::preprocessing::filter::BandpassFilter;
 use rust_photoacoustic::processing::graph::{ProcessingGraph, SerializableNode};
 use rust_photoacoustic::processing::nodes::filter::ChannelTarget;
 use rust_photoacoustic::processing::nodes::streaming_registry::StreamingNodeRegistry;

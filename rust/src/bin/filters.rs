@@ -41,8 +41,8 @@
 
 use clap::{Parser, ValueEnum};
 use hound::{WavReader, WavWriter};
-use rust_photoacoustic::preprocessing::filters::{
-    BandpassFilter, Filter, HighpassFilter, LowpassFilter,
+use rust_photoacoustic::preprocessing::filter::{
+    Filter, BandpassFilter, HighpassFilter, LowpassFilter,
 };
 use std::path::PathBuf;
 
