@@ -248,14 +248,11 @@ jobs:
           # Windows batch scripts
           for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
             if [ -f "package/bin/${binary}.exe" ]; then
-              cat > "package/${binary}.bat" << 'EOFBAT'
-        @echo off
-        set SCRIPT_DIR=%~dp0
-        set PATH=%SCRIPT_DIR%lib;%PATH%
-        "%SCRIPT_DIR%bin\${binary}.exe" %*
-        EOFBAT
-              # Replace ${binary} in the generated file
-              sed -i "s/\${binary}/${binary}/g" "package/${binary}.bat"
+              # Create batch script directly with correct binary name
+              echo "@echo off" > "package/${binary}.bat"
+              echo "set SCRIPT_DIR=%~dp0" >> "package/${binary}.bat"
+              echo "set PATH=%SCRIPT_DIR%lib;%PATH%" >> "package/${binary}.bat"
+              echo "\"%SCRIPT_DIR%bin\\${binary}.exe\" %*" >> "package/${binary}.bat"
               echo "Created launch script: ${binary}.bat"
             fi
           done
@@ -263,21 +260,20 @@ jobs:
           # Unix shell scripts
           for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
             if [ -f "package/bin/${binary}" ]; then
-              cat > "package/${binary}" << 'EOFSH'
-        #!/bin/bash
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            export DYLD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${DYLD_LIBRARY_PATH}"
-        else
-            export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
-        fi
-        exec "${SCRIPT_DIR}/bin/BINARYNAME" "$@"
-        EOFSH
-              # Replace BINARYNAME with actual binary name
-              sed -i "s/BINARYNAME/${binary}/g" "package/${binary}"
+              # Create shell script directly with correct binary name
+              echo "#!/bin/bash" > "package/${binary}"
+              echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' >> "package/${binary}"
+              echo 'if [[ "$OSTYPE" == "darwin"* ]]; then' >> "package/${binary}"
+              echo '    export DYLD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${DYLD_LIBRARY_PATH}"' >> "package/${binary}"
+              echo 'else' >> "package/${binary}"
+              echo '    export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"' >> "package/${binary}"
+              echo 'fi' >> "package/${binary}"
+              echo "exec \"\${SCRIPT_DIR}/bin/${binary}\" \"\$@\"" >> "package/${binary}"
               chmod +x "package/${binary}"
               echo "Created launch script: ${binary}"
             fi
+          done
+        fi
           done
         fi
         
