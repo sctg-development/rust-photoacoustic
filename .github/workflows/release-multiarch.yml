@@ -274,8 +274,6 @@ jobs:
             fi
           done
         fi
-          done
-        fi
         
         # Create README
         cat > package/README.md << 'EOF'
@@ -316,6 +314,8 @@ jobs:
         
         ### On macOS/Linux:
         ```
+        # First remove quarantine attribute on macOS
+        sudo xattr -r -d com.apple.quarantine *
         ./rust_photoacoustic [options]
         ./pid_tuner [options]
         ./analyze_spectrum [options]
