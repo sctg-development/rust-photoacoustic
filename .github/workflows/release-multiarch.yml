@@ -144,6 +144,7 @@ jobs:
     # Set release tag
     - name: Set release tag
       id: set_tag
+      shell: bash
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           # For manual workflow dispatch, use nightly tag with current date
@@ -369,6 +370,7 @@ jobs:
         
       - name: Set release tag
         id: set_tag
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # For manual workflow dispatch, use nightly tag with current date
