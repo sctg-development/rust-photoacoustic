@@ -503,15 +503,16 @@ jobs:
           docker cp temp-container-amd64:/usr/local/bin/redis_viewer /tmp/amd64/ || echo "redis_viewer not found"
           docker cp temp-container-amd64:/usr/local/bin/rs256keygen /tmp/amd64/ || echo "rs256keygen not found"
           docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
+          docker cp temp-container-amd64:/usr/local/bin/standalone /tmp/amd64/ || echo "standalone not found"
           # copy also the python binary and libpython static library
           docker cp temp-container-amd64:/usr/local/bin/python3.12 /tmp/amd64/ || echo "python3 not found"
           docker cp temp-container-amd64:/usr/local/lib/libpython3.12.a /tmp/amd64/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-amd64
           
-          # Rename binaries with architecture suffix
+          # Rename binaries with architecture suffix for individual static releases
           cd /tmp/amd64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.12.a python3.12; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_amd64_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -537,15 +538,16 @@ jobs:
           docker cp temp-container-arm64:/usr/local/bin/redis_viewer /tmp/arm64/ || echo "redis_viewer not found"
           docker cp temp-container-arm64:/usr/local/bin/rs256keygen /tmp/arm64/ || echo "rs256keygen not found"
           docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
+          docker cp temp-container-arm64:/usr/local/bin/standalone /tmp/arm64/ || echo "standalone not found"
           # copy also the python binary and libpython static library
           docker cp temp-container-arm64:/usr/local/bin/python3.12 /tmp/arm64/ || echo "python3 not found"
           docker cp temp-container-arm64:/usr/local/lib/libpython3.12.a /tmp/arm64/ || echo "libpython3.12.a not found"
           
           docker rm temp-container-arm64
           
-          # Rename binaries with architecture suffix
+          # Rename binaries with architecture suffix for individual static releases
           cd /tmp/arm64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.12.a python3.12; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_arm64_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -566,7 +568,7 @@ jobs:
           docker cp temp-container-armhf:/usr/local/bin/debug_config /tmp/armhf/ || echo "debug_config not found"
           docker cp temp-container-armhf:/usr/local/bin/differential /tmp/armhf/ || echo "differential not found"
           docker cp temp-container-armhf:/usr/local/bin/filters /tmp/armhf/ || echo "filters not found"
-          docker cp temp-container-armhf:/usr/local/bin/modbus_client /tmp/armhf/ || echo "modbus_client not found"
+          docker cp temp-container_armhf:/usr/local/bin/modbus_client /tmp/armhf/ || echo "modbus_client not found"
           docker cp temp-container-armhf:/usr/local/bin/noise_generator /tmp/armhf/ || echo "noise_generator not found"
           docker cp temp-container-armhf:/usr/local/bin/pid_tuner /tmp/armhf/ || echo "pid_tuner not found"
           docker cp temp-container-armhf:/usr/local/bin/redis_viewer /tmp/armhf/ || echo "redis_viewer not found"
@@ -592,13 +594,22 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
             echo "Uploading amd64 binaries..."
+            TAG=${{ steps.set_tag.outputs.tag }}
+            
+            # Upload individual static binaries
             ls -la /tmp/amd64/
-            for binary in /tmp/amd64/*_linux_amd64_static_${{ steps.set_tag.outputs.tag }}; do
+            for binary in /tmp/amd64/*_linux_amd64_static_${TAG}; do
               if [ -f "$binary" ]; then
                 echo "Uploading: $binary"
-                gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
+                gh release upload ${TAG} "$binary" --clobber
               fi
             done
+            
+            # Upload static package
+            if [ -f "/tmp/static-packages/amd64/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" ]; then
+              echo "Uploading static package: rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz"
+              gh release upload ${TAG} "/tmp/static-packages/amd64/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" --clobber
+            fi
 
       - name: Upload arm64 Release binaries
         continue-on-error: true
@@ -606,13 +617,22 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
             echo "Uploading arm64 binaries..."
+            TAG=${{ steps.set_tag.outputs.tag }}
+            
+            # Upload individual static binaries
             ls -la /tmp/arm64/
-            for binary in /tmp/arm64/*_linux_arm64_static_${{ steps.set_tag.outputs.tag }}; do
+            for binary in /tmp/arm64/*_linux_arm64_static_${TAG}; do
               if [ -f "$binary" ]; then
                 echo "Uploading: $binary"
-                gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
+                gh release upload ${TAG} "$binary" --clobber
               fi
             done
+            
+            # Upload static package
+            if [ -f "/tmp/static-packages/arm64/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" ]; then
+              echo "Uploading static package: rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz"
+              gh release upload ${TAG} "/tmp/static-packages/arm64/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" --clobber
+            fi
 
       - name: Upload armhf Release binaries
         continue-on-error: true
@@ -629,6 +649,199 @@ jobs:
               fi
             done
 
+      - name: Create static Linux packages
+        continue-on-error: true
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          
+          # Create amd64 static package
+          if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
+            mkdir -p /tmp/static-package-amd64/bin
+            mkdir -p /tmp/static-package-amd64/lib
+            
+            # Copy all binaries and remove architecture suffix for clean package
+            cd /tmp/amd64/
+            for file in *_linux_amd64_static_${TAG}; do
+              if [ -f "$file" ]; then
+                # Extract original binary name (remove _linux_amd64_static_TAG suffix)
+                original_name=$(echo "$file" | sed "s/_linux_amd64_static_${TAG}//")
+                if [[ "$original_name" == "libpython3.12.a" || "$original_name" == "python3.12" ]]; then
+                  cp "$file" "/tmp/static-package-amd64/lib/${original_name}"
+                else
+                  cp "$file" "/tmp/static-package-amd64/bin/${original_name}"
+                fi
+                echo "Added to amd64 package: ${original_name}"
+              fi
+            done
+            
+            # Create launch scripts for all binaries
+            for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
+              if [ -f "/tmp/static-package-amd64/bin/${binary}" ]; then
+                # Create launch script
+                echo '#!/bin/bash' > "/tmp/static-package-amd64/${binary}"
+                echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' >> "/tmp/static-package-amd64/${binary}"
+                echo 'export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"' >> "/tmp/static-package-amd64/${binary}"
+                echo "exec \"\${SCRIPT_DIR}/bin/${binary}\" \"\$@\"" >> "/tmp/static-package-amd64/${binary}"
+                chmod +x "/tmp/static-package-amd64/${binary}"
+                echo "Created launch script: ${binary}"
+              fi
+            done
+            
+            # Create README for static package
+            echo "# Rust Photoacoustic - Static Linux Package (x86_64)" > /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "This package contains statically linked Rust Photoacoustic binaries for Linux x86_64." >> /tmp/static-package-amd64/README.md
+            echo "These binaries are self-contained and do not require external dependencies." >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "## Contents" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "- \`bin/\`: Statically linked executable binaries" >> /tmp/static-package-amd64/README.md
+            echo "- \`lib/\`: Static Python libraries (if needed)" >> /tmp/static-package-amd64/README.md
+            echo "- Launch scripts for easy execution" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "## Available Tools" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> /tmp/static-package-amd64/README.md
+            echo "- **analyze_spectrum**: Spectrum analysis tool" >> /tmp/static-package-amd64/README.md
+            echo "- **create_token**: JWT token generation utility" >> /tmp/static-package-amd64/README.md
+            echo "- **debug_config**: Configuration debugging utility" >> /tmp/static-package-amd64/README.md
+            echo "- **differential**: Differential signal processing" >> /tmp/static-package-amd64/README.md
+            echo "- **filters**: Signal filtering utilities" >> /tmp/static-package-amd64/README.md
+            echo "- **modbus_client**: Modbus communication client" >> /tmp/static-package-amd64/README.md
+            echo "- **noise_generator**: Noise generation for testing" >> /tmp/static-package-amd64/README.md
+            echo "- **pid_tuner**: PID controller tuning tool" >> /tmp/static-package-amd64/README.md
+            echo "- **redis_viewer**: Redis data viewer" >> /tmp/static-package-amd64/README.md
+            echo "- **rs256keygen**: RS256 key generation utility" >> /tmp/static-package-amd64/README.md
+            echo "- **standalone**: Standalone analysis tool" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "## Usage" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "Execute any tool directly:" >> /tmp/static-package-amd64/README.md
+            echo "./rust_photoacoustic [options]" >> /tmp/static-package-amd64/README.md
+            echo "./pid_tuner [options]" >> /tmp/static-package-amd64/README.md
+            echo "./analyze_spectrum [options]" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "## Requirements" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "- Linux x86_64 system" >> /tmp/static-package-amd64/README.md
+            echo "- No additional dependencies required (statically linked)" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "## Version" >> /tmp/static-package-amd64/README.md
+            echo "" >> /tmp/static-package-amd64/README.md
+            echo "Built from: ${{ github.sha }}" >> /tmp/static-package-amd64/README.md
+            echo "Target: x86_64-static-musl-linux-gnu" >> /tmp/static-package-amd64/README.md
+            echo "Build Date: $(date)" >> /tmp/static-package-amd64/README.md
+            
+            # Create tar.gz package
+            cd /tmp/static-package-amd64/
+            tar -czf "../rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" .
+            echo "Created amd64 static package: rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz"
+          fi
+          
+          # Create arm64 static package
+          if [ -d "/tmp/arm64" ] && [ "$(ls -A /tmp/arm64)" ]; then
+            mkdir -p /tmp/static-package-arm64/bin
+            mkdir -p /tmp/static-package-arm64/lib
+            
+            # Copy all binaries and remove architecture suffix for clean package
+            cd /tmp/arm64/
+            for file in *_linux_arm64_static_${TAG}; do
+              if [ -f "$file" ]; then
+                # Extract original binary name (remove _linux_arm64_static_TAG suffix)
+                original_name=$(echo "$file" | sed "s/_linux_arm64_static_${TAG}//")
+                if [[ "$original_name" == "libpython3.12.a" || "$original_name" == "python3.12" ]]; then
+                  cp "$file" "/tmp/static-package-arm64/lib/${original_name}"
+                else
+                  cp "$file" "/tmp/static-package-arm64/bin/${original_name}"
+                fi
+                echo "Added to arm64 package: ${original_name}"
+              fi
+            done
+            
+            # Create launch scripts for all binaries
+            for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
+              if [ -f "/tmp/static-package-arm64/bin/${binary}" ]; then
+                # Create launch script
+                echo '#!/bin/bash' > "/tmp/static-package-arm64/${binary}"
+                echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' >> "/tmp/static-package-arm64/${binary}"
+                echo 'export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"' >> "/tmp/static-package-arm64/${binary}"
+                echo "exec \"\${SCRIPT_DIR}/bin/${binary}\" \"\$@\"" >> "/tmp/static-package-arm64/${binary}"
+                chmod +x "/tmp/static-package-arm64/${binary}"
+                echo "Created launch script: ${binary}"
+              fi
+            done
+            
+            # Create README for static package
+            echo "# Rust Photoacoustic - Static Linux Package (aarch64)" > /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "This package contains statically linked Rust Photoacoustic binaries for Linux aarch64." >> /tmp/static-package-arm64/README.md
+            echo "These binaries are self-contained and do not require external dependencies." >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "## Contents" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "- \`bin/\`: Statically linked executable binaries" >> /tmp/static-package-arm64/README.md
+            echo "- \`lib/\`: Static Python libraries (if needed)" >> /tmp/static-package-arm64/README.md
+            echo "- Launch scripts for easy execution" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "## Available Tools" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> /tmp/static-package-arm64/README.md
+            echo "- **analyze_spectrum**: Spectrum analysis tool" >> /tmp/static-package-arm64/README.md
+            echo "- **create_token**: JWT token generation utility" >> /tmp/static-package-arm64/README.md
+            echo "- **debug_config**: Configuration debugging utility" >> /tmp/static-package-arm64/README.md
+            echo "- **differential**: Differential signal processing" >> /tmp/static-package-arm64/README.md
+            echo "- **filters**: Signal filtering utilities" >> /tmp/static-package-arm64/README.md
+            echo "- **modbus_client**: Modbus communication client" >> /tmp/static-package-arm64/README.md
+            echo "- **noise_generator**: Noise generation for testing" >> /tmp/static-package-arm64/README.md
+            echo "- **pid_tuner**: PID controller tuning tool" >> /tmp/static-package-arm64/README.md
+            echo "- **redis_viewer**: Redis data viewer" >> /tmp/static-package-arm64/README.md
+            echo "- **rs256keygen**: RS256 key generation utility" >> /tmp/static-package-arm64/README.md
+            echo "- **standalone**: Standalone analysis tool" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "## Usage" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "Execute any tool directly:" >> /tmp/static-package-arm64/README.md
+            echo "./rust_photoacoustic [options]" >> /tmp/static-package-arm64/README.md
+            echo "./pid_tuner [options]" >> /tmp/static-package-arm64/README.md
+            echo "./analyze_spectrum [options]" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "## Requirements" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "- Linux aarch64 system" >> /tmp/static-package-arm64/README.md
+            echo "- No additional dependencies required (statically linked)" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "## Version" >> /tmp/static-package-arm64/README.md
+            echo "" >> /tmp/static-package-arm64/README.md
+            echo "Built from: ${{ github.sha }}" >> /tmp/static-package-arm64/README.md
+            echo "Target: aarch64-static-musl-linux-gnu" >> /tmp/static-package-arm64/README.md
+            echo "Build Date: $(date)" >> /tmp/static-package-arm64/README.md
+            
+            # Create tar.gz package
+            cd /tmp/static-package-arm64/
+            tar -czf "../rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" .
+            echo "Created arm64 static package: rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz"
+          fi
+
+      - name: Upload static Linux packages
+        continue-on-error: true
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            TAG=${{ steps.set_tag.outputs.tag }}
+            echo "Uploading static Linux packages..."
+            
+            # Upload amd64 static package
+            if [ -f "/tmp/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" ]; then
+              echo "Uploading amd64 static package..."
+              gh release upload "$TAG" "/tmp/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" --clobber
+            fi
+            
+            # Upload arm64 static package
+            if [ -f "/tmp/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" ]; then
+              echo "Uploading arm64 static package..."
+              gh release upload "$TAG" "/tmp/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" --clobber
+            fi
+
       - name: Create attestation for release binaries
         uses: actions/attest-build-provenance@v1
         continue-on-error: true
@@ -642,59 +855,231 @@ jobs:
         run: |
           echo "## 🚀 Multi-Architecture Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Released Binaries" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Released Binaries and Packages" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Architecture | Static Binaries | Dynamic Binaries |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------------|-----------------|------------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture | Static Binaries | Static Package | Dynamic Binaries | Dynamic Package |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------------|-----------------|----------------|------------------|-----------------|" >> $GITHUB_STEP_SUMMARY
           
           # AMD64 summary
           echo -n "| **Linux amd64** | " >> $GITHUB_STEP_SUMMARY
           ls /tmp/amd64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " static | " >> $GITHUB_STEP_SUMMARY
+          echo -n " individual | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "/tmp/rust-photoacoustic-"*"-x86_64-static-musl-linux-gnu.tar.gz" ]; then
+            echo -n "✅ tar.gz | " >> $GITHUB_STEP_SUMMARY
+          else
+            echo -n "❌ No pkg | " >> $GITHUB_STEP_SUMMARY
+          fi
           ls artifacts/rust-photoacoustic-x86_64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
+          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "artifacts/rust-photoacoustic-x86_64-unknown-linux-gnu.tar.gz" ]; then
+            echo "✅ tar.gz |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
+          fi
           
           # ARM64 summary
           echo -n "| **Linux arm64** | " >> $GITHUB_STEP_SUMMARY
           ls /tmp/arm64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " static | N/A |" >> $GITHUB_STEP_SUMMARY
+          echo -n " individual | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "/tmp/rust-photoacoustic-"*"-aarch64-static-musl-linux-gnu.tar.gz" ]; then
+            echo -n "✅ tar.gz | " >> $GITHUB_STEP_SUMMARY
+          else
+            echo -n "❌ No pkg | " >> $GITHUB_STEP_SUMMARY
+          fi
+          ls artifacts/rust-photoacoustic-aarch64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
+          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "artifacts/rust-photoacoustic-aarch64-unknown-linux-gnu.tar.gz" ]; then
+            echo "✅ tar.gz |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
+          fi
           
           # Windows summary
-          echo -n "| **Windows x64** | N/A | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **Windows x64** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
           ls artifacts/rust-photoacoustic-x86_64-pc-windows-msvc/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
+          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "artifacts/rust-photoacoustic-x86_64-pc-windows-msvc.zip" ]; then
+            echo "✅ zip |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
+          fi
           
           # macOS Intel summary
-          echo -n "| **macOS Intel** | N/A | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **macOS Intel** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
           ls artifacts/rust-photoacoustic-x86_64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
+          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "artifacts/rust-photoacoustic-x86_64-apple-darwin.zip" ]; then
+            echo "✅ zip |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
+          fi
           
           # macOS Apple Silicon summary
-          echo -n "| **macOS Apple Silicon** | N/A | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **macOS Apple Silicon** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
           ls artifacts/rust-photoacoustic-aarch64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " dynamic |" >> $GITHUB_STEP_SUMMARY
+          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "artifacts/rust-photoacoustic-aarch64-apple-darwin.zip" ]; then
+            echo "✅ zip |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
+          fi
           
           # ARMHF summary
           if [ "${{ env.DOCKER_ARMHF_EXPERIMENTAL }}" = "enabled" ]; then
             echo -n "| **Linux armhf** | " >> $GITHUB_STEP_SUMMARY
             ls /tmp/armhf/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-            echo " static | N/A |" >> $GITHUB_STEP_SUMMARY
+            echo " individual | N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔧 Available Tools" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Available Tools (All Packages)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> $GITHUB_STEP_SUMMARY
+          echo "- **analyze_spectrum**: Spectrum analysis tool" >> $GITHUB_STEP_SUMMARY
+          echo "- **create_token**: JWT token generation utility" >> $GITHUB_STEP_SUMMARY
+          echo "- **debug_config**: Configuration debugging utility" >> $GITHUB_STEP_SUMMARY
+          echo "- **differential**: Differential signal processing" >> $GITHUB_STEP_SUMMARY
+          echo "- **filters**: Signal filtering utilities" >> $GITHUB_STEP_SUMMARY
+          echo "- **modbus_client**: Modbus communication client" >> $GITHUB_STEP_SUMMARY
+          echo "- **noise_generator**: Noise generation for testing" >> $GITHUB_STEP_SUMMARY
           echo "- **pid_tuner**: PID controller tuning tool" >> $GITHUB_STEP_SUMMARY
-          echo "- **Static binaries**: Self-contained Linux binaries (no dependencies)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Dynamic binaries**: Platform-specific binaries with Python integration" >> $GITHUB_STEP_SUMMARY
+          echo "- **redis_viewer**: Redis data viewer" >> $GITHUB_STEP_SUMMARY
+          echo "- **rs256keygen**: RS256 key generation utility" >> $GITHUB_STEP_SUMMARY
+          echo "- **standalone**: Standalone analysis tool" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Package Contents" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Package Types" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Dynamic binary packages include:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`bin/\`: Executable binaries" >> $GITHUB_STEP_SUMMARY
+          echo "**Static Linux packages (RECOMMENDED for servers):**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`bin/\`: All executable binaries (statically compiled with musl)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`lib/\`: Static Python libraries (if needed)" >> $GITHUB_STEP_SUMMARY
+          echo "- Launch scripts for direct execution" >> $GITHUB_STEP_SUMMARY
+          echo "- \`README.md\`: Complete documentation and usage guide" >> $GITHUB_STEP_SUMMARY
+          echo "- **No dependencies**: Self-contained, works on any Linux (including Alpine)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Optimized**: Compiled for maximum performance and compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Dynamic binary packages:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`bin/\`: Executable binaries (dynamically linked)" >> $GITHUB_STEP_SUMMARY
           echo "- \`lib/\`: Required Python libraries (.dylib/.dll/.so)" >> $GITHUB_STEP_SUMMARY
+          echo "- Launch scripts for easy execution" >> $GITHUB_STEP_SUMMARY
+          echo "- Platform-specific (Windows, macOS, Linux glibc)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Multi-architecture Docker image available at: \`sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Quick Start" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**For production/server deployment (Linux):**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Download static package (self-contained)" >> $GITHUB_STEP_SUMMARY
+          echo "wget 'https://github.com/${{ github.repository }}/releases/download/${{ steps.set_tag.outputs.tag }}/rust-photoacoustic-${{ steps.set_tag.outputs.tag }}-x86_64-static-musl-linux-gnu.tar.gz'" >> $GITHUB_STEP_SUMMARY
+          echo "tar -xzf rust-photoacoustic-*.tar.gz && cd rust-photoacoustic-*/" >> $GITHUB_STEP_SUMMARY
+          echo "./rust_photoacoustic --help" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**For development/local use:**" >> $GITHUB_STEP_SUMMARY
+          echo "Download the appropriate dynamic package for your platform and extract." >> $GITHUB_STEP_SUMMARY
+
+      - name: Update GitHub Release Notes
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          
+          # Generate comprehensive release notes
+          echo "## 🎯 Multi-Architecture Rust Photoacoustic Release" > release_notes.md
+          echo "" >> release_notes.md
+          echo "This release provides Rust Photoacoustic binaries for multiple platforms with both **static** and **dynamic** linking options." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 📦 Available Packages" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "#### 🏆 Static Linux Packages (RECOMMENDED for production)" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz\` - Complete x86_64 static package" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz\` - Complete aarch64 static package" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "**Features:**" >> release_notes.md
+          echo "- ✅ **Self-contained** - No external dependencies required" >> release_notes.md
+          echo "- ✅ **Universal compatibility** - Works on any Linux (including Alpine, Ubuntu, CentOS, etc.)" >> release_notes.md
+          echo "- ✅ **Easy deployment** - Extract and run anywhere" >> release_notes.md
+          echo "- ✅ **Production ready** - Optimized for performance and reliability" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "#### 🔧 Dynamic Packages (Platform-specific)" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-x86_64-pc-windows-msvc.zip\` - Windows x64 package" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-x86_64-apple-darwin.zip\` - macOS Intel package" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-aarch64-apple-darwin.zip\` - macOS Apple Silicon package" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-x86_64-unknown-linux-gnu.tar.gz\` - Linux x64 glibc package" >> release_notes.md
+          echo "- \`rust-photoacoustic-${TAG}-aarch64-unknown-linux-gnu.tar.gz\` - Linux ARM64 glibc package" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 🔧 Available Tools" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "All packages include these Rust Photoacoustic tools:" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "- **rust_photoacoustic** - Main photoacoustic analysis server" >> release_notes.md
+          echo "- **analyze_spectrum** - Spectrum analysis tool" >> release_notes.md
+          echo "- **create_token** - JWT token generation utility" >> release_notes.md
+          echo "- **debug_config** - Configuration debugging utility" >> release_notes.md
+          echo "- **differential** - Differential signal processing" >> release_notes.md
+          echo "- **filters** - Signal filtering utilities" >> release_notes.md
+          echo "- **modbus_client** - Modbus communication client" >> release_notes.md
+          echo "- **noise_generator** - Noise generation for testing" >> release_notes.md
+          echo "- **pid_tuner** - PID controller tuning tool" >> release_notes.md
+          echo "- **redis_viewer** - Redis data viewer" >> release_notes.md
+          echo "- **rs256keygen** - RS256 key generation utility" >> release_notes.md
+          echo "- **standalone** - Standalone analysis tool" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 🚀 Quick Start" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "#### For Production/Server Deployment (Linux - Static)" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "# Download static package (recommended)" >> release_notes.md
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${TAG}/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "# Extract and use" >> release_notes.md
+          echo "tar -xzf rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" >> release_notes.md
+          echo "cd rust-photoacoustic-*/" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "# Run any tool directly" >> release_notes.md
+          echo "./rust_photoacoustic --help" >> release_notes.md
+          echo "./pid_tuner --help" >> release_notes.md
+          echo "./analyze_spectrum --help" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "#### For Development/Local Use (Dynamic)" >> release_notes.md
+          echo "Download the appropriate package for your platform and extract. Run tools using the provided launch scripts." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 📋 Package Contents" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "**Static Packages (Linux):**" >> release_notes.md
+          echo "- \`bin/\` - All statically linked binaries" >> release_notes.md
+          echo "- \`lib/\` - Static Python libraries (if needed)" >> release_notes.md
+          echo "- \`README.md\` - Complete documentation" >> release_notes.md
+          echo "- Launch scripts for all tools" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "**Dynamic Packages (All Platforms):**" >> release_notes.md
+          echo "- \`bin/\` - Platform-specific binaries" >> release_notes.md
+          echo "- \`lib/\` - Required dynamic libraries" >> release_notes.md
+          echo "- \`README.md\` - Platform-specific documentation" >> release_notes.md
+          echo "- Platform-appropriate launch scripts" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 🐳 Docker" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Multi-architecture Docker image: \`sctg/rust-photoacoustic:${TAG}\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### ⚡ Performance & Compatibility" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "- **Static packages**: Completely portable, no dependency requirements" >> release_notes.md
+          echo "- **Dynamic packages**: Smaller size but require platform-specific dependencies" >> release_notes.md
+          echo "- **All packages**: Optimized release builds with maximum performance" >> release_notes.md
+          echo "- **Universal**: Static packages work on any Linux distribution" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Choose the package type that best fits your deployment needs!" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Built from commit: ${{ github.sha }}" >> release_notes.md
+          
+          # Update the GitHub release with the comprehensive notes
+          gh release edit "$TAG" --notes-file release_notes.md || echo "Failed to update release notes, continuing..."
+          
+          echo "✅ Release notes updated with static package information"
+          
+ 
