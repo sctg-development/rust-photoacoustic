@@ -639,7 +639,16 @@
                               "enum": [
                                 "bandpass",
                                 "lowpass",
-                                "highpass"
+                                "highpass",
+                                "cheby_bandpass",
+                                "cheby_lowpass",
+                                "cheby_highpass",
+                                "butter_bandpass",
+                                "butter_lowpass",
+                                "butter_highpass",
+                                "cauer_bandpass",
+                                "cauer_lowpass",
+                                "cauer_highpass"
                               ],
                               "description": "Filter type"
                             },

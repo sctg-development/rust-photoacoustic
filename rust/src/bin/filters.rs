@@ -42,7 +42,8 @@
 use clap::{Parser, ValueEnum};
 use hound::{WavReader, WavWriter};
 use rust_photoacoustic::preprocessing::filter::{
-    Filter, BandpassFilter, HighpassFilter, LowpassFilter,
+    BandpassFilter, ButterBandpassFilter, ButterHighpassFilter, ButterLowpassFilter, Filter,
+    HighpassFilter, LowpassFilter,
 };
 use std::path::PathBuf;
 
@@ -52,7 +53,7 @@ use std::path::PathBuf;
 /// Each filter type has different parameters and is optimized for specific audio processing tasks.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum FilterType {
-    /// Bandpass filter - isolates frequencies within a specific range.
+    /// Standard bandpass filter - isolates frequencies within a specific range.
     ///
     /// A bandpass filter allows signals between two specific frequencies to pass through
     /// while attenuating frequencies outside that range. This is useful for isolating
@@ -64,7 +65,7 @@ enum FilterType {
     /// - Filter order (must be even)
     Bandpass,
 
-    /// Lowpass filter - allows low frequencies to pass through while attenuating higher frequencies.
+    /// Standard lowpass filter - allows low frequencies to pass through while attenuating higher frequencies.
     ///
     /// A lowpass filter attenuates frequencies higher than the cutoff frequency.
     /// It's useful for removing high-frequency noise while preserving the main signal components.
@@ -73,13 +74,32 @@ enum FilterType {
     /// - Cutoff frequency (Hz)
     Lowpass,
 
-    /// Highpass filter - allows high frequencies to pass through while attenuating lower frequencies.
+    /// Standard highpass filter - allows high frequencies to pass through while attenuating lower frequencies.
     ///
     /// A highpass filter attenuates frequencies lower than the cutoff frequency.
     /// It's useful for removing low-frequency noise or drift in the signal.
     /// Parameters:
     /// - Cutoff frequency (Hz)
     Highpass,
+
+    /// Butterworth bandpass filter using SciPy-style implementation
+    ///
+    /// Pure Butterworth bandpass filter using sci-rs library for smooth frequency response
+    /// without ripples in the passband. Uses SOS (Second-Order Sections) + filtfilt for
+    /// numerical stability and zero-phase filtering.
+    ButterBandpass,
+
+    /// Butterworth lowpass filter using SciPy-style implementation
+    ///
+    /// Pure Butterworth lowpass filter using sci-rs library for smooth frequency response.
+    /// Uses SOS + filtfilt for optimal stability and zero-phase filtering.
+    ButterLowpass,
+
+    /// Butterworth highpass filter using SciPy-style implementation
+    ///
+    /// Pure Butterworth highpass filter using sci-rs library for smooth frequency response.
+    /// Uses SOS + filtfilt for optimal stability and zero-phase filtering.
+    ButterHighpass,
 }
 
 /// Command line arguments for the audio filter utility.
@@ -214,7 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filter: Box<dyn Filter> = match args.filter_type {
         FilterType::Bandpass => {
             // Configure and create bandpass filter
-            println!("Bandpass filter parameters:");
+            println!("Standard Bandpass filter parameters:");
             println!("- Center frequency: {:.1} Hz", args.center_freq);
             println!("- Bandwidth: {:.1} Hz", args.bandwidth);
             println!("- Order: {}", args.order);
@@ -227,17 +247,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         FilterType::Lowpass => {
             // Configure and create lowpass filter
-            println!("Lowpass filter parameters:");
+            println!("Standard Lowpass filter parameters:");
             println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
 
             Box::new(LowpassFilter::new(args.cutoff_freq).with_sample_rate(sample_rate))
         }
         FilterType::Highpass => {
             // Configure and create highpass filter
-            println!("Highpass filter parameters:");
+            println!("Standard Highpass filter parameters:");
             println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
 
             Box::new(HighpassFilter::new(args.cutoff_freq).with_sample_rate(sample_rate))
+        }
+        FilterType::ButterBandpass => {
+            // Configure and create Butterworth bandpass filter
+            println!("Butterworth Bandpass filter parameters:");
+            println!("- Center frequency: {:.1} Hz", args.center_freq);
+            println!("- Bandwidth: {:.1} Hz", args.bandwidth);
+            println!("- Order: {}", args.order);
+
+            // Convert center frequency + bandwidth to low + high frequencies
+            let low_freq = (args.center_freq - args.bandwidth / 2.0) as f64;
+            let high_freq = (args.center_freq + args.bandwidth / 2.0) as f64;
+            let sample_rate_f64 = sample_rate as f64;
+
+            Box::new(ButterBandpassFilter::new(
+                low_freq,
+                high_freq,
+                sample_rate_f64,
+                args.order,
+            ))
+        }
+        FilterType::ButterLowpass => {
+            // Configure and create Butterworth lowpass filter
+            println!("Butterworth Lowpass filter parameters:");
+            println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
+            println!("- Order: {}", args.order);
+
+            Box::new(ButterLowpassFilter::new(
+                args.cutoff_freq as f64,
+                sample_rate as f64,
+                args.order,
+            ))
+        }
+        FilterType::ButterHighpass => {
+            // Configure and create Butterworth highpass filter
+            println!("Butterworth Highpass filter parameters:");
+            println!("- Cutoff frequency: {:.1} Hz", args.cutoff_freq);
+            println!("- Order: {}", args.order);
+
+            Box::new(ButterHighpassFilter::new(
+                args.cutoff_freq as f64,
+                sample_rate as f64,
+                args.order,
+            ))
         }
     };
 

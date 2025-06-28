@@ -9,7 +9,11 @@
 
 use crate::config::processing::{NodeConfig, ProcessingGraphConfig};
 use crate::preprocessing::differential::SimpleDifferential;
-use crate::preprocessing::filter::{BandpassFilter, HighpassFilter, LowpassFilter};
+use crate::preprocessing::filter::{
+    BandpassFilter, ButterBandpassFilter, ButterHighpassFilter, ButterLowpassFilter,
+    CauerBandpassFilter, CauerHighpassFilter, CauerLowpassFilter, ChebyBandpassFilter,
+    ChebyHighpassFilter, ChebyLowpassFilter, HighpassFilter, LowpassFilter,
+};
 use crate::processing::computing_nodes::{
     action_drivers::{
         ActionDriver, HttpsCallbackActionDriver, KafkaActionDriver, RedisActionDriver,
@@ -1076,6 +1080,285 @@ impl ProcessingGraph {
                             params.get("order").and_then(|v| v.as_u64()).unwrap_or(1) as usize; // Default to 1st order for highpass
 
                         let filter = HighpassFilter::new(cutoff_freq).with_order(order);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "butter_bandpass" => {
+                        let center_freq = params
+                            .get("center_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Butterworth Bandpass filter requires 'center_frequency'"
+                            )
+                        })?;
+
+                        let bandwidth = params
+                            .get("bandwidth")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("Butterworth Bandpass filter requires 'bandwidth'")
+                            })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(4) as usize; // Default to 4th order for Butterworth bandpass
+
+                        // Convert center frequency + bandwidth to low + high frequencies
+                        let low_freq = center_freq - bandwidth / 2.0;
+                        let high_freq = center_freq + bandwidth / 2.0;
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter =
+                            ButterBandpassFilter::new(low_freq, high_freq, sample_rate, order);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "butter_lowpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Butterworth Lowpass filter requires 'cutoff_frequency'"
+                            )
+                        })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(2) as usize; // Default to 2nd order for Butterworth lowpass
+
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter = ButterLowpassFilter::new(cutoff_freq, sample_rate, order);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "butter_highpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Butterworth Highpass filter requires 'cutoff_frequency'"
+                            )
+                        })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(2) as usize; // Default to 2nd order for Butterworth highpass
+
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter = ButterHighpassFilter::new(cutoff_freq, sample_rate, order);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "cheby_bandpass" => {
+                        let center_freq = params
+                            .get("center_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!("Chebyshev Bandpass filter requires 'center_frequency'")
+                        })?;
+
+                        let bandwidth = params
+                            .get("bandwidth")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("Chebyshev Bandpass filter requires 'bandwidth'")
+                            })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(4) as usize; // Default to 4th order for Chebyshev bandpass
+
+                        let ripple: f64 =
+                            params.get("ripple").and_then(|v| v.as_f64()).unwrap_or(0.1); // Default ripple of 0.1 dB
+
+                        // Convert center frequency + bandwidth to low + high frequencies
+                        let low_freq = center_freq - bandwidth / 2.0;
+                        let high_freq = center_freq + bandwidth / 2.0;
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter = ChebyBandpassFilter::new(
+                            low_freq,
+                            high_freq,
+                            sample_rate,
+                            order,
+                            ripple,
+                        );
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "cheby_lowpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!("Chebyshev Lowpass filter requires 'cutoff_frequency'")
+                        })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(2) as usize; // Default to 2nd order for Chebyshev lowpass
+
+                        let ripple: f64 =
+                            params.get("ripple").and_then(|v| v.as_f64()).unwrap_or(0.1); // Default ripple of 0.1 dB
+
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter =
+                            ChebyLowpassFilter::new(cutoff_freq, sample_rate, order, ripple);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "cheby_highpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!("Chebyshev Highpass filter requires 'cutoff_frequency'")
+                        })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(2) as usize; // Default to 2nd order for Chebyshev highpass
+
+                        let ripple: f64 =
+                            params.get("ripple").and_then(|v| v.as_f64()).unwrap_or(0.1); // Default ripple of 0.1 dB
+
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter =
+                            ChebyHighpassFilter::new(cutoff_freq, sample_rate, order, ripple);
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "cauer_bandpass" => {
+                        let center_freq = params
+                            .get("center_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Cauer (elliptic) Bandpass filter requires 'center_frequency'"
+                            )
+                        })?;
+
+                        let bandwidth = params
+                            .get("bandwidth")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "Cauer (elliptic) Bandpass filter requires 'bandwidth'"
+                                )
+                            })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(4) as usize; // Default to 4th order for Cauer (elliptic) bandpass
+
+                        let ripple = params.get("ripple").and_then(|v| v.as_f64()).unwrap_or(1.0); // Default 1 dB passband ripple
+                        let attenuation = params
+                            .get("attenuation")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(60.0); // Default 60 dB stopband attenuation
+
+                        // Convert center frequency + bandwidth to low + high frequencies
+                        let low_freq = center_freq - bandwidth / 2.0;
+                        let high_freq = center_freq + bandwidth / 2.0;
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter = CauerBandpassFilter::new(
+                            low_freq,
+                            high_freq,
+                            sample_rate,
+                            order,
+                            ripple,
+                            attenuation,
+                        );
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "cauer_lowpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Cauer (elliptic) Lowpass filter requires 'cutoff_frequency'"
+                            )
+                        })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(2) as usize; // Default to 2nd order for Cauer (elliptic) lowpass
+
+                        let ripple = params.get("ripple").and_then(|v| v.as_f64()).unwrap_or(1.0); // Default 1 dB passband ripple
+                        let attenuation = params
+                            .get("attenuation")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(60.0); // Default 60 dB stopband attenuation
+
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter = CauerLowpassFilter::new(
+                            cutoff_freq,
+                            sample_rate,
+                            order,
+                            ripple,
+                            attenuation,
+                        );
+                        Ok(Box::new(FilterNode::new(
+                            config.id.clone(),
+                            Box::new(filter),
+                            target_channel,
+                        )))
+                    }
+                    "cauer_highpass" => {
+                        let cutoff_freq = params
+                            .get("cutoff_frequency")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Cauer (elliptic) Highpass filter requires 'cutoff_frequency'"
+                            )
+                        })?;
+
+                        let order =
+                            params.get("order").and_then(|v| v.as_u64()).unwrap_or(2) as usize; // Default to 2nd order for Cauer (elliptic) highpass
+
+                        let ripple = params.get("ripple").and_then(|v| v.as_f64()).unwrap_or(1.0); // Default 1 dB passband ripple
+                        let attenuation = params
+                            .get("attenuation")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(60.0); // Default 60 dB stopband attenuation
+
+                        let sample_rate = photoacoustic_config.sample_rate as f64;
+
+                        let filter = CauerHighpassFilter::new(
+                            cutoff_freq,
+                            sample_rate,
+                            order,
+                            ripple,
+                            attenuation,
+                        );
                         Ok(Box::new(FilterNode::new(
                             config.id.clone(),
                             Box::new(filter),

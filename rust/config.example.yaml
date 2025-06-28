@@ -279,7 +279,23 @@ processing:
     - id: bandpass_filter
       node_type: filter
       parameters:
-        type: bandpass
+        # Can be 
+        # "lowpass" - simple lowpass filter (maximal performance)
+        # "highpass" - simple highpass filter (maximal performance)
+        # "bandpass" - simple bandpass filter (maximal performance)
+        # "butter_bandpass" - SciPy Butterworth bandpass filter (from sci-rs)
+        # "butter_lowpass" - SciPy Butterworth lowpass filter (from sci-rs)
+        # "butter_highpass" - SciPy Butterworth highpass filter (from sci-rs)
+        #
+        # These filters are implemented here but not yet available in sci-rs so they are not used:
+        # "cauer_bandpass" - SciPy Cauer (elliptic) bandpass filter (from sci-rs)
+        # "cauer_lowpass" - SciPy Cauer (elliptic) lowpass filter (from sci-rs)
+        # "cauer_highpass" - SciPy Cauer (elliptic) highpass filter (from sci-rs)
+        # "cheby_bandpass" - SciPy Chebyshev bandpass filter (from sci-rs) Chebishev I can use a ripple optional parameter(default 0.1)
+        # "cheby_lowpass" - SciPy Chebyshev lowpass filter (from sci-rs)
+        # "cheby_highpass" - SciPy Chebyshev highpass filter (from sci-rs)
+
+        type: butter_bandpass            
         center_frequency: 2000.0  # Center at 2 kHz
         bandwidth: 200.0          # 200 Hz bandwidth (1900-2100 Hz passband)
         order: 2                  # optional order second-order (-12dB/octave)  (must be even)

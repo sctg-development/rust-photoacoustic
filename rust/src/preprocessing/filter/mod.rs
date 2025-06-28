@@ -16,17 +16,11 @@
 //! - **[`standard_filters::LowpassFilter`]**: Cascaded first-order IIR lowpass filter for noise reduction
 //! - **[`standard_filters::HighpassFilter`]**: Cascaded first-order RC highpass filter for DC removal
 //!
-//! ## SciPy-style IIR Filters
+//! ## SciPy-style Digital Filters (SOS + filtfilt)
 //!
-//! - **[`scipy_iir_filters::IirBandpassFilter`]**: IIR bandpass filter using sci-rs implementation
-//! - **[`scipy_iir_filters::IirLowpassFilter`]**: IIR lowpass filter using sci-rs implementation
-//! - **[`scipy_iir_filters::IirHighpassFilter`]**: IIR highpass filter using sci-rs implementation
-//!
-//! ## SciPy-style Butterworth Filters
-//!
-//! - **[`scipy_butter_filters::ButterBandpassFilter`]**: Butterworth bandpass filter using sci-rs
-//! - **[`scipy_butter_filters::ButterLowpassFilter`]**: Butterworth lowpass filter using sci-rs
-//! - **[`scipy_butter_filters::ButterHighpassFilter`]**: Butterworth highpass filter using sci-rs
+//! - **[`scipy_butter_filter::ButterBandpassFilter`]**: Butterworth bandpass filter using SOS + filtfilt
+//! - **[`scipy_butter_filter::ButterLowpassFilter`]**: Butterworth lowpass filter using SOS + filtfilt  
+//! - **[`scipy_butter_filter::ButterHighpassFilter`]**: Butterworth highpass filter using SOS + filtfilt
 //!
 //! All filters support configurable order which controls the steepness of the roll-off:
 //! - Order 2: -12dB/octave roll-off (moderate)  
@@ -56,8 +50,9 @@
 //! let output = filter.apply(&input);
 //! ```
 
-pub mod scipy_butter_filters;
-pub mod scipy_iir_filters;
+pub mod scipy_butter_filter;
+pub mod scipy_cauer_filter;
+pub mod scipy_cheby_filter;
 pub mod standard_filters;
 
 /// Trait for implementing digital filters
@@ -146,6 +141,7 @@ pub trait Filter: Send + Sync {
 }
 
 // Re-export commonly used filters for backward compatibility
-pub use scipy_butter_filters::{ButterBandpassFilter, ButterHighpassFilter, ButterLowpassFilter};
-pub use scipy_iir_filters::{IirBandpassFilter, IirHighpassFilter, IirLowpassFilter};
+pub use scipy_butter_filter::{ButterBandpassFilter, ButterHighpassFilter, ButterLowpassFilter};
+pub use scipy_cauer_filter::{CauerBandpassFilter, CauerHighpassFilter, CauerLowpassFilter};
+pub use scipy_cheby_filter::{ChebyBandpassFilter, ChebyHighpassFilter, ChebyLowpassFilter};
 pub use standard_filters::{BandpassFilter, HighpassFilter, LowpassFilter};
