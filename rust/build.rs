@@ -4,9 +4,12 @@
 
 use anyhow::Context;
 use anyhow::Result;
+use cargo_metadata::{MetadataCommand, Package};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::env;
 use std::fs::{self, File};
@@ -18,6 +21,136 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const RS256_KEY_LENGTH: usize = 4096; // Default key length for RS256
                                       // Checks if any web source files are newer than the compiled files
+
+#[derive(Debug, Serialize)]
+struct PackageInfo {
+    name: String,
+    license: Option<String>,
+    authors: Vec<String>,
+    repository: Option<String>,
+    version: String,
+}
+
+/// Get information about the packages in the current Cargo project
+fn get_packages_info() -> Result<Vec<PackageInfo>> {
+    // Use cargo_metadata to get package information
+    let metadata = MetadataCommand::new()
+        .exec()
+        .context("Failed to execute cargo metadata")?;
+
+    let mut packages_info = Vec::new();
+
+    for package in metadata.packages {
+        let info = PackageInfo {
+            name: package.name.to_string(),
+            license: package.license.clone(),
+            authors: package.authors,
+            version: package.version.to_string(),
+            repository: package.repository.clone(),
+        };
+        packages_info.push(info);
+    }
+
+    Ok(packages_info)
+}
+
+/// Generates a rust file in the OUT_DIR
+/// this files contains a constant with a string showing a license notice
+/// This license notice is like:
+/// ```text
+/// This software is licensed under the SCTG Development Non-Commercial License v1.0.
+/// For more information, see the LICENSE.md file in the root of this project.
+/// (c) Ronan LE MEILLAT, SCTG Development
+/// ---
+/// This software contains Open Source Software (OSS) components.
+/// - [crate_name] ([crate_version]) - [crate_license] - [crate_authors]
+/// - [crate_name] ([crate_version]) - [crate_license] - [crate_authors]
+/// ...
+/// ```
+fn generate_license_notice() -> Result<()> {
+    // Get package information
+    let packages_info = get_packages_info()?;
+
+    // Create the license notice string
+    let mut notice = String::new();
+    notice.push_str(
+        "This software is licensed under the SCTG Development Non-Commercial License v1.0.\n",
+    );
+    notice.push_str("For more information, see the LICENSE.md file in the root of this project.\n");
+    notice.push_str("© Ronan LE MEILLAT, SCTG Development\n");
+    notice.push_str("---\n");
+    notice.push_str("This software contains Open Source Software (OSS) components:\n");
+
+    for package in packages_info {
+        let authors = package.authors.join(", ");
+        let license = package.license.unwrap_or_else(|| "Unknown".to_string());
+        notice.push_str(&format!(
+            "- {} ({}) - {} - {} - {}\n",
+            package.name,
+            package.version,
+            license,
+            authors,
+            package
+                .repository
+                .unwrap_or_else(|| "No repository".to_string())
+        ));
+    }
+
+    // Write the notice to a file in OUT_DIR
+    let out_dir = env::var("OUT_DIR")?;
+    let file_path = PathBuf::from(out_dir).join("license_notice.rs");
+    let mut file = File::create(file_path)?;
+    writeln!(file, "pub const LICENSE_NOTICE: &str = r#\"{}\"#;", notice)?;
+
+    Ok(())
+}
+
+/// Run generate_license_notice only if the Cargo.lock file has changed
+/// It generates a hash of the Cargo.lock file and compares it to a stored hash
+/// If the hashes are different, it runs the function and updates the stored hash
+/// # Returns true if the function was run, false if it was skipped
+fn run_generate_license_notice_if_needed() -> Result<bool> {
+    // Get the path to the Cargo.lock file
+    let cargo_lock_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("Cargo.lock");
+
+    // Check if the Cargo.lock file exists
+    if !cargo_lock_path.exists() {
+        return Ok(false);
+    }
+
+    // Read the contents of the Cargo.lock file
+    let cargo_lock_content = fs::read_to_string(&cargo_lock_path)?;
+
+    // Calculate a hash of the Cargo.lock content
+    let mut hasher = Sha256::new();
+    hasher.update(cargo_lock_content.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+
+    // Get the path to the stored hash file
+    let hash_file_path = PathBuf::from(env::var("OUT_DIR")?).join("cargo_lock_hash.txt");
+
+    // Check if the hash file exists and read its content
+    let mut previous_hash = String::new();
+    if hash_file_path.exists() {
+        previous_hash = fs::read_to_string(&hash_file_path)?;
+    }
+
+    // Compare the hashes
+    if previous_hash.trim() == hash.trim() {
+        println!("cargo:warning=No changes in Cargo.lock, skipping license notice generation");
+        return Ok(false);
+    }
+
+    // Run the function to generate the license notice
+    generate_license_notice()?;
+
+    // Write the new hash to the hash file
+    fs::write(&hash_file_path, hash)?;
+
+    println!("cargo:warning=License notice generated successfully");
+    Ok(true)
+}
+
 fn is_web_source_newer_than_dist(dist_path: &PathBuf, src_paths: &[PathBuf]) -> bool {
     // Get the most recent modification date of files in dist
     let dist_latest_mod = get_latest_modification_time(dist_path).unwrap_or_else(|| {
@@ -780,6 +913,10 @@ async fn main() {
     // Rerun if .git directory changes (for commit hash updates)
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs");
+    // Rerun if Cargo.lock changes (to regenerate license notice)
+    println!("cargo:rerun-if-changed=Cargo.lock");
+
+    run_generate_license_notice_if_needed();
 
     // Extract Git information and set environment variables
     match get_git_info() {

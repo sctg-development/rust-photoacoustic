@@ -99,7 +99,7 @@ rdkafka = { version = "0.37.0", features = ["cmake-build", "tokio"] }
 criterion = "0.6.0"                                   # Benchmarking
 mockall = "0.13.1"                                    # Mocking for tests
 oauth2 = "5.0.0"                                    # OAuth2 client implementation
-wiremock = "0.6.3"                                  # HTTP mocking
+wiremock = "0.6.4"                                  # HTTP mocking
 tokio = { version = "1.45.1", features = ["full"] }
 reqwest = { version = "0.12.18", features = ["json"] }
 uuid = { version = "1.17.0", features = ["v4"] }
@@ -120,6 +120,8 @@ time = "0.3.41"                                       # Time handling for certif
 anyhow = "1.0.98"                                  # Error handling
 rsa = "0.9.8"
 chrono = { version = "0.4.41", features = ["serde"] } # For build timestamps
+cargo_metadata = "0.20.0"
+sha2 = "0.10.9" 
 
 [patch."https://github.com/197g/oxide-auth"]
 oxide-auth-rocket = { path = "./oxide-auth-patched/oxide-auth-rocket" }
