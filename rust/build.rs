@@ -6,6 +6,7 @@ use anyhow::Context;
 use anyhow::Result;
 use cargo_metadata::{MetadataCommand, Package};
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
+use rsa::rand_core::le;
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::Deserialize;
 use serde::Serialize;
@@ -26,9 +27,23 @@ const RS256_KEY_LENGTH: usize = 4096; // Default key length for RS256
 struct PackageInfo {
     name: String,
     license: Option<String>,
+    licenses: Vec<String>,
     authors: Vec<String>,
     repository: Option<String>,
     version: String,
+}
+
+/// For multiple licenses
+fn split_license(license: &str) -> Vec<String> {
+    // SPDX identifiers: letters, numbers, -, ., + (ex: Apache-2.0, LGPL-2.1-or-later, MIT, BSD-3-Clause, etc.)
+    let re = regex::Regex::new(r"[A-Za-z0-9\.\-\+]+").unwrap();
+    re.find_iter(license)
+        .map(|m| m.as_str().to_string())
+        .filter(|id| {
+            let upper = id.to_ascii_uppercase();
+            upper != "AND" && upper != "OR" && upper != "WITH"
+        })
+        .collect()
 }
 
 /// Get information about the packages in the current Cargo project
@@ -44,6 +59,11 @@ fn get_packages_info() -> Result<Vec<PackageInfo>> {
         let info = PackageInfo {
             name: package.name.to_string(),
             license: package.license.clone(),
+            licenses: package
+                .license
+                .as_ref()
+                .map(|l| split_license(l))
+                .unwrap_or_else(|| vec![]),
             authors: package.authors,
             version: package.version.to_string(),
             repository: package.repository.clone(),
@@ -65,6 +85,10 @@ fn get_packages_info() -> Result<Vec<PackageInfo>> {
 /// This software contains Open Source Software (OSS) components.
 /// - [crate_name] ([crate_version]) - [crate_license] - [crate_authors]
 /// - [crate_name] ([crate_version]) - [crate_license] - [crate_authors]
+/// ---
+/// You can find the full text of the licenses used by the dependencies at the following URL:
+/// - MIT: https://opensource.org/license/mit/
+/// - Apache-2.0: https://opensource.org/license/apache-2-0/
 /// ...
 /// ```
 fn generate_license_notice() -> Result<()> {
@@ -73,6 +97,7 @@ fn generate_license_notice() -> Result<()> {
 
     // Create the license notice string
     let mut notice = String::new();
+    let mut oss_licenses: Vec<String> = vec![];
     notice.push_str(
         "This software is licensed under the SCTG Development Non-Commercial License v1.0.\n",
     );
@@ -94,8 +119,59 @@ fn generate_license_notice() -> Result<()> {
                 .repository
                 .unwrap_or_else(|| "No repository".to_string())
         ));
+        oss_licenses.extend(package.licenses.iter().cloned());
     }
 
+    // Remove duplicates from the licenses
+    let oss_licenses: Vec<String> = oss_licenses
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    notice.push_str("---\n");
+    notice.push_str("You can find the full text of the licenses used by the dependencies at the following URLs:\n");
+    for license in oss_licenses {
+        match license.as_str() {
+            "0BSD" => notice.push_str("- 0BSD: https://opensource.org/license/0bsd/\n"),
+            "AGPL-3.0-only" => {
+                notice.push_str("- AGPL-3.0-only: https://www.gnu.org/licenses/agpl-3.0.en.html\n")
+            }
+            "Apache-2.0" => {
+                notice.push_str("- Apache-2.0: https://opensource.org/license/apache-2-0/\n")
+            }
+            "BSD-2-Clause" => {
+                notice.push_str("- BSD-2-Clause: https://opensource.org/license/bsd-2-clause/\n")
+            }
+            "BSD-3-Clause" => {
+                notice.push_str("- BSD-3-Clause: https://opensource.org/license/bsd-3-clause/\n")
+            }
+            "BSL-1.0" => notice.push_str("- BSL-1.0: https://opensource.org/license/bsl-1-0/\n"),
+            "CC0-1.0" => {
+                notice.push_str("- CC0-1.0: https://creativecommons.org/publicdomain/zero/1.0/\n")
+            }
+            "CDLA-Permissive-2.0" => {
+                notice.push_str("- CDLA-Permissive-2.0: https://cdla.io/permissive-2-0/\n")
+            }
+            "ISC" => notice.push_str("- ISC: https://opensource.org/license/isc/\n"),
+            "LGPL-2.1-or-later" => notice.push_str(
+                "- LGPL-2.1-or-later: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html\n",
+            ),
+            "MIT" => notice.push_str("- MIT: https://opensource.org/license/mit/\n"),
+            "MIT-0" => notice.push_str("- MIT-0: https://opensource.org/license/mit-0/\n"),
+            "OpenSSL" => {
+                notice.push_str("- OpenSSL: https://www.openssl.org/source/license.html\n")
+            }
+            "Unlicense" => notice.push_str("- Unlicense: https://unlicense.org/\n"),
+            "Unicode-3.0" => {
+                notice.push_str("- Unicode-3.0: https://opensource.org/license/unicode-3-0/\n")
+            }
+            "Zlib" => notice.push_str("- Zlib: https://opensource.org/license/zlib/\n"),
+            _ => notice.push_str(&format!("- {}: Unknown license URL\n", license)),
+        }
+    }
+    notice.push_str("---\n");
+    notice.push_str("Please note that this software is an original work and does not constitute a derivative work of any of its dependencies.\n");
     // Write the notice to a file in OUT_DIR
     let out_dir = env::var("OUT_DIR")?;
     let file_path = PathBuf::from(out_dir).join("license_notice.rs");
@@ -142,7 +218,7 @@ fn run_generate_license_notice_if_needed() -> Result<bool> {
     }
 
     // Run the function to generate the license notice
-    generate_license_notice()?;
+    let _ = generate_license_notice()?;
 
     // Write the new hash to the hash file
     fs::write(&hash_file_path, hash)?;

@@ -3,6 +3,7 @@ name = "rust_photoacoustic"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ronan Le Meillat"]
+license = "SCTG-Non-Commercial-1.0"
 description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
 
 [features]
@@ -55,7 +56,7 @@ reqwest = { version = "0.12.20", features = ["json"] }
 oxide-auth = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 oxide-auth-rocket = { git = "https://github.com/197g/oxide-auth", branch = "master" }
 redis = { version = "0.32.2", features = ["tokio-comp", "aio", "tokio-rustls-comp"] }
-rustls = { version = "0.23", features = ["ring", "aws_lc_rs"] }
+rustls = { version = "0.23.28", features = ["ring", "aws_lc_rs"] }
 rocket_okapi = { git = "https://github.com/sctg-development/okapi", features = [
     "rapidoc",
     "swagger",
@@ -70,7 +71,7 @@ tokio-modbus = { version = "0.16.1", features = ["tcp", "tcp-server", "server"] 
 pwhash = "1.0.0"  # Add this dependency for password hashing
 handlebars = "6.3.2"
 quote = "1.0.40"
-syn = {version="2.0.102", features=["full"]}
+syn = {version="2.0.104", features=["full"]}
 auth-macros = { path = "auth-macros" }
 rocket_async_compression = "0.6.1"
 async-trait = "0.1.88"
@@ -106,7 +107,7 @@ uuid = { version = "1.17.0", features = ["v4"] }
 url = "2.5.4"                                         # URL parsing
 sha2 = "0.10.9"                                       # Pour le hachage SHA-256 utilisé dans PKCE
 base64 = "0.22.1"                                     # Pour l'encodage Base64URL utilisé dans PKCE
-serde_json = "1.0.140"                                  # Pour analyser la réponse JSON des tokens
+serde_json = "1.0.140"                                # Pour analyser la réponse JSON des tokens
 regex = "1.11.1"                                    # Expressions régulières
 evalexpr = "12.0.2"                                 # Mathematical expression evaluation
 approx = "0.5.1"                                    # Approximate floating-point equality for tests
@@ -122,6 +123,7 @@ rsa = "0.9.8"
 chrono = { version = "0.4.41", features = ["serde"] } # For build timestamps
 cargo_metadata = "0.20.0"
 sha2 = "0.10.9" 
+regex = "1"
 
 [patch."https://github.com/197g/oxide-auth"]
 oxide-auth-rocket = { path = "./oxide-auth-patched/oxide-auth-rocket" }
