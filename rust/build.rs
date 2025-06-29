@@ -157,6 +157,9 @@ fn generate_license_notice() -> Result<()> {
             "LGPL-2.1-or-later" => notice.push_str(
                 "- LGPL-2.1-or-later: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html\n",
             ),
+            "LLVM-exception" => {
+                notice.push_str("- LLVM-exception: https://spdx.org/licenses/LLVM-exception.html\n")
+            }
             "MIT" => notice.push_str("- MIT: https://opensource.org/license/mit/\n"),
             "MIT-0" => notice.push_str("- MIT-0: https://opensource.org/license/mit-0/\n"),
             "OpenSSL" => {
