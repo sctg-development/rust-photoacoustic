@@ -1,3 +1,9 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
+// TODO: Rewrite this using `meval` instead of `evalexpr` due to licensing issues
+
 use anyhow::{anyhow, Result};
 use evalexpr::{
     eval_with_context, Context, ContextWithMutableVariables, DefaultNumericTypes, HashMapContext,
