@@ -540,6 +540,7 @@ impl PythonNode {
     fn call_python_function(&self, function_name: &str, args: Value) -> Result<Value> {
         use pyo3::prelude::*;
         use pyo3::types::{PyDict, PyModule};
+        use std::ffi::CString;
         use std::time::Instant;
 
         let start_time = Instant::now();
@@ -548,8 +549,22 @@ impl PythonNode {
             // Get or create cached module
             let module_code = self.get_or_load_module_code()?;
 
+            let module_code_cstr = CString::new(module_code.as_str())
+                .map_err(|e| anyhow!("Invalid module code: {}", e))?;
+
+            // Convert filename and module name to CString for PyO3 0.25+
+            let filename =
+                CString::new("processor.py").map_err(|e| anyhow!("Invalid filename: {}", e))?;
+            let module_name =
+                CString::new("processor").map_err(|e| anyhow!("Invalid module name: {}", e))?;
+
             // Create module from cached code (this is much faster than file I/O)
-            let module = PyModule::from_code(py, &module_code, "processor.py", "processor")?;
+            let module = PyModule::from_code(
+                py,
+                module_code_cstr.as_c_str(),
+                filename.as_c_str(),
+                module_name.as_c_str(),
+            )?;
 
             // Set up Python path if specified (only do this once during initialization ideally)
             if !self.config.python_paths.is_empty() {
@@ -582,7 +597,7 @@ impl PythonNode {
             };
 
             // Convert result back to JSON
-            let json_result: Value = pythonize::depythonize(result)?;
+            let json_result: Value = pythonize::depythonize(&result)?;
 
             // Check for timeout (simple approach)
             if start_time.elapsed() > Duration::from_secs(self.config.timeout_seconds) {

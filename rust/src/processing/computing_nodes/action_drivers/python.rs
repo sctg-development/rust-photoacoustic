@@ -677,6 +677,7 @@ impl PythonActionDriver {
     async fn call_python_function(&self, func_name: &str, args: &[Value]) -> Result<Value> {
         use pyo3::prelude::*;
         use pyo3::types::{PyDict, PyList, PyModule, PyTuple};
+        use std::ffi::CString;
 
         let script_path = self.config.script_path.clone();
         let timeout = Duration::from_secs(self.config.timeout_seconds);
@@ -701,16 +702,41 @@ impl PythonActionDriver {
                     let original_stderr = sys.getattr("stderr")?;
 
                     // Redirect stdout/stderr to our capture objects
-                    sys.setattr("stdout", stdout_capture)?;
-                    sys.setattr("stderr", stderr_capture)?;
+                    sys.setattr("stdout", &stdout_capture)?;
+                    sys.setattr("stderr", &stderr_capture)?;
 
                     // Load and execute the script
                     let code = std::fs::read_to_string(&script_path)
                         .map_err(|e| anyhow!("Failed to read Python script: {}", e))?;
 
+                    let code_cstr = CString::new(code).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                            "Invalid code string: {}",
+                            e
+                        ))
+                    })?;
+
                     let result = Python::with_gil(|py| -> PyResult<PyObject> {
-                        let module =
-                            PyModule::from_code(py, &code, "action_script.py", "action_script")?;
+                        // Convert filename and module name to CString for PyO3 0.25+
+                        let filename = CString::new("action_script.py").map_err(|e| {
+                            pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                                "Invalid filename: {}",
+                                e
+                            ))
+                        })?;
+                        let module_name = CString::new("action_script").map_err(|e| {
+                            pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                                "Invalid module name: {}",
+                                e
+                            ))
+                        })?;
+
+                        let module = PyModule::from_code(
+                            py,
+                            code_cstr.as_c_str(),
+                            filename.as_c_str(),
+                            module_name.as_c_str(),
+                        )?;
 
                         // Check if the function exists
                         if !module.hasattr(func_name.as_str())? {
@@ -725,74 +751,22 @@ impl PythonActionDriver {
                         if args.is_empty() {
                             func.call0().map(|v| v.into())
                         } else {
-                            // Convert args to Python objects
-                            let py_args: PyResult<Vec<PyObject>> = args
+                            // Convert each argument to Python objects individually using pythonize
+                            let py_args: Result<Vec<PyObject>, _> = args
                                 .iter()
-                                .map(|v| match v {
-                                    Value::Null => Ok(py.None()),
-                                    Value::Bool(b) => Ok(b.to_object(py)),
-                                    Value::Number(n) => {
-                                        if let Some(i) = n.as_i64() {
-                                            Ok(i.to_object(py))
-                                        } else if let Some(f) = n.as_f64() {
-                                            Ok(f.to_object(py))
-                                        } else {
-                                            Ok(py.None())
-                                        }
-                                    }
-                                    Value::String(s) => Ok(s.to_object(py)),
-                                    Value::Array(arr) => {
-                                        let py_list = PyList::new(
-                                            py,
-                                            arr.iter().map(|item| match item {
-                                                Value::Null => py.None(),
-                                                Value::Bool(b) => b.to_object(py),
-                                                Value::Number(n) => {
-                                                    if let Some(i) = n.as_i64() {
-                                                        i.to_object(py)
-                                                    } else if let Some(f) = n.as_f64() {
-                                                        f.to_object(py)
-                                                    } else {
-                                                        py.None()
-                                                    }
-                                                }
-                                                Value::String(s) => s.to_object(py),
-                                                _ => serde_json::to_string(item)
-                                                    .unwrap_or_default()
-                                                    .to_object(py),
-                                            }),
-                                        );
-                                        Ok(py_list.to_object(py))
-                                    }
-                                    Value::Object(obj) => {
-                                        let py_dict = PyDict::new(py);
-                                        for (key, value) in obj {
-                                            let py_value = match value {
-                                                Value::Null => py.None(),
-                                                Value::Bool(b) => b.to_object(py),
-                                                Value::Number(n) => {
-                                                    if let Some(i) = n.as_i64() {
-                                                        i.to_object(py)
-                                                    } else if let Some(f) = n.as_f64() {
-                                                        f.to_object(py)
-                                                    } else {
-                                                        py.None()
-                                                    }
-                                                }
-                                                Value::String(s) => s.to_object(py),
-                                                _ => serde_json::to_string(value)
-                                                    .unwrap_or_default()
-                                                    .to_object(py),
-                                            };
-                                            py_dict.set_item(key, py_value)?;
-                                        }
-                                        Ok(py_dict.to_object(py))
-                                    }
+                                .map(|arg| {
+                                    pythonize::pythonize(py, arg)
+                                        .map_err(|e| {
+                                            PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                                                e.to_string(),
+                                            )
+                                        })
+                                        .map(|bound| bound.into())
                                 })
                                 .collect();
-
                             let py_args = py_args?;
-                            func.call1(PyTuple::new(py, py_args)).map(|v| v.into())
+                            let args_tuple = PyTuple::new(py, py_args)?;
+                            func.call1(&args_tuple).map(|v| v.into())
                         }
                     });
 
@@ -836,7 +810,7 @@ impl PythonActionDriver {
                         Ok(Value::String(s))
                     } else {
                         // Try to convert to string representation
-                        let str_repr = result.as_ref(py).str()?.to_string();
+                        let str_repr = result.bind(py).str()?.to_string();
                         Ok(Value::String(str_repr))
                     }
                 })
