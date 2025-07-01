@@ -1,4 +1,4 @@
-![](https://tokei.rs/b1/github/sctg-development/rust-photoacoustic?type=Rust,TypeScript,TSX&category=code)
+![](https://tokei.rs/b1/github/sctg-development/rust-photoacoustic?type=Rust,TypeScript,TSX,C&category=code)
 ![](https://tokei.rs/b1/github/sctg-development/rust-photoacoustic?type=TSX,Rust,TypeScript&category=comments)  
 Doc: ![](https://tokei.rs/b1/github/sctg-development/rust-photoacoustic?type=Markdown)
 # Water Vapor Analyzer by Laser Photoacoustic Spectroscopy
