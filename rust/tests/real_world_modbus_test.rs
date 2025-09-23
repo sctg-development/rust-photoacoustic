@@ -123,7 +123,7 @@ async fn test_real_world_modbus_server() -> Result<()> {
             let conc_raw = data[2];
             let concentration = conc_raw as f32 / 10.0;
             println!(
-                "💧 Water Vapor Concentration: {} ppm (raw: {})",
+                "💧 Gas Concentration: {} ppm (raw: {})",
                 concentration, conc_raw
             );
 

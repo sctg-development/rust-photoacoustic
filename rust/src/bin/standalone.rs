@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    println!("Water Vapor Analyzer");
+    println!("Flexible Gas Analyzer");
     println!("--------------------");
 
     let input_file: Option<String> = args

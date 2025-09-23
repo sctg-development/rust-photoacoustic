@@ -132,7 +132,7 @@ fn test_yaml_validation() -> Result<()> {
     // Test 1: Valid YAML configuration with IPv4
     let valid_ipv4_path = temp_dir.path().join("valid_ipv4_config.yaml");
     let valid_ipv4_yaml = r#"
-# Photoacoustic Water Vapor Analyzer Configuration with IPv4
+# Photoacoustic Flexible Gas Analyzer Configuration with IPv4
 visualization:
   port: 8080
   address: "127.0.0.1"
@@ -155,7 +155,7 @@ visualization:
     // Test 1b: Valid YAML configuration with standard IPv6
     let valid_ipv6_path = temp_dir.path().join("valid_ipv6_config.yaml");
     let valid_ipv6_yaml = r#"
-# Photoacoustic Water Vapor Analyzer Configuration with IPv6
+# Photoacoustic Flexible Gas Analyzer Configuration with IPv6
 visualization:
   port: 8080
   address: "2001:db8::1"
@@ -178,7 +178,7 @@ visualization:
     // Test 1c: Valid YAML configuration with IPv6 localhost
     let ipv6_localhost_path = temp_dir.path().join("ipv6_localhost_config.yaml");
     let ipv6_localhost_yaml = r#"
-# Photoacoustic Water Vapor Analyzer Configuration with IPv6 localhost
+# Photoacoustic Flexible Gas Analyzer Configuration with IPv6 localhost
 visualization:
   port: 8080
   address: "::1"
@@ -201,7 +201,7 @@ visualization:
     // Test 1d: Valid YAML configuration with IPv6 any address
     let ipv6_any_path = temp_dir.path().join("ipv6_any_config.yaml");
     let ipv6_any_yaml = r#"
-# Photoacoustic Water Vapor Analyzer Configuration with IPv6 any address
+# Photoacoustic Flexible Gas Analyzer Configuration with IPv6 any address
 visualization:
   port: 8080
   address: "::"
@@ -224,7 +224,7 @@ visualization:
     // Test 1e: Valid YAML configuration with full IPv6 address
     let full_ipv6_path = temp_dir.path().join("full_ipv6_config.yaml");
     let full_ipv6_yaml = r#"
-# Photoacoustic Water Vapor Analyzer Configuration with full IPv6
+# Photoacoustic Flexible Gas Analyzer Configuration with full IPv6
 visualization:
   port: 8080
   address: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
@@ -247,7 +247,7 @@ visualization:
     // Test 1f: Invalid YAML configuration with bracketed IPv6 address for port bindings (draft 2020-12)
     let bracketed_ipv6_path = temp_dir.path().join("bracketed_ipv6_config.yaml");
     let bracketed_ipv6_yaml = r#"
-# Photoacoustic Water Vapor Analyzer Configuration with bracketed IPv6
+# Photoacoustic Flexible Gas Analyzer Configuration with bracketed IPv6
 visualization:
   port: 8080
   address: "[::0]"

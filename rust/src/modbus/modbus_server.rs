@@ -22,7 +22,7 @@
 //! |-----------------|-------------|------|---------|
 //! | 0 | Resonance Frequency | Hz | ×10 (0.1 Hz resolution) |
 //! | 1 | Signal Amplitude | - | ×1000 (0.001 resolution) |
-//! | 2 | Water Vapor Concentration | ppm | ×10 (0.1 ppm resolution) |
+//! | 2 | Gas Concentration | ppm | ×10 (0.1 ppm resolution) |
 //! | 3 | Measurement Timestamp (Low Word) | epoch seconds | 1 |
 //! | 4 | Measurement Timestamp (High Word) | epoch seconds | 1 |
 //! | 5 | Status Code | - | 0=normal, 1=warning, 2=error |

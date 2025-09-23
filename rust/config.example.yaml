@@ -1,4 +1,4 @@
-# Photoacoustic Water Vapor Analyzer Configuration Example
+# Photoacoustic Flexible Gas Analyzer Configuration Example
 # --------------------------------------------------------
 # This YAML file configures the rust-photoacoustic application.
 # YAML is a text based structured file format @see https://en.wikipedia.org/wiki/YAML

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Ronan Le Meillat"]
 license = "SCTG-Non-Commercial-1.0"
-description = "Water Vapor Analyzer using Laser Photoacoustic Spectroscopy"
+description = "Flexible Gas Analyzer using Laser Photoacoustic Spectroscopy"
 
 [features]
 default = ["python-driver"]

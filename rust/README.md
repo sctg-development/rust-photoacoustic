@@ -1,4 +1,4 @@
-# Water Vapor Analyzer by Laser Photoacoustic Spectroscopy
+# Flexible Gas Analyzer by Laser Photoacoustic Spectroscopy
 
 ## Development Philosophy & Disclaimer
 
