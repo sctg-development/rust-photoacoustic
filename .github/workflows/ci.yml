@@ -92,6 +92,14 @@ jobs:
       with:
         version: "14.0"
 
+    # Install CMake (required for rdkafka-sys on macOS)
+    - name: Install CMake (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install cmake
+        cmake --version
+        echo "CMAKE_POLICY_VERSION_MINIMUM=3.5" >> $GITHUB_ENV
+
     # Install Anaconda3 for Python support (needed for python-driver feature tests)
     - name: Setup Anaconda3
       uses: conda-incubator/setup-miniconda@v3
