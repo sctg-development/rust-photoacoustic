@@ -425,6 +425,53 @@ graph TB
 
 ## Workflow de développement
 
+### Planning global avec un ingénieur
+
+```mermaid
+gantt
+    title Planning de développement plateforme matérielle
+    dateFormat YYYY-MM-DD
+    
+    section Phase 1: Prototypage
+    Achat modules commerciaux           :p1_achat, 2025-10-15, 3d
+    Montage breadboard                  :p1_montage, after p1_achat, 2d
+    Tests USB HID                       :p1_usb, after p1_montage, 2d
+    Tests I2C ADS1115                   :p1_i2c, after p1_usb, 3d
+    Tests SPI DAC                       :p1_spi, after p1_i2c, 3d
+    Développement firmware              :p1_fw, after p1_spi, 5d
+    Récupération schémas                :p1_schemas, after p1_fw, 2d
+    Documentation Phase 1               :p1_doc, after p1_schemas, 2d
+    
+    section Phase 2: Conception PCB
+    Import schémas Altium               :p2_import, after p1_doc, 3d
+    Schématique alimentation            :p2_alim, after p2_import, 2d
+    Schématique MCU                     :p2_mcu, after p2_alim, 2d
+    Schématique ADC/DAC                 :p2_adc, after p2_mcu, 3d
+    Revue schématique                   :p2_rev_sch, after p2_adc, 1d
+    Layout PCB                          :p2_layout, after p2_rev_sch, 5d
+    Vérification DRC                    :p2_drc, after p2_layout, 1d
+    Préparation fabrication             :p2_prep, after p2_drc, 1d
+    Commande JLCPCB                     :p2_order, after p2_prep, 1d
+    Délai fabrication                   :crit, p2_fab, after p2_order, 10d
+    Réception PCB                       :milestone, p2_recept, after p2_fab, 0d
+    
+    section Phase 3: Tests et DL150
+    Tests PCB basiques                  :p3_test_base, after p2_recept, 2d
+    Tests comparatifs modules           :p3_comp, after p3_test_base, 3d
+    Validation fonctionnelle            :p3_valid, after p3_comp, 2d
+    Intégration DL150                   :crit, p3_dl150, after p3_valid, 5d
+    Tests système complet               :p3_systeme, after p3_dl150, 3d
+    Documentation finale                :p3_doc, after p3_systeme, 2d
+    Livrable final                      :milestone, p3_livrable, after p3_doc, 0d
+```
+
+**Durée totale estimée : 8-9 semaines** (avec un ingénieur à temps plein)
+
+**Points critiques :**
+- ⏰ Délai fabrication JLCPCB : 2 semaines incompressibles
+- 🔴 Intégration DL150 : nécessite prototype validé
+- 🎯 Jalons clés : Fin Phase 1, Réception PCB, Livrable final
+
 ### Phase 1 : Prototype breadboard avec modules commerciaux (2-3 semaines)
 
 **Objectifs :**
@@ -762,18 +809,7 @@ Si PCB ≠ Modules commerciaux :
 - [ ] Même performance attendue
 - [ ] Documentation des écarts et corrections
 
-### 💡 Avantages concrets
-
-
-| Étape              | Sans cette méthodologie | Avec cette méthodologie      |
-| --------------------- | -------------------------- | ------------------------------- |
-| **Conception**      | Risque élevé d'erreurs | Schémas pré-validés        |
-| **Premier PCB**     | 50% de chance d'échec   | 90% de chance de succès      |
-| **Temps total**     | 3-6 mois (itérations)   | 2-3 mois (méthodique)        |
-| **Coût**           | 500-1000€ (PCB refaits) | 200-300€ (optimisé)         |
-| **Qualité finale** | Incertaine               | Garantie (basée sur modules) |
-
-### 🔬 Exemple complet : ADS1115
+ ### 🔬 Exemple complet : ADS1115
 
 **Méthodologie :**
 
@@ -888,6 +924,6 @@ Si PCB ≠ Modules commerciaux :
 ---
 
 **Document version:** 2.0
-**Date:** 14 octobre 2025
+**Date:** octobre 2025
 **Auteur:** Ronan Le Meillat
 **Statut:** En cours de développement
