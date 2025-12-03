@@ -73,7 +73,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: 1.86.0
+          toolchain: 1.88.0
           targets: ${{ matrix.target }}
           components: rustfmt, clippy
 
@@ -233,18 +233,20 @@ jobs:
           fi
         shell: bash
 
-      # Run code coverage on linux only
+      # Run code coverage on Linux only
       - name: Run code coverage
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        shell: bash
         run: |
           cd rust
           cargo install cargo-tarpaulin
-          cargo tarpaulin --out Xml
-        shell: bash
+          cargo tarpaulin --out Xml --output-dir .
+
+      # Upload coverage to Codecov
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         uses: codecov/codecov-action@v5
         with:
-          files: rust/cobertura.xml
+          files: ./rust/cobertura.xml
           slug: sctg-development/rust-photoacoustic
-          token: ${{secrets.CODECOV_TOKEN}}
+          token: ${{ secrets.CODECOV_TOKEN }}
