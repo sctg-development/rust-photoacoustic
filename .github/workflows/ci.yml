@@ -16,6 +16,10 @@ jobs:
           submodules: "recursive"
           fetch-depth: 0
 
+      - name: Create base configuration
+        run: |
+          cp rust/config.example.yaml rust/config.yaml
+
       - name: Setup Node.js for web build
         uses: actions/setup-node@v6
         with:
