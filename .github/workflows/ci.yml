@@ -7,10 +7,43 @@ on:
     branches: [main, master]
 
 jobs:
+  build_web:
+    name: Build and package web (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with: # fetch all submodules
+          submodules: "recursive"
+          fetch-depth: 0
+
+      - name: Setup Node.js for web build
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+
+      - name: Install Node.js dependencies (web)
+        run: |
+          cd web
+          npm ci --prefer-offline --no-audit
+
+      - name: Build web
+        run: |
+          cd web
+          npm run build
+
+      - name: Upload web/dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-${{ hashFiles('web/package-lock.json') }}
+          path: web/dist
+
   build_and_test:
     name: Build and Test on ${{ matrix.os }} (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
 
+    needs: build_web
     strategy:
       fail-fast: false
       matrix:
@@ -155,17 +188,28 @@ jobs:
         run: |
           cp rust/config.example.yaml rust/config.yaml
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Download web artifact (dist)
+        uses: actions/download-artifact@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "web/package-lock.json"
+          name: web-dist-${{ hashFiles('web/package-lock.json') }}
+          path: ./artifact
 
-      - name: Install Node.js dependencies
+      - name: Restore web/dist from artifact
         run: |
-          cd web
-          npm install && npm run build
+          mkdir -p web
+          # If artifact contains web/dist path, move it; otherwise try to copy files
+          if [ -d artifact/web/dist ]; then
+            rm -rf web/dist || true
+            mv artifact/web/dist web/dist
+          elif [ -d artifact/dist ]; then
+            rm -rf web/dist || true
+            mv artifact/dist web/dist
+          else
+            # fallback: copy all artifact contents into web/dist
+            rm -rf web/dist || true
+            mkdir -p web/dist
+            cp -r artifact/* web/dist/ || true
+          fi
 
       # Build project
       - name: Build
