@@ -138,14 +138,18 @@ jobs:
           # Install required Python packages
           conda install -n test-env numpy scipy matplotlib -y
 
-      - name: Cache dependencies
+      - name: Cache Rust dependencies and target
         uses: actions/cache@v4
         with:
           path: |
-            rust/target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}
+            ~/.cargo/bin
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
 
       - name: Create base configuration
         run: |
