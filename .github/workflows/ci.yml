@@ -2,15 +2,15 @@ name: Rust CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   build_and_test:
     name: Build and Test on ${{ matrix.os }} (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
-    
+
     strategy:
       fail-fast: false
       matrix:
@@ -27,208 +27,224 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             cross: false
-    
+
     steps:
-    
-    # Set UTF-8 encoding for Windows to handle Unicode characters in Python scripts
-    - name: Set UTF-8 encoding (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
-        echo "LANG=en_US.UTF-8" >> $env:GITHUB_ENV
-        echo "LC_ALL=en_US.UTF-8" >> $env:GITHUB_ENV
-      shell: pwsh
+      # Set UTF-8 encoding for Windows to handle Unicode characters in Python scripts
+      - name: Set UTF-8 encoding (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
+          echo "LANG=en_US.UTF-8" >> $env:GITHUB_ENV
+          echo "LC_ALL=en_US.UTF-8" >> $env:GITHUB_ENV
+        shell: pwsh
 
-    - name: Clean runner for Docker builds
-      if: matrix.os == 'ubuntu-latest'
-      uses: sctg-development/clean-image-for-docker@v1
-      # Optional parameters
-      with:
-        remove-development-tools: 'false'
-        remove-browsers: 'true'
-        remove-databases: 'true'
-        remove-cloud-tools: 'true'
-        show-top-packages: 'true'
-    - uses: actions/checkout@v4
-      with: # fetch all submodules
-        submodules: 'recursive'
-        fetch-depth: 0
-    
-    # Debug submodules
-    - name: Debug submodules
-      shell: bash
-      run: |
-        echo "=== Git submodule status ==="
-        git submodule status
-        echo "=== .gitmodules content ==="
-        cat .gitmodules
-        echo "=== Checking rust directory ==="
-        ls -la rust/
-        echo "=== Force submodule sync and update ==="
-        git submodule sync --recursive
-        git submodule update --init --recursive --force
-        echo "=== Final submodule status ==="
-        git submodule status
-    
-    # Install Rust toolchain
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@v1
-      with:
-        toolchain: 1.86.0
-        targets: ${{ matrix.target }}
-        components: rustfmt, clippy
-    
-      
-    # Install dependencies for Linux
-    - name: Install Linux dependencies
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2-dev
-        
-    # Install LLVM and Clang (required for bindgen)
-    - name: Install LLVM and Clang
-      uses: KyleMayes/install-llvm-action@v2
-      with:
-        version: "14.0"
+      - name: Clean runner for Docker builds
+        if: matrix.os == 'ubuntu-latest'
+        uses: sctg-development/clean-image-for-docker@v1
+        # Optional parameters
+        with:
+          remove-development-tools: "false"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
+      - uses: actions/checkout@v6
+        with: # fetch all submodules
+          submodules: "recursive"
+          fetch-depth: 0
 
-    # Install CMake (required for rdkafka-sys on macOS)
-    - name: Install CMake (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install cmake
-        cmake --version
-        echo "CMAKE_POLICY_VERSION_MINIMUM=3.5" >> $GITHUB_ENV
+      # Debug submodules
+      - name: Debug submodules
+        shell: bash
+        run: |
+          echo "=== Git submodule status ==="
+          git submodule status
+          echo "=== .gitmodules content ==="
+          cat .gitmodules
+          echo "=== Checking rust directory ==="
+          ls -la rust/
+          echo "=== Force submodule sync and update ==="
+          git submodule sync --recursive
+          git submodule update --init --recursive --force
+          echo "=== Final submodule status ==="
+          git submodule status
 
-    # Install Anaconda3 for Python support (needed for python-driver feature tests)
-    - name: Setup Anaconda3
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        python-version: '3.12'
-        channels: conda-forge,defaults
-        channel-priority: true
-        activate-environment: test-env
-        use-mamba: false
-        conda-solver: classic
-        auto-activate-base: true
-        
-    # Configure Python environment variables for PyO3
-    - name: Configure Python environment
-      shell: bash -l {0}
-      run: |
-        # Activate conda environment
-        conda activate test-env
-        
-        # Set environment variables
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/python.exe" >> $GITHUB_ENV
-          echo "PYTHONPATH=$CONDA/envs/test-env/Lib/site-packages" >> $GITHUB_ENV
-          echo "$CONDA/envs/test-env/Scripts" >> $GITHUB_PATH
-          echo "$CONDA/envs/test-env" >> $GITHUB_PATH
-        else
-          echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/bin/python" >> $GITHUB_ENV
-          echo "PYTHONPATH=$CONDA/envs/test-env/lib/python3.12/site-packages" >> $GITHUB_ENV
-          echo "$CONDA/envs/test-env/bin" >> $GITHUB_PATH
-          
-          # Configure dynamic library path for macOS
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "DYLD_LIBRARY_PATH=$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+      # Install Rust toolchain
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.86.0
+          targets: ${{ matrix.target }}
+          components: rustfmt, clippy
+
+      # Install dependencies for Linux
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config gcc-aarch64-linux-gnu libasound2-dev
+
+      # Install LLVM and Clang (required for bindgen)
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "14.0"
+
+      # Install CMake (required for rdkafka-sys on macOS)
+      - name: Install CMake (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake
+          cmake --version
+          echo "CMAKE_POLICY_VERSION_MINIMUM=3.5" >> $GITHUB_ENV
+
+      # Install Anaconda3 for Python support (needed for python-driver feature tests)
+      - name: Setup Anaconda3
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.12"
+          channels: conda-forge,defaults
+          channel-priority: true
+          activate-environment: test-env
+          use-mamba: false
+          conda-solver: classic
+          auto-activate-base: true
+
+      # Configure Python environment variables for PyO3
+      - name: Configure Python environment
+        shell: bash -l {0}
+        run: |
+          # Activate conda environment
+          conda activate test-env
+
+          # Set environment variables
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/python.exe" >> $GITHUB_ENV
+            echo "PYTHONPATH=$CONDA/envs/test-env/Lib/site-packages" >> $GITHUB_ENV
+            echo "$CONDA/envs/test-env/Scripts" >> $GITHUB_PATH
+            echo "$CONDA/envs/test-env" >> $GITHUB_PATH
+          else
+            echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/test-env/bin/python" >> $GITHUB_ENV
+            echo "PYTHONPATH=$CONDA/envs/test-env/lib/python3.12/site-packages" >> $GITHUB_ENV
+            echo "$CONDA/envs/test-env/bin" >> $GITHUB_PATH
+            
+            # Configure dynamic library path for macOS
+            if [[ "${{ runner.os }}" == "macOS" ]]; then
+              echo "DYLD_LIBRARY_PATH=$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+            fi
           fi
-        fi
-        
-        # Install required Python packages
-        conda install -n test-env numpy scipy matplotlib -y
 
-    # Cache Dependencies
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: "rust -> target"
-        key: rust-ci-${{ matrix.os }}-${{ matrix.target }}
-  
-    - name: Create base configuration
-      run: |
-        cp rust/config.example.yaml rust/config.yaml
+          # Install required Python packages
+          conda install -n test-env numpy scipy matplotlib -y
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: 'web/package-lock.json'
-    
-    - name: Install Node.js dependencies
-      run: |
-        cd web
-        npm install && npm run build
-    
-    # Build project
-    - name: Build
-      run: |
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            rust/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}
+
+      - name: Create base configuration
+        run: |
+          cp rust/config.example.yaml rust/config.yaml
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+
+      - name: Install Node.js dependencies
+        run: |
+          cd web
+          npm install && npm run build
+
+      # Build project
+      - name: Build
+        run: |
           cd rust
           cargo build --target ${{ matrix.target }}
-      shell: bash
-    
-    # Run tests (only on non-cross compilation targets)
-    - name: Run tests
-      if: matrix.cross == false
-      shell: bash
-      run: |
-        cd rust
-        # Run standard tests without python-driver feature
-        cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon \
-            --skip test_python_node_scipy_bandpass_filter_single_channel \
-            --skip test_python_node_scipy_bandpass_filter_dual_channel
-        
-    # Run Python integration tests with python-driver feature
-    - name: Run Python integration tests
-      if: matrix.cross == false
-      shell: bash -l {0}
-      run: |
-        cd rust
-        # Activate conda environment
-        conda activate test-env
-        
-        # Configure macOS dynamic library path if needed
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          export DYLD_LIBRARY_PATH="$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH"
-          echo "DYLD_LIBRARY_PATH set to: $DYLD_LIBRARY_PATH"
-        fi
-        
-        # Verify Python setup
-        echo "Python executable: $PYTHON_SYS_EXECUTABLE"
-        python --version
-        which python
-        
-        # List available Python libraries on macOS for debugging
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          echo "Python library path: $CONDA/envs/test-env/lib"
-          ls -la "$CONDA/envs/test-env/lib/" | grep -i python || echo "No python libraries found"
-        fi
-        
-        # Run Python integration tests
-        cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
-        
-        # Run doctests with python-driver feature
-        echo "Running doctests..."
-        cargo test --doc --features python-driver --target ${{ matrix.target }}
-      
-    # Run specific tests with custom timeout
-    - name: Run introspection tests
-      if: matrix.cross == false
-      run: |
-        timeout_cmd=""
-        if [[ "${{ runner.os }}" == "Linux" || "${{ runner.os }}" == "macOS" ]]; then
-          timeout_cmd="timeout 30s"
-        elif [[ "${{ runner.os }}" == "Windows" ]]; then
-          # Using PowerShell timeout equivalent
-          timeout_cmd="powershell -Command \"&{Start-Job -ScriptBlock {cargo test --test introspection_test -- --nocapture}; Start-Sleep -s 30; Get-Job | Stop-Job}\""
-        fi
-        
-        if [[ -n "$timeout_cmd" ]]; then
-          $timeout_cmd cargo test --test introspection_test -- --nocapture || echo "Test timed out but that's expected"
-        else
-          cargo test --test introspection_test -- --nocapture
-        fi
-      shell: bash
+        shell: bash
+
+      # Run tests (only on non-cross compilation targets)
+      - name: Run tests
+        if: matrix.cross == false
+        shell: bash
+        run: |
+          cd rust
+          # Run standard tests without python-driver feature
+          cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon \
+              --skip test_python_node_scipy_bandpass_filter_single_channel \
+              --skip test_python_node_scipy_bandpass_filter_dual_channel
+
+      # Run Python integration tests with python-driver feature
+      - name: Run Python integration tests
+        if: matrix.cross == false
+        shell: bash -l {0}
+        run: |
+          cd rust
+          # Activate conda environment
+          conda activate test-env
+
+          # Configure macOS dynamic library path if needed
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            export DYLD_LIBRARY_PATH="$CONDA/envs/test-env/lib:$DYLD_LIBRARY_PATH"
+            echo "DYLD_LIBRARY_PATH set to: $DYLD_LIBRARY_PATH"
+          fi
+
+          # Verify Python setup
+          echo "Python executable: $PYTHON_SYS_EXECUTABLE"
+          python --version
+          which python
+
+          # List available Python libraries on macOS for debugging
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "Python library path: $CONDA/envs/test-env/lib"
+            ls -la "$CONDA/envs/test-env/lib/" | grep -i python || echo "No python libraries found"
+          fi
+
+          # Run Python integration tests
+          cargo test python_integration_tests --features python-driver --target ${{ matrix.target }}
+
+          # Run doctests with python-driver feature
+          echo "Running doctests..."
+          cargo test --doc --features python-driver --target ${{ matrix.target }}
+
+      # Run specific tests with custom timeout
+      - name: Run introspection tests
+        if: matrix.cross == false
+        run: |
+          timeout_cmd=""
+          if [[ "${{ runner.os }}" == "Linux" || "${{ runner.os }}" == "macOS" ]]; then
+            timeout_cmd="timeout 30s"
+          elif [[ "${{ runner.os }}" == "Windows" ]]; then
+            # Using PowerShell timeout equivalent
+            timeout_cmd="powershell -Command \"&{Start-Job -ScriptBlock {cargo test --test introspection_test -- --nocapture}; Start-Sleep -s 30; Get-Job | Stop-Job}\""
+          fi
+
+          if [[ -n "$timeout_cmd" ]]; then
+            $timeout_cmd cargo test --test introspection_test -- --nocapture || echo "Test timed out but that's expected"
+          else
+            cargo test --test introspection_test -- --nocapture
+          fi
+        shell: bash
+
+      # Run code coverage on linux only
+      - name: Run code coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        run: |
+          cd rust
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --out Xml
+        shell: bash
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        uses: codecov/codecov-action@v5
+        with:
+          files: rust/cobertura.xml
+          slug: sctg-development/rust-photoacoustic
+          token: ${{secrets.CODECOV_TOKEN}}
