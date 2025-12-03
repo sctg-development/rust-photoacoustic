@@ -173,7 +173,7 @@ jobs:
           fi
 
           # Install required Python packages
-          conda install -n test-env numpy scipy matplotlib -y
+          conda install -n test-env numpy scipy -y
 
       - name: Cache Rust dependencies and target
         uses: actions/cache@v4
