@@ -304,6 +304,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         shell: bash
         run: |
+          rm -rf /tmp/* || true
+          echo "Disk space before code coverage:"
+          df -h
           cd rust
           cargo install cargo-tarpaulin
           cargo tarpaulin --out Xml --output-dir .
@@ -314,7 +317,7 @@ jobs:
         run: |
           echo "Disk space after code coverage:"
           df -h
-          
+
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
         continue-on-error: true
