@@ -40,7 +40,7 @@ jobs:
       - name: Upload web/dist artifact
         uses: actions/upload-artifact@v4
         with:
-          name: web-dist-${{ hashFiles('web/package-lock.json') }}
+          name: web-dist
           path: web/dist
 
   build_and_test:
@@ -75,7 +75,7 @@ jobs:
           echo "LC_ALL=en_US.UTF-8" >> $env:GITHUB_ENV
         shell: pwsh
 
-      - name: Clean runner for Docker builds
+      - name: Clean runner for space (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         uses: sctg-development/clean-image-for-docker@v1
         # Optional parameters
@@ -85,6 +85,14 @@ jobs:
           remove-databases: "true"
           remove-cloud-tools: "true"
           show-top-packages: "true"
+
+      - name: Remove Docker to save space (ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get remove -y docker docker-engine docker.io containerd runc
+          sudo apt-get autoremove -y
+          docker --version || echo "Docker removed"
+
       - uses: actions/checkout@v6
         with: # fetch all submodules
           submodules: "recursive"
@@ -179,10 +187,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            rust/target
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            rust/target/debug/deps
+            rust/target/release/deps
+            rust/target/${{ matrix.target }}/debug/deps
+            rust/target/${{ matrix.target }}/release/deps
           key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.target }}-
