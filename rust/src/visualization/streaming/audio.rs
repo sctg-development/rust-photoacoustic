@@ -1143,4 +1143,64 @@ mod tests {
         let frame = AudioFrame::new(channel_a, channel_b, 96000, 12345);
         test_frame_conversion_roundtrip(frame);
     }
+
+    #[tokio::test]
+    async fn test_get_stream_by_node_id_uuid_and_string_success_and_failure() {
+        use crate::processing::nodes::StreamingNodeRegistry;
+        use uuid::Uuid;
+
+        let registry = StreamingNodeRegistry::new();
+        let node_id = Uuid::new_v4();
+        let stream = SharedAudioStream::new(1024);
+
+        // Register with a string id
+        registry.register_stream_with_name_and_string_id(node_id, "node_1", "Node 1", stream.clone());
+
+        // UUID lookup
+        let uuid_str = node_id.to_string();
+        let res_uuid = get_stream_by_node_id(&uuid_str, &Arc::new(registry.clone()));
+        assert!(res_uuid.is_ok());
+
+        // String ID lookup
+        let res_str = get_stream_by_node_id("node_1", &Arc::new(registry.clone()));
+        assert!(res_str.is_ok());
+
+        // Non-existent id
+        let res_none = get_stream_by_node_id("non-existent", &Arc::new(registry));
+        assert!(res_none.is_err());
+        assert_eq!(res_none.err().unwrap(), "No streaming node found");
+    }
+
+    #[tokio::test]
+    async fn test_get_node_stats_by_id_with_and_without_node() {
+        use crate::processing::nodes::StreamingNodeRegistry;
+        use uuid::Uuid;
+
+        let mut registry = StreamingNodeRegistry::new();
+        let stats_default = StreamStats::default();
+
+        // Case: non-existent node returns default stats
+        let stats_none = get_node_stats_by_id("nope", &Arc::new(registry.clone())).await;
+        assert_eq!(stats_none.total_frames, stats_default.total_frames);
+
+        // Register a node and publish a frame
+        let node_id = Uuid::new_v4();
+        let stream = SharedAudioStream::new(1024);
+        registry.register_stream_with_name_and_string_id(node_id, "node_stats", "NodeStats", stream.clone());
+
+        // Publish a frame so stats are updated
+        let frame = AudioFrame::new(vec![0.1], vec![0.2], 48000, 1);
+        stream.publish(frame).await.unwrap();
+
+        let returned = get_node_stats_by_id("node_stats", &Arc::new(registry)).await;
+        assert!(returned.total_frames >= 1);
+    }
+
+    #[test]
+    fn test_get_stream_by_node_id_parsing_uuid_error() {
+        use crate::processing::nodes::StreamingNodeRegistry;
+        let registry = StreamingNodeRegistry::new();
+        let res = get_stream_by_node_id("this_is_not_a_uuid_and_not_registered", &Arc::new(registry));
+        assert!(res.is_err());
+    }
 }
