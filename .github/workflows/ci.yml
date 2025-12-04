@@ -290,7 +290,7 @@ jobs:
             rust/target/release/deps
             rust/target/${{ matrix.target }}/debug/deps
             rust/target/${{ matrix.target }}/release/deps
-          key: ${{ steps.cache-rust-deps.outputs.cache-primary-key }}
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
 
       # Run specific tests with custom timeout
       - name: Run introspection tests
