@@ -312,6 +312,28 @@ jobs:
           fi
         shell: bash
 
+      - name: Clean target directory to save space
+        continue-on-error: true
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        run: |
+          rm -rf rust/target || true
+          rm -rf /tmp/* || true
+
+      - name: Restore target directory after cleaning for coverage
+        id: restore-target-for-coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
+          path: |
+              rust/target
+              ~/.cargo/registry/index
+              ~/.cargo/registry/cache
+              ~/.cargo/git/db
+          restore-keys: |
+              ${{ runner.os }}-cargocoverage-${{ matrix.target }}-
+              ${{ runner.os }}-cargocoverage-
+
       # Run code coverage on Linux only
       - name: Run code coverage
         continue-on-error: true
