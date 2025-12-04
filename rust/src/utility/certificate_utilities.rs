@@ -38,10 +38,8 @@
 //! should be used whenever possible.
 
 use anyhow::{Context, Result};
-use rcgen::{
-    CertificateParams, DnType, DnValue, IsCa, KeyPair, KeyUsagePurpose, SanType,
-};
 use rcgen::string::Ia5String;
+use rcgen::{CertificateParams, DnType, DnValue, IsCa, KeyPair, KeyUsagePurpose, SanType};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
@@ -138,19 +136,19 @@ pub fn create_self_signed_cert(
         .push(DnType::CommonName, DnValue::from(common_name));
 
     // Add Subject Alternative Names if provided
-        if let Some(names) = alt_names {
-            for name in names {
-                if name.parse::<std::net::IpAddr>().is_ok() {
-                    params
-                        .subject_alt_names
-                        .push(SanType::IpAddress(name.parse().unwrap()));
-                } else {
-                    params
-                        .subject_alt_names
-                        .push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
-                }
+    if let Some(names) = alt_names {
+        for name in names {
+            if name.parse::<std::net::IpAddr>().is_ok() {
+                params
+                    .subject_alt_names
+                    .push(SanType::IpAddress(name.parse().unwrap()));
+            } else {
+                params
+                    .subject_alt_names
+                    .push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
             }
-        } else {
+        }
+    } else {
         // Default SAN entries
         params
             .subject_alt_names
