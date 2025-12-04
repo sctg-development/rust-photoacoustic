@@ -39,8 +39,9 @@
 
 use anyhow::{Context, Result};
 use rcgen::{
-    CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose, SanType,
+    CertificateParams, DnType, DnValue, IsCa, KeyPair, KeyUsagePurpose, SanType,
 };
+use rcgen::string::Ia5String;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
@@ -137,19 +138,19 @@ pub fn create_self_signed_cert(
         .push(DnType::CommonName, DnValue::from(common_name));
 
     // Add Subject Alternative Names if provided
-    if let Some(names) = alt_names {
-        for name in names {
-            if name.parse::<std::net::IpAddr>().is_ok() {
-                params
-                    .subject_alt_names
-                    .push(SanType::IpAddress(name.parse().unwrap()));
-            } else {
-                params
-                    .subject_alt_names
-                    .push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
+        if let Some(names) = alt_names {
+            for name in names {
+                if name.parse::<std::net::IpAddr>().is_ok() {
+                    params
+                        .subject_alt_names
+                        .push(SanType::IpAddress(name.parse().unwrap()));
+                } else {
+                    params
+                        .subject_alt_names
+                        .push(SanType::DnsName(Ia5String::try_from(name).unwrap()));
+                }
             }
-        }
-    } else {
+        } else {
         // Default SAN entries
         params
             .subject_alt_names
@@ -204,4 +205,97 @@ pub fn create_self_signed_cert(
         .context("Failed to write key to file")?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+    use x509_parser::parse_x509_certificate;
+    use x509_parser::pem::parse_x509_pem;
+
+    #[test]
+    fn test_create_self_signed_cert_creates_files_and_contains_pem() {
+        let dir = tempdir().unwrap();
+        let cert_path = dir.path().join("test_cert.pem");
+        let key_path = dir.path().join("test_key.pem");
+
+        // use default alt names
+        create_self_signed_cert(
+            30,
+            cert_path.to_str().unwrap(),
+            key_path.to_str().unwrap(),
+            "localhost",
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Check files exist
+        assert!(cert_path.exists());
+        assert!(key_path.exists());
+
+        // Check file content contains PEM headers
+        let cert_content = fs::read_to_string(&cert_path).unwrap();
+        let key_content = fs::read_to_string(&key_path).unwrap();
+        assert!(cert_content.contains("-----BEGIN CERTIFICATE-----"));
+        assert!(
+            key_content.contains("-----BEGIN PRIVATE KEY-----")
+                || key_content.contains("-----BEGIN RSA PRIVATE KEY-----")
+        );
+    }
+
+    #[test]
+    fn test_create_self_signed_cert_custom_alt_names_and_parse_san() {
+        let dir = tempdir().unwrap();
+        let cert_path = dir.path().join("test_cert.pem");
+        let key_path = dir.path().join("test_key.pem");
+
+        let alt_names = vec!["example.com".to_string(), "127.0.0.1".to_string()];
+        create_self_signed_cert(
+            30,
+            cert_path.to_str().unwrap(),
+            key_path.to_str().unwrap(),
+            "example.com",
+            None,
+            Some(alt_names.clone()),
+        )
+        .unwrap();
+
+        // Read and parse certificate
+        let cert_bytes = fs::read(&cert_path).unwrap();
+        let (_rem, pem) = parse_x509_pem(&cert_bytes).expect("PEM parse failed");
+        let (_rem2, cert) = parse_x509_certificate(&pem.contents).expect("X509 parse failed");
+
+        // Extract SAN extension and verify it contains the expected entries
+        use x509_parser::extensions::{GeneralName, ParsedExtension};
+
+        let mut san_found = Vec::new();
+        for ext in cert.tbs_certificate.extensions().iter() {
+            if let ParsedExtension::SubjectAlternativeName(san) = ext.parsed_extension() {
+                for gn in san.general_names.iter() {
+                    match gn {
+                        GeneralName::DNSName(dns) => {
+                            san_found.push(dns.to_string());
+                        }
+                        GeneralName::IPAddress(bytes) => {
+                            // Convert IP bytes to string
+                            if let Ok(arr4) = <[u8; 4]>::try_from(bytes.as_ref()) {
+                                let ipv4 = std::net::Ipv4Addr::from(arr4);
+                                san_found.push(ipv4.to_string());
+                            } else if let Ok(arr16) = <[u8; 16]>::try_from(bytes.as_ref()) {
+                                let ipv6 = std::net::Ipv6Addr::from(arr16);
+                                san_found.push(ipv6.to_string());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        assert!(san_found.contains(&"example.com".to_string()));
+        assert!(san_found.contains(&"127.0.0.1".to_string()));
+    }
 }

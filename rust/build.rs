@@ -356,8 +356,9 @@ impl Default for PackageJson {
 mod certificate_utils {
     use anyhow::{Context, Result};
     use rcgen::{
-        CertificateParams, DnType, DnValue, Ia5String, IsCa, KeyPair, KeyUsagePurpose, SanType,
+        CertificateParams, DnType, DnValue, IsCa, KeyPair, KeyUsagePurpose, SanType,
     };
+    use rcgen::string::Ia5String;
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::Path;

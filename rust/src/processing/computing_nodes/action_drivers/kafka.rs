@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+// This file is part of the rust-photoacoustic project and is licensed under the
+// SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+
 //! Kafka display driver implementation
 //!
 //! This module implements a driver for sending display data to Apache Kafka.
@@ -6,6 +10,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use log::{error, info};
+use rdkafka::message::OwnedMessage;
 use rdkafka::{
     producer::{FutureProducer, FutureRecord},
     util::Timeout,
@@ -13,6 +18,7 @@ use rdkafka::{
 };
 use serde_json::{json, Value};
 use std::fmt;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use super::{ActionDriver, AlertData, MeasurementData};
@@ -29,8 +35,8 @@ pub struct KafkaActionDriver {
     display_topic: String,
     /// Topic to publish alerts to
     alert_topic: String,
-    /// Kafka producer for sending messages
-    producer: Option<FutureProducer>,
+    /// Kafka producer wrapper for sending messages
+    producer: Option<Arc<dyn ProducerLike>>,
     /// Client ID for Kafka connection
     client_id: String,
     /// Message timeout in milliseconds
@@ -96,7 +102,7 @@ impl KafkaActionDriver {
     }
 
     // Helper method to create a producer if it doesn't exist
-    fn ensure_producer(&mut self) -> Result<&FutureProducer> {
+    fn ensure_producer(&mut self) -> Result<Arc<dyn ProducerLike>> {
         if self.producer.is_none() {
             // Create Kafka producer
             let producer: FutureProducer = ClientConfig::new()
@@ -105,11 +111,12 @@ impl KafkaActionDriver {
                 .set("message.timeout.ms", &self.timeout_ms.to_string())
                 .create()?;
 
-            self.producer = Some(producer);
+            let real = RealProducer::new(producer);
+            self.producer = Some(Arc::new(real));
             self.connection_status = "Producer created".to_string();
         }
 
-        Ok(self.producer.as_ref().unwrap())
+        Ok(self.producer.as_ref().unwrap().clone())
     }
 
     // Helper to send a message to a topic
@@ -118,13 +125,9 @@ impl KafkaActionDriver {
         let timeout_ms = self.timeout_ms;
         let producer = self.ensure_producer()?;
 
-        let record = FutureRecord::to(topic).key(key).payload(payload);
-
-        match producer
-            .send(record, Timeout::After(Duration::from_millis(timeout_ms)))
-            .await
-        {
-            Ok((_partition, _offset)) => {
+        match producer.send(topic, key, payload, timeout_ms).await {
+            // rdkafka 0.38 returns a Delivery struct on success, older versions returned (partition, offset)
+            Ok(_delivery) => {
                 self.connection_status = format!(
                     "Connected - Last message sent: {}",
                     chrono::Local::now().to_rfc3339()
@@ -138,6 +141,151 @@ impl KafkaActionDriver {
                 Err(anyhow::anyhow!(error_msg))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rdkafka::error::KafkaError;
+    use rdkafka::message::OwnedMessage;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    use std::time::SystemTime;
+
+    struct MockProducer {
+        pub calls: Mutex<Vec<(String, String, String)>>,
+    }
+
+    #[async_trait]
+    impl ProducerLike for MockProducer {
+        async fn send(
+            &self,
+            topic: &str,
+            key: &str,
+            payload: &str,
+            _timeout_ms: u64,
+        ) -> Result<(), (KafkaError, OwnedMessage)> {
+            self.calls.lock().unwrap().push((
+                topic.to_string(),
+                key.to_string(),
+                payload.to_string(),
+            ));
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_update_action_pub_and_status() {
+        let mut driver = KafkaActionDriver::new("localhost:9092", "displays", "alerts");
+        let mock = Arc::new(MockProducer {
+            calls: Mutex::new(Vec::new()),
+        });
+        driver.set_producer_for_test(mock.clone());
+
+        let mut metadata = HashMap::new();
+        metadata.insert("k".to_string(), serde_json::json!("v"));
+
+        let data = MeasurementData {
+            concentration_ppm: 12.34,
+            source_node_id: "node-1".to_string(),
+            peak_amplitude: 0.5,
+            peak_frequency: 1000.0,
+            timestamp: SystemTime::now(),
+            metadata,
+        };
+
+        let res = driver.update_action(&data).await;
+        assert!(res.is_ok());
+        assert!(driver
+            .get_status()
+            .await
+            .unwrap()
+            .get("is_connected")
+            .unwrap()
+            .as_bool()
+            .unwrap());
+        let calls = mock.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, "displays");
+    }
+
+    #[tokio::test]
+    async fn test_show_and_clear_alert() {
+        let mut driver = KafkaActionDriver::new("localhost:9092", "displays", "alerts");
+        let mock = Arc::new(MockProducer {
+            calls: Mutex::new(Vec::new()),
+        });
+        driver.set_producer_for_test(mock.clone());
+
+        let alert = AlertData {
+            alert_type: "test_alert".to_string(),
+            severity: "info".to_string(),
+            message: "testing".to_string(),
+            data: HashMap::new(),
+            timestamp: SystemTime::now(),
+        };
+
+        let res = driver.show_alert(&alert).await;
+        assert!(res.is_ok());
+
+        let res = driver.clear_action().await;
+        assert!(res.is_ok());
+
+        let calls = mock.calls.lock().unwrap();
+        assert!(calls.iter().any(|call| call.0 == "alerts"));
+        assert!(calls.iter().any(|call| call.0 == "displays"));
+    }
+}
+
+/// Lightweight abstraction over a producer to allow test mocks
+#[async_trait]
+pub trait ProducerLike: Send + Sync {
+    async fn send(
+        &self,
+        topic: &str,
+        key: &str,
+        payload: &str,
+        timeout_ms: u64,
+    ) -> Result<(), (rdkafka::error::KafkaError, OwnedMessage)>;
+}
+
+/// Real producer wrapper for actual rdkafka FutureProducer
+pub struct RealProducer {
+    inner: FutureProducer,
+}
+
+impl RealProducer {
+    pub fn new(producer: FutureProducer) -> Self {
+        Self { inner: producer }
+    }
+}
+
+#[async_trait]
+impl ProducerLike for RealProducer {
+    async fn send(
+        &self,
+        topic: &str,
+        key: &str,
+        payload: &str,
+        timeout_ms: u64,
+    ) -> Result<(), (rdkafka::error::KafkaError, OwnedMessage)> {
+        let record = FutureRecord::to(topic).key(key).payload(payload);
+        match self
+            .inner
+            .send(record, Timeout::After(Duration::from_millis(timeout_ms)))
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err((kafka_error, owned_msg)) => Err((kafka_error, owned_msg)),
+        }
+    }
+}
+
+impl KafkaActionDriver {
+    /// Set a custom producer (used for tests/mocks)
+    pub fn set_producer_for_test(&mut self, producer: Arc<dyn ProducerLike>) {
+        self.producer = Some(producer);
     }
 }
 
