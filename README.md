@@ -1,6 +1,7 @@
 ![](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=Rust,TypeScript,TSX,C&category=code)
 ![](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=TSX,Rust,TypeScript&category=comments&color=abdbe3)
 ![](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=Markdown&label=doc&color=e28743)
+[![codecov](https://codecov.io/github/sctg-development/rust-photoacoustic/branch/master/graph/badge.svg)](https://codecov.io/github/sctg-development/rust-photoacoustic)
 # Flexible Gas Analyzer by Laser Photoacoustic Spectroscopy
 
 ## Development Philosophy & Disclaimer
