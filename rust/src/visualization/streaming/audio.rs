@@ -1154,7 +1154,12 @@ mod tests {
         let stream = SharedAudioStream::new(1024);
 
         // Register with a string id
-        registry.register_stream_with_name_and_string_id(node_id, "node_1", "Node 1", stream.clone());
+        registry.register_stream_with_name_and_string_id(
+            node_id,
+            "node_1",
+            "Node 1",
+            stream.clone(),
+        );
 
         // UUID lookup
         let uuid_str = node_id.to_string();
@@ -1186,7 +1191,12 @@ mod tests {
         // Register a node and publish a frame
         let node_id = Uuid::new_v4();
         let stream = SharedAudioStream::new(1024);
-        registry.register_stream_with_name_and_string_id(node_id, "node_stats", "NodeStats", stream.clone());
+        registry.register_stream_with_name_and_string_id(
+            node_id,
+            "node_stats",
+            "NodeStats",
+            stream.clone(),
+        );
 
         // Publish a frame so stats are updated
         let frame = AudioFrame::new(vec![0.1], vec![0.2], 48000, 1);
@@ -1200,7 +1210,8 @@ mod tests {
     fn test_get_stream_by_node_id_parsing_uuid_error() {
         use crate::processing::nodes::StreamingNodeRegistry;
         let registry = StreamingNodeRegistry::new();
-        let res = get_stream_by_node_id("this_is_not_a_uuid_and_not_registered", &Arc::new(registry));
+        let res =
+            get_stream_by_node_id("this_is_not_a_uuid_and_not_registered", &Arc::new(registry));
         assert!(res.is_err());
     }
 }
