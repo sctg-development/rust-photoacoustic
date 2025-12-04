@@ -282,6 +282,7 @@ jobs:
       - name: Run introspection tests
         if: matrix.cross == false
         run: |
+          cd rust
           timeout_cmd=""
           if [[ "${{ runner.os }}" == "Linux" || "${{ runner.os }}" == "macOS" ]]; then
             timeout_cmd="timeout 30s"
@@ -307,6 +308,13 @@ jobs:
           cargo install cargo-tarpaulin
           cargo tarpaulin --out Xml --output-dir .
 
+      # Check space left (Ubuntu)
+      - name: Check disk space (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Disk space after code coverage:"
+          df -h
+          
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
         continue-on-error: true
