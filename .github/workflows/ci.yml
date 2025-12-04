@@ -184,7 +184,8 @@ jobs:
           conda install -n test-env numpy scipy -y
 
       - name: Cache Rust dependencies and target
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
+        id: cargo-cache
         with:
           path: |
             ~/.cargo/registry/index
@@ -233,7 +234,7 @@ jobs:
           cd rust
           cargo build --target ${{ matrix.target }}
         shell: bash
-
+      
       # Run tests (only on non-cross compilation targets)
       - name: Run tests
         if: matrix.cross == false
@@ -278,6 +279,19 @@ jobs:
           echo "Running doctests..."
           cargo test --doc --features python-driver --target ${{ matrix.target }}
 
+      - name: Restore Cache Rust dependencies and target
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            rust/target/debug/deps
+            rust/target/release/deps
+            rust/target/${{ matrix.target }}/debug/deps
+            rust/target/${{ matrix.target }}/release/deps
+          key: $ {{ steps.cache-rust-deps.outputs.cache-primary-key }}
+          
       # Run specific tests with custom timeout
       - name: Run introspection tests
         if: matrix.cross == false
