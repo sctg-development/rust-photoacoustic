@@ -206,7 +206,7 @@ jobs:
       - name: Download web artifact (dist)
         uses: actions/download-artifact@v4
         with:
-          name: web-dist-${{ hashFiles('web/package-lock.json') }}
+          name: web-dist
           path: ./artifact
 
       - name: Restore web/dist from artifact
