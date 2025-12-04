@@ -210,6 +210,7 @@ jobs:
           path: ./artifact
 
       - name: Restore web/dist from artifact
+        shell: bash
         run: |
           mkdir -p web
           # If artifact contains web/dist path, move it; otherwise try to copy files
