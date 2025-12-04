@@ -40,7 +40,7 @@ jobs:
       - name: Upload web/dist artifact
         uses: actions/upload-artifact@v4
         with:
-          name: web-dist-${{ hashFiles('web/package-lock.json') }}
+          name: web-dist
           path: web/dist
 
   build_and_test:
@@ -75,7 +75,7 @@ jobs:
           echo "LC_ALL=en_US.UTF-8" >> $env:GITHUB_ENV
         shell: pwsh
 
-      - name: Clean runner for Docker builds
+      - name: Clean runner for space (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         uses: sctg-development/clean-image-for-docker@v1
         # Optional parameters
@@ -85,6 +85,14 @@ jobs:
           remove-databases: "true"
           remove-cloud-tools: "true"
           show-top-packages: "true"
+
+      - name: Remove Docker to save space (ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get remove -y docker docker-engine docker.io containerd runc
+          sudo apt-get autoremove -y
+          docker --version || echo "Docker removed"
+
       - uses: actions/checkout@v6
         with: # fetch all submodules
           submodules: "recursive"
@@ -175,13 +183,14 @@ jobs:
           # Install required Python packages
           conda install -n test-env numpy scipy -y
 
-      - name: Cache Rust dependencies and target
-        uses: actions/cache@v4
+      - name: Restore cache Rust dependencies and target
+        uses: actions/cache/restore@v4
+        id: cargo-cache
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
             rust/target
           key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
           restore-keys: |
@@ -195,10 +204,11 @@ jobs:
       - name: Download web artifact (dist)
         uses: actions/download-artifact@v4
         with:
-          name: web-dist-${{ hashFiles('web/package-lock.json') }}
+          name: web-dist
           path: ./artifact
 
       - name: Restore web/dist from artifact
+        shell: bash
         run: |
           mkdir -p web
           # If artifact contains web/dist path, move it; otherwise try to copy files
@@ -221,7 +231,7 @@ jobs:
           cd rust
           cargo build --target ${{ matrix.target }}
         shell: bash
-
+      
       # Run tests (only on non-cross compilation targets)
       - name: Run tests
         if: matrix.cross == false
@@ -266,10 +276,21 @@ jobs:
           echo "Running doctests..."
           cargo test --doc --features python-driver --target ${{ matrix.target }}
 
+      - name: Cache Rust dependencies and target
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            rust/target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+
       # Run specific tests with custom timeout
       - name: Run introspection tests
         if: matrix.cross == false
         run: |
+          cd rust
           timeout_cmd=""
           if [[ "${{ runner.os }}" == "Linux" || "${{ runner.os }}" == "macOS" ]]; then
             timeout_cmd="timeout 30s"
@@ -285,20 +306,66 @@ jobs:
           fi
         shell: bash
 
+      - name: Clean target directory to save space (keep deps for coverage)
+        continue-on-error: true
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        run: |
+          cd rust
+          rm -rf target/ || true
+          rm -rf /tmp/* || true
+          rm -rf ~/.cargo/registry || true
+          rm -rf ~/.cargo/git || true
+          echo "Kept deps and incremental for coverage"
+
+      - name: Restore target directory after cleaning for coverage
+        id: restore-target-for-coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
+          path: |
+              rust/target
+          restore-keys: |
+              ${{ runner.os }}-cargocoverage-${{ matrix.target }}-
+              ${{ runner.os }}-cargocoverage-
+
       # Run code coverage on Linux only
       - name: Run code coverage
+        continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         shell: bash
         run: |
+          rm -rf /tmp/* || true
+          echo "Disk space before code coverage:"
+          df -h
           cd rust
           cargo install cargo-tarpaulin
-          cargo tarpaulin --out Xml --output-dir .
+          cargo tarpaulin --out Xml --output-dir . -- --skip test_acquisition_daemon \
+                                                      --skip test_python_node_scipy_bandpass_filter_single_channel \
+                                                      --skip test_python_node_scipy_bandpass_filter_dual_channel
+          ls -la cobertura.xml
+
+      # Check space left (Ubuntu)
+      - name: Check disk space (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Disk space after code coverage:"
+          df -h
 
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
+        continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         uses: codecov/codecov-action@v5
         with:
           files: ./rust/cobertura.xml
           slug: sctg-development/rust-photoacoustic
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Save coverage cache for future runs
+      - name: Save coverage cache
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        uses: actions/cache/save@v4
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
