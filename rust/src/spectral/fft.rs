@@ -616,3 +616,89 @@ pub enum WindowFunction {
     /// Blackman window (enhanced leakage suppression)
     Blackman,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_sine(amplitude: f32, freq: f32, sample_rate: u32, num_samples: usize) -> Vec<f32> {
+        let mut signal = vec![0.0f32; num_samples];
+        for n in 0..num_samples {
+            let t = n as f32 / sample_rate as f32;
+            signal[n] = amplitude * (2.0 * std::f32::consts::PI * freq * t).sin();
+        }
+        signal
+    }
+
+    #[test]
+    fn test_apply_window_hann_tapers_edges() {
+        let analyzer = FFTAnalyzer::new(1024, 1);
+        let signal = vec![1.0f32; 1024];
+        let windowed = analyzer.apply_window(&signal);
+        assert!(windowed[0].abs() < 1.0);
+        assert!(windowed[windowed.len() - 1].abs() < 1.0);
+        // Middle should stay close to 1.0 but slightly less than original for Hann
+        assert!(windowed[windowed.len() / 2] > 0.7);
+    }
+
+    #[test]
+    fn test_fft_of_sine_has_expected_amplitude() {
+        let mut analyzer = FFTAnalyzer::new(1024, 1);
+        // Use a rectangular window for an unmodified amplitude
+        analyzer.window_function = WindowFunction::Rectangular;
+        let sample_rate = 1024;
+        let freq = 10.0; // integer bin when sample_rate == frame_size
+        let signal = create_sine(1.0, freq, sample_rate, analyzer.frame_size);
+
+        let spectrum = analyzer.analyze(&signal, sample_rate).unwrap();
+        // Amplitude near 1.0 at the expected frequency
+        let amp = analyzer.get_amplitude_at(freq).unwrap();
+        assert!((amp - 1.0).abs() < 1e-2, "amplitude mismatch: {}", amp);
+        // Ensure the peak is significantly larger than nearby bins
+        let df = sample_rate as f32 / analyzer.frame_size as f32;
+        let bin_idx = (freq / df).round() as usize;
+        let left = if bin_idx > 0 {
+            spectrum.amplitudes[bin_idx - 1]
+        } else {
+            0.0
+        };
+        let right = if bin_idx + 1 < spectrum.amplitudes.len() {
+            spectrum.amplitudes[bin_idx + 1]
+        } else {
+            0.0
+        };
+        assert!(spectrum.amplitudes[bin_idx] > left * 5.0);
+        assert!(spectrum.amplitudes[bin_idx] > right * 5.0);
+    }
+
+    #[test]
+    fn test_analyze_too_short_signal_errors() {
+        let mut analyzer = FFTAnalyzer::new(512, 1);
+        let signal = vec![0.0f32; 128];
+        let res = analyzer.analyze(&signal, 44100);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_get_amplitude_before_analyze_errors() {
+        let analyzer = FFTAnalyzer::new(512, 1);
+        let res = analyzer.get_amplitude_at(1000.0);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_averaging_keeps_amplitudes_stable() {
+        let mut analyzer = FFTAnalyzer::new(1024, 4);
+        // Use a rectangular window so amplitude remains consistent
+        analyzer.window_function = WindowFunction::Rectangular;
+        let sample_rate = 1024;
+        let freq = 20.0;
+        // feed the analyzer 4 identical frames, amplitude should remain near 1.0
+        for _ in 0..4 {
+            let signal = create_sine(1.0, freq, sample_rate, analyzer.frame_size);
+            let _ = analyzer.analyze(&signal, sample_rate).unwrap();
+        }
+        let amp = analyzer.get_amplitude_at(freq).unwrap();
+        assert!((amp - 1.0).abs() < 2e-2);
+    }
+}
