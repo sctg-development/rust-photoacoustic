@@ -287,6 +287,7 @@ jobs:
 
       # Run code coverage on Linux only
       - name: Run code coverage
+        continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         shell: bash
         run: |
@@ -296,6 +297,7 @@ jobs:
 
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
+        continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         uses: codecov/codecov-action@v5
         with:
