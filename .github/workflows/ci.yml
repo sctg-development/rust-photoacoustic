@@ -191,10 +191,7 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            rust/target/debug/deps
-            rust/target/release/deps
-            rust/target/${{ matrix.target }}/debug/deps
-            rust/target/${{ matrix.target }}/release/deps
+            rust/target
           key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.target }}-
@@ -286,10 +283,7 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            rust/target/debug/deps
-            rust/target/release/deps
-            rust/target/${{ matrix.target }}/debug/deps
-            rust/target/${{ matrix.target }}/release/deps
+            rust/target
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
 
       # Run specific tests with custom timeout
@@ -312,12 +306,17 @@ jobs:
           fi
         shell: bash
 
-      - name: Clean target directory to save space
+      - name: Clean target directory to save space (keep deps for coverage)
         continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         run: |
-          rm -rf rust/target || true
+          # Keep deps and incremental for faster coverage rebuild
+          cd rust
+          rm -rf target/debug/examples || true
+          rm -rf target/debug/incremental || true
+          rm -rf target/release/examples || true
           rm -rf /tmp/* || true
+          echo "Kept deps and incremental for coverage"
 
       - name: Restore target directory after cleaning for coverage
         id: restore-target-for-coverage
@@ -327,9 +326,6 @@ jobs:
           key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
           path: |
               rust/target
-              ~/.cargo/registry/index
-              ~/.cargo/registry/cache
-              ~/.cargo/git/db
           restore-keys: |
               ${{ runner.os }}-cargocoverage-${{ matrix.target }}-
               ${{ runner.os }}-cargocoverage-
@@ -363,3 +359,11 @@ jobs:
           files: ./rust/cobertura.xml
           slug: sctg-development/rust-photoacoustic
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Save coverage cache for future runs
+      - name: Save coverage cache
+        if: matrix.os == 'ubuntu-latest' && matrix.cross == false
+        uses: actions/cache/save@v4
+        with:
+          path: rust/target
+          key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
