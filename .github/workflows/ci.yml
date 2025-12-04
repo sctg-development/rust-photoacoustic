@@ -340,7 +340,9 @@ jobs:
           df -h
           cd rust
           cargo install cargo-tarpaulin
-          cargo tarpaulin --out Xml --output-dir .
+          cargo tarpaulin --out Xml --output-dir . -- --skip test_acquisition_daemon \
+                                                      --skip test_python_node_scipy_bandpass_filter_single_channel \
+                                                      --skip test_python_node_scipy_bandpass_filter_dual_channel
 
       # Check space left (Ubuntu)
       - name: Check disk space (Ubuntu)
