@@ -310,12 +310,11 @@ jobs:
         continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         run: |
-          # Keep deps and incremental for faster coverage rebuild
           cd rust
-          rm -rf target/debug/examples || true
-          rm -rf target/debug/incremental || true
-          rm -rf target/release/examples || true
+          rm -rf target/ || true
           rm -rf /tmp/* || true
+          rm -rf ~/.cargo/registry || true
+          rm -rf ~/.cargo/git || true
           echo "Kept deps and incremental for coverage"
 
       - name: Restore target directory after cleaning for coverage
