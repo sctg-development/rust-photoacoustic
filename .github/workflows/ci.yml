@@ -343,6 +343,7 @@ jobs:
           cargo tarpaulin --out Xml --output-dir . -- --skip test_acquisition_daemon \
                                                       --skip test_python_node_scipy_bandpass_filter_single_channel \
                                                       --skip test_python_node_scipy_bandpass_filter_dual_channel
+          ls -la cobertura.xml
 
       # Check space left (Ubuntu)
       - name: Check disk space (Ubuntu)
