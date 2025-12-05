@@ -32,7 +32,8 @@ use crate::processing::nodes::{
 use anyhow::Result;
 use log::debug;
 use rocket_okapi::JsonSchema;
-use schemars::{gen::SchemaGenerator, schema::Schema};
+use schemars::{generate::SchemaGenerator, Schema};
+use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
@@ -110,62 +111,77 @@ pub struct NodeStatistics {
 }
 
 impl JsonSchema for NodeStatistics {
-    fn schema_name() -> String {
-        "NodeStatistics".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "NodeStatistics".into()
     }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
-        use schemars::Map;
+        use serde_json::Map as JsonMap;
 
-        let mut properties = Map::new();
+        let mut properties = JsonMap::new();
 
-        // Add properties for the struct fields
-        properties.insert("node_id".to_string(), gen.subschema_for::<String>());
-        properties.insert("node_type".to_string(), gen.subschema_for::<String>());
-        properties.insert("frames_processed".to_string(), gen.subschema_for::<u64>());
+        // Add properties for the struct fields by converting subschemas to JSON values
+        properties.insert(
+            "node_id".to_string(),
+            gen.subschema_for::<String>().to_value(),
+        );
+        properties.insert(
+            "node_type".to_string(),
+            gen.subschema_for::<String>().to_value(),
+        );
+        properties.insert(
+            "frames_processed".to_string(),
+            gen.subschema_for::<u64>().to_value(),
+        );
 
         // For Duration fields that are serialized as nanoseconds (u64)
-        let duration_schema = Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Integer.into()),
-            format: Some("int64".to_string()),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Duration in nanoseconds".to_string()),
-                ..Default::default()
-            })),
-            ..Default::default()
+        let duration_schema_json = serde_json::json!({
+            "type": "integer",
+            "format": "int64",
+            "title": "Duration in nanoseconds"
         });
 
-        properties.insert("total_processing_time".to_string(), duration_schema.clone());
+        let duration_schema: Schema = duration_schema_json
+            .clone()
+            .try_into()
+            .expect("Failed to convert duration schema json into Schema");
+
+        properties.insert(
+            "total_processing_time".to_string(),
+            duration_schema.clone().to_value(),
+        );
         properties.insert(
             "average_processing_time".to_string(),
-            duration_schema.clone(),
+            duration_schema.clone().to_value(),
         );
         properties.insert(
             "fastest_processing_time".to_string(),
-            duration_schema.clone(),
+            duration_schema.clone().to_value(),
         );
-        properties.insert("worst_processing_time".to_string(), duration_schema);
+        properties.insert(
+            "worst_processing_time".to_string(),
+            duration_schema.to_value(),
+        );
 
-        Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            object: Some(Box::new(ObjectValidation {
-                properties,
-                required: vec![
-                    "node_id".to_string(),
-                    "node_type".to_string(),
-                    "frames_processed".to_string(),
-                    "total_processing_time".to_string(),
-                    "average_processing_time".to_string(),
-                    "fastest_processing_time".to_string(),
-                    "worst_processing_time".to_string(),
-                ]
-                .into_iter()
-                .collect(),
-                ..Default::default()
-            })),
-            ..Default::default()
-        })
+        let mut object_schema = serde_json::Map::new();
+        object_schema.insert("type".to_string(), serde_json::json!("object"));
+        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "required".to_string(),
+            serde_json::json!([
+                "node_id",
+                "node_type",
+                "frames_processed",
+                "total_processing_time",
+                "average_processing_time",
+                "fastest_processing_time",
+                "worst_processing_time",
+            ]),
+        );
+
+        serde_json::Value::Object(object_schema)
+            .try_into()
+            .expect("Failed to convert object schema json into Schema")
     }
 }
 
@@ -256,93 +272,94 @@ pub struct ProcessingGraphStatistics {
 }
 
 impl JsonSchema for ProcessingGraphStatistics {
-    fn schema_name() -> String {
-        "ProcessingGraphStatistics".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "ProcessingGraphStatistics".into()
     }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
-        use schemars::Map;
+        use serde_json::Map as JsonMap;
 
-        let mut properties = Map::new();
+        let mut properties = JsonMap::new();
 
         // Add properties for the struct fields
         properties.insert("node_statistics".to_string(), {
-            let mut map_schema = SchemaObject {
-                instance_type: Some(InstanceType::Object.into()),
-                metadata: Some(Box::new(Metadata {
-                    title: Some("Node Statistics Map".to_string()),
-                    description: Some("Map of node ID to statistics".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            };
-            map_schema.object = Some(Box::new(ObjectValidation {
-                additional_properties: Some(Box::new(gen.subschema_for::<NodeStatistics>())),
-                ..Default::default()
-            }));
-            Schema::Object(map_schema)
+            // Build an object schema with additionalProperties = NodeStatistics subschema
+            let mut map_schema = serde_json::Map::new();
+            map_schema.insert("type".to_string(), serde_json::json!("object"));
+            map_schema.insert(
+                "additionalProperties".to_string(),
+                gen.subschema_for::<NodeStatistics>().to_value(),
+            );
+            serde_json::Value::Object(map_schema)
         });
 
-        properties.insert("total_executions".to_string(), gen.subschema_for::<u64>());
+        properties.insert(
+            "total_executions".to_string(),
+            gen.subschema_for::<u64>().to_value(),
+        );
 
         // For Duration fields that are serialized as nanoseconds (u64)
-        let duration_schema = Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Integer.into()),
-            format: Some("int64".to_string()),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Duration in nanoseconds".to_string()),
-                ..Default::default()
-            })),
-            ..Default::default()
+        let duration_schema_json = serde_json::json!({
+            "type": "integer",
+            "format": "int64",
+            "title": "Duration in nanoseconds"
         });
+
+        let duration_schema: Schema = duration_schema_json
+            .clone()
+            .try_into()
+            .expect("Failed to convert duration schema json into Schema");
 
         properties.insert(
             "total_graph_processing_time".to_string(),
-            duration_schema.clone(),
+            duration_schema.clone().to_value(),
         );
         properties.insert(
             "average_graph_processing_time".to_string(),
-            duration_schema.clone(),
+            duration_schema.clone().to_value(),
         );
         properties.insert(
             "fastest_graph_execution".to_string(),
-            duration_schema.clone(),
+            duration_schema.clone().to_value(),
         );
-        properties.insert("worst_graph_execution".to_string(), duration_schema);
-        properties.insert("active_nodes".to_string(), gen.subschema_for::<usize>());
+        properties.insert(
+            "worst_graph_execution".to_string(),
+            duration_schema.to_value(),
+        );
+        properties.insert("active_nodes".to_string(), gen.subschema_for::<usize>().to_value());
         properties.insert(
             "connections_count".to_string(),
-            gen.subschema_for::<usize>(),
+            gen.subschema_for::<usize>().to_value(),
         );
 
-        Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            object: Some(Box::new(ObjectValidation {
-                properties,
-                required: vec![
-                    "node_statistics".to_string(),
-                    "total_executions".to_string(),
-                    "total_graph_processing_time".to_string(),
-                    "average_graph_processing_time".to_string(),
-                    "fastest_graph_execution".to_string(),
-                    "worst_graph_execution".to_string(),
-                    "active_nodes".to_string(),
-                    "connections_count".to_string(),
-                ]
-                .into_iter()
-                .collect(),
-                ..Default::default()
-            })),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Processing Graph Statistics".to_string()),
-                description: Some(
-                    "Overall performance statistics for the entire processing graph".to_string(),
-                ),
-                ..Default::default()
-            })),
-            ..Default::default()
-        })
+        let mut object_schema = serde_json::Map::new();
+        object_schema.insert("type".to_string(), serde_json::json!("object"));
+        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "required".to_string(),
+            serde_json::json!([
+                "node_statistics",
+                "total_executions",
+                "total_graph_processing_time",
+                "average_graph_processing_time",
+                "fastest_graph_execution",
+                "worst_graph_execution",
+                "active_nodes",
+                "connections_count",
+            ]),
+        );
+        object_schema.insert(
+            "title".to_string(),
+            serde_json::json!("Processing Graph Statistics"),
+        );
+        object_schema.insert(
+            "description".to_string(),
+            serde_json::json!("Overall performance statistics for the entire processing graph"),
+        );
+
+        serde_json::Value::Object(object_schema)
+            .try_into()
+            .expect("Failed to convert processing graph statistics schema")
     }
 }
 
@@ -2660,465 +2677,270 @@ impl SerializableProcessingGraph {
 }
 
 impl JsonSchema for SerializableConnection {
-    fn schema_name() -> String {
-        "SerializableConnection".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "SerializableConnection".into()
     }
 
     fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
-        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
-        use schemars::Map;
+        use serde_json::Map as JsonMap;
 
-        let mut properties = Map::new();
+        let mut properties = JsonMap::new();
         properties.insert(
             "from".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Source node ID".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "string", "description": "Source node ID" }),
         );
         properties.insert(
             "to".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Target node ID".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "string", "description": "Target node ID" }),
         );
 
-        Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Connection between processing nodes".to_string()),
-                description: Some(
-                    "Represents a connection from one processing node to another".to_string(),
-                ),
-                ..Default::default()
-            })),
-            object: Some(Box::new(ObjectValidation {
-                properties,
-                required: ["from".to_string(), "to".to_string()].into_iter().collect(),
-                ..Default::default()
-            })),
-            ..Default::default()
-        })
+        let mut object_schema = serde_json::Map::new();
+        object_schema.insert("type".to_string(), serde_json::json!("object"));
+        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "required".to_string(),
+            serde_json::json!(["from", "to"]),
+        );
+        object_schema.insert(
+            "title".to_string(),
+            serde_json::json!("Connection between processing nodes"),
+        );
+        object_schema.insert(
+            "description".to_string(),
+            serde_json::json!("Represents a connection from one processing node to another"),
+        );
+
+        serde_json::Value::Object(object_schema)
+            .try_into()
+            .expect("Failed to convert connection schema")
     }
 }
 
 impl JsonSchema for SerializableNode {
-    fn schema_name() -> String {
-        "SerializableNode".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "SerializableNode".into()
     }
 
     fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
-        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
-        use schemars::Map;
+        use serde_json::Map as JsonMap;
 
-        let mut properties = Map::new();
+        let mut properties = JsonMap::new();
         properties.insert(
             "id".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Unique node identifier".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "string", "description": "Unique node identifier" }),
         );
         properties.insert(
             "node_type".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Type of processing node".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "string", "description": "Type of processing node" }),
         );
         properties.insert(
             "accepts_input_types".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("List of accepted input data types".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "List of accepted input data types" }),
         );
         properties.insert(
             "output_type".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Expected output data type".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "string", "description": "Expected output data type" }),
         );
         properties.insert(
             "parameters".to_string(),
-            Schema::Object(SchemaObject {
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Node configuration parameters".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "description": "Node configuration parameters" }),
         );
         properties.insert(
             "config".to_string(),
-            Schema::Object(SchemaObject {
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Node configuration (legacy)".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "description": "Node configuration (legacy)" }),
         );
         properties.insert(
             "statistics".to_string(),
-            Schema::Object(SchemaObject {
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Node performance statistics".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "description": "Node performance statistics" }),
         );
         properties.insert(
             "supports_hot_reload".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Boolean.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some(
-                        "Whether the node supports hot-reload configuration updates".to_string(),
-                    ),
-                    ..Default::default()
-                })),
-                ..Default::default()
+            serde_json::json!({
+                "type": "boolean",
+                "description": "Whether the node supports hot-reload configuration updates"
             }),
         );
 
-        Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Processing node".to_string()),
-                description: Some(
-                    "Represents a processing node with its configuration and statistics"
-                        .to_string(),
-                ),
-                ..Default::default()
-            })),
-            object: Some(Box::new(ObjectValidation {
-                properties,
-                required: [
-                    "id".to_string(),
-                    "node_type".to_string(),
-                    "accepts_input_types".to_string(),
-                    "output_type".to_string(),
-                    "parameters".to_string(),
-                    "supports_hot_reload".to_string(),
-                ]
-                .into_iter()
-                .collect(),
-                ..Default::default()
-            })),
-            ..Default::default()
-        })
+        let mut object_schema = serde_json::Map::new();
+        object_schema.insert("type".to_string(), serde_json::json!("object"));
+        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "required".to_string(),
+            serde_json::json!([
+                "id",
+                "node_type",
+                "accepts_input_types",
+                "output_type",
+                "parameters",
+                "supports_hot_reload",
+            ]),
+        );
+        object_schema.insert("title".to_string(), serde_json::json!("Processing node"));
+        object_schema.insert(
+            "description".to_string(),
+            serde_json::json!("Represents a processing node with its configuration and statistics"),
+        );
+        serde_json::Value::Object(object_schema)
+            .try_into()
+            .expect("Failed to convert node schema")
     }
 }
 
 impl JsonSchema for PerformanceSummary {
-    fn schema_name() -> String {
-        "PerformanceSummary".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "PerformanceSummary".into()
     }
 
     fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
-        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
-        use schemars::Map;
+        use serde_json::Map as JsonMap;
 
-        let mut properties = Map::new();
+        let mut properties = JsonMap::new();
 
         // Original fields required by client
         properties.insert(
             "throughput_fps".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Number.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Processing throughput in frames per second".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
+            serde_json::json!({
+                "type": "number",
+                "description": "Processing throughput in frames per second"
             }),
         );
         properties.insert(
             "efficiency_percentage".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Number.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some(
-                        "Efficiency percentage (0-100) based on fastest vs slowest execution"
-                            .to_string(),
-                    ),
-                    ..Default::default()
-                })),
-                ..Default::default()
+            serde_json::json!({
+                "type": "number",
+                "description": "Efficiency percentage (0-100) based on fastest vs slowest execution"
             }),
         );
         properties.insert(
             "slowest_node".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some(
-                        "ID of the node with the highest average processing time".to_string(),
-                    ),
-                    ..Default::default()
-                })),
-                ..Default::default()
+            serde_json::json!({
+                "type": "string",
+                "description": "ID of the node with the highest average processing time"
             }),
         );
         properties.insert(
             "fastest_node".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some(
-                        "ID of the node with the lowest average processing time".to_string(),
-                    ),
-                    ..Default::default()
-                })),
-                ..Default::default()
+            serde_json::json!({
+                "type": "string",
+                "description": "ID of the node with the lowest average processing time"
             }),
         );
 
         // Additional fields for enhanced functionality
         properties.insert(
             "total_nodes".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Integer.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Total number of nodes in the graph".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "integer", "description": "Total number of nodes in the graph" }),
         );
         properties.insert(
             "active_nodes".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Integer.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Number of currently active nodes".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "integer", "description": "Number of currently active nodes" }),
         );
         properties.insert(
             "total_connections".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Integer.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Total number of connections between nodes".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "integer", "description": "Total number of connections between nodes" }),
         );
         properties.insert(
             "average_execution_time_ms".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Number.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Average execution time in milliseconds".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "number", "description": "Average execution time in milliseconds" }),
         );
         properties.insert(
             "fastest_execution_time_ms".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Number.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Fastest execution time in milliseconds".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "number", "description": "Fastest execution time in milliseconds" }),
         );
         properties.insert(
             "slowest_execution_time_ms".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Number.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Slowest execution time in milliseconds".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "number", "description": "Slowest execution time in milliseconds" }),
         );
         properties.insert(
             "total_executions".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Integer.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Total number of graph executions".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "integer", "description": "Total number of graph executions" }),
         );
         properties.insert(
             "nodes_by_performance".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("List of nodes sorted by performance".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "List of nodes sorted by performance" }),
         );
 
-        Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Performance Summary".to_string()),
-                description: Some("Summary of processing graph performance metrics".to_string()),
-                ..Default::default()
-            })),
-            object: Some(Box::new(ObjectValidation {
-                properties,
-                required: [
-                    "throughput_fps".to_string(),
-                    "efficiency_percentage".to_string(),
-                    "total_nodes".to_string(),
-                    "active_nodes".to_string(),
-                    "total_connections".to_string(),
-                ]
-                .into_iter()
-                .collect(),
-                ..Default::default()
-            })),
-            ..Default::default()
-        })
+        let mut object_schema = serde_json::Map::new();
+        object_schema.insert("type".to_string(), serde_json::json!("object"));
+        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "required".to_string(),
+            serde_json::json!([
+                "throughput_fps",
+                "efficiency_percentage",
+                "total_nodes",
+                "active_nodes",
+                "total_connections",
+            ]),
+        );
+        object_schema.insert("title".to_string(), serde_json::json!("Performance Summary"));
+        object_schema.insert(
+            "description".to_string(),
+            serde_json::json!("Summary of processing graph performance metrics"),
+        );
+
+        serde_json::Value::Object(object_schema)
+            .try_into()
+            .expect("Failed to convert performance summary schema")
     }
 }
 
 impl JsonSchema for SerializableProcessingGraph {
-    fn schema_name() -> String {
-        "SerializableProcessingGraph".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "SerializableProcessingGraph".into()
     }
 
     fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
-        use schemars::schema::{InstanceType, Metadata, ObjectValidation, SchemaObject};
-        use schemars::Map;
+        use serde_json::Map as JsonMap;
 
-        let mut properties = Map::new();
+        let mut properties = JsonMap::new();
         properties.insert(
             "nodes".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("List of processing nodes in the graph".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "List of processing nodes in the graph" }),
         );
         properties.insert(
             "connections".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("List of connections between nodes".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "List of connections between nodes" }),
         );
         properties.insert(
             "execution_order".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Topological execution order of nodes".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "Topological execution order of nodes" }),
         );
         properties.insert(
             "input_node".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::String.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("ID of the input node".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "string", "description": "ID of the input node" }),
         );
         properties.insert(
             "output_nodes".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("List of output node IDs".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "List of output node IDs" }),
         );
         properties.insert(
             "is_valid".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Boolean.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("Whether the graph is valid".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "boolean", "description": "Whether the graph is valid" }),
         );
         properties.insert(
             "validation_errors".to_string(),
-            Schema::Object(SchemaObject {
-                instance_type: Some(InstanceType::Array.into()),
-                metadata: Some(Box::new(Metadata {
-                    description: Some("List of validation errors if any".to_string()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            }),
+            serde_json::json!({ "type": "array", "description": "List of validation errors if any" }),
         );
 
-        Schema::Object(SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            metadata: Some(Box::new(Metadata {
-                title: Some("Serializable Processing Graph".to_string()),
-                description: Some("Complete serializable representation of a processing graph with nodes, connections and statistics".to_string()),
-                ..Default::default()
-            })),
-            object: Some(Box::new(ObjectValidation {
-                properties,
-                required: ["nodes".to_string(), "connections".to_string(), "execution_order".to_string()].into_iter().collect(),
-                ..Default::default()
-            })),
-            ..Default::default()
-        })
+        let mut object_schema = serde_json::Map::new();
+        object_schema.insert("type".to_string(), serde_json::json!("object"));
+        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "required".to_string(),
+            serde_json::json!( ["nodes", "connections", "execution_order"] ),
+        );
+        object_schema.insert(
+            "title".to_string(),
+            serde_json::json!("Serializable Processing Graph"),
+        );
+        object_schema.insert(
+            "description".to_string(),
+            serde_json::json!("Complete serializable representation of a processing graph with nodes, connections and statistics"),
+        );
+        serde_json::Value::Object(object_schema)
+            .try_into()
+            .expect("Failed to convert serializable processing graph schema")
     }
 }
 

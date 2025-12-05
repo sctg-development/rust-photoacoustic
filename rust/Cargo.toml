@@ -89,7 +89,7 @@ auth-macros = { path = "auth-macros" }
 rocket_async_compression = "0.6.1"
 async-trait = "0.1.89"
 uuid = { version = "1.19.0", features = ["v4"] }
-schemars = "0.8"
+schemars = "1.1.0"
 evalexpr = "13.1.0"
 
 # Python integration (optional)

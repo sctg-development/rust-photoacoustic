@@ -16,7 +16,7 @@ Nous avons conçu une architecture matérielle et logicielle modulaire qui nous 
 
 Le marché des analyseurs de gaz de processus est estimé à plusieurs milliards d'euros, avec une forte demande pour des solutions plus précises, fiables et polyvalentes. SpectraCore est idéalement positionné pour capter une part significative de ce marché.
 
-Nous sollicitons un financement de **[Montant à compléter]** pour finaliser le développement de notre prototype industriel, lancer la présérie et déployer nos premières installations pilotes. Cet investissement nous permettra de transformer une innovation technologique majeure en un produit commercial à fort potentiel de rentabilité.
+Nous sollicitons un financement de 320 k€ pour finaliser le développement de notre prototype industriel, lancer la présérie et déployer nos premières installations pilotes. Cet investissement nous permettra de transformer une innovation technologique majeure en un produit commercial à fort potentiel de rentabilité.
 
 ---
 
@@ -265,18 +265,51 @@ Notre modèle économique repose sur plusieurs sources de revenus :
 
 Cette approche diversifiée assure des revenus récurrents et maximise la pénétration du marché.
 
+### Ventes prévisionnelles en phase 1 de développement
+
+Notre stratégie commerciale s'articule autour d'un déploiement progressif ciblant trois segments gaziers clés. Les projections ci-dessous sont basées sur une analyse de marché conservative et tiennent compte de notre montée en charge progressive.
+
+| **Produit** | **01/10/2026** **(N)** | **N+1** | **N+2** | **N+3** | **N+4** |
+|-------------|----------------------|---------|---------|---------|---------|
+| **NH₃**     | -              | 300 k€<br>(20 unités) | 450 k€<br>(30 unités) | 600 k€<br>(40 unités) | 600 k€<br>(40 unités) |
+| **H₂S**     | -              | -     | 150 k€<br>(10 unités) | 300 k€<br>(20 unités) | 1050 k€<br>(70 unités) |
+| **CO/H₂O**  | -              | 225 k€<br>(15 unités) | 300 k€<br>(20 unités) | 450 k€<br>(30 unités) | 600 k€<br>(40 unités) |
+| **Total**   | **-**          | **525 k€** | **900 k€** | **1350 k€** | **2250 k€** |
+
+**Hypothèses de base :**
+- Prix moyen par unité : 15 k€ (analyseur NH₃ et CO/H₂O) et 15 k€ (analyseur H₂S premium)
+- Démarrage commercial à partir de l'année N (2027)
+- Montée en charge progressive avec introduction échelonnée des produits
+- Croissance soutenue grâce à l'effet de plateforme et à l'élargissement de la gamme
+
+### Aspects financier – Budget global
+
+Le développement de la plateforme SpectraCore nécessite un investissement structuré réparti sur les différentes phases de développement. Notre approche budgétaire privilégie une progression maîtrisée avec des jalons de validation clairs.
+
+| **Phase** | **Pré-étude** | **M.O.** | **Prototype** | **Unité de démo** | **Total** |
+|-----------|---------------|----------|---------------|--------------------|-----------|
+| **Budget** | 50 k€ | 200 k€ | 35 k€ | 35 k€ | **320 k€** |
+
+**Détail des phases :**
+- **Pré-étude (50 k€) :** Validation théorique, modélisation physique et études de faisabilité technique
+- **Main d'œuvre (200 k€) :** Développement logiciel, conception électronique et intégration système
+- **Prototype (35 k€) :** Fabrication du premier prototype fonctionnel et composants spécialisés
+- **Unité de démo (35 k€) :** Réalisation d'une version de démonstration pour les tests clients
+
+Ce budget de 320 k€ couvre la phase 1 de notre feuille de route et nous amène jusqu'à la validation technologique complète, positionnant l'entreprise pour les phases d'industrialisation ultérieures.
+
 ---
 
 ## 7. L'Équipe et la Demande de Financement
 
 ### L'Équipe Fondatrice
 
-**[À compléter par le porteur de projet]**
-*Présentez ici brièvement votre parcours, votre expertise (technique, scientifique, business) et la complémentarité de l'équipe.*
+**Emmanuel Morizot** : 25 ans d’expérience en tant que manager dans l’analyse industrielle 
+**Ronan Le Meillat** : 25 ans d’expérience dans le pilotage de projets mêlant électronique et logiciel pour l’industrie. 
 
 ### Demande de Financement
 
-Nous sollicitons un financement de **[Montant à compléter]** pour exécuter les phases 1 et 2 de notre feuille de route. Les fonds seront alloués comme suit :
+Nous sollicitons un financement de 320 k€ pour exécuter les phases 1 et 2 de notre feuille de route. Les fonds seront alloués comme suit :
 
 ```mermaid
 pie

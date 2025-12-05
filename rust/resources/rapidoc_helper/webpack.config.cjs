@@ -11,6 +11,8 @@ const commonConfig = {
   resolve: {
     alias: { process: "process/browser" },
     fallback: {
+      crypto: require.resolve("crypto-browserify"),
+      vm: require.resolve("vm-browserify"),
       stream: require.resolve("stream-browserify"),
       buffer: require.resolve("buffer/"),
       url: require.resolve("url/"),
