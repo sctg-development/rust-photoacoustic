@@ -33,9 +33,9 @@ use anyhow::Result;
 use log::debug;
 use rocket_okapi::JsonSchema;
 use schemars::{generate::SchemaGenerator, Schema};
-use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -165,7 +165,10 @@ impl JsonSchema for NodeStatistics {
 
         let mut object_schema = serde_json::Map::new();
         object_schema.insert("type".to_string(), serde_json::json!("object"));
-        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "properties".to_string(),
+            serde_json::Value::Object(properties),
+        );
         object_schema.insert(
             "required".to_string(),
             serde_json::json!([
@@ -326,7 +329,10 @@ impl JsonSchema for ProcessingGraphStatistics {
             "worst_graph_execution".to_string(),
             duration_schema.to_value(),
         );
-        properties.insert("active_nodes".to_string(), gen.subschema_for::<usize>().to_value());
+        properties.insert(
+            "active_nodes".to_string(),
+            gen.subschema_for::<usize>().to_value(),
+        );
         properties.insert(
             "connections_count".to_string(),
             gen.subschema_for::<usize>().to_value(),
@@ -334,7 +340,10 @@ impl JsonSchema for ProcessingGraphStatistics {
 
         let mut object_schema = serde_json::Map::new();
         object_schema.insert("type".to_string(), serde_json::json!("object"));
-        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "properties".to_string(),
+            serde_json::Value::Object(properties),
+        );
         object_schema.insert(
             "required".to_string(),
             serde_json::json!([
@@ -2696,11 +2705,11 @@ impl JsonSchema for SerializableConnection {
 
         let mut object_schema = serde_json::Map::new();
         object_schema.insert("type".to_string(), serde_json::json!("object"));
-        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
         object_schema.insert(
-            "required".to_string(),
-            serde_json::json!(["from", "to"]),
+            "properties".to_string(),
+            serde_json::Value::Object(properties),
         );
+        object_schema.insert("required".to_string(), serde_json::json!(["from", "to"]));
         object_schema.insert(
             "title".to_string(),
             serde_json::json!("Connection between processing nodes"),
@@ -2763,7 +2772,10 @@ impl JsonSchema for SerializableNode {
 
         let mut object_schema = serde_json::Map::new();
         object_schema.insert("type".to_string(), serde_json::json!("object"));
-        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "properties".to_string(),
+            serde_json::Value::Object(properties),
+        );
         object_schema.insert(
             "required".to_string(),
             serde_json::json!([
@@ -2862,7 +2874,10 @@ impl JsonSchema for PerformanceSummary {
 
         let mut object_schema = serde_json::Map::new();
         object_schema.insert("type".to_string(), serde_json::json!("object"));
-        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "properties".to_string(),
+            serde_json::Value::Object(properties),
+        );
         object_schema.insert(
             "required".to_string(),
             serde_json::json!([
@@ -2873,7 +2888,10 @@ impl JsonSchema for PerformanceSummary {
                 "total_connections",
             ]),
         );
-        object_schema.insert("title".to_string(), serde_json::json!("Performance Summary"));
+        object_schema.insert(
+            "title".to_string(),
+            serde_json::json!("Performance Summary"),
+        );
         object_schema.insert(
             "description".to_string(),
             serde_json::json!("Summary of processing graph performance metrics"),
@@ -2925,10 +2943,13 @@ impl JsonSchema for SerializableProcessingGraph {
 
         let mut object_schema = serde_json::Map::new();
         object_schema.insert("type".to_string(), serde_json::json!("object"));
-        object_schema.insert("properties".to_string(), serde_json::Value::Object(properties));
+        object_schema.insert(
+            "properties".to_string(),
+            serde_json::Value::Object(properties),
+        );
         object_schema.insert(
             "required".to_string(),
-            serde_json::json!( ["nodes", "connections", "execution_order"] ),
+            serde_json::json!(["nodes", "connections", "execution_order"]),
         );
         object_schema.insert(
             "title".to_string(),
