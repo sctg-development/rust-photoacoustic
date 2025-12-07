@@ -61,7 +61,7 @@ redis = { version = "0.32.7", features = [
     "tokio-rustls-comp",
 ] }
 rustls = { version = "0.23.35", features = ["ring", "aws_lc_rs"] }
-rocket_okapi = { git = "https://github.com/sctg-development/okapi", features = [
+rocket_okapi = { git = "https://github.com/sctg-development/okapi", branch = "rocket-0.5.1", features = [
     "rapidoc",
     "swagger",
 ] } # Automatic OpenAPI generation at build time 
@@ -145,10 +145,8 @@ regex = "1"
 oxide-auth-rocket = { path = "./oxide-auth-patched/oxide-auth-rocket" }
 oxide-auth = { path = "./oxide-auth-patched/oxide-auth" }
 
-[patch."https://github.com/sctg-development/okapi"]
-okapi = { path = "./okapi-patched/okapi" }
-rocket_okapi = { path = "./okapi-patched/rocket-okapi" }
-rocket_okapi_codegen = { path = "./okapi-patched/rocket-okapi-codegen" }
+#[patch."https://github.com/sctg-development/okapi"]
+# Using remote git repo branch `rocket-0.5.1`, local patched path overrides removed.
 
 [profile.release]
 strip = true

@@ -13,5 +13,5 @@ proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0.104", features = ["full"] }
 # Dependencies for OpenAPI integration
-rocket_okapi_codegen = { path = "../okapi-patched/rocket-okapi-codegen" }
-rocket_okapi = { path = "../okapi-patched/rocket-okapi" }
+rocket_okapi_codegen = { git = "https://github.com/sctg-development/okapi", branch = "rocket-0.5.1", package = "rocket_okapi_codegen" }
+rocket_okapi = { git = "https://github.com/sctg-development/okapi", branch = "rocket-0.5.1", package = "rocket_okapi" }
