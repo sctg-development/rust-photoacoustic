@@ -139,9 +139,9 @@ jobs:
       - name: Install CMake (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew update
-          brew uninstall cmake || true        # Remove any broken install
-          brew install cmake
+          # brew update
+          # brew uninstall cmake || true        # Remove any broken install
+          # brew install cmake
           cmake --version
           echo "CMAKE_POLICY_VERSION_MINIMUM=3.5" >> $GITHUB_ENV
 
