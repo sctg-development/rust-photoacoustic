@@ -41,6 +41,211 @@ use rocket_okapi::{rapidoc::*, settings::UrlObject};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Build an OpenAPI specification for the visualization API without starting the server
+///
+/// This function constructs the complete OpenAPI specification by assembling all routes,
+/// their documentation, and merging them into a unified specification. Unlike `build_rocket()`,
+/// this function only generates the OpenAPI schema and does not create a Rocket server instance.
+///
+/// This is useful for CLI operations like `--get-openapi-json` where you need the API
+/// specification without launching the full web server.
+///
+/// ### Parameters
+///
+/// * `config` - The application configuration containing HMAC secret and other settings
+/// * `include_visualization_state` - If `true`, includes routes that depend on SharedVisualizationState
+/// * `include_thermal_state` - If `true`, includes thermal regulation routes
+/// * `include_computing_state` - If `true`, includes computing node routes
+/// * `include_audio_stream` - If `true`, includes audio streaming routes
+///
+/// ### Returns
+///
+/// * An `OpenApi` specification structure containing the complete API documentation
+///
+/// ### Example
+///
+/// ```
+/// use rust_photoacoustic::{config::Config, visualization::server::build_openapi_spec};
+/// use std::sync::Arc;
+/// use tokio::sync::RwLock;
+///
+/// # #[tokio::main]
+/// # async fn main() -> anyhow::Result<()> {
+/// let config = Arc::new(RwLock::new(Config::default()));
+/// let spec = build_openapi_spec(&config, true, true, true, true).await;
+/// let json = serde_json::to_string_pretty(&spec)?;
+/// println!("{}", json);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn build_openapi_spec(
+    config: &Arc<RwLock<Config>>,
+    include_visualization_state: bool,
+    include_thermal_state: bool,
+    include_computing_state: bool,
+    include_audio_stream: bool,
+) -> OpenApi {
+    // Initialize OpenAPI specification accumulator with proper version
+    let mut openapi_spec = OpenApi::default();
+    openapi_spec.openapi = "3.0.0".to_string();
+
+    // Add config routes
+    let (_, openapi_spec_config) = get_config_routes();
+
+    // Merge config OpenAPI spec
+    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+        &mut openapi_spec,
+        &"/".to_string(),
+        &openapi_spec_config,
+    ) {
+        warn!("Failed to merge config OpenAPI spec: {}", e);
+    }
+
+    // Add visualization routes if requested
+    if include_visualization_state {
+        // Get graph and system routes
+        let (_, openapi_spec_graph) = get_graph_routes();
+        let (_, openapi_spec_system) = get_system_routes();
+        let (_, openapi_spec_action) = get_action_routes();
+
+        // Merge all visualization-related specs
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            &mut openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_graph,
+        ) {
+            warn!("Failed to merge graph OpenAPI spec: {}", e);
+        }
+
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            &mut openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_system,
+        ) {
+            warn!("Failed to merge system OpenAPI spec: {}", e);
+        }
+
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            &mut openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_action,
+        ) {
+            warn!("Failed to merge action OpenAPI spec: {}", e);
+        }
+    }
+
+    // Add test routes
+    let (_, openapi_spec_test) = get_test_routes();
+    if let Err(e) =
+        rocket_okapi::okapi::merge::merge_specs(&mut openapi_spec, &"/".to_string(), &openapi_spec_test)
+    {
+        warn!("Failed to merge test OpenAPI spec: {}", e);
+    }
+
+    // Add base routes
+    let (_, openapi_spec_base) =
+        openapi_get_routes_spec![webclient_index, webclient_index_html, options,];
+
+    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+        &mut openapi_spec,
+        &"/".to_string(),
+        &openapi_spec_base,
+    ) {
+        warn!("Failed to merge base routes OpenAPI spec: {}", e);
+    }
+
+    // Add computing routes if requested
+    if include_computing_state {
+        let (_, openapi_spec_computing) = get_computing_routes();
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            &mut openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_computing,
+        ) {
+            warn!("Failed to merge computing OpenAPI spec: {}", e);
+        }
+    }
+
+    // Add thermal routes if requested
+    if include_thermal_state {
+        let (_, openapi_spec_thermal) = get_thermal_routes();
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            &mut openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_thermal,
+        ) {
+            warn!("Failed to merge thermal OpenAPI spec: {}", e);
+        }
+    }
+
+    // Add audio routes if requested
+    if include_audio_stream {
+        let (_, openapi_spec_audio) = get_audio_streaming_routes();
+        if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+            &mut openapi_spec,
+            &"/".to_string(),
+            &openapi_spec_audio,
+        ) {
+            warn!("Failed to merge audio OpenAPI spec: {}", e);
+        }
+    }
+
+    openapi_spec
+}
+
+/// Generate OpenAPI specification as formatted JSON string
+///
+/// This function builds a complete OpenAPI specification and serializes it to
+/// formatted JSON for output to stdout or file. This is the primary function
+/// to use when you need the OpenAPI specification in JSON format (e.g., for the CLI).
+///
+/// ### Parameters
+///
+/// * `config` - The application configuration containing HMAC secret and other settings
+/// * `include_visualization_state` - If `true`, includes routes that depend on SharedVisualizationState
+/// * `include_thermal_state` - If `true`, includes thermal regulation routes
+/// * `include_computing_state` - If `true`, includes computing node routes
+/// * `include_audio_stream` - If `true`, includes audio streaming routes
+///
+/// ### Returns
+///
+/// * `Result<String, serde_json::Error>` - The OpenAPI specification as formatted JSON,
+///   or an error if serialization fails
+///
+/// ### Example
+///
+/// ```
+/// use rust_photoacoustic::{config::Config, visualization::server::generate_openapi_json};
+/// use std::sync::Arc;
+/// use tokio::sync::RwLock;
+///
+/// # #[tokio::main]
+/// # async fn main() -> anyhow::Result<()> {
+/// let config = Arc::new(RwLock::new(Config::default()));
+/// let json = generate_openapi_json(&config, true, true, true, true).await?;
+/// println!("{}", json);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn generate_openapi_json(
+    config: &Arc<RwLock<Config>>,
+    include_visualization_state: bool,
+    include_thermal_state: bool,
+    include_computing_state: bool,
+    include_audio_stream: bool,
+) -> Result<String, serde_json::Error> {
+    let spec = build_openapi_spec(
+        config,
+        include_visualization_state,
+        include_thermal_state,
+        include_computing_state,
+        include_audio_stream,
+    )
+    .await;
+
+    serde_json::to_string_pretty(&spec)
+}
+
 /// Build a configured Rocket server instance
 ///
 /// This function creates and configures a Rocket server instance with all

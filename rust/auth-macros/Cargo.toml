@@ -9,9 +9,9 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = { version = "2.0.104", features = ["full"] }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
 # Dependencies for OpenAPI integration
-rocket_okapi_codegen = { git = "https://github.com/sctg-development/okapi", branch = "rocket-0.5.1", package = "rocket_okapi_codegen" }
-rocket_okapi = { git = "https://github.com/sctg-development/okapi", branch = "rocket-0.5.1", package = "rocket_okapi" }
+rocket_okapi_codegen = { workspace = true }
+rocket_okapi = { workspace = true }

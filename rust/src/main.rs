@@ -143,6 +143,11 @@ pub struct Args {
     /// Show the license notice for this project and exit
     #[arg(long = "show-license-notice")]
     show_license_notice: bool,
+
+    /// Output the OpenAPI specification in JSON format and exit
+    /// This generates and prints the complete OpenAPI v3.0.0 specification for all API endpoints
+    #[arg(long = "get-openapi-json")]
+    get_openapi_json: bool,
 }
 
 #[rocket::main]
@@ -234,6 +239,32 @@ async fn main() -> Result<()> {
     // Check if --show-config-schema flag is set
     if args.show_config_schema {
         return config::output_config_schema();
+    }
+
+    // Handle --get-openapi-json flag early, before starting the full daemon
+    if args.get_openapi_json {
+        // Load configuration for the OpenAPI spec generation
+        let config_path = args
+            .config
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("config.yaml"));
+        let config = Config::from_file(&config_path)?;
+        let config_arc = Arc::new(RwLock::new(config));
+
+        // Generate the complete OpenAPI specification with all optional modules
+        // We include visualization, thermal, computing, and audio routes to get the complete API
+        let openapi_json = visualization::server::generate_openapi_json(
+            &config_arc,
+            true,  // include_visualization_state
+            true,  // include_thermal_state
+            true,  // include_computing_state
+            true,  // include_audio_stream
+        )
+        .await?;
+
+        // Output the OpenAPI JSON specification to stdout
+        println!("{}", openapi_json);
+        return Ok(());
     }
 
     // Validate configuration file if --validate-config is set
