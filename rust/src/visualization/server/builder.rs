@@ -30,9 +30,12 @@ use crate::visualization::vite_dev_proxy;
 use base64::Engine;
 use log::{debug, info, warn};
 use rocket::figment::Figment;
+use rocket::http::ContentType;
 use rocket::{routes, Route};
 use rocket::{Build, Rocket};
 use rocket_async_compression::CachedCompression;
+use rocket_okapi::handlers::{ContentHandler, RedirectHandler};
+use rocket_okapi::hash_map;
 use rocket_okapi::okapi::merge::marge_spec_list;
 use rocket_okapi::okapi::openapi3::OpenApi;
 use rocket_okapi::settings::OpenApiSettings;
@@ -40,6 +43,17 @@ use rocket_okapi::{get_openapi_route, openapi_get_routes_spec};
 use rocket_okapi::{rapidoc::*, settings::UrlObject};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+/// Macro to serve static files from the rapidoc_helper dist folder
+macro_rules! static_file_vite {
+    ($name: literal, $type: ident) => {
+        ContentHandler::bytes(
+            ContentType::$type,
+            include_bytes!(concat!("../../../resources/rapidoc_helper/dist/", $name)),
+        )
+        .into_route(concat!("/", $name))
+    };
+}
 
 /// Build an OpenAPI specification for the visualization API without starting the server
 ///
@@ -136,9 +150,11 @@ pub async fn build_openapi_spec(
 
     // Add test routes
     let (_, openapi_spec_test) = get_test_routes();
-    if let Err(e) =
-        rocket_okapi::okapi::merge::merge_specs(&mut openapi_spec, &"/".to_string(), &openapi_spec_test)
-    {
+    if let Err(e) = rocket_okapi::okapi::merge::merge_specs(
+        &mut openapi_spec,
+        &"/".to_string(),
+        &openapi_spec_test,
+    ) {
         warn!("Failed to merge test OpenAPI spec: {}", e);
     }
 
@@ -416,7 +432,6 @@ pub async fn build_rocket(
                 openid_configuration,
                 jwks,
                 get_generix_config,
-                helper_min_js,
                 crate::visualization::api_auth::get_profile,
                 crate::visualization::api_auth::get_data,
             ],
@@ -625,6 +640,185 @@ fn add_computing_routes(
     }
 }
 
+/// Helper function to format a list of slot contents
+fn slot_list(slots: &[String]) -> String {
+    slots
+        .iter()
+        .map(|s| format!("<div slot=\"default\">{}</div>", s))
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+/// Helper function to format an optional slot
+fn slot_opt(slot: &Option<String>, name: &str) -> String {
+    slot.as_ref()
+        .map(|s| format!("<div slot=\"{}\">{}</div>", name, s))
+        .unwrap_or_default()
+}
+
+/// Helper function to format the logo slot
+fn slot_logo(slot: &Option<String>) -> String {
+    slot.as_ref()
+        .map(|s| format!("<img slot=\"logo\" src=\"{}\" />", s))
+        .unwrap_or_default()
+}
+
+/// Helper function to format tag slots from a HashMap
+fn slot_tags(slots: &std::collections::HashMap<String, String>) -> String {
+    slots
+        .iter()
+        .map(|(tag_name, content)| {
+            format!(
+                "<div slot=\"tag--{}\">{}</div>",
+                tag_name.replace(" ", "-").to_lowercase(),
+                content
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+/// Helper function to format endpoint slots from a HashMap
+fn slot_endpoints(slots: &std::collections::HashMap<String, String>) -> String {
+    slots
+        .iter()
+        .map(|(endpoint_name, content)| {
+            format!(
+                "<div slot=\"endpoint--{}\">{}</div>",
+                endpoint_name.replace(" ", "-").to_lowercase(),
+                content
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+/// Wraps make_rapidoc to include Vite-generated static files
+/// This function creates RapiDoc routes with proper handling of the new Vite bundle structure
+fn make_rapidoc_with_vite_assets(config: &RapiDocConfig) -> Vec<Route> {
+    // Build the HTML page content with template replacements (same logic as make_rapidoc)
+    let title = match &config.title {
+        Some(title) => title.clone(),
+        None => "API Documentation | RapiDoc".to_owned(),
+    };
+    
+    let template_map = hash_map! {
+        // General
+        "TITLE" => title,
+        "SPEC_URL" => config.general.spec_urls[0].url.clone(),
+        "SPEC_URLS" => serde_json::to_string(&config.general.spec_urls).unwrap_or_default(),
+        "UPDATE_ROUTE" => config.general.update_route.to_string(),
+        "ROUTE_PREFIX" => config.general.route_prefix.clone(),
+        "SORT_TAGS" => config.general.sort_tags.to_string(),
+        "SORT_ENDPOINTS_BY" => config.general.sort_endpoints_by.to_string(),
+        "HEADING_TEXT" => config.general.heading_text.clone(),
+        "GOTO_PATH" => config.general.goto_path.clone(),
+        "REQUEST_EXAMPLE_FIELDS" => config.general.fill_request_fields_with_example.to_string(),
+        "PERSIST_AUTH" => config.general.persist_auth.to_string(),
+        // UI Colors and Fonts
+        "THEME" => config.ui.theme.to_string(),
+        "BG_COLOR" => config.ui.bg_color.clone(),
+        "TEXT_COLOR" => config.ui.text_color.clone(),
+        "HEADER_COLOR" => config.ui.header_color.clone(),
+        "PRIMARY_COLOR" => config.ui.primary_color.clone(),
+        "LOAD_FONTS" => config.ui.load_fonts.to_string(),
+        "REGULAR_FONT" => config.ui.regular_font.clone(),
+        "MONO_FONT" => config.ui.mono_font.clone(),
+        "FONT_SIZE" => config.ui.font_size.to_string(),
+        "CSS_FILE" => config.ui.css_file.clone().unwrap_or_default(),
+        "CSS_CLASSES" => config.ui.css_classes.join(" ").to_string(),
+        // Navigation bar settings
+        "SHOW_METHOD_IN_NAV_BAR" => config.nav.show_method_in_nav_bar.to_string(),
+        "USE_PATH_IN_NAV_BAR" => config.nav.use_path_in_nav_bar.to_string(),
+        "NAV_BG_COLOR" => config.nav.nav_bg_color.clone(),
+        "NAV_TEXT_COLOR" => config.nav.nav_text_color.clone(),
+        "NAV_HOVER_BG_COLOR" => config.nav.nav_hover_bg_color.clone(),
+        "NAV_HOVER_TEXT_COLOR" => config.nav.nav_hover_text_color.clone(),
+        "NAV_ACCENT_COLOR" => config.nav.nav_accent_color.clone(),
+        "NAV_ACCENT_TEXT_COLOR" => config.nav.nav_accent_text_color.clone(),
+        "NAV_ACCENT_ITEM_MARKER" => config.nav.nav_active_item_marker.to_string(),
+        "NAV_ITEM_SPACING" => config.nav.nav_item_spacing.to_string(),
+        "ON_NAV_TAG_CLICK" => config.nav.on_nav_tag_click.to_string(),
+        // UI Layout & Placement
+        "LAYOUT" => config.layout.layout.to_string(),
+        "RENDER_STYLE" => config.layout.render_style.to_string(),
+        "RESPONSE_AREA_HEIGHT" => config.layout.response_area_height.clone(),
+        // Hide/Show Sections
+        "SHOW_INFO" => config.hide_show.show_info.to_string(),
+        "INFO_DESCRIPTIONS_IN_NAVBAR" => config.hide_show.info_description_headings_in_navbar.to_string(),
+        "SHOW_COMPONENTS" => config.hide_show.show_components.to_string(),
+        "SHOW_HEADER" => config.hide_show.show_header.to_string(),
+        "ALLOW_AUTHENTICATION" => config.hide_show.allow_authentication.to_string(),
+        "ALLOW_SPEC_URL_LOAD" => config.hide_show.allow_spec_url_load.to_string(),
+        "ALLOW_SPEC_FILE_LOAD" => config.hide_show.allow_spec_file_load.to_string(),
+        "ALLOW_SPEC_FILE_DOWNLOAD" => config.hide_show.allow_spec_file_download.to_string(),
+        "ALLOW_SEARCH" => config.hide_show.allow_search.to_string(),
+        "ALLOW_ADVANCED_SEARCH" => config.hide_show.allow_advanced_search.to_string(),
+        "ALLOW_TRY" => config.hide_show.allow_try.to_string(),
+        "SHOW_CURL_BEFORE_TRY" => config.hide_show.show_curl_before_try.to_string(),
+        "ALLOW_SERVER_SELECTION" => config.hide_show.allow_server_selection.to_string(),
+        "ALLOW_SCHEMA_DESC_EXPAND_TOGGLE" => config.hide_show.allow_schema_description_expand_toggle.to_string(),
+        // Schema Sections
+        "SCHEMA_STYLE" => config.schema.schema_style.to_string(),
+        "SCHEMA_EXPAND_LEVEL" => config.schema.schema_expand_level.to_string(),
+        "SCHEMA_DESCRIPTION_EXPANDED" => config.schema.schema_description_expanded.to_string(),
+        "SCHEMA_HIDE_READ_ONLY" => config.schema.schema_hide_read_only.to_string(),
+        "SCHEMA_HIDE_WRITE_ONLY" => config.schema.schema_hide_write_only.to_string(),
+        "DEFAULT_SCHEMA_TAB" => config.schema.default_schema_tab.to_string(),
+        // API Server & calls
+        "SERVER_URL" => config.api.server_url.clone(),
+        "DEFAULT_API_SERVER" => config.api.default_api_server.clone(),
+        "API_KEY_NAME" => config.api.api_key_name.clone(),
+        "API_KEY_LOCATION" => config.api.api_key_location.as_ref().map_or_else(|| "".to_owned(), |v| v.to_string()),
+        "API_KEY_VALUE" => config.api.api_key_value.clone(),
+        "FETCH_CREDENTIALS" => config.api.fetch_credentials.as_ref().map_or_else(|| "".to_owned(), |v| v.to_string()),
+        // Slots
+        "DEFAULT" => slot_list(&config.slots.default),
+        "LOGO" => slot_logo(&config.slots.logo),
+        "HEADER" => slot_opt(&config.slots.header, "header"),
+        "FOOTER" => slot_opt(&config.slots.footer, "footer"),
+        "NAV_LOGO" => slot_opt(&config.slots.nav_logo, "nav-logo"),
+        "OVERVIEW" => slot_opt(&config.slots.overview, "overview"),
+        "SERVERS" => slot_opt(&config.slots.servers, "servers"),
+        "AUTH" => slot_opt(&config.slots.auth, "auth"),
+        "OPERATIONS_TOP" => slot_opt(&config.slots.operations_top, "operations-top"),
+        "TAGS" => slot_tags(&config.slots.tags),
+        "ENDPOINTS" => slot_endpoints(&config.slots.tags),
+    };
+
+    // Load the HTML template from our Vite-built index.html
+    let mut index_page = match &config.custom_html {
+        Some(custom_file) => custom_file.clone(),
+        None => include_str!("../../../resources/rapidoc_helper/dist/index.html").to_owned(),
+    };
+    
+    // Replace custom tags first
+    for (key, value) in &config.custom_template_tags {
+        // Replace `{{KEY}}` with `VALUE`, So `{{ {{ KEY }} }}` => `{ { KEY } }`
+        index_page = index_page.replace(&format!("{{{{{key}}}}}"), value);
+    }
+    
+    // Replace template variables
+    for (key, value) in template_map {
+        // Replace `{{KEY}}` with `VALUE`, So `{{ {{ KEY }} }}` => `{ { KEY } }`
+        index_page = index_page.replace(&format!("{{{{{key}}}}}"), &value);
+    }
+
+    vec![
+        RedirectHandler::to("index.html").into_route("/"),
+        // Serve the completed HTML page
+        ContentHandler::bytes_owned(ContentType::HTML, index_page.as_bytes().to_vec())
+            .into_route("/index.html"),
+        // Add Vite-generated bundle files
+        static_file_vite!("helper.js", JavaScript),
+        static_file_vite!("helper.js.map", Text),
+        static_file_vite!("index.js", JavaScript),
+        static_file_vite!("index.js.map", Text),
+        static_file_vite!("rapidoc-min.js", JavaScript),
+        static_file_vite!("rapidoc-min.js.map", JavaScript),
+    ]
+}
+
 /// Adds OpenAPI documentation routes to the Rocket instance.
 /// This function mounts the openapi.json endpoint and RapiDoc interface.
 fn add_openapi_documentation(
@@ -640,9 +834,9 @@ fn add_openapi_documentation(
     rocket_builder
         .mount(
             "/api/doc/",
-            make_rapidoc(&RapiDocConfig {
+            make_rapidoc_with_vite_assets(&RapiDocConfig {
                 title: Some("SCTG rust-photoacoustic API Doc".to_owned()),
-                custom_html: Some(include_str!("../../../resources/rapidoc_helper/index.html").to_owned()),
+                custom_html: Some(include_str!("../../../resources/rapidoc_helper/dist/index.html").to_owned()),
                 slots: SlotsConfig{
                     logo: Some(include_png_as_base64!("../../../resources/rapidoc_helper/logo.png")),
                     footer: Some(r#"© 2025 <a style="color: #ffffff; text-decoration: none;" href='https://sctg.eu.org/'>SCTG</a>. All rights reserved. <a style="color: #ffffff; text-decoration: none;" href="https://github.com/sctg-development/rust-photoacoustic">rust-photoacoustic <svg style="height:1.25em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3 .3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5 .3-6.2 2.3zm44.2-1.7c-2.9 .7-4.9 2.6-4.6 4.9 .3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3 .7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3 .3 2.9 2.3 3.9 1.6 1 3.6 .7 4.3-.7 .7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3 .7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3 .7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></a>"#.to_owned()),

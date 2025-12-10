@@ -551,6 +551,13 @@ fn create_rs256_key_pair_if_needed() -> Result<()> {
 /// * `Ok(())` if the build completed successfully
 /// * `Err(anyhow::Error)` if any step of the build process failed
 fn build_node_project(project_path: PathBuf) -> Result<()> {
+    build_node_project_with_env(project_path, None)
+}
+
+fn build_node_project_with_env(
+    project_path: PathBuf,
+    env_vars: Option<Vec<(&str, &str)>>,
+) -> Result<()> {
     // Validate that the project path exists and contains package.json
     if !project_path.exists() {
         return Err(anyhow::anyhow!(
@@ -577,9 +584,14 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
     // Platform-specific npm install
     println!("cargo:warning=Starting npm install...");
     if is_windows {
-        let install_output = Command::new("cmd")
-            .args(["/C", "npm install --force"])
-            .current_dir(&project_path)
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "npm install --force"]).current_dir(&project_path);
+        if let Some(vars) = &env_vars {
+            for (key, value) in vars {
+                cmd.env(key, value);
+            }
+        }
+        let install_output = cmd
             .output()
             .with_context(|| {
                 format!(
@@ -610,9 +622,14 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
             ));
         }
     } else {
-        let install_output = Command::new("npm")
-            .args(["install", "--force"])
-            .current_dir(&project_path)
+        let mut cmd = Command::new("npm");
+        cmd.args(["install", "--force"]).current_dir(&project_path);
+        if let Some(vars) = &env_vars {
+            for (key, value) in vars {
+                cmd.env(key, value);
+            }
+        }
+        let install_output = cmd
             .output()
             .with_context(|| {
                 format!(
@@ -651,9 +668,15 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
     // Platform-specific npm build
     println!("cargo:warning=Starting npm build...");
     if is_windows {
-        let build_output = Command::new("cmd")
-            .args(["/C", &format!("npm run {}", build_command)])
-            .current_dir(&project_path)
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", &format!("npm run {}", build_command)])
+            .current_dir(&project_path);
+        if let Some(vars) = &env_vars {
+            for (key, value) in vars {
+                cmd.env(key, value);
+            }
+        }
+        let build_output = cmd
             .output()
             .with_context(|| {
                 format!("Failed to execute npm build in {}", project_path.display())
@@ -681,9 +704,15 @@ fn build_node_project(project_path: PathBuf) -> Result<()> {
             ));
         }
     } else {
-        let build_output = Command::new("npm")
-            .args(["run", &build_command])
-            .current_dir(&project_path)
+        let mut cmd = Command::new("npm");
+        cmd.args(["run", &build_command])
+            .current_dir(&project_path);
+        if let Some(vars) = &env_vars {
+            for (key, value) in vars {
+                cmd.env(key, value);
+            }
+        }
+        let build_output = cmd
             .output()
             .with_context(|| {
                 format!("Failed to execute npm build in {}", project_path.display())
@@ -881,8 +910,11 @@ fn build_rapidoc() -> Result<()> {
 
     println!("cargo:warning=build_rapidoc: Calling build_node_project");
 
-    // Use the build_node_project function
-    match build_node_project(web_path) {
+    // Use the build_node_project function with BUILT_BY_BUILD_RS environment variable
+    match build_node_project_with_env(web_path, Some(vec![
+        ("BUILT_BY_BUILD_RS", "true"),
+        ("VITE_BASE_PATH", "/api/doc/"),
+    ])) {
         Ok(()) => {
             println!("cargo:warning=build_rapidoc: build_node_project completed successfully")
         }

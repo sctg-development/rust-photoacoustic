@@ -5,12 +5,75 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script>window.SPEC_URL = "{{SPEC_URL}}";</script>
-    <script src="helper.min.js"></script>
-    <title>{{TITLE}}</title>
+    <title>API Documentation</title>
+
+    <script>
+        // Set SPEC_URL with proper fallback logic
+        // Check if it's already set, otherwise use template value if valid, otherwise default
+        let spec_url = window.SPEC_URL;
+
+        // If SPEC_URL is not set or empty string
+        if (!spec_url || spec_url === '') {
+            // Try to use template value if it's been replaced
+            const template_url = "{{SPEC_URL}}";
+            if (template_url && !template_url.includes('{{')) {
+                spec_url = template_url;
+            } else {
+                // Fall back to default location
+                spec_url = "/openapi.json";
+            }
+        }
+
+        window.SPEC_URL = spec_url;
+        console.log('[index.html] SPEC_URL resolved to:', window.SPEC_URL);
+        
+        // Polyfill for process object to avoid undefined errors
+        if (typeof process === 'undefined') {
+            window.process = {
+                env: {},
+                versions: {},
+            };
+        }
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #fafafa;
+            color: #333;
+        }
+
+        rapi-doc {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .error {
+            padding: 20px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            margin: 20px;
+            color: #856404;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+    </style>
 </head>
 
 <body>
+    <div id="error-container" class="error"></div>
+
     <rapi-doc id="rapidoc" update-route="{{UPDATE_ROUTE}}" route-prefix="{{ROUTE_PREFIX}}" sort-tags="{{SORT_TAGS}}"
         sort-endpoints-by="{{SORT_ENDPOINTS_BY}}" heading-text="{{HEADING_TEXT}}" goto-path="{{GOTO_PATH}}"
         fill-request-fields-with-example="{{REQUEST_EXAMPLE_FIELDS}}" persist-auth="{{PERSIST_AUTH}}" theme="{{THEME}}"
@@ -50,6 +113,136 @@
             style="margin:0; padding:16px 36px; background-color:orangered; color:#fff; text-align:center; height: 1em;">
             {{FOOTER}}</p>
     </rapi-doc>
+
+    <!-- Initialize template variables if provided by server-side rendering -->
+    <script> function initializeRapidocAttributes() {
+            const UPDATE_ROUTE = "{{UPDATE_ROUTE}}";
+            const ROUTE_PREFIX = "{{ROUTE_PREFIX}}";
+            const SORT_TAGS = "{{SORT_TAGS}}";
+            const SORT_ENDPOINTS_BY = "{{SORT_ENDPOINTS_BY}}";
+            const HEADING_TEXT = "{{HEADING_TEXT}}";
+            const GOTO_PATH = "{{GOTO_PATH}}";
+            const REQUEST_EXAMPLE_FIELDS = "{{REQUEST_EXAMPLE_FIELDS}}";
+            const PERSIST_AUTH = "{{PERSIST_AUTH}}";
+            const THEME = "{{THEME}}";
+            const BG_COLOR = "{{BG_COLOR}}";
+            const TEXT_COLOR = "{{TEXT_COLOR}}";
+            const HEADER_COLOR = "{{HEADER_COLOR}}";
+            const PRIMARY_COLOR = "{{PRIMARY_COLOR}}";
+            const LOAD_FONTS = "{{LOAD_FONTS}}";
+            const REGULAR_FONT = "{{REGULAR_FONT}}";
+            const MONO_FONT = "{{MONO_FONT}}";
+            const FONT_SIZE = "{{FONT_SIZE}}";
+            const CSS_FILE = "{{CSS_FILE}}";
+            const CSS_CLASSES = "{{CSS_CLASSES}}";
+            const SHOW_METHOD_IN_NAV_BAR = "{{SHOW_METHOD_IN_NAV_BAR}}";
+            const USE_PATH_IN_NAV_BAR = "{{USE_PATH_IN_NAV_BAR}}";
+            const NAV_BG_COLOR = "{{NAV_BG_COLOR}}";
+            const NAV_TEXT_COLOR = "{{NAV_TEXT_COLOR}}";
+            const NAV_HOVER_BG_COLOR = "{{NAV_HOVER_BG_COLOR}}";
+            const NAV_HOVER_TEXT_COLOR = "{{NAV_HOVER_TEXT_COLOR}}";
+            const NAV_ACCENT_COLOR = "{{NAV_ACCENT_COLOR}}";
+            const NAV_ACCENT_TEXT_COLOR = "{{NAV_ACCENT_TEXT_COLOR}}";
+            const NAV_ACCENT_ITEM_MARKER = "{{NAV_ACCENT_ITEM_MARKER}}";
+            const NAV_ITEM_SPACING = "{{NAV_ITEM_SPACING}}";
+            const ON_NAV_TAG_CLICK = "{{ON_NAV_TAG_CLICK}}";
+            const LAYOUT = "{{LAYOUT}}";
+            const RENDER_STYLE = "{{RENDER_STYLE}}";
+            const RESPONSE_AREA_HEIGHT = "{{RESPONSE_AREA_HEIGHT}}";
+            const SHOW_INFO = "{{SHOW_INFO}}";
+            const INFO_DESCRIPTIONS_IN_NAVBAR = "{{INFO_DESCRIPTIONS_IN_NAVBAR}}";
+            const SHOW_COMPONENTS = "{{SHOW_COMPONENTS}}";
+            const SHOW_HEADER = "{{SHOW_HEADER}}";
+            const ALLOW_AUTHENTICATION = "{{ALLOW_AUTHENTICATION}}";
+            const ALLOW_SPEC_URL_LOAD = "{{ALLOW_SPEC_URL_LOAD}}";
+            const ALLOW_SPEC_FILE_LOAD = "{{ALLOW_SPEC_FILE_LOAD}}";
+            const ALLOW_SPEC_FILE_DOWNLOAD = "{{ALLOW_SPEC_FILE_DOWNLOAD}}";
+            const ALLOW_SEARCH = "{{ALLOW_SEARCH}}";
+            const ALLOW_TRY = "{{ALLOW_TRY}}";
+            const SHOW_CURL_BEFORE_TRY = "{{SHOW_CURL_BEFORE_TRY}}";
+            const ALLOW_SERVER_SELECTION = "{{ALLOW_SERVER_SELECTION}}";
+            const ALLOW_SCHEMA_DESC_EXPAND_TOGGLE = "{{ALLOW_SCHEMA_DESC_EXPAND_TOGGLE}}";
+            const SCHEMA_STYLE = "{{SCHEMA_STYLE}}";
+            const SCHEMA_EXPAND_LEVEL = "{{SCHEMA_EXPAND_LEVEL}}";
+            const SCHEMA_DESCRIPTION_EXPANDED = "{{SCHEMA_DESCRIPTION_EXPANDED}}";
+            const SCHEMA_HIDE_READ_ONLY = "{{SCHEMA_HIDE_READ_ONLY}}";
+            const SCHEMA_HIDE_WRITE_ONLY = "{{SCHEMA_HIDE_WRITE_ONLY}}";
+            const DEFAULT_SCHEMA_TAB = "{{DEFAULT_SCHEMA_TAB}}";
+            const SERVER_URL = "{{SERVER_URL}}";
+            const DEFAULT_API_SERVER = "{{DEFAULT_API_SERVER}}";
+            const API_KEY_NAME = "{{API_KEY_NAME}}";
+            const API_KEY_LOCATION = "{{API_KEY_LOCATION}}";
+            const API_KEY_VALUE = "{{API_KEY_VALUE}}";
+            const FETCH_CREDENTIALS = "{{FETCH_CREDENTIALS}}";
+            // Fill rapi-doc attributes
+            const rapidocEl = document.getElementById('rapidoc');
+            console.log('[initializeRapidocAttributes] rapidocEl:', rapidocEl); 
+            if (rapidocEl && typeof rapidocEl.setAttribute === 'function') {
+                rapidocEl.setAttribute('update-route', UPDATE_ROUTE);
+                rapidocEl.setAttribute('route-prefix', ROUTE_PREFIX);
+                rapidocEl.setAttribute('sort-tags', SORT_TAGS);
+                rapidocEl.setAttribute('sort-endpoints-by', SORT_ENDPOINTS_BY);
+                rapidocEl.setAttribute('heading-text', HEADING_TEXT);
+                rapidocEl.setAttribute('goto-path', GOTO_PATH);
+                rapidocEl.setAttribute('fill-request-fields-with-example', REQUEST_EXAMPLE_FIELDS);
+                rapidocEl.setAttribute('persist-auth', PERSIST_AUTH);
+                rapidocEl.setAttribute('theme', THEME);
+                rapidocEl.setAttribute('bg-color', BG_COLOR);
+                rapidocEl.setAttribute('text-color', TEXT_COLOR);
+                rapidocEl.setAttribute('header-color', HEADER_COLOR);
+                rapidocEl.setAttribute('primary-color', PRIMARY_COLOR);
+                rapidocEl.setAttribute('load-fonts', LOAD_FONTS);
+                rapidocEl.setAttribute('regular-font', REGULAR_FONT);
+                rapidocEl.setAttribute('mono-font', MONO_FONT);
+                rapidocEl.setAttribute('font-size', FONT_SIZE);
+                rapidocEl.setAttribute('css-file', CSS_FILE);
+                rapidocEl.setAttribute('css-classes', CSS_CLASSES);
+                rapidocEl.setAttribute('show-method-in-nav-bar', SHOW_METHOD_IN_NAV_BAR);
+                rapidocEl.setAttribute('use-path-in-nav-bar', USE_PATH_IN_NAV_BAR);
+                rapidocEl.setAttribute('nav-bg-color', NAV_BG_COLOR);
+                rapidocEl.setAttribute('nav-text-color', NAV_TEXT_COLOR);
+                rapidocEl.setAttribute('nav-hover-bg-color', NAV_HOVER_BG_COLOR);
+                rapidocEl.setAttribute('nav-hover-text-color', NAV_HOVER_TEXT_COLOR);
+                rapidocEl.setAttribute('nav-accent-color', NAV_ACCENT_COLOR);
+                rapidocEl.setAttribute('nav-accent-text-color', NAV_ACCENT_TEXT_COLOR);
+                rapidocEl.setAttribute('nav-active-item-marker', NAV_ACCENT_ITEM_MARKER);
+                rapidocEl.setAttribute('nav-item-spacing', NAV_ITEM_SPACING);
+                rapidocEl.setAttribute('on-nav-tag-click', ON_NAV_TAG_CLICK);
+                rapidocEl.setAttribute('layout', LAYOUT);
+                rapidocEl.setAttribute('render-style', RENDER_STYLE);
+                rapidocEl.setAttribute('response-area-height', RESPONSE_AREA_HEIGHT);
+                rapidocEl.setAttribute('show-info', SHOW_INFO);
+                rapidocEl.setAttribute('info-description-headings-in-navbar', INFO_DESCRIPTIONS_IN_NAVBAR);
+                rapidocEl.setAttribute('show-components', SHOW_COMPONENTS);
+                rapidocEl.setAttribute('show-header', SHOW_HEADER);
+                rapidocEl.setAttribute('allow-authentication', ALLOW_AUTHENTICATION);
+                rapidocEl.setAttribute('allow-spec-url-load', ALLOW_SPEC_URL_LOAD);
+                rapidocEl.setAttribute('allow-spec-file-load', ALLOW_SPEC_FILE_LOAD);
+                rapidocEl.setAttribute('allow-spec-file-download', ALLOW_SPEC_FILE_DOWNLOAD);
+                rapidocEl.setAttribute('allow-search', ALLOW_SEARCH);
+                rapidocEl.setAttribute('allow-try', ALLOW_TRY);
+                rapidocEl.setAttribute('show-curl-before-try', SHOW_CURL_BEFORE_TRY);
+                rapidocEl.setAttribute('allow-server-selection', ALLOW_SERVER_SELECTION);
+                rapidocEl.setAttribute('allow-schema-description-expand-toggle', ALLOW_SCHEMA_DESC_EXPAND_TOGGLE);
+                rapidocEl.setAttribute('schema-style', SCHEMA_STYLE);
+                rapidocEl.setAttribute('schema-expand-level', SCHEMA_EXPAND_LEVEL);
+                rapidocEl.setAttribute('schema-description-expanded', SCHEMA_DESCRIPTION_EXPANDED);
+                rapidocEl.setAttribute('schema-hide-read-only', SCHEMA_HIDE_READ_ONLY);
+                rapidocEl.setAttribute('schema-hide-write-only', SCHEMA_HIDE_WRITE_ONLY);
+                rapidocEl.setAttribute('default-schema-tab', DEFAULT_SCHEMA_TAB);
+                rapidocEl.setAttribute('server-url', SERVER_URL);
+                rapidocEl.setAttribute('default-api-server', DEFAULT_API_SERVER);
+                rapidocEl.setAttribute('api-key-name', API_KEY_NAME);
+                rapidocEl.setAttribute('api-key-location', API_KEY_LOCATION);
+                rapidocEl.setAttribute('api-key-value', API_KEY_VALUE);
+                rapidocEl.setAttribute('fetch-credentials', FETCH_CREDENTIALS);
+            }
+        }
+    </script>
+    <!-- Main application script - Vite will handle this in dev, helper.js in production -->
+    <script type="module">
+        import('./index.ts');
+    </script>
 </body>
 
 </html>
