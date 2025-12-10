@@ -585,20 +585,19 @@ fn build_node_project_with_env(
     println!("cargo:warning=Starting npm install...");
     if is_windows {
         let mut cmd = Command::new("cmd");
-        cmd.args(["/C", "npm install --force"]).current_dir(&project_path);
+        cmd.args(["/C", "npm install --force"])
+            .current_dir(&project_path);
         if let Some(vars) = &env_vars {
             for (key, value) in vars {
                 cmd.env(key, value);
             }
         }
-        let install_output = cmd
-            .output()
-            .with_context(|| {
-                format!(
-                    "Failed to execute npm install in {}",
-                    project_path.display()
-                )
-            })?;
+        let install_output = cmd.output().with_context(|| {
+            format!(
+                "Failed to execute npm install in {}",
+                project_path.display()
+            )
+        })?;
 
         println!(
             "cargo:warning=npm install exit code: {:?}",
@@ -629,14 +628,12 @@ fn build_node_project_with_env(
                 cmd.env(key, value);
             }
         }
-        let install_output = cmd
-            .output()
-            .with_context(|| {
-                format!(
-                    "Failed to execute npm install in {}",
-                    project_path.display()
-                )
-            })?;
+        let install_output = cmd.output().with_context(|| {
+            format!(
+                "Failed to execute npm install in {}",
+                project_path.display()
+            )
+        })?;
 
         println!(
             "cargo:warning=npm install exit code: {:?}",
@@ -676,11 +673,9 @@ fn build_node_project_with_env(
                 cmd.env(key, value);
             }
         }
-        let build_output = cmd
-            .output()
-            .with_context(|| {
-                format!("Failed to execute npm build in {}", project_path.display())
-            })?;
+        let build_output = cmd.output().with_context(|| {
+            format!("Failed to execute npm build in {}", project_path.display())
+        })?;
 
         println!(
             "cargo:warning=npm build exit code: {:?}",
@@ -705,18 +700,15 @@ fn build_node_project_with_env(
         }
     } else {
         let mut cmd = Command::new("npm");
-        cmd.args(["run", &build_command])
-            .current_dir(&project_path);
+        cmd.args(["run", &build_command]).current_dir(&project_path);
         if let Some(vars) = &env_vars {
             for (key, value) in vars {
                 cmd.env(key, value);
             }
         }
-        let build_output = cmd
-            .output()
-            .with_context(|| {
-                format!("Failed to execute npm build in {}", project_path.display())
-            })?;
+        let build_output = cmd.output().with_context(|| {
+            format!("Failed to execute npm build in {}", project_path.display())
+        })?;
 
         println!(
             "cargo:warning=npm build exit code: {:?}",
@@ -911,10 +903,13 @@ fn build_rapidoc() -> Result<()> {
     println!("cargo:warning=build_rapidoc: Calling build_node_project");
 
     // Use the build_node_project function with BUILT_BY_BUILD_RS environment variable
-    match build_node_project_with_env(web_path, Some(vec![
-        ("BUILT_BY_BUILD_RS", "true"),
-        ("VITE_BASE_PATH", "/api/doc/"),
-    ])) {
+    match build_node_project_with_env(
+        web_path,
+        Some(vec![
+            ("BUILT_BY_BUILD_RS", "true"),
+            ("VITE_BASE_PATH", "/api/doc/"),
+        ]),
+    ) {
         Ok(()) => {
             println!("cargo:warning=build_rapidoc: build_node_project completed successfully")
         }

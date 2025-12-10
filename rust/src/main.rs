@@ -255,10 +255,10 @@ async fn main() -> Result<()> {
         // We include visualization, thermal, computing, and audio routes to get the complete API
         let openapi_json = visualization::server::generate_openapi_json(
             &config_arc,
-            true,  // include_visualization_state
-            true,  // include_thermal_state
-            true,  // include_computing_state
-            true,  // include_audio_stream
+            true, // include_visualization_state
+            true, // include_thermal_state
+            true, // include_computing_state
+            true, // include_audio_stream
         )
         .await?;
 

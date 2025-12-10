@@ -173,4 +173,3 @@ pub async fn favicon() -> Option<StaticFileResponse> {
     });
     file
 }
-

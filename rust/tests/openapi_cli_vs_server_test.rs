@@ -80,7 +80,7 @@ async fn test_openapi_cli_matches_server_spec() -> Result<()> {
         let empty_map = Default::default();
         let cli_obj = cli_spec.as_object().unwrap_or(&empty_map);
         let server_obj = server_spec.as_object().unwrap_or(&empty_map);
-        
+
         // Check for missing keys
         let mut key_diffs = Vec::new();
         for key in server_obj.keys() {
@@ -88,17 +88,17 @@ async fn test_openapi_cli_matches_server_spec() -> Result<()> {
                 key_diffs.push(format!("Key in server but not CLI: {}", key));
             }
         }
-        
+
         for key in cli_obj.keys() {
             if !server_obj.contains_key(key) {
                 key_diffs.push(format!("Key in CLI but not server: {}", key));
             }
         }
-        
+
         if !key_diffs.is_empty() {
             panic!("Key differences:\n{}", key_diffs.join("\n"));
         }
-        
+
         // Check if top-level differences exist
         for key in cli_obj.keys() {
             if let (Some(cli_val), Some(server_val)) = (cli_obj.get(key), server_obj.get(key)) {
@@ -112,7 +112,7 @@ async fn test_openapi_cli_matches_server_spec() -> Result<()> {
                 }
             }
         }
-        
+
         // Accept that specs may differ slightly due to async state initialization
         // The important thing is that the structure is valid and contains expected paths
         eprintln!("Warning: CLI and server OpenAPI specs differ slightly in content");
@@ -143,10 +143,7 @@ async fn test_openapi_json_is_valid() -> Result<()> {
     let spec: Value = serde_json::from_str(&openapi_json)?;
 
     // Verify OpenAPI structure
-    assert!(
-        spec.is_object(),
-        "OpenAPI spec should be a JSON object"
-    );
+    assert!(spec.is_object(), "OpenAPI spec should be a JSON object");
 
     // Check required OpenAPI fields
     assert!(
@@ -154,10 +151,7 @@ async fn test_openapi_json_is_valid() -> Result<()> {
         "OpenAPI spec should contain 'openapi' field"
     );
 
-    let openapi_version = spec
-        .get("openapi")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let openapi_version = spec.get("openapi").and_then(|v| v.as_str()).unwrap_or("");
 
     assert_eq!(
         openapi_version, "3.0.0",
@@ -211,13 +205,13 @@ async fn test_openapi_json_contains_expected_endpoints() -> Result<()> {
 
     // Define expected path prefixes that should be present in the spec
     let expected_prefixes = vec![
-        "/api/config",      // Config routes
-        "/api/graph",       // Graph routes
-        "/api/system",      // System routes
-        "/api/action",      // Action routes
-        "/api/computing",   // Computing routes
-        "/api/thermal",     // Thermal regulation routes
-        "/api/test",        // Test routes
+        "/api/config",    // Config routes
+        "/api/graph",     // Graph routes
+        "/api/system",    // System routes
+        "/api/action",    // Action routes
+        "/api/computing", // Computing routes
+        "/api/thermal",   // Thermal regulation routes
+        "/api/test",      // Test routes
     ];
 
     // For each expected prefix, verify at least one path starts with it
@@ -262,11 +256,7 @@ async fn test_openapi_json_is_pretty_formatted() -> Result<()> {
     );
 
     // Verify the JSON is not minified (a minified JSON would have very long lines)
-    let max_line_length = openapi_json
-        .lines()
-        .map(|l| l.len())
-        .max()
-        .unwrap_or(0);
+    let max_line_length = openapi_json.lines().map(|l| l.len()).max().unwrap_or(0);
 
     // Note: Base64-encoded certificates and keys in the schema can create lines > 200 chars
     // This is acceptable for embedded data. Allow up to 5000 chars which covers most embeddings.

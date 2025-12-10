@@ -701,7 +701,7 @@ fn make_rapidoc_with_vite_assets(config: &RapiDocConfig) -> Vec<Route> {
         Some(title) => title.clone(),
         None => "API Documentation | RapiDoc".to_owned(),
     };
-    
+
     let template_map = hash_map! {
         // General
         "TITLE" => title,
@@ -791,13 +791,13 @@ fn make_rapidoc_with_vite_assets(config: &RapiDocConfig) -> Vec<Route> {
         Some(custom_file) => custom_file.clone(),
         None => include_str!("../../../resources/rapidoc_helper/dist/index.html").to_owned(),
     };
-    
+
     // Replace custom tags first
     for (key, value) in &config.custom_template_tags {
         // Replace `{{KEY}}` with `VALUE`, So `{{ {{ KEY }} }}` => `{ { KEY } }`
         index_page = index_page.replace(&format!("{{{{{key}}}}}"), value);
     }
-    
+
     // Replace template variables
     for (key, value) in template_map {
         // Replace `{{KEY}}` with `VALUE`, So `{{ {{ KEY }} }}` => `{ { KEY } }`
