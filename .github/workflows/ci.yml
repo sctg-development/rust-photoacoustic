@@ -129,21 +129,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config libasound2-dev
 
-      # Install LLVM and Clang (required for bindgen)
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: "14.0"
-
       # Install CMake (required for rdkafka-sys on macOS)
       - name: Install CMake (macOS)
         if: runner.os == 'macOS'
         run: |
-          # brew update
-          # brew uninstall cmake || true        # Remove any broken install
-          # brew install cmake
+          brew update
+          brew uninstall cmake || true        # Remove any broken install
+          brew install cmake
           cmake --version
           echo "CMAKE_POLICY_VERSION_MINIMUM=3.5" >> $GITHUB_ENV
+
+      # Install LLVM and Clang (required for bindgen)
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "15"
 
       # Install Anaconda3 for Python support (needed for python-driver feature tests)
       - name: Setup Anaconda3
