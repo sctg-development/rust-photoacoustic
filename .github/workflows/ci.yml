@@ -141,6 +141,7 @@ jobs:
 
       # Install LLVM and Clang (required for bindgen)
       - name: Install LLVM and Clang
+        if: runner.os != 'macOS'
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: "15"
