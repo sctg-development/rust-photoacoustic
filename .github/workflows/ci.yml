@@ -133,7 +133,7 @@ jobs:
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v2
         with:
-          version: "16.0"
+          version: "14.0"
 
       # Install CMake (required for rdkafka-sys on macOS)
       - name: Install CMake (macOS)
