@@ -118,7 +118,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: 1.88.0
+          toolchain: 1.91.1
           targets: ${{ matrix.target }}
           components: rustfmt, clippy
 
@@ -195,7 +195,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             rust/target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.91.1
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.target }}-
             ${{ runner.os }}-cargo-
@@ -325,7 +325,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         uses: actions/cache@v4
         with:
-          key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.88.0
+          key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.91.1
           path: |
             rust/target
           restore-keys: |
