@@ -227,16 +227,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-playwright-
 
+      - name: Create base configuration
+        run: |
+          cp rust/config.example.yaml rust/config.yaml
+
       - name: Run simple playwright-rust bin to download browsers
         shell: bash -l {0}
         run: |
           cd rust
           cargo run --bin playwright_github_connect || true
-
-      - name: Create base configuration
-        run: |
-          cp rust/config.example.yaml rust/config.yaml
-
+          
       - name: Download web artifact (dist)
         uses: actions/download-artifact@v4
         with:
