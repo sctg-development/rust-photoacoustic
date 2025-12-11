@@ -200,6 +200,33 @@ jobs:
             ${{ runner.os }}-cargo-${{ matrix.target }}-
             ${{ runner.os }}-cargo-
 
+      - name: Restore Playwright browsers cache (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Restore Playwright browsers cache (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Restore Playwright browsers cache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Create base configuration
         run: |
           cp rust/config.example.yaml rust/config.yaml
