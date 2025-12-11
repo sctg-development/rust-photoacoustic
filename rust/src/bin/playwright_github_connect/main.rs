@@ -29,13 +29,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get all links as JSON values
     let links_json: serde_json::Value = page
-        .eval(r#"() => {
+        .eval(
+            r#"() => {
             const links = [];
             document.querySelectorAll('a').forEach(a => {
                 links.push({href: a.href, text: a.innerText});
             });
             return links;
-        }"#)
+        }"#,
+        )
         .await?;
     println!("Found links: {}", links_json);
 
@@ -55,23 +57,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(url_str) = api_link.as_str() {
         println!("Found API documentation at: {}", url_str);
         page.goto_builder(url_str).goto().await?;
-        
+
         // Wait for the documentation page to load
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
         // Extract the version number from the documentation page
         let version: serde_json::Value = page
-            .eval(r#"() => {
+            .eval(
+                r#"() => {
                 const versionSpan = document.querySelector("span.version");
                 if (versionSpan) {
                     return versionSpan.innerText.trim();
                 }
                 return "Version not found";
-            }"#)
+            }"#,
+            )
             .await?;
         println!("Package version: {}", version);
     } else {
-        println!("Could not find API documentation link (got: {:?})", api_link);
+        println!(
+            "Could not find API documentation link (got: {:?})",
+            api_link
+        );
     }
 
     // Verify we're on the correct page
