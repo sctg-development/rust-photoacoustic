@@ -112,6 +112,7 @@ async-trait = "0.1.89"
 uuid = { version = "1.19.0", features = ["v4"] }
 schemars = "1.1.0"
 evalexpr = "13.1.0"
+playwright = { git = "https://github.com/sctg-development/playwright-rust.git" }            # Playwright for end-to-end testing
 
 # Python integration (optional)
 pyo3 = { version = "0.27.2", optional = true, features = [
