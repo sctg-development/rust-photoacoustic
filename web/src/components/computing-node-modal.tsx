@@ -359,7 +359,9 @@ export function ComputingNodeModal({
                                   {peakResult.frequency?.toFixed(2) ?? "N/A"} Hz
                                 </span>
                                 <CopyButton
-                                  value={peakResult.frequency ?? "N/A"}
+                                  value={
+                                    peakResult.frequency?.toString() ?? "N/A"
+                                  }
                                 />
                               </div>
                             </div>
@@ -373,7 +375,9 @@ export function ComputingNodeModal({
                                   {peakResult.amplitude?.toFixed(4) ?? "N/A"}
                                 </span>
                                 <CopyButton
-                                  value={peakResult.amplitude ?? "N/A"}
+                                  value={
+                                    peakResult.amplitude?.toString() ?? "N/A"
+                                  }
                                 />
                               </div>
                             </div>
@@ -392,9 +396,9 @@ export function ComputingNodeModal({
                                       ppm
                                     </span>
                                     <CopyButton
-                                      value={
+                                      value={(
                                         peakResult.concentration_ppm / 10000000
-                                      } // Convert ppm to concentration
+                                      ).toString()} // Convert ppm to concentration
                                     />
                                   </div>
                                 </div>
@@ -531,7 +535,9 @@ export function ComputingNodeModal({
                                   <p className="font-bold text-blue-800">
                                     {result.frequency?.toFixed(2) ?? "N/A"} Hz
                                     <CopyButton
-                                      value={result.frequency ?? "N/A"}
+                                      value={
+                                        result.frequency?.toString() ?? "N/A"
+                                      }
                                     />
                                   </p>
                                 </div>
@@ -542,7 +548,9 @@ export function ComputingNodeModal({
                                   <p className="font-bold text-green-800">
                                     {result.amplitude?.toFixed(4) ?? "N/A"}
                                     <CopyButton
-                                      value={result.amplitude ?? "N/A"}
+                                      value={
+                                        result.amplitude.toString() ?? "N/A"
+                                      }
                                     />
                                   </p>
                                 </div>
@@ -556,9 +564,9 @@ export function ComputingNodeModal({
                                         {result.concentration_ppm.toFixed(2)}{" "}
                                         ppm
                                         <CopyButton
-                                          value={
+                                          value={(
                                             result.concentration_ppm / 10000000
-                                          } // Convert ppm to concentration
+                                          ).toString()} // Convert ppm to concentration
                                         />
                                       </p>
                                     </div>
