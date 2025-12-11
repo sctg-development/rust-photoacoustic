@@ -888,6 +888,7 @@ fn build_rapidoc() -> Result<()> {
         PathBuf::from("./resources/rapidoc_helper/openapi3.ts"),
         PathBuf::from("./resources/rapidoc_helper/webpack.config.cjs"),
         PathBuf::from("./resources/rapidoc_helper/index.ts"),
+        PathBuf::from("./resources/rapidoc_helper/index.html"),
         // Add other files/directories to watch as needed
     ];
 
