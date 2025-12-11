@@ -377,10 +377,11 @@ pub async fn build_rocket(
     // Initialize OpenAPI specification accumulator with proper version
     let mut openapi_spec = OpenApi::default();
     openapi_spec.openapi = "3.0.0".to_string(); // Set the version to match other specs
-    
+
     // Set API information
     openapi_spec.info.title = "SCTG rust-photoacoustic API".to_string();
-    openapi_spec.info.description = Some("Flexible Gas Analyzer using Laser Photoacoustic Spectroscopy".to_string());
+    openapi_spec.info.description =
+        Some("Flexible Gas Analyzer using Laser Photoacoustic Spectroscopy".to_string());
 
     // Add config routes
     let (openapi_routes_config, openapi_spec_config) = get_config_routes();

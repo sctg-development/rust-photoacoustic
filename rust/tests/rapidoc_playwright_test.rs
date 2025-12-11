@@ -11,11 +11,11 @@
 use playwright::Playwright;
 use rocket::config::LogLevel;
 use rust_photoacoustic::config::{AccessConfig, VisualizationConfig};
+use serde_json;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
-use serde_json;
 
 fn get_figment() -> rocket::figment::Figment {
     rocket::Config::figment()
@@ -43,7 +43,7 @@ async fn test_rapidoc_shadow_dom_rendering() -> Result<(), Box<dyn std::error::E
     // Use port 8082 for this test
     let mut figment = get_figment();
     figment = figment.merge(("port", 8082));
-    
+
     // Start the test server in a background task
     let test_config = get_test_config();
     let visualization_state = std::sync::Arc::new(
@@ -123,14 +123,19 @@ async fn test_rapidoc_shadow_dom_rendering() -> Result<(), Box<dyn std::error::E
 
     // Get the package description from Cargo.toml (available at compile time)
     let expected_description = env!("CARGO_PKG_DESCRIPTION");
-    
+
     // Verify the API description is present in the Shadow DOM
     if shadow_dom_html.contains(expected_description) {
-        println!("✓ API description found in Shadow DOM: {}", expected_description);
+        println!(
+            "✓ API description found in Shadow DOM: {}",
+            expected_description
+        );
     } else {
-        println!("Shadow DOM content (first 1000 chars):\n{}", 
-            &shadow_dom_html.chars().take(1000).collect::<String>());
-        
+        println!(
+            "Shadow DOM content (first 1000 chars):\n{}",
+            &shadow_dom_html.chars().take(1000).collect::<String>()
+        );
+
         // The description might be split across elements, check for partial matches
         let parts: Vec<&str> = expected_description.split_whitespace().collect();
         let mut found_parts = 0;
@@ -139,11 +144,15 @@ async fn test_rapidoc_shadow_dom_rendering() -> Result<(), Box<dyn std::error::E
                 found_parts += 1;
             }
         }
-        
+
         if found_parts >= 3 {
             println!("✓ API description found (split across elements) in Shadow DOM");
         } else {
-            return Err(format!("API description not found in Shadow DOM. Expected: {}", expected_description).into());
+            return Err(format!(
+                "API description not found in Shadow DOM. Expected: {}",
+                expected_description
+            )
+            .into());
         }
     }
 
@@ -185,7 +194,7 @@ async fn test_rapidoc_page_title() -> Result<(), Box<dyn std::error::Error>> {
     // Use port 8083 for this test
     let mut figment = get_figment();
     figment = figment.merge(("port", 8083));
-    
+
     // Start the test server
     let test_config = get_test_config();
     let visualization_state = std::sync::Arc::new(
@@ -275,7 +284,7 @@ async fn test_rapidoc_api_operations_visible() -> Result<(), Box<dyn std::error:
     // Use port 8084 for this test
     let mut figment = get_figment();
     figment = figment.merge(("port", 8084));
-    
+
     // Start the test server
     let test_config = get_test_config();
     let visualization_state = std::sync::Arc::new(
@@ -347,7 +356,10 @@ async fn test_rapidoc_api_operations_visible() -> Result<(), Box<dyn std::error:
     println!("API sections found: {}", api_sections);
 
     // Verify the page has loaded some content
-    assert!(!api_sections.contains("NO_SHADOW_DOM"), "Shadow DOM should be available");
+    assert!(
+        !api_sections.contains("NO_SHADOW_DOM"),
+        "Shadow DOM should be available"
+    );
 
     // At minimum, check for basic API structure
     let has_api_content = api_sections.contains("true");
@@ -371,7 +383,7 @@ async fn test_rapidoc_footer_github_link() -> Result<(), Box<dyn std::error::Err
     // Use port 8085 for this test
     let mut figment = get_figment();
     figment = figment.merge(("port", 8085));
-    
+
     // Start the test server
     let test_config = get_test_config();
     let visualization_state = std::sync::Arc::new(
@@ -459,7 +471,9 @@ async fn test_rapidoc_footer_github_link() -> Result<(), Box<dyn std::error::Err
         "GitHub link to https://github.com/sctg-development/rust-photoacoustic should be present in footer"
     );
 
-    println!("✓ GitHub link found in footer: https://github.com/sctg-development/rust-photoacoustic");
+    println!(
+        "✓ GitHub link found in footer: https://github.com/sctg-development/rust-photoacoustic"
+    );
 
     // Verify the SCTG reference is present
     assert!(

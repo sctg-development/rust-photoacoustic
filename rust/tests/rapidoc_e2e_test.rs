@@ -62,13 +62,19 @@ async fn test_rapidoc_html_generation() {
     let response = client.get("/api/doc/index.html").dispatch().await;
 
     assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(rocket::http::ContentType::HTML));
+    assert_eq!(
+        response.content_type(),
+        Some(rocket::http::ContentType::HTML)
+    );
 
     // Get the response body
     let html_content = response.into_string().await.expect("valid response body");
 
     println!("HTML Response length: {} chars", html_content.len());
-    println!("First 1000 chars of HTML:\n{}", &html_content.chars().take(1000).collect::<String>());
+    println!(
+        "First 1000 chars of HTML:\n{}",
+        &html_content.chars().take(1000).collect::<String>()
+    );
 
     // Verify that the HTML contains the custom template values
     assert!(
@@ -86,8 +92,11 @@ async fn test_rapidoc_html_generation() {
 
     let spec_response = client.get(spec_url).dispatch().await;
     assert_eq!(spec_response.status(), Status::Ok);
-    
-    let spec_content = spec_response.into_string().await.expect("valid spec response body");
+
+    let spec_content = spec_response
+        .into_string()
+        .await
+        .expect("valid spec response body");
     assert!(
         spec_content.contains("Flexible Gas Analyzer using Laser Photoacoustic Spectroscopy"),
         "OpenAPI spec should contain the API description"
