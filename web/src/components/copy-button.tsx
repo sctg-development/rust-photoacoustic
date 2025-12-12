@@ -24,14 +24,11 @@ import { PreviewButton } from "./preview-button";
 import { CheckLinearIcon, CopyLinearIcon } from "@/components/icons";
 
 export interface CopyButtonProps extends ButtonProps {
-  value?: string | number;
+  value?: string;
 }
 
 export const CopyButton = memo<CopyButtonProps>(
   ({ value, className, ...buttonProps }) => {
-    if (typeof value === "number") {
-      value = value.toString();
-    }
     const { copy, copied } = useClipboard();
 
     const icon = copied ? (

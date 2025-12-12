@@ -146,8 +146,10 @@ export type RegulatorStatus =
 /**
  * Helper type for temperature data with human-readable timestamp
  */
-export interface ThermalDataPointWithDate
-  extends Omit<ThermalDataPoint, "timestamp"> {
+export interface ThermalDataPointWithDate extends Omit<
+  ThermalDataPoint,
+  "timestamp"
+> {
   timestamp: number;
   date: Date;
 }
@@ -155,8 +157,10 @@ export interface ThermalDataPointWithDate
 /**
  * Helper type for current temperature info with human-readable timestamp
  */
-export interface CurrentTemperatureInfoWithDate
-  extends Omit<CurrentTemperatureInfo, "timestamp"> {
+export interface CurrentTemperatureInfoWithDate extends Omit<
+  CurrentTemperatureInfo,
+  "timestamp"
+> {
   timestamp: number;
   date: Date;
 }
