@@ -141,7 +141,7 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 RUN /usr/local/bin/python3 -m pip install --no-cache-dir tomli tomli_w
 
 # Copy and run the auto-initialize removal script
-COPY docker/remove_auto_initialize.py /tmp/remove_auto_initialize.py
+COPY rust/docker/remove_auto_initialize.py /tmp/remove_auto_initialize.py
 RUN /usr/local/bin/python3 /tmp/remove_auto_initialize.py /rust-photoacoustic/rust/Cargo.toml && \
     rm /tmp/remove_auto_initialize.py
 
