@@ -30,9 +30,9 @@ RUN git clone https://github.com/microsoft/mimalloc.git &&\
     patch --fuzz 50 -p1 < mimalloc.patch || true &&\
     mkdir build && cd build &&\
     cmake .. -DCMAKE_BUILD_TYPE=Release \
-             -DMI_BUILD_SHARED=OFF \
-             -DMI_BUILD_OBJECT=OFF \
-             -DMI_BUILD_TESTS=OFF &&\
+    -DMI_BUILD_SHARED=OFF \
+    -DMI_BUILD_OBJECT=OFF \
+    -DMI_BUILD_TESTS=OFF &&\
     make -j$(nproc) && make install
 
 # Replace memory allocation functions in Rust's libc with mimalloc for better performance
@@ -50,20 +50,20 @@ RUN cd /tmp && \
     tar -xjf alsa-lib-1.2.10.tar.bz2 && \
     cd alsa-lib-1.2.10 && \
     ./configure --prefix=/usr/local \
-                --enable-static \
-                --disable-shared \
-                --disable-python \
-                --disable-mixer \
-                --disable-pcm-plugins \
-                --disable-rawmidi \
-                --disable-hwdep \
-                --disable-seq \
-                --disable-ucm \
-                --disable-topology \
-                --with-configdir=/usr/local/share/alsa \
-                --with-plugindir=/usr/local/lib/alsa-lib \
-                CC=clang \
-                CFLAGS="-fPIC -static" && \
+    --enable-static \
+    --disable-shared \
+    --disable-python \
+    --disable-mixer \
+    --disable-pcm-plugins \
+    --disable-rawmidi \
+    --disable-hwdep \
+    --disable-seq \
+    --disable-ucm \
+    --disable-topology \
+    --with-configdir=/usr/local/share/alsa \
+    --with-plugindir=/usr/local/lib/alsa-lib \
+    CC=clang \
+    CFLAGS="-fPIC -static" && \
     make -j$(nproc) && \
     make install && \
     mv /usr/local/lib/libasound.a /usr/lib/libasound.a &&\
@@ -73,17 +73,17 @@ RUN cd /tmp && \
 RUN curl -sl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz | tar xz -C / && \
     cd /Python-$PYTHON_VERSION && \
     ./configure --prefix=/usr/local \
-                --disable-shared \
-                --disable-test-modules \
-                --with-openssl=/usr/local/ssl \
-                --with-ensurepip=install \
-                --enable-optimizations \
-                --with-static-libpython \
-                LDFLAGS="-static -L/usr/local/lib" \
-                CFLAGS="-static -fPIC" \
-                CPPFLAGS="-static" \
-                LINKFORSHARED=" " \
-                DYNLOADFILE="dynload_stub.o" && \
+    --disable-shared \
+    --disable-test-modules \
+    --with-openssl=/usr/local/ssl \
+    --with-ensurepip=install \
+    --enable-optimizations \
+    --with-static-libpython \
+    LDFLAGS="-static -L/usr/local/lib" \
+    CFLAGS="-static -fPIC" \
+    CPPFLAGS="-static" \
+    LINKFORSHARED=" " \
+    DYNLOADFILE="dynload_stub.o" && \
     make -j$(nproc) python && \
     make -j$(nproc) install 2> /dev/null || true && \
     # cp /Python-$PYTHON_VERSION/python /usr/local/bin/python3 && \
@@ -137,9 +137,13 @@ ENV LIBRDKAFKA_SYS_USE_PKG_CONFIG=1
 ENV RDKAFKA_SYS_USE_PKG_CONFIG=1  
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
-# Remove auto-initialize feature from PyO3 to avoid issues with static linking
-RUN cd /rust-photoacoustic/rust && \
-    sed -i '/^pyo3.*$/s/, features = \["auto-initialize"\]//' Cargo.toml
+# Install Python packaging tools for TOML parsing
+RUN /usr/local/bin/python3 -m pip install --no-cache-dir tomli tomli_w
+
+# Copy and run the auto-initialize removal script
+COPY docker/remove_auto_initialize.py /tmp/remove_auto_initialize.py
+RUN /usr/local/bin/python3 /tmp/remove_auto_initialize.py /rust-photoacoustic/rust/Cargo.toml && \
+    rm /tmp/remove_auto_initialize.py
 
 # Build for different architectures with proper error handling
 RUN cd /rust-photoacoustic/rust && \
@@ -152,34 +156,34 @@ RUN cd /rust-photoacoustic/rust && \
     rm -f /usr/lib/libssl.so* && \
     rm -f /usr/lib/libcrypto.so && \
     if [ "$(uname -m)" = "armv7l" ]; then \
-       echo "Building for armv7l architecture" && \
-       . /root/.cargo/env && rustup target add armv7-unknown-linux-musleabihf && \
-       ln -svf /usr/bin/ar /usr/bin/arm-linux-musleabihf-ar && \
-       ln -svf /usr/bin/strip /usr/bin/arm-linux-musleabihf-strip && \
-       ln -svf /usr/bin/ranlib /usr/bin/arm-linux-musleabihf-ranlib && \
-       echo "armv7-unknown-linux-musleabihf" > _target && \
-       cargo build --release --target armv7-unknown-linux-musleabihf --verbose && \
-       echo "Build completed successfully for armv7l" && \
-       ls -la target/armv7-unknown-linux-musleabihf/release/; \
+    echo "Building for armv7l architecture" && \
+    . /root/.cargo/env && rustup target add armv7-unknown-linux-musleabihf && \
+    ln -svf /usr/bin/ar /usr/bin/arm-linux-musleabihf-ar && \
+    ln -svf /usr/bin/strip /usr/bin/arm-linux-musleabihf-strip && \
+    ln -svf /usr/bin/ranlib /usr/bin/arm-linux-musleabihf-ranlib && \
+    echo "armv7-unknown-linux-musleabihf" > _target && \
+    cargo build --release --target armv7-unknown-linux-musleabihf --verbose && \
+    echo "Build completed successfully for armv7l" && \
+    ls -la target/armv7-unknown-linux-musleabihf/release/; \
     elif [ "$(uname -m)" = "aarch64" ]; then \
-       echo "Building for aarch64 architecture" && \
-       . /root/.cargo/env && rustup target add aarch64-unknown-linux-musl && \
-       ln -svf /usr/bin/ar /usr/bin/aarch64-linux-musl-ar && \
-       ln -svf /usr/bin/strip /usr/bin/aarch64-linux-musl-strip && \
-       ln -svf /usr/bin/ranlib /usr/bin/aarch64-linux-musl-ranlib && \
-       echo "aarch64-unknown-linux-musl" > _target && \
-       cargo build --release --target aarch64-unknown-linux-musl --verbose && \
-       echo "Build completed successfully for aarch64" && \
-       ls -la target/aarch64-unknown-linux-musl/release/; \
+    echo "Building for aarch64 architecture" && \
+    . /root/.cargo/env && rustup target add aarch64-unknown-linux-musl && \
+    ln -svf /usr/bin/ar /usr/bin/aarch64-linux-musl-ar && \
+    ln -svf /usr/bin/strip /usr/bin/aarch64-linux-musl-strip && \
+    ln -svf /usr/bin/ranlib /usr/bin/aarch64-linux-musl-ranlib && \
+    echo "aarch64-unknown-linux-musl" > _target && \
+    cargo build --release --target aarch64-unknown-linux-musl --verbose && \
+    echo "Build completed successfully for aarch64" && \
+    ls -la target/aarch64-unknown-linux-musl/release/; \
     elif [ "$(uname -m)" = "x86_64" ]; then \
-       echo "Building for x86_64 architecture" && \
-       . /root/.cargo/env && rustup target add x86_64-unknown-linux-musl && \
-       echo "x86_64-unknown-linux-musl" > _target && \
-       cargo build --release --target x86_64-unknown-linux-musl --verbose && \
-       echo "Build completed successfully for x86_64" && \
-       ls -la target/x86_64-unknown-linux-musl/release/; \
+    echo "Building for x86_64 architecture" && \
+    . /root/.cargo/env && rustup target add x86_64-unknown-linux-musl && \
+    echo "x86_64-unknown-linux-musl" > _target && \
+    cargo build --release --target x86_64-unknown-linux-musl --verbose && \
+    echo "Build completed successfully for x86_64" && \
+    ls -la target/x86_64-unknown-linux-musl/release/; \
     else \
-       echo "Unsupported architecture: $(uname -m)" && exit 1; \
+    echo "Unsupported architecture: $(uname -m)" && exit 1; \
     fi
 
 FROM alpine:3.18 AS runtime
@@ -223,13 +227,13 @@ RUN TARGET=$(cat /Python-$PYTHON_VERSION/_target) && \
     echo "Available binaries in /Python-$PYTHON_VERSION/target/$TARGET/release/:" && \
     ls -la "/Python-$PYTHON_VERSION/target/$TARGET/release/" && \
     for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
-        if [ -f "/Python-$PYTHON_VERSION/target/$TARGET/release/$binary" ]; then \
-            echo "Copying $binary" && \
-            cp "/Python-$PYTHON_VERSION/target/$TARGET/release/$binary" /usr/local/bin/ && \
-            chmod +x "/usr/local/bin/$binary"; \
-        else \
-            echo "Warning: $binary not found in build output"; \
-        fi; \
+    if [ -f "/Python-$PYTHON_VERSION/target/$TARGET/release/$binary" ]; then \
+    echo "Copying $binary" && \
+    cp "/Python-$PYTHON_VERSION/target/$TARGET/release/$binary" /usr/local/bin/ && \
+    chmod +x "/usr/local/bin/$binary"; \
+    else \
+    echo "Warning: $binary not found in build output"; \
+    fi; \
     done && \
     rm -rf /Python-$PYTHON_VERSION/target /Python-$PYTHON_VERSION/_target
 
