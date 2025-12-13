@@ -44,6 +44,29 @@ RUN cd /mimalloc/build && \
     mv libc.a "$LIBC_PATH" && \
     echo "Successfully patched libc.a with mimalloc"
 
+# Build libtermcap statically from gnu ftp site
+RUN cd /mimalloc/build && \
+    curl -L https://ftp.gnu.org/gnu/termcap/termcap-1.3.1.tar.gz | tar xz && \
+    cd termcap-1.3.1 && \
+    ./configure --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    CFLAGS="-fPIC -static" && \
+    make -j$(nproc) && \
+    make install && \
+    rm -fv /usr/lib/libtermcap.so*
+
+# Build libreadline statically from git tag readline-8.3
+RUN cd /mimalloc/build && \
+    curl -L https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz | tar xz && \
+    cd readline-8.3 && \
+    ./configure --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    CFLAGS="-fPIC -static" && \
+    make -j$(nproc) && \
+    make install && \
+    rm -fv /usr/lib/libreadline.so*
 # Compile ALSA library statically
 RUN cd /tmp && \
     wget https://www.alsa-project.org/files/pub/lib/alsa-lib-1.2.10.tar.bz2 && \
@@ -92,11 +115,18 @@ RUN curl -sl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VE
     # mkdir -p /usr/local/include/python$PYTHON_SHORT_VERSION && \
     # cp -r /Python-$PYTHON_VERSION/Include/* /usr/local/include/python$PYTHON_SHORT_VERSION/ && \
     # cp /Python-$PYTHON_VERSION/pyconfig.h /usr/local/include/python$PYTHON_SHORT_VERSION/ && \
-    ln -s /usr/local/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python && \
+    ln -s /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python3 && \
     ln -s /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython3.a && \
     ln -s /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython.a && \
     ln -s /usr/local/include/python$PYTHON_SHORT_VERSION /usr/local/include/python3 && \
     echo "Python and libpython$PYTHON_VERSION built and installed successfully"
+
+
+
+RUN echo "Static Python build complete. Verifying installation..." && \
+    python3 --version && \
+    ldd $(which python3) || echo "ldd check skipped for static binary"
 
 # Set environment variables for PyO3 to use static Python
 ENV PYO3_PYTHON=/usr/local/bin/python3
@@ -137,13 +167,18 @@ ENV LIBRDKAFKA_SYS_USE_PKG_CONFIG=1
 ENV RDKAFKA_SYS_USE_PKG_CONFIG=1  
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
-# Install Python packaging tools for TOML parsing
-RUN /usr/local/bin/python3 -m pip install --no-cache-dir tomli tomli_w
+# Copy the auto-initialize remover tool source
+COPY rust/docker/remove-auto-init /rust-photoacoustic/rust/docker/remove-auto-init
 
-# Copy and run the auto-initialize removal script
-COPY rust/docker/remove_auto_initialize.py /tmp/remove_auto_initialize.py
-RUN /usr/local/bin/python3 /tmp/remove_auto_initialize.py /rust-photoacoustic/rust/Cargo.toml && \
-    rm /tmp/remove_auto_initialize.py
+# Build the auto-initialize remover tool (Rust)
+RUN cd /rust-photoacoustic/rust/docker/remove-auto-init && \
+    . /root/.cargo/env && \
+    cargo build --release && \
+    mkdir -p /usr/local/bin && \
+    cp target/release/remove-auto-init /usr/local/bin/remove-auto-init
+
+# Run the auto-initialize removal tool
+RUN /usr/local/bin/remove-auto-init /rust-photoacoustic/rust/Cargo.toml
 
 # Build for different architectures with proper error handling
 RUN cd /rust-photoacoustic/rust && \
