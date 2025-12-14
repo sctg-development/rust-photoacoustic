@@ -19,3 +19,51 @@ rustflags = ["-C", "link-args=-Wl,-rpath,$ORIGIN/../lib"]
 # Windows doesn't need rpath configuration as it uses DLL search paths
 # [target.x86_64-pc-windows-msvc]
 # No specific rustflags needed for Windows
+
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-C",
+    "target-feature=+crt-static",
+    "-L",
+    "/usr/local/lib",
+    "-l",
+    "static=readline",
+    "-l",
+    "static=history",
+    "-l",
+    "static=termcap",
+    "-l",
+    "static=mimalloc",
+]
+
+[target.aarch64-unknown-linux-musl]
+rustflags = [
+    "-C",
+    "target-feature=+crt-static",
+    "-L",
+    "/usr/local/lib",
+    "-l",
+    "static=readline",
+    "-l",
+    "static=history",
+    "-l",
+    "static=termcap",
+    "-l",
+    "static=mimalloc",
+]
+
+[target.armv7-unknown-linux-musleabihf]
+rustflags = [
+    "-C",
+    "target-feature=+crt-static",
+    "-L",
+    "/usr/local/lib",
+    "-l",
+    "static=readline",
+    "-l",
+    "static=history",
+    "-l",
+    "static=termcap",
+    "-l",
+    "static=mimalloc",
+]
