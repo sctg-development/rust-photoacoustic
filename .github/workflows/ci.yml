@@ -277,7 +277,7 @@ jobs:
         run: |
           cd rust
           # Run standard tests without python-driver feature
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "macos-latest" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "macos-latest" || "${{ matrix.os }}" == "macos-15-intel" ]]; then
             # Skip Playwright tests on ubuntu-latest and macos-latest (no display)
             cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon \
                 --skip test_python_node_scipy_bandpass_filter_single_channel \
@@ -300,7 +300,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
-    
+
       - name: Save Playwright browsers cache (macOS)
         if: always() && runner.os == 'macOS'
         continue-on-error: true
@@ -322,7 +322,7 @@ jobs:
         run: |
           echo "Tests failed but Playwright cache was saved. Failing the workflow."
           exit 1
-          
+
       # Run Python integration tests with python-driver feature
       - name: Run Python integration tests
         if: matrix.cross == false
