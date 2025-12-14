@@ -71,7 +71,7 @@ RUN cd /tmp/librdkafka-${LIBRDKAFKA_VERSION} && \
     CPPFLAGS="-fPIC -static" \
     CXXFLAGS="-fPIC -static -O2" \
     LDFLAGS="-static -L /usr/local/lib -L /usr/lib" && \
-    make -j$(nproc) || true && \
+    make -j$(nproc) && \
     make install && \
     rm -f /usr/lib/librdkafka.so* /usr/local/lib/librdkafka.so*
 
