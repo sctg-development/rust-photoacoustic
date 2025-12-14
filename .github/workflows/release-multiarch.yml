@@ -13,8 +13,11 @@ permissions:
 on:
   release:
     types: [published]
-  # Uncomment for manual testing:
   workflow_dispatch:
+  # Trigger after python-builder is built
+  workflow_run:
+    workflows: ["Build Python Builder"]
+    types: [completed]
 
 jobs:
   # Build non-static binaries for multiple platforms
@@ -356,22 +359,24 @@ jobs:
           path: rust/${{ env.ARCHIVE_PATH }}
           retention-days: 90
 
-  push_to_registry:
+  build_and_release_docker_static_image:
     permissions:
       id-token: write
       contents: write
       packages: write
       attestations: write
-    name: Push Docker image to Docker Hub and release binaries
+    name: Build Final App and Release Static Binaries
     runs-on: ubuntu-latest
     needs: build_release_binaries
+    # Only run if python-builder workflow succeeded (when triggered via workflow_run) or on manual release
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    # Wait for the dependency images to be built first
     env:
       DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
       INDIVIDUAL_STATIC_RELEASES: off # Set to 'enabled' to enable individual static releases
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
-        # Optional parameters
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
@@ -392,12 +397,10 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # For manual workflow dispatch, use nightly tag with current date
             TAG="nightly.$(date +'%Y%m%d')"
             echo "tag=$TAG" >> $GITHUB_OUTPUT
             echo "Using nightly tag: $TAG"
           else
-            # For release events, use the release tag
             TAG="${{ github.event.release.tag_name }}"
             echo "tag=$TAG" >> $GITHUB_OUTPUT
             echo "Using release tag: $TAG"
@@ -413,13 +416,11 @@ jobs:
           echo "Creating nightly release: $TAG"
           gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
 
-      # Download release artifacts from build job
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
-      # Upload non-static binaries to release
       - name: Upload release artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -427,7 +428,6 @@ jobs:
           TAG=${{ steps.set_tag.outputs.tag }}
           echo "Uploading release artifacts for tag: $TAG"
 
-          # Upload all downloaded artifacts
           for artifact_dir in artifacts/*/; do
             if [ -d "$artifact_dir" ]; then
               echo "Processing artifact directory: $artifact_dir"
@@ -465,11 +465,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Docker image
+      - name: Build and push final application image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./rust/docker/Dockerfile
+          file: ./rust/docker/Dockerfile.app
           platforms: ${{ steps.set_platforms.outputs.platforms }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -477,7 +477,7 @@ jobs:
           tags: sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}
           labels: |
             org.opencontainers.image.title=rust-photoacoustic
-            org.opencontainers.image.description=Photoacoustic signal processing
+            org.opencontainers.image.description=High-performance photoacoustic analysis with Rust backend
             org.opencontainers.image.version=${{ steps.set_tag.outputs.tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}

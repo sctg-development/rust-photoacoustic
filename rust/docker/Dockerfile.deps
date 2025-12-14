@@ -1,0 +1,90 @@
+# Copyright (c) 2025 Ronan LE MEILLAT, SCTG Development
+# This file is part of the rust-photoacoustic project and is licensed under the
+# SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+#
+# Dockerfile for building static dependencies (zlib, OpenSSL, librdkafka)
+# Published as: sctg/rust-photoacoustic-static-deps
+
+FROM alpine:3.23 AS libz-fpic-static-builder
+ARG LIBZ_VERSION=1.2.13
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    curl -L https://zlib.net/fossils/zlib-${LIBZ_VERSION}.tar.gz | tar xz
+RUN cd /tmp/zlib-${LIBZ_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --static --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
+FROM alpine:3.23 AS openssl-static-builder
+ARG OPENSSL_VERSION=3.6.0
+RUN apk update && apk add clang git patch cmake build-base \
+    pkgconfig musl-dev autoconf automake libtool \
+    linux-headers
+COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
+COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
+COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+RUN cd /tmp && \
+    wget https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz --output-document - | tar xz
+RUN cd /tmp/openssl-${OPENSSL_VERSION} && \
+    ./Configure no-shared no-dso no-tests -fPIC \
+    --prefix=/usr/local \
+    --libdir=/usr/local/lib \
+    --openssldir=/etc/ssl && \
+    make -j$(nproc) && \
+    make install_sw install_ssldirs
+
+FROM alpine:3.23 AS librdkafka-static-builder
+ARG LIBRDKAFKA_VERSION=2.12.1
+RUN apk update && apk add \
+    clang git patch cmake build-base \
+    pkgconfig \
+    libpsl-static libpsl-dev\
+    musl-dev autoconf automake libtool \
+    linux-headers
+# Copy static zlib built in the previous stage
+COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
+COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
+COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib64/libssl.a
+COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib64/libcrypto.a
+COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
+RUN cd /tmp && \
+    wget https://github.com/confluentinc/librdkafka/archive/refs/tags/v${LIBRDKAFKA_VERSION}.tar.gz --output-document - | tar xz
+RUN cd /tmp/librdkafka-${LIBRDKAFKA_VERSION} && \
+    ./configure --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --disable-gssapi \
+    --disable-sasl \
+    --disable-curl \
+    --disable-lz4-ext \
+    --cc=clang \
+    CFLAGS="-fPIC -static -O2" \
+    CPPFLAGS="-fPIC -static" \
+    CXXFLAGS="-fPIC -static -O2" \
+    LDFLAGS="-static -L /usr/local/lib -L /usr/lib" && \
+    make -j$(nproc) || true && \
+    make install && \
+    rm -f /usr/lib/librdkafka.so* /usr/local/lib/librdkafka.so*
+
+# Final stage: export all static dependencies
+FROM alpine:3.23
+COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
+COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
+COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib64/libssl.a
+COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib64/libcrypto.a
+COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
+COPY --from=librdkafka-static-builder /usr/local/lib/librdkafka.a /usr/local/lib/librdkafka.a
+COPY --from=librdkafka-static-builder /usr/local/include/librdkafka/ /usr/local/include/librdkafka/
+COPY --from=librdkafka-static-builder /usr/local/lib/pkgconfig/rdkafka.pc /usr/local/lib/pkgconfig/rdkafka.pc
