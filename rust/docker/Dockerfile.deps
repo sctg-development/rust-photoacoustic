@@ -40,6 +40,7 @@ RUN cd /tmp/openssl-${OPENSSL_VERSION} && \
 FROM alpine:3.23 AS librdkafka-static-builder
 ARG LIBRDKAFKA_VERSION=2.12.1
 RUN apk update && apk add \
+    bash \
     clang git patch cmake build-base \
     pkgconfig \
     libpsl-static libpsl-dev\
