@@ -67,10 +67,10 @@ RUN cd /tmp/librdkafka-${LIBRDKAFKA_VERSION} && \
     --disable-curl \
     --disable-lz4-ext \
     --cc=clang \
-    CFLAGS="-fPIC -static -O2" \
-    CPPFLAGS="-fPIC -static" \
-    CXXFLAGS="-fPIC -static -O2" \
-    LDFLAGS="-static -L /usr/local/lib -L /usr/lib" && \
+    --CFLAGS="-fPIC -static -O2" \
+    --CPPFLAGS="-fPIC -static" \
+    --CXXFLAGS="-fPIC -static -O2" \
+    --LDFLAGS="-static -L /usr/local/lib -L /usr/lib" && \
     make -j$(nproc) && \
     make install && \
     rm -f /usr/lib/librdkafka.so* /usr/local/lib/librdkafka.so*
