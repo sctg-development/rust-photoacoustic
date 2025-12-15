@@ -123,6 +123,10 @@ RUN cd /rust-photoacoustic/rust/docker/remove-auto-init && \
 
 RUN /usr/local/bin/remove-auto-init /rust-photoacoustic/rust/Cargo.toml
 
+# Clean cargo registry and git to save space
+RUN rm -rf /root/.cargo/registry /root/.cargo/git && \
+    rm -rf /rust-photoacoustic/rust/docker/remove-auto-init
+
 # Copy static libraries to /usr/local/lib for linking
 COPY --from=python-builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
 COPY --from=python-builder /usr/local/lib/libtermcap.a /usr/local/lib/libtermcap.a
