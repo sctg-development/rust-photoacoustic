@@ -197,22 +197,19 @@ COPY --from=python-builder /usr/local/lib/python$PYTHON_SHORT_VERSION /usr/local
 COPY --from=builder /rust-photoacoustic/rust/_target /Python-$PYTHON_VERSION/_target
 RUN TARGET=$(cat /Python-$PYTHON_VERSION/_target) && \
     echo "Copying binaries from target: $TARGET" && \
-    mkdir -p /usr/local/bin
-COPY --from=builder /rust-photoacoustic/rust/target/ /Python-$PYTHON_VERSION/target/
-
-RUN TARGET=$(cat /Python-$PYTHON_VERSION/_target) && \
-    echo "Available binaries in /Python-$PYTHON_VERSION/target/$TARGET/release/:" && \
-    ls -la "/Python-$PYTHON_VERSION/target/$TARGET/release/" && \
-    for binary in photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
-    if [ -f "/Python-$PYTHON_VERSION/target/$TARGET/release/$binary" ]; then \
-    echo "Copying $binary" && \
-    cp "/Python-$PYTHON_VERSION/target/$TARGET/release/$binary" /usr/local/bin/ && \
-    chmod +x "/usr/local/bin/$binary"; \
-    else \
-    echo "Warning: $binary not found in build output"; \
-    fi; \
-    done && \
-    rm -rf /Python-$PYTHON_VERSION/target /Python-$PYTHON_VERSION/_target
+    mkdir -p /usr/local/bin && \
+    mkdir -p /Python-$PYTHON_VERSION/target/$TARGET/release
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/analyze_spectrum /usr/local/bin/analyze_spectrum
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/create_token /usr/local/bin/create_token
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/debug_config /usr/local/bin/debug_config
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/differential /usr/local/bin/differential
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/filters /usr/local/bin/filters
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/modbus_client /usr/local/bin/modbus_client  
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/noise_generator /usr/local/bin/noise_generator
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/pid_tuner /usr/local/bin/pid_tuner
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/redis_viewer /usr/local/bin/redis_viewer
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/rs256keygen /usr/local/bin/rs256keygen
+COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/rust_photoacoustic /usr/local/bin/rust_photoacoustic
 
 USER photoacoustic
 WORKDIR /app
