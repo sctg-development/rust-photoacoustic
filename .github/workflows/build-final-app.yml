@@ -1,150 +1,250 @@
 # Copyright 2025 SCTG Development - Ronan LE MEILLAT
 # This workflow builds the final rust-photoacoustic application
-# and publishes it as sctg/rust-photoacoustic on Docker Hub
-# Also generates multi-architecture static binaries for GitHub releases
+# Builds natively on ubuntu-latest (x86_64) and macos-latest (arm64)
+# Then creates multi-architecture Docker image and extracts binaries
 
 name: Build Final Application
 
 permissions:
-    id-token: write
-    contents: write
-    attestations: write
-    packages: write
+  id-token: write
+  contents: write
+  attestations: write
+  packages: write
 
 on:
-    release:
-        types: [published]
-    workflow_dispatch:
-    # Trigger after python-builder is built
-    workflow_run:
-        workflows: ["Build Python Builder"]
-        types: [completed]
+  release:
+    types: [published]
+  workflow_dispatch:
+  # Trigger after python-builder is built
+  workflow_run:
+    workflows: ["Build Python Builder"]
+    types: [completed]
 
 jobs:
-    build_final_app:
-        name: Build Final Application
-        runs-on: ubuntu-latest
-        if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
-        steps:
-            - name: Clean runner for Docker builds
-              uses: sctg-development/clean-image-for-docker@v1
-              with:
-                  remove-development-tools: "true"
-                  remove-browsers: "true"
-                  remove-databases: "true"
-                  remove-cloud-tools: "true"
-                  show-top-packages: "true"
+  build_amd64:
+    name: Build Application (x86_64)
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v1
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
 
-            - name: Check out the repo
-              uses: actions/checkout@v6
-              with:
-                  submodules: recursive
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v3
-              with:
-                  platforms: linux/arm64,linux/amd64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-            - name: Log in to Docker Hub
-              uses: docker/login-action@v3
-              with:
-                  username: ${{ secrets.DOCKER_USERNAME }}
-                  password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Get version tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG=${{ github.event.release.tag_name }}
+          else
+            TAG=$(git describe --tags --always 2>/dev/null || echo "latest")
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-            - name: Get version tag
-              id: get_tag
-              run: |
-                  if [ "${{ github.event_name }}" = "release" ]; then
-                    TAG=${{ github.event.release.tag_name }}
-                  else
-                    TAG=$(git describe --tags --always 2>/dev/null || echo "latest")
-                  fi
-                  echo "tag=$TAG" >> $GITHUB_OUTPUT
+      - name: Build and push x86_64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.app
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            sctg/rust-photoacoustic:latest-amd64
+            sctg/rust-photoacoustic:${{ steps.get_tag.outputs.tag }}-amd64
 
-            - name: Build and push rust-photoacoustic image
-              uses: docker/build-push-action@v5
-              with:
-                  context: .
-                  file: ./rust/docker/Dockerfile.app
-                  platforms: linux/arm64,linux/amd64
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
-                  push: true
-                  tags: |
-                      sctg/rust-photoacoustic:latest
-                      sctg/rust-photoacoustic:${{ steps.get_tag.outputs.tag }}
-                  labels: |
-                      org.opencontainers.image.title=rust-photoacoustic
-                      org.opencontainers.image.description=High-performance photoacoustic analysis application with Rust backend
-                      org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-                      org.opencontainers.image.version=${{ steps.get_tag.outputs.tag }}
+  build_arm64:
+    name: Build Application (arm64)
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v1
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
 
-            - name: Pull and extract binaries (amd64)
-              continue-on-error: true
-              run: |
-                  export TAG=${{ steps.get_tag.outputs.tag }}
-                  mkdir -p /tmp/amd64/
-                  docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}
-                  docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
-                  # Extract photoacoustic binaries
-                  for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
-                    docker cp temp-container-amd64:/usr/local/bin/$binary /tmp/amd64/ || echo "$binary not found"
-                  done
+      - name: Set up QEMU for arm64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
 
-                  docker rm temp-container-amd64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-            - name: Pull and extract binaries (arm64)
-              continue-on-error: true
-              run: |
-                  export TAG=${{ steps.get_tag.outputs.tag }}
-                  mkdir -p /tmp/arm64/
-                  docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}
-                  docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-                  # Extract photoacoustic binaries
-                  for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
-                    docker cp temp-container-arm64:/usr/local/bin/$binary /tmp/arm64/ || echo "$binary not found"
-                  done
+      - name: Get version tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG=${{ github.event.release.tag_name }}
+          else
+            TAG=$(git describe --tags --always 2>/dev/null || echo "latest")
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-                  docker rm temp-container-arm64
+      - name: Build and push arm64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.app
+          platforms: linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            sctg/rust-photoacoustic:latest-arm64
+            sctg/rust-photoacoustic:${{ steps.get_tag.outputs.tag }}-arm64
 
-            - name: Create release packages
-              if: github.event_name == 'release'
-              continue-on-error: true
-              run: |
-                  TAG=${{ steps.get_tag.outputs.tag }}
-                  mkdir -p /tmp/packages
+  create_multiarch_manifest:
+    name: Create Multi-Architecture Manifest
+    needs: [build_amd64, build_arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-                  # Create amd64 package
-                  if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
-                    cd /tmp/amd64
-                    tar czf /tmp/packages/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz *
-                    echo "Created amd64 package"
-                  fi
+      - name: Get version tag
+        id: get_tag
+        run: |
+          cd /tmp && git clone https://github.com/${{ github.repository }}.git
+          cd /tmp/$(basename ${{ github.repository }})
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG=${{ github.event.release.tag_name }}
+          else
+            TAG=$(git describe --tags --always 2>/dev/null || echo "latest")
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-                  # Create arm64 package
-                  if [ -d "/tmp/arm64" ] && [ "$(ls -A /tmp/arm64)" ]; then
-                    cd /tmp/arm64
-                    tar czf /tmp/packages/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz *
-                    echo "Created arm64 package"
-                  fi
+      - name: Create and push multiarch manifest
+        run: |
+          TAG=${{ steps.get_tag.outputs.tag }}
+          docker manifest create sctg/rust-photoacoustic:${TAG} \
+            sctg/rust-photoacoustic:${TAG}-amd64 \
+            sctg/rust-photoacoustic:${TAG}-arm64
+          docker manifest create sctg/rust-photoacoustic:latest \
+            sctg/rust-photoacoustic:latest-amd64 \
+            sctg/rust-photoacoustic:latest-arm64
+          docker manifest push sctg/rust-photoacoustic:${TAG}
+          docker manifest push sctg/rust-photoacoustic:latest
 
-            - name: Upload release packages
-              if: github.event_name == 'release'
-              continue-on-error: true
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  TAG=${{ steps.get_tag.outputs.tag }}
-                  cd /tmp/packages
+  extract_binaries_and_release:
+    name: Extract Binaries & Create Release
+    needs: [create_multiarch_manifest]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
 
-                  for file in *.tar.gz; do
-                    if [ -f "$file" ]; then
-                      echo "Uploading $file"
-                      gh release upload "$TAG" "$file" --clobber
-                    fi
-                  done
+      - name: Get version tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG=${{ github.event.release.tag_name }}
+          else
+            TAG=$(git describe --tags --always 2>/dev/null || echo "latest")
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Pull and extract binaries (amd64)
+        continue-on-error: true
+        run: |
+          export TAG=${{ steps.get_tag.outputs.tag }}
+          mkdir -p /tmp/amd64/
+          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}-amd64
+
+          # Extract photoacoustic binaries
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            docker cp temp-container-amd64:/usr/local/bin/$binary /tmp/amd64/ || echo "$binary not found"
+          done
+
+          docker rm temp-container-amd64
+
+      - name: Pull and extract binaries (arm64)
+        continue-on-error: true
+        run: |
+          export TAG=${{ steps.get_tag.outputs.tag }}
+          mkdir -p /tmp/arm64/
+          docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}-arm64
+
+          # Extract photoacoustic binaries
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            docker cp temp-container-arm64:/usr/local/bin/$binary /tmp/arm64/ || echo "$binary not found"
+          done
+
+          docker rm temp-container-arm64
+
+      - name: Create release packages
+        if: github.event_name == 'release'
+        continue-on-error: true
+        run: |
+          TAG=${{ steps.get_tag.outputs.tag }}
+          mkdir -p /tmp/packages
+
+          # Create amd64 package
+          if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
+            cd /tmp/amd64
+            tar czf /tmp/packages/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz *
+            echo "Created amd64 package"
+          fi
+
+          # Create arm64 package
+          if [ -d "/tmp/arm64" ] && [ "$(ls -A /tmp/arm64)" ]; then
+            cd /tmp/arm64
+            tar czf /tmp/packages/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz *
+            echo "Created arm64 package"
+          fi
+
+      - name: Upload release packages
+        if: github.event_name == 'release'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.get_tag.outputs.tag }}
+          cd /tmp/packages
+
+          for file in *.tar.gz; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file"
+              gh release upload "$TAG" "$file" --clobber
+            fi
+          done
