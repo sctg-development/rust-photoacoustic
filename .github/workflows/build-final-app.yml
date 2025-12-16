@@ -27,7 +27,7 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
     steps:
       - name: Clean runner for Docker builds
-        uses: sctg-development/clean-image-for-docker@v2
+        uses: sctg-development/clean-image-for-docker@docker-storage
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
@@ -78,7 +78,7 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
     steps:
       - name: Clean runner for Docker builds
-        uses: sctg-development/clean-image-for-docker@v2
+        uses: sctg-development/clean-image-for-docker@docker-storage
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
@@ -134,7 +134,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clean runner for Docker builds
-        uses: sctg-development/clean-image-for-docker@v2
+        uses: sctg-development/clean-image-for-docker@docker-storage
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
