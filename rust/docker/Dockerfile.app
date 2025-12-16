@@ -123,6 +123,19 @@ RUN cd /rust-photoacoustic/rust/docker/remove-auto-init && \
 
 RUN /usr/local/bin/remove-auto-init /rust-photoacoustic/rust/Cargo.toml
 
+# Create staging directory with binaries for final image
+RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
+    mkdir -p /rust-photoacoustic/rust/release-staging && \
+    echo "Staging binaries from target: $TARGET" && \
+    for binary in analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
+    if [ -f "/rust-photoacoustic/rust/target/$TARGET/release/$binary" ]; then \
+    echo "Copying $binary to staging" && \
+    cp "/rust-photoacoustic/rust/target/$TARGET/release/$binary" /rust-photoacoustic/rust/release-staging/ || true; \
+    fi; \
+    done && \
+    echo "Staging directory contents:" && \
+    ls -la /rust-photoacoustic/rust/release-staging/
+
 # Clean cargo registry and git to save space
 RUN rm -rf /root/.cargo/registry /root/.cargo/git && \
     rm -rf /rust-photoacoustic/rust/docker/remove-auto-init
@@ -188,28 +201,22 @@ RUN mkdir -p /app/config /app/data && \
 COPY --from=builder /rust-photoacoustic/rust/config.yaml /app/config/config.yaml
 RUN chown photoacoustic:photoacoustic /app/config/config.yaml
 
-RUN mkdir -p /Python-$PYTHON_VERSION/copy-binaries
-
 COPY --from=python-builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
 COPY --from=python-builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
 COPY --from=python-builder /usr/local/lib/python$PYTHON_SHORT_VERSION /usr/local/lib/python$PYTHON_SHORT_VERSION    
 
-COPY --from=builder /rust-photoacoustic/rust/_target /Python-$PYTHON_VERSION/_target
-RUN TARGET=$(cat /Python-$PYTHON_VERSION/_target) && \
-    echo "Copying binaries from target: $TARGET" && \
-    mkdir -p /usr/local/bin && \
-    mkdir -p /Python-$PYTHON_VERSION/target/$TARGET/release
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/analyze_spectrum /usr/local/bin/analyze_spectrum
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/create_token /usr/local/bin/create_token
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/debug_config /usr/local/bin/debug_config
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/differential /usr/local/bin/differential
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/filters /usr/local/bin/filters
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/modbus_client /usr/local/bin/modbus_client  
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/noise_generator /usr/local/bin/noise_generator
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/pid_tuner /usr/local/bin/pid_tuner
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/redis_viewer /usr/local/bin/redis_viewer
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/rs256keygen /usr/local/bin/rs256keygen
-COPY --from=builder /rust-photoacoustic/rust/target/$TARGET/release/rust_photoacoustic /usr/local/bin/rust_photoacoustic
+# Copy binaries from the staging directory
+COPY --from=builder /rust-photoacoustic/rust/release-staging/* /usr/local/bin/
+
+# Verify binaries are present
+RUN for binary in analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
+    if [ ! -f "/usr/local/bin/$binary" ]; then \
+    echo "Warning: $binary not found in staging"; \
+    else \
+    chmod +x "/usr/local/bin/$binary"; \
+    fi; \
+    done && \
+    ls -la /usr/local/bin/
 
 USER photoacoustic
 WORKDIR /app
