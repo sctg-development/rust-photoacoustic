@@ -12,8 +12,15 @@ FROM alpine:3.23 AS builder
 ARG PYTHON_VERSION=3.12.12
 ARG PYTHON_SHORT_VERSION=3.12
 
-COPY --from=python-builder /usr/local /usr/local
-COPY --from=python-builder /mimalloc /mimalloc
+# Copy only essential Python files (not entire /usr/local)
+COPY --from=python-builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
+COPY --from=python-builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
+COPY --from=python-builder /usr/local/lib/libtermcap.a /usr/local/lib/libtermcap.a
+COPY --from=python-builder /usr/local/lib/libreadline.a /usr/local/lib/libreadline.a
+COPY --from=python-builder /usr/local/lib/libhistory.a /usr/local/lib/libhistory.a
+COPY --from=python-builder /usr/local/lib/mimalloc-2.2/libmimalloc.a /usr/local/lib/libmimalloc.a
+COPY --from=python-builder /usr/local/include/python$PYTHON_SHORT_VERSION /usr/local/include/python$PYTHON_SHORT_VERSION
+COPY --from=python-builder /usr/local/lib/python$PYTHON_SHORT_VERSION /usr/local/lib/python$PYTHON_SHORT_VERSION
 COPY --from=python-builder /Python-$PYTHON_VERSION/pyo3-config.txt /Python-$PYTHON_VERSION/pyo3-config.txt
 
 # Copy static dependencies
@@ -55,11 +62,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o rustup.sh &&\
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Replace memory allocation functions in Rust's libc with mimalloc
-RUN cd /mimalloc/build && \
-    LIBC_PATH=$(find ~/.rustup -name libc.a) && \
+RUN LIBC_PATH=$(find ~/.rustup -name libc.a) && \
     echo "Found libc.a at: $LIBC_PATH" && \
     cp "$LIBC_PATH" libc_backup.a && \
-    printf "CREATE libc.a\nADDLIB %s\nDELETE aligned_alloc.lo calloc.lo donate.lo free.lo libc_calloc.lo lite_malloc.lo malloc.lo malloc_usable_size.lo memalign.lo posix_memalign.lo realloc.lo reallocarray.lo valloc.lo\nADDLIB ./libmimalloc.a\nSAVE\n" "$LIBC_PATH" | ar -M && \
+    printf "CREATE libc.a\nADDLIB %s\nDELETE aligned_alloc.lo calloc.lo donate.lo free.lo libc_calloc.lo lite_malloc.lo malloc.lo malloc_usable_size.lo memalign.lo posix_memalign.lo realloc.lo reallocarray.lo valloc.lo\nADDLIB /usr/local/lib/libmimalloc.a\nSAVE\n" "$LIBC_PATH" | ar -M && \
     mv libc.a "$LIBC_PATH" && \
     echo "Successfully patched libc.a with mimalloc"
 
@@ -123,16 +129,12 @@ RUN cd /rust-photoacoustic/rust/docker/remove-auto-init && \
 
 RUN /usr/local/bin/remove-auto-init /rust-photoacoustic/rust/Cargo.toml
 
-# Clean cargo registry and git to save space
+# Clean cargo registry and git to save space (before build)
 RUN rm -rf /root/.cargo/registry /root/.cargo/git && \
     rm -rf /rust-photoacoustic/rust/docker/remove-auto-init
 
-# Copy static libraries to /usr/local/lib for linking
-COPY --from=python-builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
-COPY --from=python-builder /usr/local/lib/libtermcap.a /usr/local/lib/libtermcap.a
-COPY --from=python-builder /usr/local/lib/libreadline.a /usr/local/lib/libreadline.a
-COPY --from=python-builder /usr/local/lib/libhistory.a /usr/local/lib/libhistory.a
-COPY --from=python-builder /usr/local/lib/mimalloc-2.2/libmimalloc.a /usr/local/lib/libmimalloc.a
+# Copy static libraries to /usr/local/lib for linking (only what's needed)
+# Note: Python libs already copied at the top of this stage
 
 # Build for different architectures
 RUN cd /rust-photoacoustic/rust && \
@@ -188,12 +190,10 @@ RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
     ls -la /rust-photoacoustic/rust/release-staging/
 
 # Clean up everything except the staging directory
-RUN rm -rf /root/.cargo/registry /root/.cargo/git && \
+RUN rm -rf /root/.cargo && \
     rm -rf /rust-photoacoustic/rust/target && \
-    rm -rf /rust-photoacoustic/rust/docker && \
-    rm -rf /mimalloc && \
-    rm -rf /Python-$PYTHON_VERSION && \
-    rm -rf /tmp/* 
+    rm -rf /tmp/* && \
+    echo "Build cleanup complete" 
 
 FROM alpine:3.23 AS runtime
 ARG PYTHON_VERSION=3.12.12
@@ -209,9 +209,10 @@ RUN mkdir -p /app/config /app/data && \
 COPY --from=builder /rust-photoacoustic/rust/config.yaml /app/config/config.yaml
 RUN chown photoacoustic:photoacoustic /app/config/config.yaml
 
-COPY --from=python-builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
-COPY --from=python-builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
-COPY --from=python-builder /usr/local/lib/python$PYTHON_SHORT_VERSION /usr/local/lib/python$PYTHON_SHORT_VERSION    
+# Copy Python binary, libraries and modules from builder
+COPY --from=builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
+COPY --from=builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
+COPY --from=builder /usr/local/lib/python$PYTHON_SHORT_VERSION /usr/local/lib/python$PYTHON_SHORT_VERSION
 
 # Copy binaries from the staging directory
 COPY --from=builder /rust-photoacoustic/rust/release-staging/* /usr/local/bin/
