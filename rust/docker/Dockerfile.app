@@ -123,19 +123,6 @@ RUN cd /rust-photoacoustic/rust/docker/remove-auto-init && \
 
 RUN /usr/local/bin/remove-auto-init /rust-photoacoustic/rust/Cargo.toml
 
-# Create staging directory with binaries for final image
-RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
-    mkdir -p /rust-photoacoustic/rust/release-staging && \
-    echo "Staging binaries from target: $TARGET" && \
-    for binary in analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
-    if [ -f "/rust-photoacoustic/rust/target/$TARGET/release/$binary" ]; then \
-    echo "Copying $binary to staging" && \
-    cp "/rust-photoacoustic/rust/target/$TARGET/release/$binary" /rust-photoacoustic/rust/release-staging/ || true; \
-    fi; \
-    done && \
-    echo "Staging directory contents:" && \
-    ls -la /rust-photoacoustic/rust/release-staging/
-
 # Clean cargo registry and git to save space
 RUN rm -rf /root/.cargo/registry /root/.cargo/git && \
     rm -rf /rust-photoacoustic/rust/docker/remove-auto-init
@@ -186,6 +173,19 @@ RUN cd /rust-photoacoustic/rust && \
     else \
     echo "Unsupported architecture: $(uname -m)" && exit 1; \
     fi
+
+# Create staging directory with binaries for final image
+RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
+    mkdir -p /rust-photoacoustic/rust/release-staging && \
+    echo "Staging binaries from target: $TARGET" && \
+    for binary in analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
+    if [ -f "/rust-photoacoustic/rust/target/$TARGET/release/$binary" ]; then \
+    echo "Copying $binary to staging" && \
+    cp "/rust-photoacoustic/rust/target/$TARGET/release/$binary" /rust-photoacoustic/rust/release-staging/ || true; \
+    fi; \
+    done && \
+    echo "Staging directory contents:" && \
+    ls -la /rust-photoacoustic/rust/release-staging/
 
 FROM alpine:3.23 AS runtime
 ARG PYTHON_VERSION=3.12.12
