@@ -27,7 +27,7 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
     steps:
       - name: Clean runner for Docker builds
-        uses: sctg-development/clean-image-for-docker@v1
+        uses: sctg-development/clean-image-for-docker@v2
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
@@ -78,7 +78,7 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
     steps:
       - name: Clean runner for Docker builds
-        uses: sctg-development/clean-image-for-docker@v1
+        uses: sctg-development/clean-image-for-docker@v2
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
@@ -133,6 +133,14 @@ jobs:
     needs: [build_amd64, build_arm64]
     runs-on: ubuntu-latest
     steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v2
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -169,6 +177,14 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v2
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
       - name: Check out the repo
         uses: actions/checkout@v6
 
