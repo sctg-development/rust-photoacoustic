@@ -187,6 +187,14 @@ RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
     echo "Staging directory contents:" && \
     ls -la /rust-photoacoustic/rust/release-staging/
 
+# Clean up everything except the staging directory
+RUN rm -rf /root/.cargo/registry /root/.cargo/git && \
+    rm -rf /rust-photoacoustic/rust/target && \
+    rm -rf /rust-photoacoustic/rust/docker && \
+    rm -rf /mimalloc && \
+    rm -rf /Python-$PYTHON_VERSION && \
+    rm -rf /tmp/* 
+
 FROM alpine:3.23 AS runtime
 ARG PYTHON_VERSION=3.12.12
 ARG PYTHON_SHORT_VERSION=3.12
