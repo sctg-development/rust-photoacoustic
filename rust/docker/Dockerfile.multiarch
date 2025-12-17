@@ -1,0 +1,26 @@
+FROM alpine:3.23 as builder
+ARG PYTHON_VERSION=3.12.12
+ARG PYTHON_SHORT_VERSION=3.12
+
+COPY /tmp/amd64-binaries /amd64-binaries
+COPY /tmp/arm64-binaries /arm64-binaries
+
+RUN mkdir -p /usr/local/bin && \
+    mkdir -p /usr/local/lib
+
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+    cp -r /amd64-binaries/usr/local/bin/* /usr/local/bin/ && \
+    cp -r /amd64-binaries/usr/local/lib/python${PYTHON_SHORT_VERSION} /usr/local/lib/; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+    cp -r /arm64-binaries/usr/local/bin/* /usr/local/bin/ && \
+    cp -r /arm64-binaries/usr/local/lib/python${PYTHON_SHORT_VERSION} /usr/local/lib/; \
+    else \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi
+
+FROM alpine:3.23
+ARG PYTHON_VERSION=3.12.12
+ARG PYTHON_SHORT_VERSION=3.12
+COPY --from=builder /usr/local /usr/local
+ENTRYPOINT [ "/usr/local/bin/rust_photoacoustic" ]

@@ -20,6 +20,9 @@ on:
     workflows: ["Build Python Builder"]
     types: [completed]
 
+env:
+  PYTHON_VERSION: "3.12.12"
+  PYTHON_SHORT_VERSION: "3.12"
 jobs:
   build_amd64:
     name: Build Application (x86_64)
@@ -163,36 +166,41 @@ jobs:
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
 
-          # Remove existing manifests if they exist (to avoid "is a manifest list" errors)
-          docker manifest rm sctg/rust-photoacoustic:${TAG} 2>/dev/null || true
-          docker manifest rm sctg/rust-photoacoustic:latest 2>/dev/null || true
+          # retrieve arm64 image and extract binaries
+          docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          # extract arm64 binaries
+          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          mkdir -p /tmp/arm64-binaries/usr/local/bin /tmp/arm64-binaries/usr/local/lib
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            docker cp temp-container-arm64:/usr/local/bin/$binary /tmp/arm64-binaries/usr/local/bin/ || echo "$binary not found"
+          done
+          # extract python arm64 binaries and shared libs 
+          docker cp temp-container-arm64:/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64-binaries/usr/local/lib/ || echo "python${{ env.PYTHON_SHORT_VERSION }} lib not found"  
+          docker rm temp-container-arm64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
+          docker rm temp-container-arm64
 
-          # Create new manifests
-          docker manifest create sctg/rust-photoacoustic:${TAG} \
-            sctg/rust-photoacoustic:${TAG}-amd64 \
-            sctg/rust-photoacoustic:${TAG}-arm64
-          docker manifest create sctg/rust-photoacoustic:latest \
-            sctg/rust-photoacoustic:latest-amd64 \
-            sctg/rust-photoacoustic:latest-arm64
+          # retrieve amd64 image and extract binaries
+          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          # extract amd64 binaries
+          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          mkdir -p /tmp/amd64-binaries/usr/local/bin /tmp/amd64-binaries/usr/local/lib
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            docker cp temp-container-amd64:/usr/local/bin/$binary /tmp/amd64-binaries/usr/local/bin/ || echo "$binary not found"
+          done
+          # extract python amd64 binaries and shared libs 
+          docker cp temp-container-amd64:/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64-binaries/usr/local/lib/ || echo "python${{ env.PYTHON_SHORT_VERSION }} lib not found"  
+          docker rm temp-container-amd64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
+          docker rm temp-container-amd64
 
-          # Add architecture annotations
-          docker manifest annotate sctg/rust-photoacoustic:${TAG} \
-            sctg/rust-photoacoustic:${TAG}-amd64 \
-            --os linux --arch amd64
-          docker manifest annotate sctg/rust-photoacoustic:${TAG} \
-            sctg/rust-photoacoustic:${TAG}-arm64 \
-            --os linux --arch arm64
-
-          docker manifest annotate sctg/rust-photoacoustic:latest \
-            sctg/rust-photoacoustic:latest-amd64 \
-            --os linux --arch amd64
-          docker manifest annotate sctg/rust-photoacoustic:latest \
-            sctg/rust-photoacoustic:latest-arm64 \
-            --os linux --arch arm64
-
-          # Push manifests
-          docker manifest push sctg/rust-photoacoustic:${TAG}
-          docker manifest push sctg/rust-photoacoustic:latest
+          # create multiarch image with both architectures' binaries
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --build-arg PYTHON_VERSION=${{ env.PYTHON_VERSION }} \
+            --build-arg PYTHON_SHORT_VERSION=${{ env.PYTHON_SHORT_VERSION }} \
+            -f ./rust/docker/Dockerfile.multiarch \
+            -t sctg/rust-photoacoustic:latest \
+            -t sctg/rust-photoacoustic:${TAG} \
+            --push .
 
   extract_binaries_and_release:
     name: Extract Binaries & Create Release
