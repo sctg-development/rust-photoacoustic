@@ -162,12 +162,35 @@ jobs:
       - name: Create and push multiarch manifest
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
+
+          # Remove existing manifests if they exist (to avoid "is a manifest list" errors)
+          docker manifest rm sctg/rust-photoacoustic:${TAG} 2>/dev/null || true
+          docker manifest rm sctg/rust-photoacoustic:latest 2>/dev/null || true
+
+          # Create new manifests
           docker manifest create sctg/rust-photoacoustic:${TAG} \
             sctg/rust-photoacoustic:${TAG}-amd64 \
             sctg/rust-photoacoustic:${TAG}-arm64
           docker manifest create sctg/rust-photoacoustic:latest \
             sctg/rust-photoacoustic:latest-amd64 \
             sctg/rust-photoacoustic:latest-arm64
+
+          # Add architecture annotations
+          docker manifest annotate sctg/rust-photoacoustic:${TAG} \
+            sctg/rust-photoacoustic:${TAG}-amd64 \
+            --os linux --arch amd64
+          docker manifest annotate sctg/rust-photoacoustic:${TAG} \
+            sctg/rust-photoacoustic:${TAG}-arm64 \
+            --os linux --arch arm64
+
+          docker manifest annotate sctg/rust-photoacoustic:latest \
+            sctg/rust-photoacoustic:latest-amd64 \
+            --os linux --arch amd64
+          docker manifest annotate sctg/rust-photoacoustic:latest \
+            sctg/rust-photoacoustic:latest-arm64 \
+            --os linux --arch arm64
+
+          # Push manifests
           docker manifest push sctg/rust-photoacoustic:${TAG}
           docker manifest push sctg/rust-photoacoustic:latest
 
