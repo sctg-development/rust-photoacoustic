@@ -144,6 +144,10 @@ jobs:
           remove-databases: "true"
           remove-cloud-tools: "true"
           show-top-packages: "true"
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -193,71 +197,15 @@ jobs:
           docker rm temp-container-amd64
 
           # create multiarch image with both architectures' binaries
+          CURRENT_DIR=$(pwd)
           cd /tmp
           docker buildx build --platform linux/amd64,linux/arm64 \
             --build-arg PYTHON_VERSION=${{ env.PYTHON_VERSION }} \
             --build-arg PYTHON_SHORT_VERSION=${{ env.PYTHON_SHORT_VERSION }} \
-            -f ./rust/docker/Dockerfile.multiarch \
+            -f ${CURRENT_DIR}/rust/docker/Dockerfile.multiarch \
             -t sctg/rust-photoacoustic:latest \
             -t sctg/rust-photoacoustic:${TAG} \
             --push .
-
-  extract_binaries_and_release:
-    name: Extract Binaries & Create Release
-    needs: [create_multiarch_manifest]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Clean runner for Docker builds
-        uses: sctg-development/clean-image-for-docker@v2
-        with:
-          remove-development-tools: "true"
-          remove-browsers: "true"
-          remove-databases: "true"
-          remove-cloud-tools: "true"
-          show-top-packages: "true"
-      - name: Check out the repo
-        uses: actions/checkout@v6
-
-      - name: Get version tag
-        id: get_tag
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAG=${{ github.event.release.tag_name }}
-          else
-            TAG=$(git rev-parse --short HEAD)
-          fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Pull and extract binaries (amd64)
-        continue-on-error: true
-        run: |
-          export TAG=${{ steps.get_tag.outputs.tag }}
-          mkdir -p /tmp/amd64/
-          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
-          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}-amd64
-
-          # Extract photoacoustic binaries
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
-            docker cp temp-container-amd64:/usr/local/bin/$binary /tmp/amd64/ || echo "$binary not found"
-          done
-
-          docker rm temp-container-amd64
-
-      - name: Pull and extract binaries (arm64)
-        continue-on-error: true
-        run: |
-          export TAG=${{ steps.get_tag.outputs.tag }}
-          mkdir -p /tmp/arm64/
-          docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}-arm64
-          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}-arm64
-
-          # Extract photoacoustic binaries
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
-            docker cp temp-container-arm64:/usr/local/bin/$binary /tmp/arm64/ || echo "$binary not found"
-          done
-
-          docker rm temp-container-arm64
 
       - name: Create release packages
         if: github.event_name == 'release'
@@ -265,8 +213,12 @@ jobs:
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
           mkdir -p /tmp/packages
-
+          mkdir -p /tmp/amd64/lib
           # Create amd64 package
+          for file in /tmp/amd64-binaries/usr/local/bin/*; do
+            cp "$file" /tmp/amd64/
+          done
+          cp -av /tmp/amd64-binaries/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64/lib/
           if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
             cd /tmp/amd64
             tar czf /tmp/packages/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz *
@@ -274,12 +226,16 @@ jobs:
           fi
 
           # Create arm64 package
+          mkdir -p /tmp/arm64/lib
+          for file in /tmp/arm64-binaries/usr/local/bin/*; do
+            cp "$file" /tmp/arm64/
+          done
+          cp -av /tmp/arm64-binaries/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64/lib/
           if [ -d "/tmp/arm64" ] && [ "$(ls -A /tmp/arm64)" ]; then
             cd /tmp/arm64
             tar czf /tmp/packages/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz *
             echo "Created arm64 package"
           fi
-
       - name: Upload release packages
         if: github.event_name == 'release'
         continue-on-error: true
