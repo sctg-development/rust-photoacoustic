@@ -154,6 +154,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
       - name: Get version tag
         id: get_tag
         run: |
@@ -166,7 +171,7 @@ jobs:
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Create and push multiarch manifest
+      - name: Create and push multiarch image
         continue-on-error: true
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
