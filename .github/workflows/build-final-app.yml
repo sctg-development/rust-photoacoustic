@@ -167,6 +167,7 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Create and push multiarch manifest
+        continue-on-error: true
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
 
