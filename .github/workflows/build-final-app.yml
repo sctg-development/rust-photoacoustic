@@ -168,7 +168,6 @@ jobs:
 
           # retrieve arm64 image and extract binaries
           docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}-arm64
-          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
           # extract arm64 binaries
           docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}-arm64
           mkdir -p /tmp/arm64-binaries/usr/local/bin /tmp/arm64-binaries/usr/local/lib
@@ -177,7 +176,7 @@ jobs:
           done
           # extract python arm64 binaries and shared libs 
           docker cp temp-container-arm64:/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64-binaries/usr/local/lib/ || echo "python${{ env.PYTHON_SHORT_VERSION }} lib not found"  
-          docker rm temp-container-arm64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
+          docker cp temp-container-arm64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64-binaries/usr/local/bin/ || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
           docker rm temp-container-arm64
 
           # retrieve amd64 image and extract binaries
@@ -190,10 +189,11 @@ jobs:
           done
           # extract python amd64 binaries and shared libs 
           docker cp temp-container-amd64:/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64-binaries/usr/local/lib/ || echo "python${{ env.PYTHON_SHORT_VERSION }} lib not found"  
-          docker rm temp-container-amd64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
+          docker cp temp-container-amd64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64-binaries/usr/local/bin/ || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
           docker rm temp-container-amd64
 
           # create multiarch image with both architectures' binaries
+          cd /tmp
           docker buildx build --platform linux/amd64,linux/arm64 \
             --build-arg PYTHON_VERSION=${{ env.PYTHON_VERSION }} \
             --build-arg PYTHON_SHORT_VERSION=${{ env.PYTHON_SHORT_VERSION }} \

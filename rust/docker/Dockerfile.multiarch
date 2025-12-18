@@ -1,9 +1,9 @@
-FROM alpine:3.23 as builder
+FROM alpine:3.23 AS builder
 ARG PYTHON_VERSION=3.12.12
 ARG PYTHON_SHORT_VERSION=3.12
 
-COPY /tmp/amd64-binaries /amd64-binaries
-COPY /tmp/arm64-binaries /arm64-binaries
+COPY ./amd64-binaries /amd64-binaries
+COPY ./arm64-binaries /arm64-binaries
 
 RUN mkdir -p /usr/local/bin && \
     mkdir -p /usr/local/lib
