@@ -122,7 +122,13 @@ jobs:
         shell: bash
         run: |
           curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.91.1
-          source $HOME/.cargo/env
+          # Add cargo to PATH for all platforms
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "$USERPROFILE/.cargo/bin" >> $GITHUB_PATH
+          else
+            source $HOME/.cargo/env
+            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          fi
           rustc --version
           cargo --version
 
