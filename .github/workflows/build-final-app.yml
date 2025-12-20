@@ -117,6 +117,7 @@ jobs:
             TAG=$(git rev-parse --short HEAD)
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "${TAG}">> /tmp/tag.txt
 
       - name: Build and push arm64 image
         uses: docker/build-push-action@v5
@@ -131,11 +132,21 @@ jobs:
             sctg/rust-photoacoustic:latest-arm64
             sctg/rust-photoacoustic:${{ steps.get_tag.outputs.tag }}-arm64
 
+      - name: Save Tag for Next Job
+        uses: actions/upload-artifact@v6
+        with:
+          name: tag-artifact
+          path: /tmp/tag.txt
+
   create_multiarch_manifest:
     name: Create Multi-Architecture Manifest
     needs: [build_amd64, build_arm64]
     runs-on: ubuntu-latest
     steps:
+      - name: Download Tag from Previous Job
+        uses: actions/download-artifact@v6
+        with:
+          name: tag-artifact
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@docker-storage
         with:
@@ -162,14 +173,9 @@ jobs:
       - name: Get version tag
         id: get_tag
         run: |
-          cd /tmp && git clone https://github.com/${{ github.repository }}.git
-          cd /tmp/$(basename ${{ github.repository }})
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAG=${{ github.event.release.tag_name }}
-          else
-            TAG=$(git rev-parse --short HEAD)
-          fi
+          TAG=$(cat /tmp/tag.txt)
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG"
 
       - name: Create and push multiarch image
         continue-on-error: true
