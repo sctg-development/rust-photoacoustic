@@ -62,12 +62,38 @@ interface OpenAPIPathItem {
 }
 
 /**
+ * Format JSON string by adding newlines and indentation
+ * Simulates JSON.stringify(obj, null, 2) formatting via text replacement
+ * 
+ * @param {string} jsonString - The JSON string to format
+ * @returns {string} The formatted JSON string
+ */
+function formatJsonString(jsonString: string): string {
+    return jsonString
+        // Add newline after opening braces and brackets
+        .replace(/{/g, '{\n  ')
+        .replace(/\[/g, '[\n  ')
+        // Add newline before closing braces and brackets
+        .replace(/}/g, '\n}')
+        .replace(/]/g, '\n]')
+        // Add newline after commas and indent next item
+        .replace(/,/g, ',\n  ')
+        // Add newline after colons in key-value pairs and a space
+        .replace(/:/g, ': ')
+        // Clean up multiple spaces/newlines
+        .replace(/\n\s+/g, '\n  ')
+        // Remove trailing spaces on lines
+        .replace(/ +$/gm, '');
+}
+
+/**
  * Fix escaped newlines and whitespace in a description string
  * 
  * Converts literal escape sequences like `\n` and `\t` to actual newlines and tabs.
  * Also fixes common formatting issues in markdown like:
  * - List items formatted with dashes on the same line
  * - Code blocks with opening brace on same line as delimiter
+ * - JSON code blocks are formatted with proper indentation
  * 
  * @param {string} description - The description to fix
  * @returns {string} The fixed description with proper newlines and whitespace
@@ -96,11 +122,18 @@ function fixDescription(description: string): string {
     // Fix markdown code blocks to ensure proper formatting
     // Pattern matches complete code blocks: ```language content ```
     // Ensures: opening ends with newline, closing is on its own line
+    // For JSON blocks, also formats the content prettily
     fixed = fixed.replace(/```(\w+)?([^`]*?)```/gs, (match, language, content) => {
         // Trim trailing whitespace from language specifier
         const lang = language ? language.trim() : '';
         // Ensure content starts with newline and ends with newline
         let cleanContent = content;
+
+        // For JSON code blocks, format the JSON prettily
+        if (lang.toLowerCase() === 'json') {
+            cleanContent = formatJsonString(cleanContent.trim());
+        }
+
         // Remove leading whitespace but preserve one newline
         if (!cleanContent.startsWith('\n')) {
             cleanContent = '\n' + cleanContent;
