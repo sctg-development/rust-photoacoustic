@@ -1,0 +1,29 @@
+{
+    "method": "POST",
+    "url": "https://api.example.com/form",
+    "headers": [
+        {
+            "name": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+        }
+    ],
+    "queryString": [],
+    "httpVersion": "HTTP/1.1",
+    "cookies": [],
+    "headersSize": 0,
+    "bodySize": 0,
+    "postData": {
+        "mimeType": "application/x-www-form-urlencoded",
+        "params": [
+            {
+                "name": "username",
+                "value": "john"
+            },
+            {
+                "name": "password",
+                "value": "secret"
+            }
+        ],
+        "text": "username=john&password=secret"
+    }
+}

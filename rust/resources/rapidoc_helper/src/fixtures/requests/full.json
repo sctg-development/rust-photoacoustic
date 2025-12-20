@@ -1,0 +1,33 @@
+{
+    "method": "POST",
+    "url": "https://api.example.com/users",
+    "headers": [
+        {
+            "name": "Content-Type",
+            "value": "application/json"
+        },
+        {
+            "name": "Authorization",
+            "value": "Bearer token123"
+        }
+    ],
+    "queryString": [
+        {
+            "name": "page",
+            "value": "1"
+        }
+    ],
+    "httpVersion": "HTTP/1.1",
+    "cookies": [
+        {
+            "name": "sessionId",
+            "value": "abc123"
+        }
+    ],
+    "headersSize": 0,
+    "bodySize": 0,
+    "postData": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"John\",\"email\":\"john@example.com\"}"
+    }
+}

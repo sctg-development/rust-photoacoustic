@@ -1,0 +1,10 @@
+{
+    "method": "GET",
+    "url": "https://api.example.com/users",
+    "headers": [],
+    "queryString": [],
+    "httpVersion": "HTTP/1.1",
+    "cookies": [],
+    "headersSize": 0,
+    "bodySize": 0
+}

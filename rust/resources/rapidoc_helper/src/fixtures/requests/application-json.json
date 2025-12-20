@@ -1,0 +1,19 @@
+{
+    "method": "POST",
+    "url": "https://api.example.com/data",
+    "headers": [
+        {
+            "name": "Content-Type",
+            "value": "application/json"
+        }
+    ],
+    "queryString": [],
+    "httpVersion": "HTTP/1.1",
+    "cookies": [],
+    "headersSize": 0,
+    "bodySize": 0,
+    "postData": {
+        "mimeType": "application/json",
+        "text": "{\"key\":\"value\"}"
+    }
+}

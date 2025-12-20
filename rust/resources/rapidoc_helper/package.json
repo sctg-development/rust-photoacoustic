@@ -7,7 +7,9 @@
     "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
-    "test": "playwright test"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -20,13 +22,17 @@
   },
   "homepage": "https://github.com/sctg-development/sctgdesk-api-server#readme",
   "dependencies": {
-    "@sctg/openapi-snippet": "^0.15.0",
-    "@sctg/rapidoc": "9.3.8-b"
+    "@sctg/rapidoc": "9.3.8-b",
+    "openapi-sampler": "^1.6.2",
+    "stringify-object": "^6.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
     "terser": "^5.44.1",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
-    "vite": "^7.0.0"
+    "vite": "^7.3.0"
   }
 }
