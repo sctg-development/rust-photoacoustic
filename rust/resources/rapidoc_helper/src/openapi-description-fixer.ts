@@ -31,6 +31,7 @@ type OpenAPI3 = {
     info: {
         title: string;
         version: string;
+        description?: string;
     };
     paths: paths;
     components: components;
