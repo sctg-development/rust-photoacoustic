@@ -344,10 +344,10 @@ export function openapiAddSnippets(
                  */
                 operation['x-code-samples']!.push(codeSample);
 
-                console.log(
-                    `[openapi-snippets] Generated ${target.language}/${target.client} ` +
-                    `snippet for ${endpoint.method} ${endpoint.url}`
-                );
+                // console.log(
+                //     `[openapi-snippets] Generated ${target.language}/${target.client} ` +
+                //     `snippet for ${endpoint.method} ${endpoint.url}`
+                // );
             } catch (err) {
                 console.error(
                     `[openapi-snippets] Error generating ${target.language}/${target.client} ` +

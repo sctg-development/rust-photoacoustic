@@ -11,7 +11,6 @@
  */
 
 import type { paths, components } from 'openapi3';
-import { getAll } from './src/openapi-to-har';
 import { openapiAddSnippetsGeneric } from './src/openapi-snippets';
 
 /**
@@ -187,6 +186,17 @@ async function initializeApp() {
          * The spec URL is passed to the window object by the server (typically via SPEC_URL)
          */
         const rapidocEl = document.getElementById('rapidoc') as any;
+        
+        /**
+         * Enable markdown rendering in RapiDoc descriptions
+         * 
+         * This allows descriptions with markdown formatting (headers, bold, code blocks, etc.)
+         * to be properly rendered instead of displayed as plain text.
+         */
+        if (rapidocEl) {
+            rapidocEl.setAttribute('allow-markdown', 'true');
+        }
+        
         const spec_url = (window as any).SPEC_URL;
 
         /**
@@ -266,6 +276,65 @@ async function initializeApp() {
         console.log('[index.ts] Loading spec into Rapidoc...');
         rapidocEl?.loadSpec(dataWithSnippets);
         console.log('[index.ts] Spec loaded successfully');
+
+        /**
+         * Create download buttons that respect RapiDoc theme
+         * 
+         * Add compact download buttons to the RapiDoc footer slot
+         * that follow RapiDoc styling and respect light/dark theme
+         */
+        const downloadButtonsHtml = `
+            <span style="display: flex; gap: 0.5em; margin-left: auto;">
+                <a href="${spec_url}" download="openapi.json" 
+                   style="padding: 0.25em 0.75em; font-size: 0.85em; cursor: pointer; 
+                           border: 1px solid var(--primary-color, #007bff);
+                           color: var(--primary-color, #007bff);
+                           background-color: transparent;
+                           border-radius: 3px;
+                           text-decoration: none;
+                           transition: all 0.2s;"
+                   onmouseover="this.style.backgroundColor='var(--primary-color, #007bff)'; this.style.color='white';"
+                   onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--primary-color, #007bff)';">
+                   📥 Original
+                </a>
+                <a id="download-with-snippets"
+                   download="openapi-with-snippets.json" 
+                   style="padding: 0.25em 0.75em; font-size: 0.85em; cursor: pointer;
+                           border: 1px solid var(--primary-color, #28a745);
+                           color: var(--primary-color, #28a745);
+                           background-color: transparent;
+                           border-radius: 3px;
+                           text-decoration: none;
+                           transition: all 0.2s;"
+                   onmouseover="this.style.backgroundColor='var(--primary-color, #28a745)'; this.style.color='white';"
+                   onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--primary-color, #28a745)';">
+                   📥 With Snippets
+                </a>
+            </span>
+        `;
+
+        /**
+         * Find the footer slot and inject the download buttons
+         */
+        const footerSlot = document.querySelector('[slot="footer"]');
+        if (footerSlot) {
+            const downloadSpan = document.createElement('span');
+            downloadSpan.innerHTML = downloadButtonsHtml;
+            // Insert download buttons at the end of footer content
+            footerSlot.appendChild(downloadSpan);
+
+            /**
+             * Set up the blob URL for the "with snippets" download
+             */
+            const snippetsLink = footerSlot.querySelector('#download-with-snippets') as HTMLAnchorElement;
+            if (snippetsLink) {
+                const blob = new Blob([JSON.stringify(dataWithSnippets, null, 2)], { type: 'application/json' });
+                const blobUrl = URL.createObjectURL(blob);
+                snippetsLink.href = blobUrl;
+            }
+        } else {
+            console.warn('[index.ts] Footer slot not found, download buttons not added');
+        }
     } catch (error) {
         /**
          * Catch and log any unexpected errors
