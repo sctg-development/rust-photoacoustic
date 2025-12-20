@@ -12,6 +12,7 @@
 
 import type { paths, components } from 'openapi3';
 import { openapiAddSnippetsGeneric } from './src/openapi-snippets';
+import { fixOpenAPIDescriptions } from './src/openapi-description-fixer';
 
 /**
  * List of programming language targets and their corresponding HTTP client libraries
@@ -186,17 +187,7 @@ async function initializeApp() {
          * The spec URL is passed to the window object by the server (typically via SPEC_URL)
          */
         const rapidocEl = document.getElementById('rapidoc') as any;
-        
-        /**
-         * Enable markdown rendering in RapiDoc descriptions
-         * 
-         * This allows descriptions with markdown formatting (headers, bold, code blocks, etc.)
-         * to be properly rendered instead of displayed as plain text.
-         */
-        if (rapidocEl) {
-            rapidocEl.setAttribute('allow-markdown', 'true');
-        }
-        
+
         const spec_url = (window as any).SPEC_URL;
 
         /**
@@ -262,7 +253,8 @@ async function initializeApp() {
          * and adds them to the specification under 'x-code-samples' extensions.
          */
 
-        const dataWithSnippets = openapiAddSnippetsGeneric(data, targets);
+
+        const dataWithSnippets = openapiAddSnippetsGeneric(fixOpenAPIDescriptions(data), targets);
 
         /**
          * Load the OpenAPI specification into RapiDoc
