@@ -500,3 +500,136 @@ async fn test_rapidoc_footer_github_link() -> Result<(), Box<dyn std::error::Err
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_rapidoc_json_code_block_rendering() -> Result<(), Box<dyn std::error::Error>> {
+    // Use port 8085 for this test
+    let mut figment = get_figment();
+    figment = figment.merge(("port", 8085));
+
+    // Start the test server in a background task
+    let test_config = get_test_config();
+    let visualization_state = std::sync::Arc::new(
+        rust_photoacoustic::visualization::shared_state::SharedVisualizationState::new(),
+    );
+
+    let rocket = rust_photoacoustic::visualization::server::build_rocket(
+        figment,
+        Arc::new(RwLock::new(test_config)),
+        None,                      // No audio stream
+        Some(visualization_state), // visualization state
+        None,                      // No streaming registry
+        None,                      // No thermal state
+        None,                      // No shared computing state
+    )
+    .await;
+
+    // Launch the server in a background task
+    let server_handle = tokio::spawn(async move {
+        let _ = rocket.launch().await;
+    });
+
+    // Give the server time to start up
+    sleep(Duration::from_millis(500)).await;
+
+    // Initialize Playwright
+    let playwright = Playwright::initialize().await?;
+    playwright.prepare()?;
+
+    // Launch a headless Chromium browser
+    let chromium = playwright.chromium();
+    let browser = chromium.launcher().headless(true).launch().await?;
+
+    // Create a new browser context and page
+    let context = browser.context_builder().build().await?;
+    let page = context.new_page().await?;
+
+    // Navigate to the RapiDoc documentation
+    page.goto_builder("http://127.0.0.1:8085/api/doc/")
+        .goto()
+        .await?;
+
+    // Wait for RapiDoc to load and render
+    // The rapi-doc element should be present in the DOM
+    page.wait_for_selector_builder("rapi-doc")
+        .wait_for_selector()
+        .await?;
+
+    println!("✓ RapiDoc element loaded");
+
+    // Give RapiDoc time to load the OpenAPI spec and populate the Shadow DOM
+    sleep(Duration::from_millis(2000)).await;
+
+    // Access the rapi-doc element
+    let rapi_doc_element = page
+        .query_selector("rapi-doc")
+        .await?
+        .ok_or("rapi-doc element not found")?;
+
+    println!("✓ rapi-doc element found in DOM");
+
+    // Get the Shadow Root content
+    // click on div with id="link-get-/api/config" with eval strategy
+    let click_result: String = page
+        .eval(
+            r#"() => {
+            const rapiDoc = document.querySelector('rapi-doc');
+            if (!rapiDoc || !rapiDoc.shadowRoot) {
+                return 'false';
+            }
+            const linkDiv = rapiDoc.shadowRoot.getElementById('link-get-/api/config');
+            if (linkDiv) {
+                linkDiv.click();
+                return 'true';
+            } else {
+                return 'false';
+            }
+        }"#,
+        )
+        .await?;
+
+    if click_result != "true" {
+        return Err("Failed to click on /api/config endpoint link".into());
+    }
+
+    // extract the JSON code block content from the Shadow DOM
+    let json_code_block: String = page
+        .eval(
+            r#"() => {
+            const rapiDoc = document.querySelector('rapi-doc');
+            if (!rapiDoc || !rapiDoc.shadowRoot) {
+                return '';
+            }
+            // Wait for the response section to be populated
+            const responseSection = rapiDoc.shadowRoot.querySelector('div[id="get-/api/config"]');
+            if (!responseSection) {
+                return '';
+            }
+            const codeBlock = responseSection.querySelector('pre code');
+            if (codeBlock) {
+                return codeBlock.innerText;
+            } else {
+                return '';
+            }
+        }"#,
+        )
+        .await?;
+    println!(
+        "Extracted JSON code block length: {} chars",
+        json_code_block.len()
+    );
+    // Verify that the JSON code block does not start with "json" (indicating proper markdown rendering)
+    if json_code_block.trim_start().starts_with("json") {
+        return Err("JSON code block rendering failed, found 'json' prefix".into());
+    } else {
+        println!("✓ JSON code block rendered correctly without 'json' prefix");
+    }
+    // Clean up
+    browser.close().await?;
+
+    println!("✓ RapiDoc JSON code block rendering test passed!");
+
+    server_handle.abort();
+
+    Ok(())
+}
