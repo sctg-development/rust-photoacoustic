@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    ".",
-    "auth-macros",
-]
+members = [".", "auth-macros"]
 
 # Shared dependencies for the entire workspace
 [workspace.dependencies]
@@ -41,7 +38,7 @@ sysinfo = "0.37.2" # Cross-platform system information
 futures = "0.3.31" # Async utilities
 
 # Audio processing
-cpal = "0.16.0"             # Audio input
+cpal = "0.17.0"             # Audio input
 hound = "3.5.1"             # WAV file handling
 include_dir = "0.7.4"       # Include files in the binary
 rustfft = "6.4.1"           # Fast Fourier Transform
@@ -112,7 +109,7 @@ async-trait = "0.1.89"
 uuid = { version = "1.19.0", features = ["v4"] }
 schemars = "1.1.0"
 evalexpr = "13.1.0"
-playwright = { git = "https://github.com/sctg-development/playwright-rust.git" }            # Playwright for end-to-end testing
+playwright = { git = "https://github.com/sctg-development/playwright-rust.git" } # Playwright for end-to-end testing
 
 # Python integration (optional)
 pyo3 = { version = "0.27.2", optional = true, features = [
@@ -134,21 +131,21 @@ rdkafka = { version = "0.38.0", features = ["tokio"] }
 rdkafka = { version = "0.38.0", features = ["cmake-build", "tokio"] }
 
 [dev-dependencies]
-criterion = "0.8.1"                                    # Benchmarking
-mockall = "0.14.0"                                     # Mocking for tests
-oauth2 = "5.0.0"                                       # OAuth2 client implementation
-wiremock = "0.6.5"                                     # HTTP mocking
+criterion = "0.8.1"                                                              # Benchmarking
+mockall = "0.14.0"                                                               # Mocking for tests
+oauth2 = "5.0.0"                                                                 # OAuth2 client implementation
+wiremock = "0.6.5"                                                               # HTTP mocking
 tokio = { version = "1.45.1", features = ["full"] }
 reqwest = { version = "0.12.18", features = ["json"] }
 uuid = { version = "1.17.0", features = ["v4"] }
-url = "2.5.4"                                          # URL parsing
-sha2 = "0.10.9"                                        # Pour le hachage SHA-256 utilisé dans PKCE
-base64 = "0.22.1"                                      # Pour l'encodage Base64URL utilisé dans PKCE
-playwright = { git = "https://github.com/sctg-development/playwright-rust.git" }            # Playwright for end-to-end testing
-serde_json = "1.0.140"                                 # Pour analyser la réponse JSON des tokens
-regex = "1.12.2"                                       # Expressions régulières
-evalexpr = "13.1.0"                                    # Mathematical expression evaluation
-approx = "0.5.1"                                       # Approximate floating-point equality for tests
+url = "2.5.4"                                                                    # URL parsing
+sha2 = "0.10.9"                                                                  # Pour le hachage SHA-256 utilisé dans PKCE
+base64 = "0.22.1"                                                                # Pour l'encodage Base64URL utilisé dans PKCE
+playwright = { git = "https://github.com/sctg-development/playwright-rust.git" } # Playwright for end-to-end testing
+serde_json = "1.0.140"                                                           # Pour analyser la réponse JSON des tokens
+regex = "1.12.2"                                                                 # Expressions régulières
+evalexpr = "13.1.0"                                                              # Mathematical expression evaluation
+approx = "0.5.1"                                                                 # Approximate floating-point equality for tests
 x509-parser = "0.18.0"
 
 [build-dependencies]
