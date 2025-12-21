@@ -15,6 +15,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      skip_builds:
+        description: 'Skip AMD64/ARM64 builds and only run multiarch manifest'
+        required: false
+        default: false
+        type: boolean
   # Trigger after python-builder is built
   workflow_run:
     workflows: ["Build Python Builder"]
@@ -27,7 +33,7 @@ jobs:
   build_amd64:
     name: Build Application (x86_64)
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    if: (github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run') && !inputs.skip_builds
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@docker-storage
@@ -78,7 +84,7 @@ jobs:
   build_arm64:
     name: Build Application (arm64)
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    if: (github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run') && !inputs.skip_builds
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@docker-storage
@@ -142,16 +148,17 @@ jobs:
     name: Create Multi-Architecture Manifest
     needs: [build_amd64, build_arm64]
     runs-on: ubuntu-latest
+    if: always() && (success('build_amd64') || success('build_arm64') || inputs.skip_builds)
     steps:
       - name: Download Tag from Previous Job
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: tag-artifact
       - name: Add TAG to output file
         shell: bash
         id: get_tag
         run: |
-          TAG=$(cat /tmp/tag.txt)
+          TAG=$(cat tag.txt)
           echo "Using tag: $TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
       - name: Clean runner for Docker builds
