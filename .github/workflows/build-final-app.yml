@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       skip_builds:
-        description: 'Skip AMD64/ARM64 builds and only run multiarch manifest'
+        description: "Skip AMD64/ARM64 builds and only run multiarch manifest"
         required: false
         default: false
         type: boolean
