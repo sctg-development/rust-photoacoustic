@@ -242,6 +242,7 @@ jobs:
           cp rust/config.example.yaml rust/config.yaml
 
       - name: Run simple playwright-rust bin to download browsers
+        if: env.PLAYWRIGHT_TEST_ENABLED == '1'
         shell: bash -l {0}
         run: |
           cd rust
