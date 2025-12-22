@@ -295,7 +295,8 @@ jobs:
                 --skip test_rapidoc_page_title \
                 --skip test_rapidoc_api_operations_visible \
                 --skip test_rapidoc_footer_github_link \
-                --skip rapidoc_playwright_test
+                --skip rapidoc_playwright_test \
+                --skip test_rapidoc_json_code_block_rendering
           else
             # Run all tests (including Playwright) on other platforms
             if [[ "$PLAYWRIGHT_TEST_ENABLED" == "1" ]]; then
@@ -306,7 +307,8 @@ jobs:
                   --skip test_rapidoc_api_operations_visible \
                   --skip test_rapidoc_footer_github_link \
                   --skip test_acquisition_daemon \
-                  --skip rapidoc_playwright_test
+                  --skip rapidoc_playwright_test \
+                  --skip test_rapidoc_json_code_block_rendering
             fi
           fi
 
