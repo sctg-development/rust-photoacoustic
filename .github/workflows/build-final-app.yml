@@ -259,7 +259,6 @@ jobs:
             --push .
 
       - name: Create release packages
-        if: github.event_name == 'release'
         continue-on-error: true
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
@@ -287,18 +286,15 @@ jobs:
             tar czf /tmp/packages/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz *
             echo "Created arm64 package"
           fi
-      - name: Upload release packages
-        if: github.event_name == 'release'
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=${{ steps.get_tag.outputs.tag }}
-          cd /tmp/packages
 
-          for file in *.tar.gz; do
-            if [ -f "$file" ]; then
-              echo "Uploading $file"
-              gh release upload "$TAG" "$file" --clobber
-            fi
-          done
+      - name: Upload releases package artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-packages
+          path: /tmp/packages/
+
+      - name: Upload binaries artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: final-binaries
+          path: /tmp/*-binaries/
