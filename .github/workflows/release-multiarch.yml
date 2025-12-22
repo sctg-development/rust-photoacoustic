@@ -14,10 +14,10 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-  # Trigger after python-builder is built
-  workflow_run:
-    workflows: ["Build Python Builder"]
-    types: [completed]
+
+env:
+  PYTHON_VERSION: "3.12.12"
+  PYTHON_SHORT_VERSION: "3.12"
 
 jobs:
   # Build non-static binaries for multiple platforms
@@ -359,21 +359,12 @@ jobs:
           path: rust/${{ env.ARCHIVE_PATH }}
           retention-days: 90
 
-  build_and_release_docker_static_image:
-    permissions:
-      id-token: write
-      contents: write
-      packages: write
-      attestations: write
-    name: Build Final App and Release Static Binaries
+  # ========================================================
+  # Static Dependencies Build (from build-static-deps.yml)
+  # ========================================================
+  build_static_deps:
+    name: Build Static Dependencies
     runs-on: ubuntu-latest
-    needs: build_release_binaries
-    # Only run if python-builder workflow succeeded (when triggered via workflow_run) or on manual release
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
-    # Wait for the dependency images to be built first
-    env:
-      DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
-      INDIVIDUAL_STATIC_RELEASES: off # Set to 'enabled' to enable individual static releases
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
@@ -385,26 +376,429 @@ jobs:
           show-top-packages: "true"
 
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Checkout submodules
-        run: git submodule update --init --recursive
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64,linux/amd64
 
-      - name: Set release tag
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Get version tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="nightly.$(date +'%Y%m%d')"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and push static-deps image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.deps
+          platforms: linux/arm64,linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            sctg/rust-photoacoustic-static-deps:latest
+            sctg/rust-photoacoustic-static-deps:${{ steps.get_tag.outputs.tag }}
+          labels: |
+            org.opencontainers.image.title=rust-photoacoustic-static-deps
+            org.opencontainers.image.description=Static dependencies for rust-photoacoustic (zlib, OpenSSL, librdkafka)
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.get_tag.outputs.tag }}
+
+  # ========================================================
+  # Python Builder Build (from build-python-builder.yml)
+  # ========================================================
+  build_python_builder:
+    name: Build Python Builder
+    runs-on: ubuntu-latest
+    needs: build_static_deps
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v1
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
+
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64,linux/amd64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Get version tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="nightly.$(date +'%Y%m%d')"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and push python-builder image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.python
+          platforms: linux/arm64,linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            sctg/rust-photoacoustic-python-builder:latest
+            sctg/rust-photoacoustic-python-builder:${{ steps.get_tag.outputs.tag }}
+          labels: |
+            org.opencontainers.image.title=rust-photoacoustic-python-builder
+            org.opencontainers.image.description=Python 3.12 statically compiled for rust-photoacoustic
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.get_tag.outputs.tag }}
+
+  # ========================================================
+  # Get Version Tag
+  # ========================================================
+  get_version_tag:
+    name: Get Version Tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.get_tag.outputs.tag }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Get version tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="nightly.$(date +'%Y%m%d')"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "$TAG" > /tmp/tag.txt
+
+      - name: Upload Tag for Next Jobs
+        uses: actions/upload-artifact@v6
+        with:
+          name: tag-artifact
+          path: /tmp/tag.txt
+
+  # ========================================================
+  # Build Final App AMD64 (from build-final-app.yml)
+  # ========================================================
+  build_amd64:
+    name: Build Application (x86_64)
+    runs-on: ubuntu-latest
+    needs: [build_python_builder, get_version_tag]
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@docker-storage
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
+
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Get version tag
+        uses: actions/download-artifact@v7
+        with:
+          name: tag-artifact
+
+      - name: Add TAG to output file
+        shell: bash
+        id: get_tag
+        run: |
+          TAG=$(cat tag.txt)
+          echo "Using tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and push x86_64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.app
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            sctg/rust-photoacoustic:latest-amd64
+            sctg/rust-photoacoustic:${{ steps.get_tag.outputs.tag }}-amd64
+
+  # ========================================================
+  # Build Final App ARM64 (from build-final-app.yml)
+  # ========================================================
+  build_arm64:
+    name: Build Application (arm64)
+    needs: [build_python_builder, get_version_tag]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@docker-storage
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
+
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU for arm64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Get version tag
+        uses: actions/download-artifact@v7
+        with:
+          name: tag-artifact
+
+      - name: Add TAG to output file
+        shell: bash
+        id: get_tag
+        run: |
+          TAG=$(cat tag.txt)
+          echo "Using tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and push arm64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.app
+          platforms: linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            sctg/rust-photoacoustic:latest-arm64
+            sctg/rust-photoacoustic:${{ steps.get_tag.outputs.tag }}-arm64
+
+      - name: Save Tag for Next Job
+        uses: actions/upload-artifact@v6
+        with:
+          name: tag-artifact
+          path: /tmp/tag.txt
+
+  # ========================================================
+  # Create Multi-Arch Manifest (from build-final-app.yml)
+  # ========================================================
+  create_multiarch_manifest:
+    name: Create Multi-Architecture Manifest
+    needs: [build_amd64, build_arm64, get_version_tag]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tag from Previous Job
+        uses: actions/download-artifact@v7
+        with:
+          name: tag-artifact
+
+      - name: Add TAG to output file
+        shell: bash
+        id: get_tag
+        run: |
+          TAG=$(cat tag.txt)
+          echo "Using tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@docker-storage
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
+
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Create and push multiarch image
+        continue-on-error: true
+        run: |
+          TAG=${{ steps.get_tag.outputs.tag }}
+
+          # retrieve arm64 image and extract binaries
+          docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          # extract arm64 binaries
+          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          mkdir -p /tmp/arm64-binaries/usr/local/bin /tmp/arm64-binaries/usr/local/lib
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            docker cp temp-container-arm64:/usr/local/bin/$binary /tmp/arm64-binaries/usr/local/bin/ || echo "$binary not found"
+          done
+          # extract python arm64 binaries and shared libs
+          docker cp temp-container-arm64:/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64-binaries/usr/local/lib/ || echo "python${{ env.PYTHON_SHORT_VERSION }} lib not found"
+          docker cp temp-container-arm64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64-binaries/usr/local/bin/ || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
+          docker rm temp-container-arm64
+
+          # retrieve amd64 image and extract binaries
+          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          # extract amd64 binaries
+          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          mkdir -p /tmp/amd64-binaries/usr/local/bin /tmp/amd64-binaries/usr/local/lib
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
+            docker cp temp-container-amd64:/usr/local/bin/$binary /tmp/amd64-binaries/usr/local/bin/ || echo "$binary not found"
+          done
+          # extract python amd64 binaries and shared libs
+          docker cp temp-container-amd64:/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64-binaries/usr/local/lib/ || echo "python${{ env.PYTHON_SHORT_VERSION }} lib not found"
+          docker cp temp-container-amd64:/usr/local/bin/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64-binaries/usr/local/bin/ || echo "python${{ env.PYTHON_SHORT_VERSION }} binary not found"
+          docker rm temp-container-amd64
+
+          # create multiarch image with both architectures' binaries
+          CURRENT_DIR=$(pwd)
+          cd /tmp
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --build-arg PYTHON_VERSION=${{ env.PYTHON_VERSION }} \
+            --build-arg PYTHON_SHORT_VERSION=${{ env.PYTHON_SHORT_VERSION }} \
+            -f ${CURRENT_DIR}/rust/docker/Dockerfile.multiarch \
+            -t sctg/rust-photoacoustic:latest \
+            -t sctg/rust-photoacoustic:${TAG} \
+            --push .
+
+      - name: Create release packages
+        continue-on-error: true
+        run: |
+          TAG=${{ steps.get_tag.outputs.tag }}
+          mkdir -p /tmp/packages
+          mkdir -p /tmp/amd64/lib
+          # Create amd64 package
+          for file in /tmp/amd64-binaries/usr/local/bin/*; do
+            cp "$file" /tmp/amd64/
+          done
+          cp -av /tmp/amd64-binaries/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/amd64/lib/
+          if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
+            cd /tmp/amd64
+            tar czf /tmp/packages/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz *
+            echo "Created amd64 package"
+          fi
+
+          # Create arm64 package
+          mkdir -p /tmp/arm64/lib
+          for file in /tmp/arm64-binaries/usr/local/bin/*; do
+            cp "$file" /tmp/arm64/
+          done
+          cp -av /tmp/arm64-binaries/usr/local/lib/python${{ env.PYTHON_SHORT_VERSION }} /tmp/arm64/lib/
+          if [ -d "/tmp/arm64" ] && [ "$(ls -A /tmp/arm64)" ]; then
+            cd /tmp/arm64
+            tar czf /tmp/packages/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz *
+            echo "Created arm64 package"
+          fi
+
+      - name: Upload releases package artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-packages
+          path: /tmp/packages/
+
+      - name: Upload binaries artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: final-binaries
+          path: /tmp/*-binaries/
+
+  # ========================================================
+  # Release and Upload Static Binaries
+  # ========================================================
+  build_and_release_docker_static_image:
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
+      attestations: write
+    name: Release Static Binaries from Artifacts
+    runs-on: ubuntu-latest
+    needs: [build_release_binaries, create_multiarch_manifest]
+    env:
+      DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
+      INDIVIDUAL_STATIC_RELEASES: off # Set to 'enabled' to enable individual static releases
+    steps:
+      - name: Download Tag
+        uses: actions/download-artifact@v7
+        with:
+          name: tag-artifact
+
+      - name: Get Release Tag
         id: set_tag
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="nightly.$(date +'%Y%m%d')"
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Using nightly tag: $TAG"
-          else
-            TAG="${{ github.event.release.tag_name }}"
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Using release tag: $TAG"
-          fi
+          TAG=$(cat tag.txt)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG"
 
       - name: Create release for nightly builds
         if: github.event_name == 'workflow_dispatch'
@@ -417,11 +811,82 @@ jobs:
           gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts/
 
-      - name: Upload release artifacts
+      - name: Extract binaries from artifacts
+        shell: bash
+        run: |
+          # Extract final-binaries artifact which contains amd64-binaries and arm64-binaries
+          if [ -d "artifacts/final-binaries" ]; then
+            cp -r artifacts/final-binaries/* /tmp/
+            echo "Extracted binaries from final-binaries artifact"
+          fi
+
+          # Display extracted structure
+          echo "=== Extracted binaries structure ==="
+          ls -la /tmp/*-binaries/ 2>/dev/null || echo "No binaries found"
+
+      - name: Process amd64 binaries
+        shell: bash
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          mkdir -p /tmp/amd64/
+
+          if [ -d "/tmp/amd64-binaries/usr/local/bin" ]; then
+            cd /tmp/amd64-binaries/usr/local/bin/
+            # Copy all binaries
+            for binary in *; do
+              if [ -f "$binary" ]; then
+                cp "$binary" "/tmp/amd64/${binary}_linux_amd64_static_${TAG}"
+                echo "Processed: ${binary}_linux_amd64_static_${TAG}"
+              fi
+            done
+          fi
+
+          if [ -d "/tmp/amd64-binaries/usr/local/lib" ]; then
+            cd /tmp/amd64-binaries/usr/local/lib/
+            # Copy python library
+            if [ -f "python${{ env.PYTHON_SHORT_VERSION }}" ] || [ -d "python${{ env.PYTHON_SHORT_VERSION }}" ]; then
+              cp -r "python${{ env.PYTHON_SHORT_VERSION }}"* "/tmp/amd64/" 2>/dev/null || true
+              echo "Processed: python libraries"
+            fi
+          fi
+
+          echo "=== AMD64 binaries ready ==="
+          ls -la /tmp/amd64/ || echo "No amd64 binaries"
+
+      - name: Process arm64 binaries
+        shell: bash
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          mkdir -p /tmp/arm64/
+
+          if [ -d "/tmp/arm64-binaries/usr/local/bin" ]; then
+            cd /tmp/arm64-binaries/usr/local/bin/
+            # Copy all binaries
+            for binary in *; do
+              if [ -f "$binary" ]; then
+                cp "$binary" "/tmp/arm64/${binary}_linux_arm64_static_${TAG}"
+                echo "Processed: ${binary}_linux_arm64_static_${TAG}"
+              fi
+            done
+          fi
+
+          if [ -d "/tmp/arm64-binaries/usr/local/lib" ]; then
+            cd /tmp/arm64-binaries/usr/local/lib/
+            # Copy python library
+            if [ -f "python${{ env.PYTHON_SHORT_VERSION }}" ] || [ -d "python${{ env.PYTHON_SHORT_VERSION }}" ]; then
+              cp -r "python${{ env.PYTHON_SHORT_VERSION }}"* "/tmp/arm64/" 2>/dev/null || true
+              echo "Processed: python libraries"
+            fi
+          fi
+
+          echo "=== ARM64 binaries ready ==="
+          ls -la /tmp/arm64/ || echo "No arm64 binaries"
+
+      - name: Upload release artifacts from build_release_binaries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -429,161 +894,14 @@ jobs:
           echo "Uploading release artifacts for tag: $TAG"
 
           for artifact_dir in artifacts/*/; do
-            if [ -d "$artifact_dir" ]; then
+            if [ -d "$artifact_dir" ] && [ "$(basename "$artifact_dir")" != "final-binaries" ] && [ "$(basename "$artifact_dir")" != "tag-artifact" ] && [ "$(basename "$artifact_dir")" != "release-packages" ]; then
               echo "Processing artifact directory: $artifact_dir"
               for file in "$artifact_dir"*; do
                 if [ -f "$file" ]; then
-                  echo "Uploading: $file"
+                  echo "Uploading: $(basename $file)"
                   gh release upload "$TAG" "$file" --clobber
                 fi
               done
-            fi
-          done
-
-      - name: Set Docker platforms
-        id: set_platforms
-        run: |
-          if [ "${{ env.DOCKER_ARMHF_EXPERIMENTAL }}" = "enabled" ]; then
-            echo "platforms=linux/arm64,linux/amd64,linux/arm/v7" >> $GITHUB_OUTPUT
-            echo "Using platforms with armhf: linux/arm64,linux/amd64,linux/arm/v7"
-          else
-            echo "platforms=linux/arm64,linux/amd64" >> $GITHUB_OUTPUT
-            echo "Using platforms without armhf: linux/arm64,linux/amd64"
-          fi
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: ${{ steps.set_platforms.outputs.platforms }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push final application image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./rust/docker/Dockerfile.app
-          platforms: ${{ steps.set_platforms.outputs.platforms }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          push: true
-          tags: sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}
-          labels: |
-            org.opencontainers.image.title=rust-photoacoustic
-            org.opencontainers.image.description=High-performance photoacoustic analysis with Rust backend
-            org.opencontainers.image.version=${{ steps.set_tag.outputs.tag }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-
-      - name: Pull and extract files from Docker image (amd64)
-        continue-on-error: true
-        run: |
-          export TAG=${{ steps.set_tag.outputs.tag }}
-          mkdir -p /tmp/amd64/
-          docker pull sctg/rust-photoacoustic:${TAG}
-          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}
-
-          # Extract all photoacoustic binaries
-          docker cp temp-container-amd64:/usr/local/bin/create_token /tmp/amd64/ || echo "create_token not found"
-          docker cp temp-container-amd64:/usr/local/bin/analyze_spectrum /tmp/amd64/ || echo "analyze_spectrum not found"
-          docker cp temp-container-amd64:/usr/local/bin/debug_config /tmp/amd64/ || echo "debug_config not found"
-          docker cp temp-container-amd64:/usr/local/bin/differential /tmp/amd64/ || echo "differential not found"
-          docker cp temp-container-amd64:/usr/local/bin/filters /tmp/amd64/ || echo "filters not found"
-          docker cp temp-container-amd64:/usr/local/bin/modbus_client /tmp/amd64/ || echo "modbus_client not found"
-          docker cp temp-container-amd64:/usr/local/bin/noise_generator /tmp/amd64/ || echo "noise_generator not found"
-          docker cp temp-container-amd64:/usr/local/bin/pid_tuner /tmp/amd64/ || echo "pid_tuner not found"
-          docker cp temp-container-amd64:/usr/local/bin/redis_viewer /tmp/amd64/ || echo "redis_viewer not found"
-          docker cp temp-container-amd64:/usr/local/bin/rs256keygen /tmp/amd64/ || echo "rs256keygen not found"
-          docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
-          docker cp temp-container-amd64:/usr/local/bin/standalone /tmp/amd64/ || echo "standalone not found"
-          # copy also the python binary and libpython static library
-          docker cp temp-container-amd64:/usr/local/bin/python3.12 /tmp/amd64/ || echo "python3 not found"
-          docker cp temp-container-amd64:/usr/local/lib/libpython3.12.a /tmp/amd64/ || echo "libpython3.12.a not found"
-
-          docker rm temp-container-amd64
-
-          # Rename binaries with architecture suffix for individual static releases
-          cd /tmp/amd64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.12.a python3.12; do
-            if [ -f "$binary" ]; then
-              mv "$binary" "${binary}_linux_amd64_static_${{ steps.set_tag.outputs.tag }}"
-            fi
-          done
-
-      - name: Pull and extract files from Docker image (arm64)
-        continue-on-error: true
-        run: |
-          export TAG=${{ steps.set_tag.outputs.tag }}
-          mkdir -p /tmp/arm64/
-          docker pull sctg/rust-photoacoustic:${TAG}
-          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}
-
-          # Extract all photoacoustic binaries
-          docker cp temp-container-arm64:/usr/local/bin/create_token /tmp/arm64/ || echo "create_token not found"
-          docker cp temp-container-arm64:/usr/local/bin/analyze_spectrum /tmp/arm64/ || echo "analyze_spectrum not found"
-          docker cp temp-container-arm64:/usr/local/bin/debug_config /tmp/arm64/ || echo "debug_config not found"
-          docker cp temp-container-arm64:/usr/local/bin/differential /tmp/arm64/ || echo "differential not found"
-          docker cp temp-container-arm64:/usr/local/bin/filters /tmp/arm64/ || echo "filters not found"
-          docker cp temp-container-arm64:/usr/local/bin/modbus_client /tmp/arm64/ || echo "modbus_client not found"
-          docker cp temp-container-arm64:/usr/local/bin/noise_generator /tmp/arm64/ || echo "noise_generator not found"
-          docker cp temp-container-arm64:/usr/local/bin/pid_tuner /tmp/arm64/ || echo "pid_tuner not found"
-          docker cp temp-container-arm64:/usr/local/bin/redis_viewer /tmp/arm64/ || echo "redis_viewer not found"
-          docker cp temp-container-arm64:/usr/local/bin/rs256keygen /tmp/arm64/ || echo "rs256keygen not found"
-          docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
-          docker cp temp-container-arm64:/usr/local/bin/standalone /tmp/arm64/ || echo "standalone not found"
-          # copy also the python binary and libpython static library
-          docker cp temp-container-arm64:/usr/local/bin/python3.12 /tmp/arm64/ || echo "python3 not found"
-          docker cp temp-container-arm64:/usr/local/lib/libpython3.12.a /tmp/arm64/ || echo "libpython3.12.a not found"
-
-          docker rm temp-container-arm64
-
-          # Rename binaries with architecture suffix for individual static releases
-          cd /tmp/arm64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.12.a python3.12; do
-            if [ -f "$binary" ]; then
-              mv "$binary" "${binary}_linux_arm64_static_${{ steps.set_tag.outputs.tag }}"
-            fi
-          done
-
-      - name: Pull and extract files from Docker image (armhf)
-        continue-on-error: true
-        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' }}
-        run: |
-          export TAG=${{ steps.set_tag.outputs.tag }}
-          mkdir -p /tmp/armhf/
-          docker pull sctg/rust-photoacoustic:latest
-          docker create --platform linux/arm/v7 --name temp-container-armhf sctg/rust-photoacoustic:latest
-
-          # Extract all photoacoustic binaries
-          docker cp temp-container-armhf:/usr/local/bin/create_token /tmp/armhf/ || echo "create_token not found"
-          docker cp temp-container-armhf:/usr/local/bin/analyze_spectrum /tmp/armhf/ || echo "analyze_spectrum not found"
-          docker cp temp-container-armhf:/usr/local/bin/debug_config /tmp/armhf/ || echo "debug_config not found"
-          docker cp temp-container-armhf:/usr/local/bin/differential /tmp/armhf/ || echo "differential not found"
-          docker cp temp-container-armhf:/usr/local/bin/filters /tmp/armhf/ || echo "filters not found"
-          docker cp temp-container_armhf:/usr/local/bin/modbus_client /tmp/armhf/ || echo "modbus_client not found"
-          docker cp temp-container-armhf:/usr/local/bin/noise_generator /tmp/armhf/ || echo "noise_generator not found"
-          docker cp temp-container-armhf:/usr/local/bin/pid_tuner /tmp/armhf/ || echo "pid_tuner not found"
-          docker cp temp-container-armhf:/usr/local/bin/redis_viewer /tmp/armhf/ || echo "redis_viewer not found"
-          docker cp temp-container-armhf:/usr/local/bin/rs256keygen /tmp/armhf/ || echo "rs256keygen not found"
-          docker cp temp-container-armhf:/usr/local/bin/rust_photoacoustic /tmp/armhf/ || echo "rust_photoacoustic not found"
-          # copy also the python binary and libpython static library
-          docker cp temp-container-armhf:/usr/local/bin/python3.12 /tmp/armhf/ || echo "python3 not found"
-          docker cp temp-container-armhf:/usr/local/lib/libpython3.12.a /tmp/armhf/ || echo "libpython3.12.a not found"
-
-          docker rm temp-container-armhf
-
-          # Rename binaries with architecture suffix
-          cd /tmp/armhf/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
-            if [ -f "$binary" ]; then
-              mv "$binary" "${binary}_linux_armhf_static_${{ steps.set_tag.outputs.tag }}"
             fi
           done
 
