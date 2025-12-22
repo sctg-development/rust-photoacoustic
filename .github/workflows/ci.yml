@@ -41,7 +41,7 @@ jobs:
           npm run build
 
       - name: Upload web/dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: web-dist
           path: web/dist
@@ -197,7 +197,7 @@ jobs:
           conda install -n test-env numpy scipy -y
 
       - name: Restore cache Rust dependencies and target
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         id: cargo-cache
         with:
           path: |
@@ -211,8 +211,8 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Restore Playwright browsers cache (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/cache/restore@v4
+        if: runner.os == 'Linux' && env.PLAYWRIGHT_TEST_ENABLED == '1'
+        uses: actions/cache/restore@v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
@@ -220,8 +220,8 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-playwright-
 
       - name: Restore Playwright browsers cache (macOS)
-        if: runner.os == 'macOS'
-        uses: actions/cache/restore@v4
+        if: runner.os == 'macOS' && env.PLAYWRIGHT_TEST_ENABLED == '1'
+        uses: actions/cache/restore@v5
         with:
           path: ~/Library/Caches/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
@@ -229,8 +229,8 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-playwright-
 
       - name: Restore Playwright browsers cache (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/cache/restore@v4
+        if: runner.os == 'Windows' && env.PLAYWRIGHT_TEST_ENABLED == '1'
+        uses: actions/cache/restore@v5
         with:
           path: ~/AppData/Local/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
@@ -281,7 +281,6 @@ jobs:
       # Run tests (only on non-cross compilation targets)
       - name: Run tests
         id: run-tests
-        if: matrix.cross == false && env.PLAYWRIGHT_TEST_ENABLED == '1'
         shell: bash
         continue-on-error: true
         run: |
@@ -298,31 +297,37 @@ jobs:
                 --skip test_rapidoc_footer_github_link
           else
             # Run all tests (including Playwright) on other platforms
-            cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon \
-                --skip test_python_node_scipy_bandpass_filter_single_channel \
-                --skip test_python_node_scipy_bandpass_filter_dual_channel
+            if [[ "$PLAYWRIGHT_TEST_ENABLED" == "1" ]]; then
+              cargo test --target ${{ matrix.target }}  -- --skip test_acquisition_daemon 
+            else
+              cargo test --target ${{ matrix.target }} -- --skip test_rapidoc_shadow_dom_rendering \
+                  --skip test_rapidoc_page_title \
+                  --skip test_rapidoc_api_operations_visible \
+                  --skip test_rapidoc_footer_github_link \
+                  --skip test_acquisition_daemon
+            fi
           fi
 
       - name: Save Playwright browsers cache (Linux)
-        if: always() && runner.os == 'Linux'
+        if: always() && runner.os == 'Linux' && env.PLAYWRIGHT_TEST_ENABLED == '1'
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
 
       - name: Save Playwright browsers cache (macOS)
-        if: always() && runner.os == 'macOS'
+        if: always() && runner.os == 'macOS' && env.PLAYWRIGHT_TEST_ENABLED == '1'
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/Library/Caches/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
 
       - name: Save Playwright browsers cache (Windows)
-        if: always() && runner.os == 'Windows'
+        if: always() && runner.os == 'Windows' && env.PLAYWRIGHT_TEST_ENABLED == '1'
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/AppData/Local/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
@@ -367,7 +372,7 @@ jobs:
           cargo test --doc --features python-driver --target ${{ matrix.target }}
 
       - name: Cache Rust dependencies and target
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~/.cargo/registry/index
@@ -410,7 +415,7 @@ jobs:
       - name: Restore target directory after cleaning for coverage
         id: restore-target-for-coverage
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           key: ${{ runner.os }}-cargocoverage-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}-rust-1.91.1
           path: |
