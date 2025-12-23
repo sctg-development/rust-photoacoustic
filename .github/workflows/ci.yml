@@ -321,6 +321,11 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
 
+      - name: Delete Playwright browsers to save space (Linux)
+        if: always() && runner.os == 'Linux' && env.PLAYWRIGHT_TEST_ENABLED == '1'
+        continue-on-error: true
+        run: |
+          rm -rf ~/.cache/ms-playwright || true
       - name: Save Playwright browsers cache (macOS)
         if: always() && runner.os == 'macOS' && env.PLAYWRIGHT_TEST_ENABLED == '1'
         continue-on-error: true
@@ -329,6 +334,11 @@ jobs:
           path: ~/Library/Caches/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
 
+      - name: Delete Playwright browsers to save space (macOS)
+        if: always() && runner.os == 'macOS' && env.PLAYWRIGHT_TEST_ENABLED == '1'
+        continue-on-error: true
+        run: |
+          rm -rf ~/Library/Caches/ms-playwright || true
       - name: Save Playwright browsers cache (Windows)
         if: always() && runner.os == 'Windows' && env.PLAYWRIGHT_TEST_ENABLED == '1'
         continue-on-error: true
@@ -336,6 +346,12 @@ jobs:
         with:
           path: ~/AppData/Local/ms-playwright
           key: ${{ runner.os }}-${{ matrix.target }}-playwright-${{ hashFiles('Cargo.lock') }}
+
+      - name: Delete Playwright browsers to save space (Windows)
+        if: always() && runner.os == 'Windows' && env.PLAYWRIGHT_TEST_ENABLED == '1'
+        continue-on-error: true
+        run: |
+          rm -rf ~/AppData/Local/ms-playwright || true
 
       - name: Check if tests failed and fail the workflow
         if: always() && steps.run-tests.outcome == 'failure'
@@ -376,6 +392,19 @@ jobs:
           echo "Running doctests..."
           cargo test --doc --features python-driver --target ${{ matrix.target }}
 
+      - name: Remove Python conda environment to save space
+        if: matrix.cross == false
+        continue-on-error: true
+        run: |
+          conda remove -n test-env --all -y || true
+          echo "Removed conda environment to save space"
+
+      - name: Remove conda to save space
+        continue-on-error: true
+        shell: bash -l {0}
+        run: |
+          rm -rf $CONDA || true
+          echo "Removed conda installation to save space"
       - name: Cache Rust dependencies and target
         uses: actions/cache/save@v5
         with:
