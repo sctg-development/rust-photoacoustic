@@ -733,9 +733,11 @@ jobs:
           if [ "${{ inputs.skip_app_build }}" = "true" ]; then
             echo "arm64_tag=latest-arm64" >> $GITHUB_OUTPUT
             echo "amd64_tag=latest-amd64" >> $GITHUB_OUTPUT
+            echo "Using latest-amd64 and latest-arm64 tags for multiarch manifest"
           else
             echo "arm64_tag=${TAG}-arm64" >> $GITHUB_OUTPUT
             echo "amd64_tag=${TAG}-amd64" >> $GITHUB_OUTPUT
+            echo "Using built tags: ${TAG}-amd64 and ${TAG}-arm64 for multiarch manifest"
           fi
 
       - name: Clean runner for Docker builds
