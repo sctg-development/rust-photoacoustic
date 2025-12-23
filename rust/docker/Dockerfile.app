@@ -9,8 +9,8 @@ FROM sctg/rust-photoacoustic-static-deps:latest AS deps
 FROM sctg/rust-photoacoustic-python-builder:latest AS python-builder
 
 FROM alpine:3.23 AS builder
-ARG PYTHON_VERSION=3.12.12
-ARG PYTHON_SHORT_VERSION=3.12
+ARG PYTHON_VERSION=3.13.5
+ARG PYTHON_SHORT_VERSION=3.13
 
 # Copy only essential Python files (not entire /usr/local)
 COPY --from=python-builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
@@ -196,8 +196,8 @@ RUN rm -rf /root/.cargo && \
     echo "Build cleanup complete" 
 
 FROM alpine:3.23 AS runtime
-ARG PYTHON_VERSION=3.12.12
-ARG PYTHON_SHORT_VERSION=3.12
+ARG PYTHON_VERSION=3.13.5
+ARG PYTHON_SHORT_VERSION=3.13
 ENV PYTHON_VERSION=$PYTHON_VERSION
 ENV PYTHON_SHORT_VERSION=$PYTHON_SHORT_VERSION
 

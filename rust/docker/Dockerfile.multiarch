@@ -1,6 +1,6 @@
 FROM alpine:3.23 AS builder
-ARG PYTHON_VERSION=3.12.12
-ARG PYTHON_SHORT_VERSION=3.12
+ARG PYTHON_VERSION=3.13.5
+ARG PYTHON_SHORT_VERSION=3.13
 
 COPY ./amd64-binaries /amd64-binaries
 COPY ./arm64-binaries /arm64-binaries
@@ -20,7 +20,7 @@ RUN ARCH=$(uname -m) && \
     fi
 
 FROM alpine:3.23
-ARG PYTHON_VERSION=3.12.12
-ARG PYTHON_SHORT_VERSION=3.12
+ARG PYTHON_VERSION=3.13.5
+ARG PYTHON_SHORT_VERSION=3.13
 COPY --from=builder /usr/local /usr/local
 ENTRYPOINT [ "/usr/local/bin/rust_photoacoustic" ]

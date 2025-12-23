@@ -27,8 +27,8 @@ on:
     types: [completed]
 
 env:
-  PYTHON_VERSION: "3.12.12"
-  PYTHON_SHORT_VERSION: "3.12"
+  PYTHON_VERSION: "3.13.5"
+  PYTHON_SHORT_VERSION: "3.13"
 jobs:
   get_version_tag:
     name: Get Version Tag

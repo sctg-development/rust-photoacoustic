@@ -8,8 +8,8 @@
 FROM sctg/rust-photoacoustic-static-deps:latest AS deps
 
 FROM alpine:3.23 AS python-builder
-ARG PYTHON_VERSION=3.12.12
-ARG PYTHON_SHORT_VERSION=3.12
+ARG PYTHON_VERSION=3.13.5
+ARG PYTHON_SHORT_VERSION=3.13
 
 RUN apk update && apk add \
     clang git patch cmake build-base \
@@ -106,8 +106,8 @@ RUN echo "implementation=CPython" > /Python-$PYTHON_VERSION/pyo3-config.txt && \
     echo "include_dir=/usr/local/include/python$PYTHON_SHORT_VERSION" >> /Python-$PYTHON_VERSION/pyo3-config.txt
 
 FROM alpine:3.23
-ARG PYTHON_VERSION=3.12.12
-ARG PYTHON_SHORT_VERSION=3.12
+ARG PYTHON_VERSION=3.13.5
+ARG PYTHON_SHORT_VERSION=3.13
 COPY --from=python-builder /usr/local /usr/local
 COPY --from=python-builder /mimalloc /mimalloc
 COPY --from=python-builder /Python-$PYTHON_VERSION/pyo3-config.txt /Python-$PYTHON_VERSION/pyo3-config.txt
