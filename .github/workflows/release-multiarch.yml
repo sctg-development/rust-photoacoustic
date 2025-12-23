@@ -1071,8 +1071,8 @@ jobs:
                 original_name=$(echo "$file" | sed "s/_linux_amd64_static_${TAG}//")
                 if [[ "$original_name" == "libpython3.12.a" || "$original_name" == "python3.12" ]]; then
                   cp "$file" "/tmp/static-package-amd64/lib/${original_name}"
-                # else
-                #   cp "$file" "/tmp/static-package-amd64/bin/${original_name}"
+                else
+                  cp "$file" "/tmp/static-package-amd64/bin/${original_name}"
                 fi
                 echo "Added to amd64 package: ${original_name}"
               fi
@@ -1155,8 +1155,8 @@ jobs:
                 original_name=$(echo "$file" | sed "s/_linux_arm64_static_${TAG}//")
                 if [[ "$original_name" == "libpython3.12.a" || "$original_name" == "python3.12" ]]; then
                   cp "$file" "/tmp/static-package-arm64/lib/${original_name}"
-                # else
-                #   cp "$file" "/tmp/static-package-arm64/bin/${original_name}"
+                else
+                  cp "$file" "/tmp/static-package-arm64/bin/${original_name}"
                 fi
                 echo "Added to arm64 package: ${original_name}"
               fi
