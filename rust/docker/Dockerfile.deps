@@ -13,7 +13,9 @@ RUN apk update && apk add \
     musl-dev autoconf automake libtool \
     linux-headers
 RUN cd /tmp && \
-    curl -L https://zlib.net/fossils/zlib-${LIBZ_VERSION}.tar.gz | tar xz
+    # retry 5 times in case of transient network issues
+    curl --retry 5 -O https://zlib.net/fossils/zlib-${LIBZ_VERSION}.tar.gz && \
+    tar xzvf zlib-${LIBZ_VERSION}.tar.gz
 RUN cd /tmp/zlib-${LIBZ_VERSION} && \
     CFLAGS="-fPIC -static" ./configure --static --prefix=/usr/local && \
     make -j$(nproc) && \
