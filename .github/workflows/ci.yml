@@ -51,6 +51,8 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     needs: build_web
+    env:
+      TESTS_TO_SKIP: "--skip test_acquisition_daemon --skip test_python_node_scipy_bandpass_filter_single_channel --skip test_python_node_scipy_bandpass_filter_dual_channel --skip test_rapidoc_shadow_dom_rendering --skip test_rapidoc_page_title --skip test_rapidoc_api_operations_visible --skip test_rapidoc_footer_github_link --skip rapidoc_playwright_test --skip test_rapidoc_json_code_block_rendering"
     strategy:
       fail-fast: false
       matrix:
@@ -279,39 +281,15 @@ jobs:
           cargo build --target ${{ matrix.target }}
         shell: bash
 
-      # Run tests (only on non-cross compilation targets)
+      # Run tests (cargo test on non-ubuntu platforms only)
       - name: Run tests
         id: run-tests
+        if: matrix.os != 'ubuntu-latest' && matrix.cross == false
         shell: bash
         continue-on-error: true
         run: |
           cd rust
-          # Run standard tests without python-driver feature
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "macos-latest" || "${{ matrix.os }}" == "macos-15-intel" ]]; then
-            # Skip Playwright tests on ubuntu-latest and macos-latest (no display)
-            cargo test --target ${{ matrix.target }} -- --skip test_acquisition_daemon \
-                --skip test_python_node_scipy_bandpass_filter_single_channel \
-                --skip test_python_node_scipy_bandpass_filter_dual_channel \
-                --skip test_rapidoc_shadow_dom_rendering \
-                --skip test_rapidoc_page_title \
-                --skip test_rapidoc_api_operations_visible \
-                --skip test_rapidoc_footer_github_link \
-                --skip rapidoc_playwright_test \
-                --skip test_rapidoc_json_code_block_rendering
-          else
-            # Run all tests (including Playwright) on other platforms
-            if [[ "$PLAYWRIGHT_TEST_ENABLED" == "1" ]]; then
-              cargo test --target ${{ matrix.target }}  -- --skip test_acquisition_daemon 
-            else
-              cargo test --target ${{ matrix.target }} -- --skip test_rapidoc_shadow_dom_rendering \
-                  --skip test_rapidoc_page_title \
-                  --skip test_rapidoc_api_operations_visible \
-                  --skip test_rapidoc_footer_github_link \
-                  --skip test_acquisition_daemon \
-                  --skip rapidoc_playwright_test \
-                  --skip test_rapidoc_json_code_block_rendering
-            fi
-          fi
+          cargo test --target ${{ matrix.target }} -- ${{ env.TESTS_TO_SKIP }}
 
       - name: Save Playwright browsers cache (Linux)
         if: always() && runner.os == 'Linux' && env.PLAYWRIGHT_TEST_ENABLED == '1'
@@ -446,7 +424,7 @@ jobs:
           rm -rf ~/.cargo/git || true
           echo "Kept deps and incremental for coverage"
 
-      - name: Restore target directory after cleaning for coverage
+      - name: Restore target directory for code coverage
         id: restore-target-for-coverage
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         uses: actions/cache@v5
@@ -458,8 +436,8 @@ jobs:
             ${{ runner.os }}-cargocoverage-${{ matrix.target }}-
             ${{ runner.os }}-cargocoverage-
 
-      # Run code coverage on Linux only
-      - name: Run code coverage
+      # Run tests with code coverage (ubuntu-latest only)
+      - name: Run tests and code coverage
         continue-on-error: true
         if: matrix.os == 'ubuntu-latest' && matrix.cross == false
         shell: bash
@@ -469,13 +447,7 @@ jobs:
           df -h
           cd rust
           cargo install cargo-tarpaulin
-          cargo tarpaulin --out Xml --output-dir . -- --skip test_acquisition_daemon \
-                                                      --skip test_python_node_scipy_bandpass_filter_single_channel \
-                                                      --skip test_python_node_scipy_bandpass_filter_dual_channel \
-                                                      --skip test_rapidoc_shadow_dom_rendering \
-                                                      --skip test_rapidoc_page_title \
-                                                      --skip test_rapidoc_api_operations_visible \
-                                                      --skip test_rapidoc_footer_github_link
+          cargo tarpaulin --out Xml --output-dir . -- ${{ env.TESTS_TO_SKIP }}
           ls -la cobertura.xml
 
       # Check space left (Ubuntu)
