@@ -878,6 +878,11 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Using tag: $TAG"
 
+      - name: Check out the repo for git context
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Create release for nightly builds
         if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
@@ -886,7 +891,7 @@ jobs:
         run: |
           TAG=${{ steps.set_tag.outputs.tag }}
           echo "Creating nightly release: $TAG"
-          gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
 
       - name: Download all artifacts
         uses: actions/download-artifact@v7
