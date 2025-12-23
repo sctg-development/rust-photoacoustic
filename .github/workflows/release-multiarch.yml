@@ -20,10 +20,55 @@ on:
         required: false
         default: false
         type: boolean
+      skip_static_deps:
+        description: "Skip building static-deps image (use :latest)"
+        required: false
+        default: false
+        type: boolean
+      skip_python_builder:
+        description: "Skip building python-builder image (use :latest)"
+        required: false
+        default: false
+        type: boolean
+      skip_app_build:
+        description: "Skip building application images (use latest-amd64/arm64 from previous builds)"
+        required: false
+        default: false
+        type: boolean
 
 env:
   PYTHON_VERSION: "3.12.12"
   PYTHON_SHORT_VERSION: "3.12"
+
+# ========================================================
+# WORKFLOW LOGIC DOCUMENTATION
+# ========================================================
+# This workflow can be executed in different ways by controlling skip inputs:
+#
+# SCENARIO 1: Full run (default, ~7h30)
+#   - All builds execute: build_static_deps -> build_python_builder -> build_amd64/arm64 -> create_multiarch_manifest -> release
+#
+# SCENARIO 2: Skip static-deps only (if only minor changes)
+#   - Skip: build_static_deps (uses sctg/rust-photoacoustic-static-deps:latest)
+#   - Execute: build_python_builder -> build_amd64/arm64 -> create_multiarch_manifest -> release
+#   - Set: skip_static_deps: true
+#
+# SCENARIO 3: Skip Python builder only (if only minor changes)
+#   - Execute: build_static_deps -> skip python-builder (uses sctg/rust-photoacoustic-python-builder:latest)
+#   - Execute: build_amd64/arm64 -> create_multiarch_manifest -> release
+#   - Set: skip_python_builder: true
+#
+# SCENARIO 4: Skip all app builds (~1h, testing release stage only)
+#   - Execute: build_static_deps -> build_python_builder -> SKIP build_amd64/arm64
+#   - Execute: create_multiarch_manifest (uses latest-amd64 and latest-arm64 images from previous builds)
+#   - Execute: release
+#   - Set: skip_app_build: true
+#
+# SCENARIO 5: Quick run with all dependency skip (~20min, release stage only)
+#   - Skip all dependency builds (uses :latest images)
+#   - Skip all app builds (uses latest-amd64/arm64)
+#   - Execute: create_multiarch_manifest -> release
+#   - Set: skip_static_deps: true, skip_python_builder: true, skip_app_build: true
 
 jobs:
   # Build non-static binaries for multiple platforms
@@ -371,7 +416,7 @@ jobs:
   build_static_deps:
     name: Build Static Dependencies
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_dependency_builds || github.event_name == 'release' }}
+    if: ${{ (inputs.skip_static_deps == false && inputs.skip_dependency_builds == false) || github.event_name == 'release' }}
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
@@ -435,9 +480,9 @@ jobs:
   build_python_builder:
     name: Build Python Builder
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_dependency_builds || github.event_name == 'release' }}
+    if: ${{ (inputs.skip_python_builder == false && inputs.skip_dependency_builds == false) || github.event_name == 'release' }}
     needs: build_static_deps
-    continue-on-error: ${{ inputs.skip_dependency_builds || false }}
+    continue-on-error: ${{ inputs.skip_python_builder == true }}
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
@@ -533,7 +578,7 @@ jobs:
     name: Build Application (x86_64)
     runs-on: ubuntu-latest
     needs: [build_python_builder, get_version_tag]
-    if: ${{ inputs.skip_dependency_builds || success('build_python_builder') }}
+    if: ${{ inputs.skip_app_build == false && (inputs.skip_python_builder == false || inputs.skip_dependency_builds == false) && (inputs.skip_static_deps == false || inputs.skip_dependency_builds == false) }}
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@docker-storage
@@ -591,7 +636,7 @@ jobs:
     name: Build Application (arm64)
     needs: [build_python_builder, get_version_tag]
     runs-on: ubuntu-latest
-    if: ${{ inputs.skip_dependency_builds || success('build_python_builder') }}
+    if: ${{ inputs.skip_app_build == false && (inputs.skip_python_builder == false || inputs.skip_dependency_builds == false) && (inputs.skip_static_deps == false || inputs.skip_dependency_builds == false) }}
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@docker-storage
@@ -660,6 +705,10 @@ jobs:
     name: Create Multi-Architecture Manifest
     needs: [build_amd64, build_arm64, get_version_tag]
     runs-on: ubuntu-latest
+    if: |
+      always() &&
+      (inputs.skip_app_build == false || 
+       (inputs.skip_app_build == true && inputs.skip_python_builder == true && inputs.skip_static_deps == true))
     steps:
       - name: Download Tag from Previous Job
         uses: actions/download-artifact@v7
@@ -673,6 +722,21 @@ jobs:
           TAG=$(cat tag.txt)
           echo "Using tag: $TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Determine image tags to use
+        id: image_tags
+        shell: bash
+        run: |
+          TAG=${{ steps.get_tag.outputs.tag }}
+
+          # If app build was skipped, use latest tags
+          if [ "${{ inputs.skip_app_build }}" = "true" ]; then
+            echo "arm64_tag=latest-arm64" >> $GITHUB_OUTPUT
+            echo "amd64_tag=latest-amd64" >> $GITHUB_OUTPUT
+          else
+            echo "arm64_tag=${TAG}-arm64" >> $GITHUB_OUTPUT
+            echo "amd64_tag=${TAG}-amd64" >> $GITHUB_OUTPUT
+          fi
 
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@docker-storage
@@ -703,11 +767,13 @@ jobs:
         continue-on-error: true
         run: |
           TAG=${{ steps.get_tag.outputs.tag }}
+          ARM64_TAG=${{ steps.image_tags.outputs.arm64_tag }}
+          AMD64_TAG=${{ steps.image_tags.outputs.amd64_tag }}
 
           # retrieve arm64 image and extract binaries
-          docker pull --platform linux/arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          docker pull --platform linux/arm64 sctg/rust-photoacoustic:${ARM64_TAG}
           # extract arm64 binaries
-          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}-arm64
+          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${ARM64_TAG}
           mkdir -p /tmp/arm64-binaries/usr/local/bin /tmp/arm64-binaries/usr/local/lib
           for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
             docker cp temp-container-arm64:/usr/local/bin/$binary /tmp/arm64-binaries/usr/local/bin/ || echo "$binary not found"
@@ -718,9 +784,9 @@ jobs:
           docker rm temp-container-arm64
 
           # retrieve amd64 image and extract binaries
-          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          docker pull --platform linux/amd64 sctg/rust-photoacoustic:${AMD64_TAG}
           # extract amd64 binaries
-          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}-amd64
+          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${AMD64_TAG}
           mkdir -p /tmp/amd64-binaries/usr/local/bin /tmp/amd64-binaries/usr/local/lib
           for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do
             docker cp temp-container-amd64:/usr/local/bin/$binary /tmp/amd64-binaries/usr/local/bin/ || echo "$binary not found"
@@ -794,6 +860,7 @@ jobs:
     name: Release Static Binaries from Artifacts
     runs-on: ubuntu-latest
     needs: [build_release_binaries, create_multiarch_manifest]
+    if: always() && !failure()
     env:
       DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
       INDIVIDUAL_STATIC_RELEASES: off # Set to 'enabled' to enable individual static releases
