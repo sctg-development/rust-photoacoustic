@@ -136,4 +136,5 @@ COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/
 COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
 COPY --from=liblzma-static-builder /usr/local/lib/liblzma.a /usr/local/lib/liblzma.a
 COPY --from=liblzma-static-builder /usr/local/include/lzma.h /usr/local/include/lzma.h
+COPY --from=liblzma-static-builder /usr/local/include/lzma /usr/local/include/lzma
 COPY --from=liblzma-static-builder /usr/local/lib/pkgconfig/liblzma.pc /usr/local/lib/pkgconfig/liblzma.pc
