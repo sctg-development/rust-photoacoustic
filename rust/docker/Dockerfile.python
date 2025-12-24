@@ -13,21 +13,15 @@ ARG PYTHON_SHORT_VERSION=3.13
 
 RUN apk update && apk add \
     clang git patch cmake build-base \
-    curl curl-dev curl-static \
+    curl curl-dev curl-static\
     pkgconfig \
     musl-dev autoconf automake libtool \
-    linux-headers
+    linux-headers expat-dev expat-static
 
 # Copy static dependencies from the deps image
-COPY --from=deps /usr/local/lib/libz.a /usr/local/lib/libz.a
-COPY --from=deps /usr/local/include/zlib.h /usr/local/include/zlib.h
-COPY --from=deps /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
-COPY --from=deps /usr/local/lib64/libssl.a /usr/local/lib64/libssl.a
-COPY --from=deps /usr/local/lib64/libcrypto.a /usr/local/lib64/libcrypto.a
-COPY --from=deps /usr/local/include/openssl /usr/local/include/openssl
-COPY --from=deps /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
-COPY --from=deps /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
-COPY --from=deps /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
+COPY --from=deps /usr/local/lib/*.a /usr/local/lib/
+COPY --from=deps /usr/local/include /usr/local/include
+COPY --from=deps /usr/local/lib/pkgconfig    /usr/local/lib/pkgconfig
 
 # Build mimalloc
 RUN git clone https://github.com/microsoft/mimalloc.git &&\
@@ -39,7 +33,7 @@ RUN git clone https://github.com/microsoft/mimalloc.git &&\
     -DMI_BUILD_SHARED=OFF \
     -DMI_BUILD_OBJECT=OFF \
     -DMI_BUILD_TESTS=OFF &&\
-    make -j$(nproc) && make install
+    make -j$(nproc) && make install || true
 
 COPY --from=sctg/libtermcap:musl-1.3.2 /usr/local/lib/libtermcap.a /usr/local/lib/libtermcap.a
 COPY --from=sctg/libtermcap:musl-1.3.2 /usr/local/include/termcap.h /usr/local/include/termcap.h
@@ -59,38 +53,46 @@ RUN cd /mimalloc/build && \
     rm -fv /usr/lib/libreadline.so*
 
 # Compile python statically
-COPY rust/docker/static-modules.diff /static-modules.diff
+COPY rust/docker/Setup.local /Setup.local
+RUN rm /usr/lib/libexpat.so* || true
 RUN curl -sl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz | tar xz -C / && \
     cd /Python-$PYTHON_VERSION && \
-    patch -p0 < /static-modules.diff && \
+    cp /Setup.local Modules/Setup.local && \
     ./configure --prefix=/usr/local \
     --disable-shared \
     --disable-test-modules \
-    --with-openssl=/usr/local/ssl \
+    --with-builtin-hashlib-hashes \
     --with-ensurepip=install \
-    --enable-optimizations \
+    --disable-optimizations \
     --with-static-libpython \
     ac_cv_func_preadv2=no \
     ac_cv_func_pwritev2=no \
-    LDFLAGS="-static -L/usr/local/lib -L/usr/local/lib/mimalloc-2.2 -L/usr/local/lib64 -ltermcap -lreadline -lhistory -lmimalloc -lssl -lcrypto -lz" \
-    CFLAGS="-static -fPIC" \
+    LDFLAGS="-static -L/usr/local/lib -L/usr/local/lib/mimalloc-2.2 -lffi -luuid -lintl -lssl -lcrypto -lz -lbz2 -lexpat" \
+    CFLAGS="-static -fPIC -I/usr/local/include -I/usr/local/include/uuid" \
     CPPFLAGS="-static" \
     LINKFORSHARED=" " \
+    OPENSSL_INCLUDES="/usr/local/include" \
+    OPENSSL_LDFLAGS="-L/usr/local/lib -static" \
     DYNLOADFILE="dynload_stub.o" && \
     make -j$(nproc) python && \
-    make -j$(nproc) install 2> /dev/null || true && \
-    ln -s /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python && \
-    ln -s /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python3 && \
-    ln -s /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython3.a && \
-    ln -s /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython.a && \
-    ln -s /usr/local/include/python$PYTHON_SHORT_VERSION /usr/local/include/python3 && \
+    make -j$(nproc) install || true && \
+    ln -sf /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python && \
+    ln -sf /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python3 && \
+    ln -sf /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython3.a && \
+    ln -sf /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython.a && \
+    ln -sf /usr/local/include/python$PYTHON_SHORT_VERSION /usr/local/include/python3 && \
     mkdir -p /usr/local/lib/python${PYTHON_SHORT_VERSION} && \
     cp -r /Python-$PYTHON_VERSION/Lib/* /usr/local/lib/python${PYTHON_SHORT_VERSION}/ && \
+    rm -rf /usr/local/lib/python${PYTHON_SHORT_VERSION}/lib-dynload/* && \
     echo "Python and libpython$PYTHON_VERSION built and installed successfully"
 
 RUN echo "Static Python build complete. Verifying installation..." && \
     python3 --version && \
     ldd $(which python3) || echo "ldd check skipped for static binary"
+
+# # Bootstrap pip and setuptools
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3 && \
+    pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
 # Create PyO3 configuration file for static linking
 RUN echo "implementation=CPython" > /Python-$PYTHON_VERSION/pyo3-config.txt && \
