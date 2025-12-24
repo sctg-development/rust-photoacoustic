@@ -133,6 +133,11 @@ RUN cd /tmp/libffi-${LIBFFI_VERSION} && \
     make -j$(nproc) && \
     make install
 
+FROM alpine:3.23 AS libuuid-static-deps
+ARG LIBUUID_VERSION=2.38.2
+RUN apk update && apk add \
+    util-linux-static util-linux-dev
+
 # Final stage: export all static dependencies
 FROM alpine:3.23
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
@@ -158,3 +163,8 @@ COPY --from=libffi-static-deps /usr/local/lib/libffi.a /usr/local/lib/libffi.a
 COPY --from=libffi-static-deps /usr/local/include/ffi.h /usr/local/include/ffi.h
 COPY --from=libffi-static-deps /usr/local/include/ffitarget.h /usr/local/include/ffitarget.h
 COPY --from=libffi-static-deps /usr/local/lib/pkgconfig/libffi.pc /usr/local/lib/pkgconfig/libffi.pc
+COPY --from=libuuid-static-deps /usr/lib/libuuid.a /usr/local/lib/libuuid.a
+COPY --from=libuuid-static-deps /usr/include/uuid/uuid.h /usr/local/include/uuid/uuid.h
+COPY --from=libuuid-static-deps /usr/lib/pkgconfig/uuid.pc /usr/local/lib/pkgconfig/uuid.pc
+# Patch uuid.pc to reflect new lib path
+RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc
