@@ -150,10 +150,12 @@ RUN cd /tmp && \
     --enable-static --disable-shared && \
     make -j$(nproc) && \
     make install
+COPY rust/docker/uuid-patch.diff /tmp/uuid-patch.diff
 RUN cd /tmp && \
     # retry 5 times in case of transient network issues
     git clone https://github.com/util-linux/util-linux --branch v${LIBUUID_VERSION} --depth 1 && \
     cd util-linux && \
+    patch -p1 < /tmp/uuid-patch.diff && \
     ./autogen.sh && \
     CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared \
     --disable-liblastlog2 \
@@ -165,10 +167,9 @@ RUN cd /tmp && \
     # create a pkgconfig file for libuuid
     mkdir -p /usr/local/lib/pkgconfig && \
     printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: uuid\nDescription: Universally Unique Identifier library\nVersion: %s\nLibs: -L${libdir} -luuid\nCflags: -I${includedir}/uuid\n' '${LIBUUID_VERSION}' > /usr/local/lib/pkgconfig/uuid.pc
-# Create a minimal test to verify that libuuid is working correctly
-RUN printf '#include <uuid/uuid.h>\n#include <stdio.h>\nint main() {\nuuid_t id;\nuuid_generate_random(id);\nchar str[37];\nuuid_unparse(id, str);\nprintf("Generated UUID: %%s\\n", str);\nreturn 0;\n}' > /tmp/test_libuuid.c && \
-    clang -static -o /tmp/test_libuuid /tmp/test_libuuid.c -I/usr/local/include -L/usr/local/lib -luuid -lintl && \
-    /tmp/test_libuuid
+COPY rust/docker/test_uuid.c /tmp/test_uuid.c
+RUN clang -static -o /tmp/test_uuid /tmp/test_uuid.c -I/usr/local/include -L/usr/local/lib -luuid -lintl && \
+    /tmp/test_uuid
 
 # Final stage: export all static dependencies
 FROM alpine:3.23

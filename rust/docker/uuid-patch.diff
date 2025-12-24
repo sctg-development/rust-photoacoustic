@@ -1,0 +1,405 @@
+diff --git a/libuuid/src/Makemodule.am b/libuuid/src/Makemodule.am
+index 867ad7be5..27611a9ca 100644
+--- a/libuuid/src/Makemodule.am
++++ b/libuuid/src/Makemodule.am
+@@ -23,6 +23,10 @@ libuuid_la_SOURCES = \
+ 	libuuid/src/unparse.c \
+ 	libuuid/src/uuidd.h \
+ 	libuuid/src/uuid_time.c \
++	libuuid/src/uuid_enc_be.c \
++	libuuid/src/uuid_enc_le.c \
++	libuuid/src/uuid_dec_be.c \
++	libuuid/src/uuid_dec_le.c \
+ 	libuuid/src/predefined.c \
+ 	lib/randutils.c \
+ 	lib/md5.c \
+diff --git a/libuuid/src/libuuid.sym b/libuuid/src/libuuid.sym
+index 106c01779..a92964870 100644
+--- a/libuuid/src/libuuid.sym
++++ b/libuuid/src/libuuid.sym
+@@ -58,6 +58,10 @@ global:
+ UUID_2.40 {
+ global:
+         uuid_time64*; /* only on 32bit architectures with 64bit time_t */
++	uuid_enc_be;
++	uuid_enc_le;
++	uuid_dec_be;
++	uuid_dec_le;
+ } UUID_2.36;
+ 
+ 
+diff --git a/libuuid/src/uuid.h b/libuuid/src/uuid.h
+index 2e3642cd6..1d5dde2bf 100644
+--- a/libuuid/src/uuid.h
++++ b/libuuid/src/uuid.h
+@@ -1,7 +1,7 @@
+ /*
+  * Public include file for the UUID library
+  *
+- * Copyright (C) 1996, 1997, 1998 Theodore Ts'o.
++ * Copyright (C) 1996, 1997 Theodore Ts'o. 2025 Ronan Le Meillat - SCTG Development
+  *
+  * %Begin-Header%
+  * Redistribution and use in source and binary forms, with or without
+@@ -44,80 +44,93 @@
+ typedef unsigned char uuid_t[16];
+ 
+ /* UUID Variant definitions */
+-#define UUID_VARIANT_NCS	0
+-#define UUID_VARIANT_DCE	1
+-#define UUID_VARIANT_MICROSOFT	2
+-#define UUID_VARIANT_OTHER	3
++#define UUID_VARIANT_NCS 0
++#define UUID_VARIANT_DCE 1
++#define UUID_VARIANT_MICROSOFT 2
++#define UUID_VARIANT_OTHER 3
+ 
+-#define UUID_VARIANT_SHIFT	5
+-#define UUID_VARIANT_MASK     0x7
++#define UUID_VARIANT_SHIFT 5
++#define UUID_VARIANT_MASK 0x7
+ 
+ /* UUID Type definitions */
+-#define UUID_TYPE_DCE_NIL    0
+-#define UUID_TYPE_DCE_TIME   1
++#define UUID_TYPE_DCE_NIL 0
++#define UUID_TYPE_DCE_TIME 1
+ #define UUID_TYPE_DCE_SECURITY 2
+-#define UUID_TYPE_DCE_MD5    3
++#define UUID_TYPE_DCE_MD5 3
+ #define UUID_TYPE_DCE_RANDOM 4
+-#define UUID_TYPE_DCE_SHA1   5
++#define UUID_TYPE_DCE_SHA1 5
+ 
+-#define UUID_TYPE_SHIFT      4
+-#define UUID_TYPE_MASK     0xf
++#define UUID_TYPE_SHIFT 4
++#define UUID_TYPE_MASK 0xf
+ 
+-#define UUID_STR_LEN	37
++#define UUID_STR_LEN 37
+ 
+ /* Allow UUID constants to be defined */
+ #ifdef __GNUC__
+-#define UUID_DEFINE(name,u0,u1,u2,u3,u4,u5,u6,u7,u8,u9,u10,u11,u12,u13,u14,u15) \
+-	static const uuid_t name __attribute__ ((unused)) = {u0,u1,u2,u3,u4,u5,u6,u7,u8,u9,u10,u11,u12,u13,u14,u15}
++#define UUID_DEFINE(name, u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15) \
++	static const uuid_t name __attribute__((unused)) = {u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15}
+ #else
+-#define UUID_DEFINE(name,u0,u1,u2,u3,u4,u5,u6,u7,u8,u9,u10,u11,u12,u13,u14,u15) \
+-	static const uuid_t name = {u0,u1,u2,u3,u4,u5,u6,u7,u8,u9,u10,u11,u12,u13,u14,u15}
++#define UUID_DEFINE(name, u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15) \
++	static const uuid_t name = {u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15}
+ #endif
+ 
+ #ifdef __cplusplus
+-extern "C" {
++extern "C"
++{
+ #endif
+ 
+-/* clear.c */
+-extern void uuid_clear(uuid_t uu);
++	/* clear.c */
++	extern void uuid_clear(uuid_t uu);
+ 
+-/* compare.c */
+-extern int uuid_compare(const uuid_t uu1, const uuid_t uu2);
++	/* compare.c */
++	extern int uuid_compare(const uuid_t uu1, const uuid_t uu2);
+ 
+-/* copy.c */
+-extern void uuid_copy(uuid_t dst, const uuid_t src);
++	/* copy.c */
++	extern void uuid_copy(uuid_t dst, const uuid_t src);
+ 
+-/* gen_uuid.c */
+-extern void uuid_generate(uuid_t out);
+-extern void uuid_generate_random(uuid_t out);
+-extern void uuid_generate_time(uuid_t out);
+-extern int uuid_generate_time_safe(uuid_t out);
++	/* gen_uuid.c */
++	extern void uuid_generate(uuid_t out);
++	extern void uuid_generate_random(uuid_t out);
++	extern void uuid_generate_time(uuid_t out);
++	extern int uuid_generate_time_safe(uuid_t out);
+ 
+-extern void uuid_generate_md5(uuid_t out, const uuid_t ns, const char *name, size_t len);
+-extern void uuid_generate_sha1(uuid_t out, const uuid_t ns, const char *name, size_t len);
++	extern void uuid_generate_md5(uuid_t out, const uuid_t ns, const char *name, size_t len);
++	extern void uuid_generate_sha1(uuid_t out, const uuid_t ns, const char *name, size_t len);
+ 
+-/* isnull.c */
+-extern int uuid_is_null(const uuid_t uu);
++	/* isnull.c */
++	extern int uuid_is_null(const uuid_t uu);
+ 
+-/* parse.c */
+-extern int uuid_parse(const char *in, uuid_t uu);
+-extern int uuid_parse_range(const char *in_start, const char *in_end, uuid_t uu);
++	/* parse.c */
++	extern int uuid_parse(const char *in, uuid_t uu);
++	extern int uuid_parse_range(const char *in_start, const char *in_end, uuid_t uu);
+ 
+-/* unparse.c */
+-extern void uuid_unparse(const uuid_t uu, char *out);
+-extern void uuid_unparse_lower(const uuid_t uu, char *out);
+-extern void uuid_unparse_upper(const uuid_t uu, char *out);
++	/* unparse.c */
++	extern void uuid_unparse(const uuid_t uu, char *out);
++	extern void uuid_unparse_lower(const uuid_t uu, char *out);
++	extern void uuid_unparse_upper(const uuid_t uu, char *out);
++
++	/* uuid_enc_be.c */
++	extern void uuid_enc_be(unsigned char *dst, const uuid_t uu);
++
++	/* uuid_enc_le.c */
++	extern void uuid_enc_le(unsigned char *dst, const uuid_t uu);
++
++	/* uuid_dec_be.c */
++	extern void uuid_dec_be(const unsigned char *src, uuid_t uu);
++
++	/* uuid_dec_le.c */
++	extern void uuid_dec_le(const unsigned char *src, uuid_t uu);
+ 
+ /* uuid_time.c */
+ #if defined(__USE_TIME_BITS64) && defined(__GLIBC__)
+-# define uuid_time uuid_time64
++#define uuid_time uuid_time64
+ #endif
+-extern time_t uuid_time(const uuid_t uu, struct timeval *ret_tv);
+-extern int uuid_type(const uuid_t uu);
+-extern int uuid_variant(const uuid_t uu);
++	extern time_t uuid_time(const uuid_t uu, struct timeval *ret_tv);
++	extern int uuid_type(const uuid_t uu);
++	extern int uuid_variant(const uuid_t uu);
+ 
+-/* predefined.c */
+-extern const uuid_t *uuid_get_template(const char *alias);
++	/* predefined.c */
++	extern const uuid_t *uuid_get_template(const char *alias);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/libuuid/src/uuid_dec_be.c b/libuuid/src/uuid_dec_be.c
+new file mode 100644
+index 000000000..e9ddda43e
+--- /dev/null
++++ b/libuuid/src/uuid_dec_be.c
+@@ -0,0 +1,41 @@
++/*
++ * Decode a UUID from big-endian format
++ *
++ * Copyright (C) 1996, 1997 Theodore Ts'o. 2025 Ronan Le Meillat - SCTG Development
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include "uuidP.h"
++#include <string.h>
++
++void uuid_dec_be(const unsigned char *src, uuid_t uu)
++{
++    memcpy(uu, src, sizeof(uuid_t));
++}
+diff --git a/libuuid/src/uuid_dec_le.c b/libuuid/src/uuid_dec_le.c
+new file mode 100644
+index 000000000..5cd611e0f
+--- /dev/null
++++ b/libuuid/src/uuid_dec_le.c
+@@ -0,0 +1,58 @@
++/*
++ * Decode a UUID from little-endian format
++ *
++ * Copyright (C) 1996, 1997 Theodore Ts'o. 2025 Ronan Le Meillat - SCTG Development
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include "uuidP.h"
++#include <string.h>
++
++void uuid_dec_le(const unsigned char *src, uuid_t uu)
++{
++    uint8_t *dst = uu;
++
++    /* time_low (bytes 0-3) - convert from little-endian to big-endian */
++    dst[0] = src[3];
++    dst[1] = src[2];
++    dst[2] = src[1];
++    dst[3] = src[0];
++
++    /* time_mid (bytes 4-5) - convert from little-endian to big-endian */
++    dst[4] = src[5];
++    dst[5] = src[4];
++
++    /* time_hi_and_version (bytes 6-7) - convert from little-endian to big-endian */
++    dst[6] = src[7];
++    dst[7] = src[6];
++
++    /* clock_seq and node (bytes 8-15) - remain in big-endian */
++    memcpy(dst + 8, src + 8, 8);
++}
+diff --git a/libuuid/src/uuid_enc_be.c b/libuuid/src/uuid_enc_be.c
+new file mode 100644
+index 000000000..f712eb410
+--- /dev/null
++++ b/libuuid/src/uuid_enc_be.c
+@@ -0,0 +1,41 @@
++/*
++ * Encode a UUID in big-endian format
++ *
++ * Copyright (C) 1996, 1997 Theodore Ts'o. 2025 Ronan Le Meillat - SCTG Development
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include "uuidP.h"
++#include <string.h>
++
++void uuid_enc_be(unsigned char *dst, const uuid_t uu)
++{
++    memcpy(dst, uu, sizeof(uuid_t));
++}
+diff --git a/libuuid/src/uuid_enc_le.c b/libuuid/src/uuid_enc_le.c
+new file mode 100644
+index 000000000..06377132e
+--- /dev/null
++++ b/libuuid/src/uuid_enc_le.c
+@@ -0,0 +1,58 @@
++/*
++ * Encode a UUID in little-endian format
++ *
++ * Copyright (C) 1996, 1997 Theodore Ts'o. 2025 Ronan Le Meillat - SCTG Development
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include "uuidP.h"
++#include <string.h>
++
++void uuid_enc_le(unsigned char *dst, const uuid_t uu)
++{
++    const uint8_t *src = uu;
++
++    /* time_low (bytes 0-3) - convert from big-endian to little-endian */
++    dst[0] = src[3];
++    dst[1] = src[2];
++    dst[2] = src[1];
++    dst[3] = src[0];
++
++    /* time_mid (bytes 4-5) - convert from big-endian to little-endian */
++    dst[4] = src[5];
++    dst[5] = src[4];
++
++    /* time_hi_and_version (bytes 6-7) - convert from big-endian to little-endian */
++    dst[6] = src[7];
++    dst[7] = src[6];
++
++    /* clock_seq and node (bytes 8-15) - remain in big-endian */
++    memcpy(dst + 8, src + 8, 8);
++}
