@@ -134,9 +134,41 @@ RUN cd /tmp/libffi-${LIBFFI_VERSION} && \
     make install
 
 FROM alpine:3.23 AS libuuid-static-deps
-ARG LIBUUID_VERSION=2.38.2
+ARG LIBUUID_VERSION=2.40.3
+ARG GETTEXT_VERSION=0.23
 RUN apk update && apk add \
-    util-linux-static util-linux-dev
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool flex bison bash\
+    linux-headers
+# Manually upgrade gettext-tools to a version >= 0.23 to avoid build issues
+RUN cd /tmp && \
+    wget https://ftp.gnu.org/gnu/gettext/gettext-${GETTEXT_VERSION}.tar.gz --output-document - | tar xz && \
+    cd /tmp/gettext-${GETTEXT_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --prefix=/usr \
+    --disable-curses \
+    --enable-static --disable-shared && \
+    make -j$(nproc) && \
+    make install
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    git clone https://github.com/util-linux/util-linux --branch v${LIBUUID_VERSION} --depth 1 && \
+    cd util-linux && \
+    ./autogen.sh && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared \
+    --disable-liblastlog2 \
+    --prefix=/usr/local && \
+    make -j$(nproc) libuuid.la && \
+    cp .libs/libuuid.a /usr/local/lib/ && \
+    mkdir -p /usr/local/include/uuid && \
+    cp libuuid/src/uuid.h /usr/local/include/uuid/ && \
+    # create a pkgconfig file for libuuid
+    mkdir -p /usr/local/lib/pkgconfig && \
+    printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: uuid\nDescription: Universally Unique Identifier library\nVersion: %s\nLibs: -L${libdir} -luuid\nCflags: -I${includedir}/uuid\n' '${LIBUUID_VERSION}' > /usr/local/lib/pkgconfig/uuid.pc
+# Create a minimal test to verify that libuuid is working correctly
+RUN printf '#include <uuid/uuid.h>\n#include <stdio.h>\nint main() {\nuuid_t id;\nuuid_generate_random(id);\nchar str[37];\nuuid_unparse(id, str);\nprintf("Generated UUID: %%s\\n", str);\nreturn 0;\n}' > /tmp/test_libuuid.c && \
+    clang -static -o /tmp/test_libuuid /tmp/test_libuuid.c -I/usr/local/include -L/usr/local/lib -luuid -lintl && \
+    /tmp/test_libuuid
 
 # Final stage: export all static dependencies
 FROM alpine:3.23
@@ -163,8 +195,15 @@ COPY --from=libffi-static-deps /usr/local/lib/libffi.a /usr/local/lib/libffi.a
 COPY --from=libffi-static-deps /usr/local/include/ffi.h /usr/local/include/ffi.h
 COPY --from=libffi-static-deps /usr/local/include/ffitarget.h /usr/local/include/ffitarget.h
 COPY --from=libffi-static-deps /usr/local/lib/pkgconfig/libffi.pc /usr/local/lib/pkgconfig/libffi.pc
-COPY --from=libuuid-static-deps /usr/lib/libuuid.a /usr/local/lib/libuuid.a
-COPY --from=libuuid-static-deps /usr/include/uuid/uuid.h /usr/local/include/uuid/uuid.h
-COPY --from=libuuid-static-deps /usr/lib/pkgconfig/uuid.pc /usr/local/lib/pkgconfig/uuid.pc
+COPY --from=libuuid-static-deps /usr/local/lib/libuuid.a /usr/local/lib/libuuid.a
+COPY --from=libuuid-static-deps /usr/local/include/uuid /usr/local/include/uuid
+COPY --from=libuuid-static-deps /usr/local/lib/pkgconfig/uuid.pc /usr/local/lib/pkgconfig/uuid.pc
+COPY --from=libuuid-static-deps /usr/lib/libintl.a /usr/local/lib/libintl.a
+COPY --from=libuuid-static-deps /usr/include/libintl.h /usr/local/include/libintl.h
+
 # Patch uuid.pc to reflect new lib path
 RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc
+# Create libintl.pc for libintl
+RUN printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: intl\nDescription: Internationalization library\nVersion: 0.21\nLibs: -L${libdir} -lintl\nCflags: -I${includedir}\n' > /usr/local/lib/pkgconfig/intl.pc
+# add libintl dependency to libuuid.pc
+RUN sed -i 's|^Libs: \(.*\)|Libs: \1 -lintl|' /usr/local/lib/pkgconfig/uuid.pc
