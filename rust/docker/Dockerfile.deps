@@ -117,6 +117,22 @@ RUN cd /tmp/xz-${LIBLZMA_VERSION} && \
     make -j$(nproc) && \
     make install
 
+FROM alpine:3.23 AS libffi-static-deps
+ARG LIBFFI_VERSION=3.5.2
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl -L --retry 5 -O https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz && \
+    tar xzvf libffi-${LIBFFI_VERSION}.tar.gz
+RUN cd /tmp/libffi-${LIBFFI_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
 # Final stage: export all static dependencies
 FROM alpine:3.23
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
@@ -138,3 +154,7 @@ COPY --from=liblzma-static-builder /usr/local/lib/liblzma.a /usr/local/lib/liblz
 COPY --from=liblzma-static-builder /usr/local/include/lzma.h /usr/local/include/lzma.h
 COPY --from=liblzma-static-builder /usr/local/include/lzma /usr/local/include/lzma
 COPY --from=liblzma-static-builder /usr/local/lib/pkgconfig/liblzma.pc /usr/local/lib/pkgconfig/liblzma.pc
+COPY --from=libffi-static-deps /usr/local/lib/libffi.a /usr/local/lib/libffi.a
+COPY --from=libffi-static-deps /usr/local/include/ffi.h /usr/local/include/ffi.h
+COPY --from=libffi-static-deps /usr/local/include/ffitarget.h /usr/local/include/ffitarget.h
+COPY --from=libffi-static-deps /usr/local/lib/pkgconfig/libffi.pc /usr/local/lib/pkgconfig/libffi.pc
