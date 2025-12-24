@@ -32,13 +32,33 @@ COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local
 RUN cd /tmp && \
     wget https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz --output-document - | tar xz
 RUN cd /tmp/openssl-${OPENSSL_VERSION} && \
-    ./Configure no-shared no-dso no-tests -fPIC \
+    ./Configure no-shared no-pinshared no-dso no-tests -fPIC \
     --prefix=/usr/local \
     --libdir=/usr/local/lib \
     --openssldir=/etc/ssl && \
     make -j$(nproc) && \
-    make install_sw install_ssldirs
+    make install && \
+    sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/libssl.pc && \
+    sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/libcrypto.pc && \
+    sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/openssl.pc
 
+FROM alpine:3.23 AS libbz2-static-builder
+ARG LIBBZ2_VERSION=1.0.8
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl --retry 5 -O https://sourceware.org/pub/bzip2/bzip2-${LIBBZ2_VERSION}.tar.gz && \
+    tar xzvf bzip2-${LIBBZ2_VERSION}.tar.gz
+RUN cd /tmp/bzip2-${LIBBZ2_VERSION} && \
+    CFLAGS="-fPIC -static" make -j$(nproc) && \
+    make install
+# create a pkgconfig file for libbz2
+RUN mkdir -p /usr/local/lib/pkgconfig && \
+    printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: bzip2\nDescription: A high-quality block-sorting file compressor library\nVersion: %s\nLibs: -L${libdir} -lbz2\nCflags: -I${includedir}\n' '${LIBBZ2_VERSION}' > /usr/local/lib/pkgconfig/bz2.pc
 FROM alpine:3.23 AS librdkafka-static-builder
 ARG LIBRDKAFKA_VERSION=2.12.1
 RUN apk update && apk add \
@@ -52,12 +72,16 @@ RUN apk update && apk add \
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
 COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
 COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
-COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib64/libssl.a
-COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib64/libcrypto.a
+COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib/libssl.a
+COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib/libcrypto.a
 COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
+COPY --from=libbz2-static-builder /usr/local/lib/libbz2.a /usr/local/lib/libbz2.a
+COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/bzlib.h
+COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
+
 RUN cd /tmp && \
     wget https://github.com/confluentinc/librdkafka/archive/refs/tags/v${LIBRDKAFKA_VERSION}.tar.gz --output-document - | tar xz
 RUN cd /tmp/librdkafka-${LIBRDKAFKA_VERSION} && \
@@ -77,13 +101,29 @@ RUN cd /tmp/librdkafka-${LIBRDKAFKA_VERSION} && \
     make install && \
     rm -f /usr/lib/librdkafka.so* /usr/local/lib/librdkafka.so*
 
+FROM alpine:3.23 AS liblzma-static-builder
+ARG LIBLZMA_VERSION=5.8.2
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl -L --retry 5 -O https://github.com/tukaani-project/xz/releases/download/v${LIBLZMA_VERSION}/xz-${LIBLZMA_VERSION}.tar.gz && \
+    tar xzvf xz-${LIBLZMA_VERSION}.tar.gz
+RUN cd /tmp/xz-${LIBLZMA_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared --enable-year2038 --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
 # Final stage: export all static dependencies
 FROM alpine:3.23
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
 COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
 COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
-COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib64/libssl.a
-COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib64/libcrypto.a
+COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib/libssl.a
+COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib/libcrypto.a
 COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
@@ -91,3 +131,9 @@ COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/loca
 COPY --from=librdkafka-static-builder /usr/local/lib/librdkafka.a /usr/local/lib/librdkafka.a
 COPY --from=librdkafka-static-builder /usr/local/include/librdkafka/ /usr/local/include/librdkafka/
 COPY --from=librdkafka-static-builder /usr/local/lib/pkgconfig/rdkafka.pc /usr/local/lib/pkgconfig/rdkafka.pc
+COPY --from=libbz2-static-builder /usr/local/lib/libbz2.a /usr/local/lib/libbz2.a
+COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/bzlib.h
+COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
+COPY --from=liblzma-static-builder /usr/local/lib/liblzma.a /usr/local/lib/liblzma.a
+COPY --from=liblzma-static-builder /usr/local/include/lzma.h /usr/local/include/lzma.h
+COPY --from=liblzma-static-builder /usr/local/lib/pkgconfig/liblzma.pc /usr/local/lib/pkgconfig/liblzma.pc
