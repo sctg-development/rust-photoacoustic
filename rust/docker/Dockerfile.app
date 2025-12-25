@@ -15,27 +15,16 @@ ARG PYTHON_SHORT_VERSION=3.13
 # Copy only essential Python files (not entire /usr/local)
 COPY --from=python-builder /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python$PYTHON_SHORT_VERSION
 COPY --from=python-builder /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a /usr/local/lib/libpython$PYTHON_SHORT_VERSION.a
-COPY --from=python-builder /usr/local/lib/libtermcap.a /usr/local/lib/libtermcap.a
-COPY --from=python-builder /usr/local/lib/libreadline.a /usr/local/lib/libreadline.a
-COPY --from=python-builder /usr/local/lib/libhistory.a /usr/local/lib/libhistory.a
+COPY --from=python-builder /usr/local/lib/*.a /usr/local/lib/
 COPY --from=python-builder /usr/local/lib/mimalloc-2.2/libmimalloc.a /usr/local/lib/libmimalloc.a
 COPY --from=python-builder /usr/local/include/python$PYTHON_SHORT_VERSION /usr/local/include/python$PYTHON_SHORT_VERSION
 COPY --from=python-builder /usr/local/lib/python$PYTHON_SHORT_VERSION /usr/local/lib/python$PYTHON_SHORT_VERSION
 COPY --from=python-builder /Python-$PYTHON_VERSION/pyo3-config.txt /Python-$PYTHON_VERSION/pyo3-config.txt
 
 # Copy static dependencies
-COPY --from=deps /usr/local/lib/libz.a /usr/local/lib/libz.a
-COPY --from=deps /usr/local/include/zlib.h /usr/local/include/zlib.h
-COPY --from=deps /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
-COPY --from=deps /usr/local/lib64/libssl.a /usr/local/lib64/libssl.a
-COPY --from=deps /usr/local/lib64/libcrypto.a /usr/local/lib64/libcrypto.a
-COPY --from=deps /usr/local/include/openssl /usr/local/include/openssl
-COPY --from=deps /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
-COPY --from=deps /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
-COPY --from=deps /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
-COPY --from=deps /usr/local/lib/librdkafka.a /usr/local/lib/librdkafka.a
-COPY --from=deps /usr/local/include/librdkafka/ /usr/local/include/librdkafka/
-COPY --from=deps /usr/local/lib/pkgconfig/rdkafka.pc /usr/local/lib/pkgconfig/rdkafka.pc
+COPY --from=deps /usr/local/lib/*.a /usr/local/lib/
+COPY --from=deps /usr/local/include /usr/local/include
+COPY --from=deps /usr/local/lib/pkgconfig    /usr/local/lib/pkgconfig
 
 RUN ln -sf /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python3 && \
     ln -sf /usr/local/bin/python$PYTHON_SHORT_VERSION /usr/local/bin/python
