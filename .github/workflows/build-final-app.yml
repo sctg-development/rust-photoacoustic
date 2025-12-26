@@ -102,7 +102,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./rust/docker/Dockerfile.app
+          file: ./rust/docker/Dockerfile.static_musl_app
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -161,7 +161,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./rust/docker/Dockerfile.app
+          file: ./rust/docker/Dockerfile.static_musl_app
           platforms: linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
