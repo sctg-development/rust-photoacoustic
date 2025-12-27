@@ -623,7 +623,7 @@ jobs:
           file: ./rust/docker/Dockerfile.static_musl_app
           platforms: linux/amd64
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           push: true
           tags: |
             sctg/rust-photoacoustic:latest-amd64
@@ -686,7 +686,7 @@ jobs:
           file: ./rust/docker/Dockerfile.static_musl_app
           platforms: linux/arm64
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           push: true
           tags: |
             sctg/rust-photoacoustic:latest-arm64
