@@ -21,6 +21,23 @@ RUN cd /tmp/zlib-${LIBZ_VERSION} && \
     make -j$(nproc) && \
     make install
 
+FROM alpine:3.23 AS mpdecimal-static-builder
+ARG MPDECIMAL_VERSION=4.0.1
+# https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-4.0.1.tar.gz
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl --retry 5 -O https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-${MPDECIMAL_VERSION}.tar.gz && \
+    tar xzvf mpdecimal-${MPDECIMAL_VERSION}.tar.gz
+RUN cd /tmp/mpdecimal-${MPDECIMAL_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
 FROM alpine:3.23 AS openssl-static-builder
 ARG OPENSSL_VERSION=3.6.0
 RUN apk update && apk add clang git patch cmake build-base \
@@ -68,10 +85,14 @@ RUN apk update && apk add \
     libpsl-static libpsl-dev\
     musl-dev autoconf automake libtool \
     linux-headers
-# Copy static zlib built in the previous stage
+# Copy static librairies built in the previous stages
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
 COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
 COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+COPY --from=mpdecimal-static-builder /usr/local/lib/*.a /usr/local/lib/
+COPY --from=mpdecimal-static-builder /usr/local/include/mpdecimal.h /usr/local/include/mpdecimal.h
+COPY --from=mpdecimal-static-builder /usr/local/include/decimal.hh /usr/local/include/decimal.hh
+COPY --from=mpdecimal-static-builder /usr/local/lib/pkgconfig/*.pc /usr/local/lib/pkgconfig/
 COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib/libssl.a
 COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib/libcrypto.a
 COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
@@ -201,6 +222,10 @@ COPY --from=libuuid-static-deps /usr/local/include/uuid /usr/local/include/uuid
 COPY --from=libuuid-static-deps /usr/local/lib/pkgconfig/uuid.pc /usr/local/lib/pkgconfig/uuid.pc
 COPY --from=libuuid-static-deps /usr/lib/libintl.a /usr/local/lib/libintl.a
 COPY --from=libuuid-static-deps /usr/include/libintl.h /usr/local/include/libintl.h
+COPY --from=mpdecimal-static-builder /usr/local/lib/*.a /usr/local/lib/
+COPY --from=mpdecimal-static-builder /usr/local/include/mpdecimal.h /usr/local/include/mpdecimal.h
+COPY --from=mpdecimal-static-builder /usr/local/include/decimal.hh /usr/local/include/decimal.hh
+COPY --from=mpdecimal-static-builder /usr/local/lib/pkgconfig/*.pc /usr/local/lib/pkgconfig/
 
 # Patch uuid.pc to reflect new lib path
 RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc

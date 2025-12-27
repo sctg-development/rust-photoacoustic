@@ -34,7 +34,7 @@ RUN apk update && apk add \
     alsa-utils alsaconf alsa-lib-dev \
     pkgconfig \
     musl-dev autoconf automake libtool \
-    linux-headers 
+    linux-headers expat-dev expat-static
 
 # Install node 22.x for building web assets
 COPY --from=node:22-alpine3.22 /usr/local/bin/node /usr/local/bin/node
@@ -65,11 +65,13 @@ ENV PYTHON_SYS_EXECUTABLE=/usr/local/bin/python3
 ENV PYO3_NO_PYTHON=0
 ENV PYO3_CONFIG_FILE=/Python-$PYTHON_VERSION/pyo3-config.txt
 
-ENV RUSTFLAGS="-C target-feature=+crt-static -L /usr/local/lib"
+ENV RUSTFLAGS="-C target-feature=+crt-static -L /usr/local/lib -L/usr/lib -l static=intl -l static=readline -l static=history -l static=termcap -l static=python$PYTHON_SHORT_VERSION -l static=rdkafka -l static=ssl -l static=crypto -l static=bz2 -l static=lzma -l static=z -l static=expat -l static=mpdec"
+ENV CARGO_CFG_TARGET_FEATURE="+crt-static"
 ENV PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 ENV PYTHON_CONFIGURE_OPTS="--enable-shared=no"
 ENV CFLAGS="-I/usr/local/include/python$PYTHON_SHORT_VERSION"
 ENV CPPFLAGS="-I/usr/local/include/python$PYTHON_SHORT_VERSION"
+ENV LDFLAGS="-static -L/usr/local/lib -L/usr/lib"
 
 # Compile ALSA library statically
 RUN cd /tmp && \
@@ -141,7 +143,7 @@ RUN cd /rust-photoacoustic/rust && \
     ln -svf /usr/bin/strip /usr/bin/arm-linux-musleabihf-strip && \
     ln -svf /usr/bin/ranlib /usr/bin/arm-linux-musleabihf-ranlib && \
     echo "armv7-unknown-linux-musleabihf" > _target && \
-    LDFLAGS="-static -L/usr/local/lib" RUSTFLAGS="-C target-feature=+crt-static -L /usr/local/lib -l static=intl -l static=readline -l static=history -l static=termcap -l static=python$PYTHON_SHORT_VERSION -l static=rdkafka -l static=ssl -l static=crypto" CARGO_CFG_TARGET_FEATURE="+crt-static" cargo build --release --target armv7-unknown-linux-musleabihf && \
+    cargo build --release --target armv7-unknown-linux-musleabihf && \
     echo "Build completed successfully for armv7l" && \
     ls -la target/armv7-unknown-linux-musleabihf/release/ || true; \
     elif [ "$(uname -m)" = "aarch64" ]; then \
@@ -151,7 +153,7 @@ RUN cd /rust-photoacoustic/rust && \
     ln -svf /usr/bin/strip /usr/bin/aarch64-linux-musl-strip && \
     ln -svf /usr/bin/ranlib /usr/bin/aarch64-linux-musl-ranlib && \
     echo "aarch64-unknown-linux-musl" > _target && \
-    LDFLAGS="-static -L/usr/local/lib" RUSTFLAGS="-C target-feature=+crt-static -L /usr/local/lib -l static=intl -l static=readline -l static=history -l static=termcap -l static=python$PYTHON_SHORT_VERSION -l static=rdkafka -l static=ssl -l static=crypto" CARGO_CFG_TARGET_FEATURE="+crt-static" cargo build --release --target aarch64-unknown-linux-musl && \
+    cargo build --release --target aarch64-unknown-linux-musl && \
     echo "Build completed successfully for aarch64" && \
     ls -la target/aarch64-unknown-linux-musl/release/ || true; \
     elif [ "$(uname -m)" = "x86_64" ]; then \
@@ -159,7 +161,7 @@ RUN cd /rust-photoacoustic/rust && \
     . /root/.cargo/env && rustup target add x86_64-unknown-linux-musl && \
     echo "x86_64-unknown-linux-musl" > _target && \
     echo "NEED TO REMOVE TRUE BEFORE FINAL BUILD" && \
-    LDFLAGS="-static -L/usr/local/lib" RUSTFLAGS="-C target-feature=+crt-static -L /usr/local/lib -l static=intl -l static=readline -l static=history -l static=termcap -l static=python$PYTHON_SHORT_VERSION -l static=rdkafka -l static=ssl -l static=crypto" CARGO_CFG_TARGET_FEATURE="+crt-static" cargo build --release --target x86_64-unknown-linux-musl || true && \
+    cargo build --release --target x86_64-unknown-linux-musl && \
     echo "Build completed successfully for x86_64" && \
     ls -la target/x86_64-unknown-linux-musl/release/ || true; \
     else \
@@ -167,23 +169,23 @@ RUN cd /rust-photoacoustic/rust && \
     fi
 
 # # Create staging directory with binaries for final image
-# RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
-#     mkdir -p /rust-photoacoustic/rust/release-staging && \
-#     echo "Staging binaries from target: $TARGET" && \
-#     for binary in analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
-#     if [ -f "/rust-photoacoustic/rust/target/$TARGET/release/$binary" ]; then \
-#     echo "Copying $binary to staging" && \
-#     cp "/rust-photoacoustic/rust/target/$TARGET/release/$binary" /rust-photoacoustic/rust/release-staging/ || true; \
-#     fi; \
-#     done && \
-#     echo "Staging directory contents:" && \
-#     ls -la /rust-photoacoustic/rust/release-staging/
+RUN TARGET=$(cat /rust-photoacoustic/rust/_target) && \
+    mkdir -p /rust-photoacoustic/rust/release-staging && \
+    echo "Staging binaries from target: $TARGET" && \
+    for binary in analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic; do \
+    if [ -f "/rust-photoacoustic/rust/target/$TARGET/release/$binary" ]; then \
+    echo "Copying $binary to staging" && \
+    cp "/rust-photoacoustic/rust/target/$TARGET/release/$binary" /rust-photoacoustic/rust/release-staging/ || true; \
+    fi; \
+    done && \
+    echo "Staging directory contents:" && \
+    ls -la /rust-photoacoustic/rust/release-staging/
 
 # # Clean up everything except the staging directory
-# RUN rm -rf /root/.cargo && \
-#     rm -rf /rust-photoacoustic/rust/target && \
-#     rm -rf /tmp/* && \
-#     echo "Build cleanup complete" 
+RUN rm -rf /root/.cargo && \
+    rm -rf /rust-photoacoustic/rust/target && \
+    rm -rf /tmp/* && \
+    echo "Build cleanup complete" 
 
 FROM alpine:3.23 AS runtime
 ARG PYTHON_VERSION=3.13.5
