@@ -1057,13 +1057,14 @@ jobs:
         continue-on-error: true
         run: |
           TAG=${{ steps.set_tag.outputs.tag }}
+          PYTHON_SHORT_VERSION="3.13"
 
           # Create amd64 static package
           if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
             mkdir -p /tmp/static-package-amd64/bin
             mkdir -p /tmp/static-package-amd64/lib
             
-            # Copy all binaries and remove architecture suffix for clean package
+            # Copy all binaries
             cd /tmp/amd64/
             for file in *_linux_amd64_static_${TAG}; do
               if [ -f "$file" ]; then
@@ -1077,6 +1078,18 @@ jobs:
                 echo "Added to amd64 package: ${original_name}"
               fi
             done
+            
+            # Copy Python stdlib and ALL modules (entire directory)
+            if [ -d "/tmp/amd64/python${PYTHON_SHORT_VERSION}" ] || [ -d "/tmp/amd64/lib/python${PYTHON_SHORT_VERSION}" ]; then
+              echo "Copying Python stdlib and modules to amd64 package..."
+              # Try both possible locations from the docker extraction
+              if [ -d "/tmp/amd64/python${PYTHON_SHORT_VERSION}" ]; then
+                cp -r "/tmp/amd64/python${PYTHON_SHORT_VERSION}" "/tmp/static-package-amd64/lib/"
+              elif [ -d "/tmp/amd64/lib/python${PYTHON_SHORT_VERSION}" ]; then
+                cp -r "/tmp/amd64/lib/python${PYTHON_SHORT_VERSION}" "/tmp/static-package-amd64/lib/"
+              fi
+              echo "Python modules copied successfully"
+            fi
             
             # Create launch scripts for all binaries
             for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
@@ -1147,7 +1160,7 @@ jobs:
             mkdir -p /tmp/static-package-arm64/bin
             mkdir -p /tmp/static-package-arm64/lib
             
-            # Copy all binaries and remove architecture suffix for clean package
+            # Copy all binaries
             cd /tmp/arm64/
             for file in *_linux_arm64_static_${TAG}; do
               if [ -f "$file" ]; then
@@ -1161,6 +1174,18 @@ jobs:
                 echo "Added to arm64 package: ${original_name}"
               fi
             done
+            
+            # Copy Python stdlib and ALL modules (entire directory)
+            if [ -d "/tmp/arm64/python${PYTHON_SHORT_VERSION}" ] || [ -d "/tmp/arm64/lib/python${PYTHON_SHORT_VERSION}" ]; then
+              echo "Copying Python stdlib and modules to arm64 package..."
+              # Try both possible locations from the docker extraction
+              if [ -d "/tmp/arm64/python${PYTHON_SHORT_VERSION}" ]; then
+                cp -r "/tmp/arm64/python${PYTHON_SHORT_VERSION}" "/tmp/static-package-arm64/lib/"
+              elif [ -d "/tmp/arm64/lib/python${PYTHON_SHORT_VERSION}" ]; then
+                cp -r "/tmp/arm64/lib/python${PYTHON_SHORT_VERSION}" "/tmp/static-package-arm64/lib/"
+              fi
+              echo "Python modules copied successfully"
+            fi
             
             # Create launch scripts for all binaries
             for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
