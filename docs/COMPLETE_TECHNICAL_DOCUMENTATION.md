@@ -23,7 +23,7 @@ This documentation is structured for multiple audiences:
 | [Rust Backend Architecture](#rust-backend-architecture) | Senior Rust developers | Section 3 |
 | [React Frontend Architecture](#react-frontend-architecture) | Senior TypeScript/React developers | Section 4 |
 | [Hardware Interface](#hardware-interface-lasersmart) | Hardware engineers | Section 5 |
-| [Student Guide](#student-guide) | DUT Computer Science students | Section 6 |
+| [General Developers Guide](#general-developers-guide) | Graduate students in computer science or related fields | Section 6 |
 | [API Reference](#api-reference) | All developers | Section 7 |
 | [Deployment Guide](#deployment-guide) | DevOps engineers | Section 8 |
 
@@ -39,7 +39,7 @@ This documentation is structured for multiple audiences:
 4. [Rust Backend Architecture](#rust-backend-architecture)
 5. [React Frontend Architecture](#react-frontend-architecture)
 6. [Hardware Interface: Laser+Smart](#hardware-interface-lasersmart)
-7. [Student Guide](#student-guide)
+7. [General Developers Guide](#general-developers-guide)
 8. [API Reference](#api-reference)
 9. [Deployment Guide](#deployment-guide)
 10. [Appendices](#appendices)
