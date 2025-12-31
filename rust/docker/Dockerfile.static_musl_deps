@@ -192,6 +192,23 @@ COPY rust/docker/test_uuid.c /tmp/test_uuid.c
 RUN clang -static -o /tmp/test_uuid /tmp/test_uuid.c -I/usr/local/include -L/usr/local/lib -luuid -lintl && \
     /tmp/test_uuid
 
+# Build a 100% static openblas library
+# FROM alpine:3.23 AS openblas-static-builder
+# ARG OPENBLAS_VERSION=0.3.30
+# RUN apk update && apk add \
+#     curl curl-dev curl-static clang git patch cmake build-base gfortran\
+#     pkgconfig \
+#     musl-dev autoconf automake libtool \
+#     linux-headers
+# RUN cd /tmp && \
+#     # retry 5 times in case of transient network issues
+#     curl --retry 5 -L -O https://github.com/xianyi/OpenBLAS/archive/refs/tags/v${OPENBLAS_VERSION}.tar.gz && \
+#     tar xzvf v${OPENBLAS_VERSION}.tar.gz && \
+#     cd OpenBLAS-${OPENBLAS_VERSION} && \
+#     make -j$(nproc) NO_SHARED=1 && \
+#     make PREFIX=/usr/local install NO_SHARED=1
+
+
 # Final stage: export all static dependencies
 FROM alpine:3.23
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
@@ -226,6 +243,9 @@ COPY --from=mpdecimal-static-builder /usr/local/lib/*.a /usr/local/lib/
 COPY --from=mpdecimal-static-builder /usr/local/include/mpdecimal.h /usr/local/include/mpdecimal.h
 COPY --from=mpdecimal-static-builder /usr/local/include/decimal.hh /usr/local/include/decimal.hh
 COPY --from=mpdecimal-static-builder /usr/local/lib/pkgconfig/*.pc /usr/local/lib/pkgconfig/
+# COPY --from=openblas-static-builder /usr/local/lib/*.a /usr/local/lib/
+# COPY --from=openblas-static-builder /usr/local/include/*.h /usr/local/include/
+# COPY --from=openblas-static-builder /usr/local/lib/pkgconfig/* /usr/local/lib/pkgconfig/
 
 # Patch uuid.pc to reflect new lib path
 RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc

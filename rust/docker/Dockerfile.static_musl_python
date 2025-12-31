@@ -94,6 +94,11 @@ RUN echo "Static Python build complete. Verifying installation..." && \
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3 && \
     pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
+# Install numPy and scipy
+#RUN apk update && apk add gfortran
+#RUN pip3 install --no-cache-dir --verbose numpy 
+#RUN pip3 install --no-cache-dir scipy
+
 # Create PyO3 configuration file for static linking
 RUN echo "implementation=CPython" > /Python-$PYTHON_VERSION/pyo3-config.txt && \
     echo "version=$PYTHON_SHORT_VERSION" >> /Python-$PYTHON_VERSION/pyo3-config.txt && \
