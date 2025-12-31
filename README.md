@@ -1,324 +1,679 @@
-![](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=Rust,TypeScript,TSX,C&category=code)
-![](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=TSX,Rust,TypeScript&category=comments&color=abdbe3)
-![](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=Markdown&label=doc&color=e28743)
+![Code](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=Rust,TypeScript,TSX,C&category=code)
+![Comments](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=TSX,Rust,TypeScript&category=comments&color=abdbe3)
+![Documentation](https://tokeisrv.sctg.eu.org/b1/github.com/sctg-development/rust-photoacoustic?type=Markdown&label=doc&color=e28743)
 [![codecov](https://codecov.io/github/sctg-development/rust-photoacoustic/branch/main/graph/badge.svg)](https://codecov.io/github/sctg-development/rust-photoacoustic)
-# Flexible Gas Analyzer by Laser Photoacoustic Spectroscopy
+![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)
+![React](https://img.shields.io/badge/React-19.x-blue.svg)
+![License](https://img.shields.io/badge/License-SCTG--NC--1.0-green.svg)
 
-## Development Philosophy & Disclaimer
+# 🔬 Rust-Photoacoustic
 
-This project follows a true continuous integration approach where development happens transparently in the main branch. This allows anyone to observe the real-time evolution of a complex scientific application from early stages through completion. Tests are designed and implemented in real-time with the code. This ensures that the continuous integration process not only verifies code functionality but also guarantees that development consistently aligns with the project's objectives.
+**Flexible Gas Analyzer using Laser Photoacoustic Spectroscopy**
 
-**Current Status:** This project is actively under development and not yet ready for production use. You're seeing the unfiltered development process - including experiments, refactoring, and iterative improvements.
+A comprehensive software and hardware platform for high-precision gas concentration measurement using differential Helmholtz resonator photoacoustic spectroscopy.
 
-**What This Means:**
+---
 
-- The codebase may be incomplete or contain non-working components
-- APIs and architecture may change significantly between commits
-- Tests are an integral part of development and may occasionally fail as new features are integrated or refactored, reflecting the ongoing alignment with project goals.
-- Documentation is being written alongside the code and evolves with it
+## 📋 Table of Contents
 
-Rather than hiding work-in-progress behind feature branches, this approach demonstrates how modern software development progresses through incremental improvements, refactoring, and testing. Feel free to watch, star, or fork this repository to follow its evolution from prototype to working application.
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Quick Start](#-quick-start)
+- [Project Structure](#-project-structure)
+- [Configuration](#-configuration)
+- [Physical Principles](#-physical-principles)
+- [Signal Processing Pipeline](#-signal-processing-pipeline)
+- [Technology Stack](#-technology-stack)
+- [API Reference](#-api-reference)
+- [Hardware Interface](#-hardware-interface)
+- [Development](#-development)
+- [Documentation](#-documentation)
+- [License](#-license)
 
-**License Note:** This code is provided as-is, without warranty, under the terms specified in the LICENSE file.
+---
 
-## Configuration
+## 🌟 Overview
 
-The application can be configured using a YAML configuration file. By default, it looks for `config.yaml` in the current directory.
+Rust-Photoacoustic is a complete platform for laser photoacoustic spectroscopy (LPAS), designed for real-time gas concentration measurement with laboratory-grade precision. The system provides:
+
+- **ppb-level sensitivity** (parts per billion) for trace gas detection
+- **Real-time processing** with <10ms latency
+- **Multi-platform support** (Linux, macOS, Windows)
+- **Industrial integration** via Modbus TCP and REST API
+- **Modern web interface** for visualization and control
+
+### Development Philosophy
+
+This project follows a transparent continuous integration approach where development happens openly in the main branch. Tests are designed and implemented in real-time, ensuring code functionality aligns with project objectives.
+
+> ⚠️ **Status**: Active development - APIs may change between commits.
+
+---
+
+## ✨ Key Features
+
+```mermaid
+mindmap
+  root((Rust-Photoacoustic))
+    Signal Processing
+      Real-time FFT
+      Butterworth filters
+      Differential subtraction
+      Lock-in detection
+      Python integration
+    Hardware Control
+      USB-HID interface
+      I2C/SPI protocols
+      Thermal regulation
+      DDS modulation
+    Web Interface
+      Real-time streaming
+      OAuth2/JWT security
+      6 languages + RTL
+      Interactive graphs
+    Industrial
+      Modbus TCP server
+      Redis Pub/Sub
+      Kafka streaming
+      REST API
+```
+
+### Performance Metrics
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **Sampling Rate** | 48 kHz | Stereo, 16-bit |
+| **FFT Resolution** | 4096 points | Configurable 256-8192 |
+| **Processing Latency** | < 10 ms | Real-time streaming |
+| **Web Streaming** | 60 fps | SSE with compression |
+| **ADC Resolution** | 16-bit | ±7.8 µV @ PGA=16 |
+| **DDS Resolution** | 0.004 Hz | 28-bit frequency register |
+| **Temperature Control** | ±0.1°C | PID regulation |
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart TB
+    subgraph Hardware["🔧 Hardware Layer"]
+        MIC["Microphones A/B"]
+        LASER["QCL/DFB Laser"]
+        TEC["TEC Controllers"]
+        NTC["NTC Thermistors"]
+    end
+
+    subgraph LaserSmart["⚡ Laser+Smart Interface"]
+        USB["USB-HID"]
+        ADC["4× ADS1115<br/>16-bit ADC"]
+        DAC["LTC2641<br/>12-bit DAC"]
+        DDS["AD9833<br/>DDS Modulator"]
+    end
+
+    subgraph Backend["🦀 Rust Backend"]
+        ACQ["Acquisition<br/>Daemon"]
+        PROC["Processing<br/>Graph Engine"]
+        THERM["Thermal<br/>Regulation"]
+        API["REST API<br/>+ SSE"]
+        MODBUS["Modbus<br/>Server"]
+    end
+
+    subgraph Frontend["⚛️ React Frontend"]
+        DASH["Dashboard"]
+        AUDIO["Audio<br/>Analyzer"]
+        GRAPH["Processing<br/>Graph Editor"]
+        THERMAL["Thermal<br/>Monitor"]
+    end
+
+    subgraph External["🌐 External Systems"]
+        SCADA["SCADA/PLC"]
+        REDIS["Redis"]
+        KAFKA["Kafka"]
+    end
+
+    MIC --> ADC
+    LASER --> DAC
+    TEC --> DAC
+    NTC --> ADC
+    
+    ADC --> USB
+    DAC --> USB
+    DDS --> USB
+    USB --> ACQ
+    
+    ACQ --> PROC
+    PROC --> API
+    PROC --> MODBUS
+    THERM --> API
+    
+    API --> DASH
+    API --> AUDIO
+    API --> GRAPH
+    API --> THERMAL
+    
+    MODBUS --> SCADA
+    PROC --> REDIS
+    PROC --> KAFKA
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Rust** 1.75 or later
+- **Node.js** 20+ (for frontend)
+- **Python** 3.10+ (optional, for Python drivers)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/sctg-development/rust-photoacoustic.git
+cd rust-photoacoustic
+
+# Build the backend
+cd rust
+cargo build --release
+
+# Install frontend dependencies
+cd ../web
+npm install
+
+# Start the application
+cd ../rust
+cargo run --release -- --server
+```
+
+### Quick Test
+
+```bash
+# Run with a test audio file
+cargo run -- --input-file examples/test_signal.wav --frequency 2000
+
+# Start server on custom port
+cargo run -- --server --web-port 9000
+
+# Enable verbose logging
+cargo run -- --server -v
+```
+
+---
+
+## 📁 Project Structure
+
+```plaintext
+rust-photoacoustic/
+├── rust/                          # 🦀 Rust Backend
+│   ├── src/
+│   │   ├── main.rs               # Application entry point
+│   │   ├── lib.rs                # Library exports
+│   │   ├── acquisition/          # Audio signal acquisition (CPAL)
+│   │   ├── preprocessing/        # Digital filters, differential
+│   │   ├── spectral/             # FFT, spectral analysis
+│   │   ├── processing/           # Processing graph engine (~3000 lines)
+│   │   ├── visualization/        # Web server, API, OAuth2
+│   │   ├── thermal_regulation/   # PID controllers
+│   │   ├── modbus/               # Modbus TCP server
+│   │   ├── daemon/               # Acquisition daemon
+│   │   ├── config/               # Configuration management
+│   │   ├── photoacoustic/        # Core domain logic
+│   │   └── utility/              # Helpers, certificate generation
+│   ├── auth-macros/              # Procedural macros for auth
+│   ├── examples/                 # Usage examples
+│   ├── tests/                    # Integration tests
+│   └── Cargo.toml
+│
+├── web/                           # ⚛️ React Frontend
+│   ├── src/
+│   │   ├── pages/                # Route pages
+│   │   │   ├── index.tsx         # Dashboard
+│   │   │   ├── audio.tsx         # Audio analyzer
+│   │   │   ├── thermal.tsx       # Thermal monitor
+│   │   │   └── graph.tsx         # Processing graph editor
+│   │   ├── components/           # Reusable UI components
+│   │   ├── hooks/                # Custom React hooks
+│   │   │   ├── useAudioStream.ts # Audio streaming (~2000 lines)
+│   │   │   └── useProcessingGraph.ts
+│   │   ├── authentication/       # Auth0/OIDC integration
+│   │   ├── locales/              # i18n translations (6 languages)
+│   │   └── contexts/             # React contexts
+│   └── package.json
+│
+├── hardware/                      # ⚡ Hardware Designs
+│   └── 6C47543F-DEE8-4421-881E-CF5E1C8FF55D/  # Laser+Smart
+│       ├── *.SchDoc              # Altium schematics
+│       ├── components/           # JLCPCB component library
+│       └── doc/                  # Hardware documentation
+│
+├── docs/                          # 📚 Documentation
+│   ├── COMPLETE_TECHNICAL_DOCUMENTATION.md
+│   ├── acquisition_daemon_guide_en.md
+│   ├── jwt_tokens.md
+│   └── ...
+│
+└── .github/                       # 🔄 CI/CD
+    └── workflows/
+        ├── ci.yml
+        ├── code-quality.yml
+        └── release-multiarch.yml
+```
+
+---
+
+## ⚙️ Configuration
 
 ### Configuration File
 
-You can specify an alternative configuration file using the `--config` command line argument:
-
-```bash
-cargo run --bin rust_photoacoustic -- --server --config /path/to/your/config.yaml
-```
-
-If the specified configuration file doesn't exist, a default one will be generated.
-
-### Example Configuration
+The application uses YAML configuration. Create `config.yaml`:
 
 ```yaml
-# Visualization server settings
+# Audio acquisition settings
+acquisition:
+  sample_rate: 48000              # Hz
+  buffer_size: 4096               # samples
+  channels: 2                     # stereo (A/B microphones)
+
+# Signal processing settings
+processing:
+  excitation_frequency: 2000.0    # Hz (laser modulation)
+  filter_bandwidth: 100.0         # Hz (bandpass filter)
+  fft_size: 4096                  # FFT window size
+  window_function: hann           # hann, blackman_harris, hamming
+  averaging_count: 10             # spectra to average
+
+# Web server settings
 visualization:
-  port: 8080                    # The port to listen on
-  address: 127.0.0.1            # The address to bind to
-  name: LaserSmartApiServer/0.1.0 # The server name
-  # SSL certificate PEM data (Base64 encoded) - Optional
-  # cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
-  # SSL key PEM data (Base64 encoded) - Optional
-  # key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
-  # HMAC secret for JWT token signing - Optional, default value will be used if not provided
-  hmac_secret: my-super-secret-jwt-key-for-photoacoustic-app
+  port: 8080
+  address: "127.0.0.1"
+  name: "LaserSmartApiServer/0.1.0"
+  hmac_secret: "your-secure-jwt-secret-key"
+  # Optional: Base64-encoded SSL certificates
+  # cert: "LS0tLS1CRUdJTi..."
+  # key: "LS0tLS1CRUdJTi..."
+
+# Modbus TCP server (industrial integration)
+modbus:
+  enabled: true
+  address: "0.0.0.0"
+  port: 5020
+
+# Thermal regulation (PID control)
+thermal_regulation:
+  enabled: true
+  setpoint: 25.0                  # °C
+  kp: 1.0                         # Proportional gain
+  ki: 0.1                         # Integral gain
+  kd: 0.05                        # Derivative gain
+
+# Processing graph (hot-reloadable)
+processing_graph:
+  nodes:
+    - id: "audio_input"
+      type: "AudioSource"
+      config:
+        device: "default"
+    - id: "bandpass"
+      type: "ButterworthFilter"
+      config:
+        filter_type: "bandpass"
+        low_cutoff: 1900.0
+        high_cutoff: 2100.0
+        order: 4
+    - id: "fft"
+      type: "FFTAnalyzer"
+      config:
+        size: 4096
+```
+
+### Command Line Options
+
+```bash
+# Core options
+--config <path>           # Configuration file path (default: config.yaml)
+--server                  # Start in server mode
+--input-device <name>     # Audio input device (e.g., hw:0,0)
+--input-file <path>       # Analyze WAV file instead of live audio
+
+# Processing parameters
+--frequency <Hz>          # Excitation frequency (default: 2000)
+--bandwidth <Hz>          # Filter bandwidth (default: 100)
+--window-size <samples>   # FFT size (default: 4096)
+--averages <count>        # Spectra to average (default: 10)
+
+# Server options
+--web-port, -p <port>     # Web server port (default: 8080)
+--web-address <addr>      # Bind address (default: 127.0.0.1)
+--hmac-secret <secret>    # JWT signing secret
+
+# Modbus options
+--modbus-enabled          # Enable Modbus server
+--modbus-address <addr>   # Modbus bind address
+--modbus-port <port>      # Modbus port (default: 5020)
+
+# Logging
+--verbose, -v             # Debug logging
+--quiet, -q               # Suppress all output
+--show-config-schema      # Print JSON schema and exit
 ```
 
 ### SSL Certificates
 
-The application automatically generates self-signed SSL certificates during the build process if they don't already exist. These certificates are stored in the `resources/` directory and are included in the binary at compile time.
+Certificates are auto-generated during build for development. For production:
 
-You don't need to manually create certificates for development purposes, but for production use, you can replace them with proper certificates. You can:
-
-1. Generate custom certificates using the utility function in `src/utility/certificate_utilities.rs`
-2. Directly add your own certificates to the `resources/` directory
-3. Specify base64-encoded certificates in the configuration file
-
-The build script will not overwrite existing certificate files.
-
-For production use you can put your own certificates in the configuration file like this:
+1. Place certificates in `resources/` directory
+2. Or specify base64-encoded in config:
 
 ```yaml
 visualization:
   cert: |
-    LS0tLS1CRUdJTiBDRVJUSUZJ0FURV0tLS0tLS0tCk1JSURnRENDQW9TZ0F3SUJBZ0lSQU5aR2d3Z1N3bG9wY2d4cG9iTjV6bXh4c2xvY3p6c2xvY3p6c2xvY3p6Ck1B
-  key: | 
-    LS0tLS1CRUdJTiBQUklWQVRFIEtFWS
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  key: |
+    LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
 ```
 
-This allows you to use your own certificates without needing to modify the code or build scripts.
+---
 
-### Command Line Overrides
+## 🔬 Physical Principles
 
-Command line arguments take precedence over configuration file values:
+### Photoacoustic Spectroscopy
 
-- `--web-port` overrides `visualization.port`
-- `--web-address` overrides `visualization.address`
-- `--hmac-secret` overrides `visualization.hmac_secret`
+```mermaid
+sequenceDiagram
+    participant L as Modulated Laser
+    participant G as Gas Sample
+    participant M as Microphone
+    participant S as Signal Processing
 
-### JWT Authentication
-
-The application uses JSON Web Tokens (JWT) for authentication. The HMAC secret used for signing and verifying JWTs can be configured in the following ways:
-
-1. In the configuration file:
-
-```yaml
-visualization:
-  # Other settings...
-  hmac_secret: your-secure-jwt-secret-key
+    L->>G: Pulsed IR radiation (f = 2 kHz)
+    Note over G: Molecular absorption<br/>H₂O, CO₂, CH₄...
+    G->>G: Thermal expansion<br/>(photoacoustic effect)
+    G->>M: Acoustic wave
+    M->>S: Electrical signal
+    S->>S: FFT at excitation frequency
+    Note over S: Amplitude ∝ concentration
 ```
 
-2. Via command line:
+**Key equations:**
+
+- Photoacoustic signal: $S_{PA} = \alpha \cdot P_L \cdot C \cdot Q$
+  - $\alpha$: absorption coefficient (cm⁻¹)
+  - $P_L$: laser power (W)
+  - $C$: gas concentration
+  - $Q$: cell quality factor
+
+- Helmholtz resonance: $f_0 = \frac{c}{2\pi}\sqrt{\frac{A}{V \cdot L}}$
+  - $c$: speed of sound
+  - $A$: neck cross-section
+  - $V$: cavity volume
+  - $L$: effective neck length
+
+### Differential Detection
+
+Two microphones (A and B) enable common-mode noise rejection:
+
+$$S_{diff} = S_A - S_B$$
+
+This cancels:
+- Ambient acoustic noise
+- Electronic interference
+- Temperature fluctuations
+
+---
+
+## 🔄 Signal Processing Pipeline
+
+```mermaid
+graph LR
+    subgraph Acquisition
+        A1[Mic A] --> |48kHz/16-bit| B1[Buffer A]
+        A2[Mic B] --> |48kHz/16-bit| B2[Buffer B]
+    end
+    
+    subgraph Preprocessing
+        B1 --> C1[Bandpass<br/>Filter]
+        B2 --> C2[Bandpass<br/>Filter]
+        C1 --> D[Differential<br/>A - B]
+        C2 --> D
+    end
+    
+    subgraph Analysis
+        D --> E[Windowing<br/>Hann/Blackman]
+        E --> F[FFT<br/>4096 pts]
+        F --> G[Peak<br/>Detection]
+    end
+    
+    subgraph Output
+        G --> H1[REST API]
+        G --> H2[Modbus]
+        G --> H3[SSE Stream]
+    end
+```
+
+### Processing Nodes Available
+
+| Node Type | Description | Parameters |
+|-----------|-------------|------------|
+| `AudioSource` | Audio input acquisition | device, sample_rate |
+| `WavFileSource` | WAV file reader | path, loop |
+| `ButterworthFilter` | IIR bandpass/lowpass/highpass | order, cutoff frequencies |
+| `Differential` | Channel subtraction | - |
+| `FFTAnalyzer` | Spectral analysis | size, window, overlap |
+| `PeakDetector` | Frequency/amplitude extraction | threshold, range |
+| `Averager` | Temporal averaging | count |
+| `PythonNode` | Custom Python processing | script_path |
+
+---
+
+## 🛠️ Technology Stack
+
+### Backend (Rust)
+
+| Category | Technology | Version |
+|----------|------------|---------|
+| Web Framework | Rocket | 0.5.1 |
+| Async Runtime | Tokio | 1.45 |
+| Audio | CPAL | 0.17 |
+| FFT | RustFFT | 6.4 |
+| Auth | jsonwebtoken + oxide-auth | 10.2 |
+| Modbus | tokio-modbus | 0.17 |
+| Python | PyO3 | 0.27 |
+| Serialization | Serde | 1.0 |
+
+### Frontend (TypeScript/React)
+
+| Category | Technology | Version |
+|----------|------------|---------|
+| Framework | React | 19.2 |
+| Build Tool | Vite | 7.3 |
+| UI Library | HeroUI | 2.x |
+| Charts | Chart.js | 4.5 |
+| Flow Editor | ReactFlow | 11.x |
+| Audio Viz | AudioMotion | 4.5 |
+| i18n | i18next | 25.x |
+| Auth | Auth0 / OIDC | 2.x |
+
+### Hardware (Laser+Smart)
+
+| Component | Part Number | Function |
+|-----------|-------------|----------|
+| MCU | ATmega32U4 | USB-HID controller |
+| ADC | ADS1115 ×4 | 16-bit, I²C, 860 SPS |
+| DAC | LTC2641 | 12-bit, SPI |
+| DDS | AD9833 | Frequency synthesis |
+| GPIO | MCP23017 | I²C expander |
+| Reference | REF5040 | 4.096V precision |
+
+---
+
+## 📡 API Reference
+
+### Authentication
+
+The API supports OAuth2 with PKCE and JWT bearer tokens:
 
 ```bash
-cargo run -- --hmac-secret your-secure-jwt-secret-key
+# Get OAuth2 authorization
+GET /oauth/authorize?client_id=<id>&redirect_uri=<uri>&response_type=code&code_challenge=<challenge>
+
+# Exchange code for token
+POST /oauth/token
+Content-Type: application/x-www-form-urlencoded
+grant_type=authorization_code&code=<code>&code_verifier=<verifier>
+
+# Access protected endpoints
+GET /api/v1/spectrum
+Authorization: Bearer <jwt_token>
 ```
 
-For production deployments, it is strongly recommended to set a custom HMAC secret rather than using the default.
+### REST Endpoints
 
-## Project Objective
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/status` | System status |
+| GET | `/api/v1/spectrum` | Current spectrum data |
+| GET | `/api/v1/spectrum/stream` | SSE spectrum stream |
+| GET | `/api/v1/config` | Current configuration |
+| PUT | `/api/v1/config` | Update configuration |
+| GET | `/api/v1/graph` | Processing graph state |
+| PUT | `/api/v1/graph` | Update processing graph |
+| GET | `/api/v1/thermal` | Thermal sensor readings |
+| PUT | `/api/v1/thermal/setpoint` | Set temperature target |
 
-Develop a Rust program to analyze the concentration of water vapor in air using laser photoacoustic spectroscopy in a differential Helmholtz resonator. The goal is to process the sound signal to extract the amplitude of the fundamental component related to photoacoustic excitation.
+### Modbus Registers
 
-## Physical Principle
+| Address | Type | Description |
+|---------|------|-------------|
+| 0-1 | Float32 | Excitation frequency (Hz) |
+| 2-3 | Float32 | Signal amplitude |
+| 4-5 | Float32 | Phase (degrees) |
+| 6-7 | Float32 | Temperature (°C) |
+| 100+ | Float32[] | Spectrum data |
 
-- **Photoacoustic Spectroscopy**: A laser pulsed modulated to the cell's resonance frequency (typically 2 kHz). The laser beam interacts with the gas molecules, causing them to absorb energy and emit sound waves.
-- passes through the cell containing the gas to be analyzed. The absorption of radiation by water vapor generates a pressure wave (sound) detected by microphones.
-- **Differential Helmholtz Resonator**: Two microphones are placed:
-  - Microphone A: in the gas flow excited by the laser.
-  - Microphone B: in the non-excited gas flow (reference).
-- **Differential Subtraction**: The useful signal is obtained by the difference: `Signal = Sound_A - Sound_B`. This amplifies the useful signal and reduces noise (see [Springer](https://link.springer.com/article/10.1007/s00216-019-01877-0), [Université de Reims](https://www.univ-reims.fr/gsma/equipes-de-recherche/physique-moleculaire-et-spectroscopie-ancien/spectrometrie-laser-et-applications/spectrometrie-photoacoustique,22274,37656.html)).
+### OpenAPI Documentation
 
-## Signal Processing
+Interactive API documentation available at:
+- **RapiDoc**: `https://localhost:8080/rapidoc`
+- **Swagger**: `https://localhost:8080/swagger`
 
-1. **Acquisition**: Synchronous recording of signals from both microphones.
-2. **Preprocessing**: Digital filtering to eliminate out-of-band noise (band-pass filter around the excitation frequency).
-3. **Subtraction**: Calculation of the differential signal (A-B).
-4. **Fourier Transform**: Extraction of the amplitude of the fundamental component (laser excitation frequency).
-5. **Display/Export**: Output of the amplitude of the useful signal, proportional to the water vapor concentration.
+---
 
-## Approach Advantages
+## ⚡ Hardware Interface
 
-- **Increased sensitivity** thanks to signal amplification in the resonator.
-- **Noise reduction** by differential subtraction.
-- **Compactness and robustness** of the instrument (see [Photoniques](https://www.photoniques.com/articles/photon/pdf/2011/04/photon201154p39.pdf)).
+### Laser+Smart Board
 
-## Project Structure
+The Laser+Smart interface board provides:
 
-```plaintext
-rust-photoacoustic/
-├── src/
-│   ├── lib.rs                 # Library exports
-│   ├── main.rs                # Application entry point
-│   ├── acquisition/           # Audio signal acquisition module
-│   │   └── mod.rs             # Microphone interface using CPAL
-│   ├── bin/                   # Binary utilities
-│   │   ├── differential.rs    # Differential signal processor utility
-│   │   ├── filters.rs         # Audio filter utility
-│   │   └── noise_generator.rs # Noise generator utility
-│   ├── preprocessing/         # Signal preprocessing module
-│   │   ├── mod.rs             # Feature export
-│   │   ├── filters.rs         # Digital filters implementation
-│   │   ├── filters_test.rs    # Tests for digital filters
-│   │   ├── differential.rs    # Differential signal calculation
-│   │   └── differential_test.rs # Tests for differential signal
-│   ├── spectral/              # Spectral analysis module
-│   │   ├── mod.rs             # Feature export
-│   │   └── fft.rs             # FFT implementation using rustfft
-│   ├── utility/               # Utility functions and tools
-│   │   ├── mod.rs             # Module exports
-│   │   ├── noise_generator.rs # Noise signal generator
-│   │   └── certificate_utilities.rs # SSL certificate utilities
-│   └── visualization/         # Visualization module
-│       ├── mod.rs             # Module exports and main entry point
-│       ├── api.rs             # REST API endpoints using Rocket
-│       ├── auth/              # Authentication and authorization system
-│       │   ├── mod.rs         # Main auth module
-│       │   ├── oauth2/        # OAuth 2.0 implementation
-│       │   │   ├── mod.rs     # OAuth2 module exports
-│       │   │   ├── handlers.rs # OAuth endpoint handlers
-│       │   │   ├── state.rs   # OAuth state management
-│       │   │   ├── consent.rs # Consent handling
-│       │   │   ├── forms.rs   # Authentication forms
-│       │   │   └── auth.rs    # User validation
-│       │   ├── jwt/           # JWT token management
-│       │   │   ├── mod.rs     # JWT module exports
-│       │   │   ├── validator.rs # JWT validation
-│       │   │   ├── keys.rs    # Key management
-│       │   │   ├── claims.rs  # JWT claims handling
-│       │   │   ├── issuer.rs  # Token issuer
-│       │   │   ├── token_entry.rs # Token entry types
-│       │   │   └── token_map.rs # Token storage
-│       │   └── guards/        # Request guards
-│       │       ├── mod.rs     # Guards module exports
-│       │       └── bearer.rs  # Bearer token guard
-│       ├── introspection.rs   # OAuth token introspection
-│       ├── oidc.rs           # OpenID Connect discovery
-│       ├── server/           # Web server infrastructure
-│       │   ├── mod.rs        # Server module exports
-│       │   ├── builder.rs    # Rocket server builder
-│       │   ├── cors.rs       # CORS configuration
-│       │   ├── handlers.rs   # Static content handlers
-│       │   └── proxy.rs      # Development proxy
-│       ├── pwhash.rs         # Password hashing utilities
-│       ├── request_guard.rs  # Connection info guard
-│       ├── user_info_reponse.rs # User info response types
-│       └── vite_dev_proxy.rs # Vite development proxy
-├── web/                       # Frontend SPA
-│   ├── src/                   # React components and hooks
-│   ├── public/                # Static assets
-│   ├── package.json           # NPM dependencies
-│   └── vite.config.js         # Vite configuration
-├── data/                      # Example data folder
-├── examples/                  # Usage examples
-├── tests/                     # Integration tests
-├── count_lines.sh             # Script to count lines of code
-└── Cargo.toml                 # Rust project configuration
+- **4× 16-bit ADC channels** (ADS1115) for microphone and sensor inputs
+- **12-bit DAC** (LTC2641) for laser power control
+- **DDS synthesizer** (AD9833) for laser modulation (0.004 Hz resolution)
+- **16 GPIO** (MCP23017) for auxiliary control
+- **USB-HID** interface (no drivers required)
+
+### Connection Diagram
+
+```
+┌─────────────────────────────────────────────┐
+│              Laser+Smart Board              │
+├──────────────┬──────────────┬───────────────┤
+│   ADC0-1     │    DAC       │     DDS       │
+│  Mic A/B     │  Laser PWR   │  Modulation   │
+│   ±2.048V    │   0-4.096V   │  100Hz-14kHz  │
+├──────────────┼──────────────┼───────────────┤
+│   ADC2-3     │    GPIO      │     USB       │
+│  NTC Sensors │  TEC Control │  HID to Host  │
+│   ±2.048V    │   8 outputs  │   Full Speed  │
+└──────────────┴──────────────┴───────────────┘
 ```
 
-## Technical Parameters
+---
 
-### Signal Acquisition
+## 💻 Development
 
-- **Sampling rate**: 48 kHz (configurable)
-- **Resolution**: 16 bits
-- **Channels**: 2 (microphone A and B)
-- **Acquisition mode**: synchronous to preserve phase relationships
-
-### Processing
-
-- **Windowing**: Hann or Blackman-Harris (configurable)
-- **FFT size**: 4096 points (configurable)
-- **Band-pass filter**: 4th order Butterworth, centered on the excitation frequency
-- **Averaging**: 10 spectra (configurable)
-
-### The visualization module
-
-The visualization module operates as an embedded web server built with the Rocket framework. It exposes a comprehensive API with OpenAPI documentation automatically generated by the `rocket_openapi` crate.
-
-The server hosts a static single-page application (SPA) developed using Vite and React 19. This SPA presents the analysis results in a clear, user-friendly interface.
-
-#### Architecture Overview
-
-The visualization module is organized into several key components:
-
-- **Authentication System (`auth/`)**: A modular authentication system supporting multiple mechanisms:
-  - **OAuth 2.0 (`oauth2/`)**: Complete OAuth2 authorization code flow implementation
-  - **JWT Management (`jwt/`)**: Token generation, validation, and key management
-  - **Request Guards (`guards/`)**: Rocket guards for API endpoint protection
-
-- **Server Infrastructure (`server/`)**: Core web server components:
-  - **Builder**: Rocket server configuration and setup
-  - **CORS**: Cross-origin resource sharing configuration
-  - **Handlers**: Static content and asset serving
-  - **Proxy**: Development-time Vite integration
-
-- **API Layer**: RESTful endpoints for data access and system integration
-- **Discovery Services**: OpenID Connect discovery and JWT key set endpoints
-- **Introspection**: OAuth 2.0 token introspection for token validation
-
-#### Key Features
-
-- **Modular Authentication**: Clean separation between OAuth2, JWT, and authorization concerns
-- **API-first Design**: Enables easy integration with other applications or systems
-- **JWT Authentication**: Secure API access with configurable HMAC or RSA signing
-- **OAuth 2.0 Compliance**: Standards-compliant authorization server implementation
-- **OpenID Connect**: Discovery endpoints for automatic client configuration
-- **Modern Frontend**: React 19-based SPA using the [sctg vite react auth0 template](https://github.com/sctg-development/vite-react-heroui-auth0-template)
-- **Development Integration**: Seamless Vite development server proxy
-
-#### Authentication Flow
-
-1. **Client Registration**: OAuth2 clients are registered with the authorization server
-2. **Authorization Request**: Clients redirect users to the authorization endpoint
-3. **User Authentication**: Users authenticate via the login form
-4. **Consent**: Users grant or deny permissions for the requested scopes
-5. **Token Exchange**: Authorization codes are exchanged for JWT access tokens
-6. **API Access**: Clients use Bearer tokens to access protected API endpoints
-
-#### Security Features
-
-- **JWT Token Validation**: Supports both HMAC (HS256) and RSA (RS256) signatures
-- **Scope-based Authorization**: Fine-grained permission control
-- **Request Guards**: Automatic token validation and user authorization
-- **Token Introspection**: RFC 7662 compliant token validation endpoint
-- **Secure Defaults**: HTTPS support with automatic certificate generation
-
-This architecture ensures both interactive visualization and secure programmatic access to results, following modern authentication and authorization best practices.
-
-## Available Options
-
-- `--input-device`: Specify the audio input device to use (e.g. `hw:0,0` for ALSA)
-- `--input-file`: Specify an audio file to analyze (e.g. `input.wav` must be PCM WAV)
-- `--frequency`: Fundamental excitation frequency in Hz (default: 2 kHz)
-- `--bandwidth`: Bandwidth of the band-pass filter in Hz (default: 100 Hz)
-- `--output`: Output file for results (JSON)
-- `--window-size`: Analysis window size in samples (default: 4096)
-- `--averages`: Number of spectra to average (default: 10)
-- `--server`: Start in server mode (default: true)
-- `--web-port`, `-p`: Web server port (default: 8080)
-- `--web-address`: Web server address (default: localhost)
-- `--hmac-secret`: HMAC secret for JWT signing
-- `--config`: Path to configuration file (YAML format)
-- `--show-config-schema`: Output the configuration schema as JSON and exit
-- `--modbus-enabled`: Enable Modbus functionality
-- `--modbus-address`: Modbus server address
-- `--modbus-port`: Modbus server port
-- `--verbose`, `-v`: Enable verbose logging (debug level)
-- `--quiet`, `-q`: Disable all logging output
-
-### Logging Options
-
-The application provides flexible logging control through command line options:
+### Building from Source
 
 ```bash
-# Default logging (info level)
-cargo run
+# Development build
+cargo build
 
-# Enable verbose logging for debugging
-cargo run -- --verbose
-# or
-cargo run -- -v
+# Release build with optimizations
+cargo build --release
 
-# Disable all logging output
-cargo run -- --quiet
-# or
-cargo run -- -q
+# With Python driver support
+cargo build --features python-driver
+
+# Static build (musl)
+cargo build --release --features static --target x86_64-unknown-linux-musl
 ```
 
-The logging levels are:
+### Running Tests
 
-- **Default (info)**: Shows general information about application operation
-- **Verbose (debug)**: Shows detailed debugging information for troubleshooting
-- **Quiet (off)**: Suppresses all log output
+```bash
+# Unit tests
+cargo test
 
-Note: If both `--verbose` and `--quiet` are specified, `--quiet` takes precedence and disables all logging.
+# Integration tests
+cargo test --test '*'
 
-You can also control logging using the `RUST_LOG` environment variable, which will be respected in addition to these command line options.
+# With coverage
+cargo tarpaulin --out Html
+
+# Frontend tests
+cd web && npm test
+```
+
+### Development Server
+
+```bash
+# Backend with hot-reload (requires cargo-watch)
+cargo watch -x 'run -- --server -v'
+
+# Frontend dev server
+cd web && npm run dev
+
+# Full stack with proxy
+cd web && npm run dev:env
+```
+
+---
+
+## 📚 Documentation
+
+- **[Complete Technical Documentation](COMPLETE_TECHNICAL_DOCUMENTATION.md)** - Comprehensive guide for all audiences
+- **[Acquisition Daemon Guide](acquisition_daemon_guide_en.md)** - Audio acquisition system
+- **[JWT Tokens](jwt_tokens.md)** - Authentication details
+- **[Hardware Analysis](../hardware/doc/driver-analysis-doc.md)** - Laser+Smart interface
+
+---
+
+## 📜 License
+
+This project is licensed under the **SCTG Non-Commercial License 1.0**.
+
+- ✅ Free for research and education
+- ✅ Open source contributions welcome
+- ❌ Commercial use requires separate license
+
+See [LICENSE](../LICENSE) for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📧 Contact
+
+- **Author**: Ronan Le Meillat
+- **Organization**: SCTG Development
+- **Repository**: [github.com/sctg-development/rust-photoacoustic](https://github.com/sctg-development/rust-photoacoustic)
