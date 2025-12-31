@@ -27,6 +27,7 @@ cmath cmathmodule.c
 math mathmodule.c -lm
 mmap mmapmodule.c
 select selectmodule.c
+fcntl fcntlmodule.c
 _sysconfig _sysconfig.c
 _posixsubprocess _posixsubprocess.c                                           
 _posixshmem -I$(srcdir)/Modules/_multiprocessing _multiprocessing/posixshmem.c -lrt
