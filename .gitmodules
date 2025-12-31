@@ -1,3 +1,6 @@
 [submodule "oxide-auth-patched"]
 	path = rust/oxide-auth-patched
 	url = https://github.com/HeroicKatora/oxide-auth.git
+[submodule "hardware/6C47543F-DEE8-4421-881E-CF5E1C8FF55D"]
+	path = hardware/6C47543F-DEE8-4421-881E-CF5E1C8FF55D
+	url = https://afs-vcs-eu1.365.altium.com/git/6C47543F-DEE8-4421-881E-CF5E1C8FF55D.git
