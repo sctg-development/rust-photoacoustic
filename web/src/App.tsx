@@ -13,6 +13,7 @@ import AudioPage from "@/pages/audio";
 import ThermalPage from "@/pages/thermal";
 import BlogPage from "@/pages/blog";
 import GraphPage from "@/pages/graph";
+import LocalPage from "@/pages/local";
 
 function App() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -70,6 +71,7 @@ function App() {
           element={<AuthenticationGuard component={GraphPage} />}
           path="/graph"
         />
+        <Route element={<LocalPage />} path="/local" />
         <Route element={<PageNotFound />} path="*" />
       </Routes>
     </Suspense>
