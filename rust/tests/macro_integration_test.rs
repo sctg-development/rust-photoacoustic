@@ -6,6 +6,10 @@ use rocket::http::{Header, Status};
 use rocket::local::blocking::Client;
 use rocket::serde::json::Json;
 use serde::Serialize;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use rust_photoacoustic::config::Config;
+use rust_photoacoustic::visualization::auth::oauth2::OxideState;
 
 #[derive(Serialize)]
 struct ApiResponse {
@@ -89,4 +93,23 @@ mod tests {
             response.status()
         );
     }
+
+    #[test]
+    fn test_macro_with_enable_local_visualization_allows_loopback() {
+        let mut cfg = Config::default();
+        cfg.visualization.enable_local_visualization = true;
+
+        let rocket = rocket::build()
+            .manage(Arc::new(RwLock::new(cfg)))
+            .manage(OxideState::preconfigured(
+                rocket::Config::figment().merge(("hmac_secret", "test-local".to_string())),
+            ))
+            .mount("/", routes![test_protected_route]);
+
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let response = client.get("/api/test").dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+    }
 }
+

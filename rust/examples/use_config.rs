@@ -29,6 +29,7 @@ fn main() -> Result<()> {
         None,
         None,
         None,
+        None,
     );
     println!(
         "Configuration after applying command line arguments: {:?}",

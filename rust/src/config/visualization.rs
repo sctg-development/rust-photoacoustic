@@ -137,6 +137,12 @@ pub struct VisualizationConfig {
     #[serde(default = "default_enabled")]
     pub enable_compression: bool,
 
+    /// When true, allow local clients on ::1 or 127.0.0.0/8 to access
+    /// visualization endpoints without JWT authentication.
+    /// Default is `false` for security.
+    #[serde(default = "default_enable_local_visualization")]
+    pub enable_local_visualization: bool,
+
     /// List of output items to be displayed in the visualization interface.
     ///
     /// Each item represents a specific measurement with customizable display properties.
@@ -243,6 +249,11 @@ fn default_enabled() -> bool {
     true
 }
 
+/// Whether local loopback clients may skip JWT auth for visualization endpoints.
+fn default_enable_local_visualization() -> bool {
+    false
+}
+
 /// Generate a random session secret key for cookie-based authentication.
 fn default_session_secret() -> String {
     use rand::Rng;
@@ -275,6 +286,7 @@ impl Default for VisualizationConfig {
             enabled: default_enabled(),
             session_secret: default_session_secret(),
             enable_compression: default_enabled(),
+            enable_local_visualization: default_enable_local_visualization(),
             output: default_output_items(),
         }
     }

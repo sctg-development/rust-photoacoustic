@@ -68,6 +68,11 @@
           "default": true,
           "description": "Enable compression at the Rocket level"
         },
+        "enable_local_visualization": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow loopback clients (::1, 127.0.0.0/8) to access visualization endpoints without JWT auth"
+        },
         "output": {
           "type": "array",
           "description": "Configuration for visualization output display items",

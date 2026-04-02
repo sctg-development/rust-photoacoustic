@@ -32,6 +32,7 @@ use crate::visualization::auth::oauth2::OxideState;
 use base64::Engine;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
+use chrono::Utc;
 use rocket::State;
 use rocket_okapi::okapi;
 use rocket_okapi::okapi::openapi3::{SecurityRequirement, SecurityScheme, SecuritySchemeData};
@@ -122,7 +123,36 @@ impl<'r> FromRequest<'r> for OAuthBearer {
                 ))
             }
         };
-        let access_config = config_state.read().await.access.clone();
+
+        let config = config_state.read().await.clone();
+
+        // Local loopback bypass only when explicitly enabled by config
+        let local_loopback = request
+            .client_ip()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false);
+
+        if config.visualization.enable_local_visualization && local_loopback {
+            let user_info = UserSysInfo {
+                user_id: "local".to_string(),
+                client_id: "local".to_string(),
+                scopes: vec!["read:api".to_string(), "admin:api".to_string()],
+                email: None,
+                name: Some("local".to_string()),
+                token_id: "local".to_string(),
+                issued_at: Utc::now(),
+                expiry: Utc::now() + chrono::Duration::hours(24),
+                permissions: Some(vec!["read:api".to_string(), "admin:api".to_string()]),
+            };
+
+            return Outcome::Success(OAuthBearer {
+                user_info,
+                token: String::new(),
+                permissions: Some(vec!["read:api".to_string(), "admin:api".to_string()]),
+            });
+        }
+
+        let access_config = config.access.clone();
 
         if let Some(header) = auth_header {
             if let Some(token) = header.strip_prefix("Bearer ") {

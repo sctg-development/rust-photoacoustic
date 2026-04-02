@@ -78,6 +78,10 @@ visualization:
 
   # Compression
   # Enable or disable compression at the rocket server level.
+  enable_local_visualization: false
+  # Enable local loopback access without JWT for ::1 and 127.0.0.0/8
+  # For security, keep this disabled in production or on public network interfaces.
+
   # This is useful for reducing bandwidth usage, especially for large data transfers.
   compression: true
   output:

@@ -29,6 +29,7 @@ fn test_config_load_and_save() -> Result<()> {
                 .encode((include_str!("../resources/pub.key")).as_bytes()),
             session_secret: "session-secret".to_string(),
             enable_compression: true,
+            enable_local_visualization: false,
             output: vec![],
         },
         acquisition: AcquisitionConfig {
@@ -91,6 +92,7 @@ fn test_config_load_and_save() -> Result<()> {
         None,
         None,
         None,
+        None,
     );
 
     // Verify values were overridden
@@ -107,6 +109,7 @@ fn test_config_load_and_save() -> Result<()> {
         Some("192.168.0.1".to_string()),
         Some("new-secret-key".to_string()),
         true,
+        None,
         None,
         None,
         None,

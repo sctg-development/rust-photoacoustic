@@ -93,6 +93,10 @@ pub struct Args {
     #[arg(long)]
     show_config_schema: bool,
 
+    /// Enable local frame-based visualization access without JWT for loopback clients
+    #[arg(long, default_value_t = false)]
+    enable_local_visualization: bool,
+
     /// Modbus enabled
     #[arg(long)]
     modbus_enabled: Option<bool>,
@@ -305,6 +309,7 @@ async fn main() -> Result<()> {
         args.modbus_enabled,
         args.modbus_address.clone(),
         args.modbus_port,
+        Some(args.enable_local_visualization),
     );
 
     // Configure Rocket

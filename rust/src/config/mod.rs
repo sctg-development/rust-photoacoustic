@@ -388,6 +388,7 @@ impl Config {
         modbus_enabled: Option<bool>,
         modbus_address: Option<String>,
         modbus_port: Option<u16>,
+        enable_local_visualization: Option<bool>,
     ) {
         // Only override if command-line arguments are provided
         if let Some(web_port) = web_port {
@@ -403,6 +404,11 @@ impl Config {
         if let Some(secret) = hmac_secret {
             debug!("Overriding HMAC secret from command line");
             self.visualization.hmac_secret = secret;
+        }
+
+        if let Some(enable_local) = enable_local_visualization {
+            debug!("Overriding enable_local_visualization from command line: {}", enable_local);
+            self.visualization.enable_local_visualization = enable_local;
         }
 
         // Enable visualization in daemon mode
