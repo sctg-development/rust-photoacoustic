@@ -1,10 +1,10 @@
 # rpi64 build image for rust-photoacoustic
-# Uses Debian 12 base with ARM64 support
+# Uses Debian 13 base with ARM64 support
 # Includes toolchain and needed system libs for playwright-rust and rust build.
 
 # docker buildx build \
 #   --platform linux/arm64,linux/amd64 \
-#   --file docker/Dockerfile.rpi64 \
+#   --file docker/Dockerfile.trixie \
 #   --progress=plain \
 #   --build-arg GIT_COMMIT_HASH_SHORT=$(git rev-parse --short HEAD) \
 #   --build-arg GIT_COMMIT_HASH_FULL=$(git rev-parse HEAD) \
@@ -12,7 +12,7 @@
 #   --build-arg CARGO_TARGET_DIR=/workspace/target \
 #   --tag sctg/rustphotoacoustic:preview \
 #   --push \
-#   -t rust-photoacoustic:latest \
+#   --tag rust-photoacoustic:latest \
 #   ..  # <-- parent dir as build context (rust-photoacoustic/)
 
 FROM debian:trixie-slim
@@ -61,7 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libatk1.0-dev \
     libatk-bridge2.0-dev \
-    libgdk-pixbuf2.0-dev \
+    libgdk-pixbuf-xlib-2.0-dev \
     libx11-dev \
     libxcb1-dev \
     xauth \
@@ -104,7 +104,7 @@ COPY rust/ /workspace/rust/
 RUN mkdir -p /root/.cache/playwright && \
     # install playwright dependencies inside image
     apt-get update && apt-get install -y --no-install-recommends \
-      libgbm-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxss1 libxcomposite1 libxdamage1 libxrandr2 libasound2 libpangocairo-1.0-0 libpango1.0-0 libgtk-3-0 libgdk-pixbuf2.0-0 \
+      libgbm-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxss1 libxcomposite1 libxdamage1 libxrandr2 libasound2 libpangocairo-1.0-0 libpango-1.0-0 libgtk-3-0 libgdk-pixbuf-xlib-2.0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y --no-install-recommends python3-dev
