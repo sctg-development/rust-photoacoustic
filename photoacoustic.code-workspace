@@ -19,6 +19,10 @@
     {
       "name": "Hardware",
       "path": "hardware"
+    },
+    {
+      "name": "Root",
+      "path": "."
     }
   ],
   "settings": {

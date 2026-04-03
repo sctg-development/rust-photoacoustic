@@ -1,0 +1,34 @@
+# Build artifacts (largest culprits)
+**/target/
+**/node_modules/
+web/dist/
+
+# Large local data files (not needed for build)
+rust/recordings/
+rust/input.wav
+rust/debug_filter/
+rust/out/
+rust/*.arm64
+rust/*.bin
+rust/*.wav
+rust/*.mp3
+
+# Git and editor metadata
+.git/
+.idea/
+.vscode/
+**/*.swp
+**/*.log
+
+# Temp directories
+**/tmp/
+**/temp/
+
+# Non-build directories (hardware, data, etc.)
+hardware/
+data/
+patch/
+scripts/
+worker/
+rust/docs_conception_fr/
+rust/python/

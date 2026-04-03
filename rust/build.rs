@@ -935,8 +935,20 @@ fn build_rapidoc() -> Result<()> {
     Ok(())
 }
 
+fn get_git_info_from_env() -> Option<(String, String, String)> {
+    let short_hash = std::env::var("GIT_COMMIT_HASH_SHORT").ok()?;
+    let full_hash = std::env::var("GIT_COMMIT_HASH_FULL").ok()?;
+    let date = std::env::var("GIT_COMMIT_DATE").ok()?;
+    Some((short_hash, full_hash, date))
+}
+
 /// Extract Git commit information for build metadata
 fn get_git_info() -> Result<(String, String, String)> {
+    if let Some(info) = get_git_info_from_env() {
+        println!("cargo:warning=Using git info from environment variables");
+        return Ok(info);
+    }
+
     // Get current commit hash (short)
     let commit_hash_short = Command::new("git")
         .args(&["rev-parse", "--short", "HEAD"])
@@ -944,6 +956,9 @@ fn get_git_info() -> Result<(String, String, String)> {
         .context("Failed to execute git rev-parse --short HEAD")?;
 
     if !commit_hash_short.status.success() {
+        if let Some(info) = get_git_info_from_env() {
+            return Ok(info);
+        }
         return Err(anyhow::anyhow!(
             "Git command failed: {}",
             String::from_utf8_lossy(&commit_hash_short.stderr)
@@ -957,6 +972,9 @@ fn get_git_info() -> Result<(String, String, String)> {
         .context("Failed to execute git rev-parse HEAD")?;
 
     if !commit_hash_full.status.success() {
+        if let Some(info) = get_git_info_from_env() {
+            return Ok(info);
+        }
         return Err(anyhow::anyhow!(
             "Git command failed: {}",
             String::from_utf8_lossy(&commit_hash_full.stderr)
@@ -970,6 +988,9 @@ fn get_git_info() -> Result<(String, String, String)> {
         .context("Failed to execute git log for commit date")?;
 
     if !commit_date.status.success() {
+        if let Some(info) = get_git_info_from_env() {
+            return Ok(info);
+        }
         return Err(anyhow::anyhow!(
             "Git command failed: {}",
             String::from_utf8_lossy(&commit_date.stderr)
@@ -1066,28 +1087,44 @@ async fn main() {
     }
 
     // Process package.json to check for version changes
-    let data = fs::read_to_string("../web/package.json").unwrap();
-    let mut package: PackageJson = serde_json::from_str(&data).unwrap();
+    let web_package_path = PathBuf::from("../web/package.json");
+    let version_changed = if let Ok(data) = fs::read_to_string(&web_package_path) {
+        match serde_json::from_str::<PackageJson>(&data) {
+            Ok(mut package) => {
+                // Build the path to the file in the temporary directory
+                let tmp_dir = env::var("TMP")
+                    .or_else(|_| env::var("TEMP"))
+                    .or_else(|_| env::var("TMPDIR"))
+                    .unwrap_or_else(|_| "/tmp".to_string());
+                let mut path = PathBuf::from(tmp_dir);
+                path.push("version-1B282C00-C9CC-4C5F-890E-952D88623718.txt");
 
-    // Build the path to the file in the temporary directory
-    let tmp_dir = env::var("TMP")
-        .or_else(|_| env::var("TEMP"))
-        .or_else(|_| env::var("TMPDIR"))
-        .unwrap_or_else(|_| "/tmp".to_string());
-    let mut path = PathBuf::from(tmp_dir);
-    path.push("version-1B282C00-C9CC-4C5F-890E-952D88623718.txt");
+                // Read the version from the file
+                let version = fs::read_to_string(&path)
+                    .unwrap_or_else(|_| env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".to_string()));
 
-    // Read the version from the file
-    let version =
-        fs::read_to_string(&path).unwrap_or_else(|_| env::var("CARGO_PKG_VERSION").unwrap());
-
-    // Check if the version has changed
-    let version_changed = package.version != version;
-    if version_changed {
-        package.set_version(&version);
-        let serialized = serde_json::to_string_pretty(&package).unwrap();
-        fs::write("../web/package.json", serialized).unwrap();
-    }
+                let changed = package.version != version;
+                if changed {
+                    package.set_version(&version);
+                    if let Ok(serialized) = serde_json::to_string_pretty(&package) {
+                        if let Err(e) = fs::write(&web_package_path, serialized) {
+                            println!("cargo:warning=Failed to write updated web/package.json: {}", e);
+                        }
+                    } else {
+                        println!("cargo:warning=Failed to serialize updated package.json");
+                    }
+                }
+                changed
+            }
+            Err(e) => {
+                println!("cargo:warning=Failed to parse ../web/package.json: {}", e);
+                false
+            }
+        }
+    } else {
+        println!("cargo:warning=../web/package.json not found, skipping web console version check");
+        false
+    };
 
     // Build the web console
     if let Err(e) = build_web_console(version_changed) {
