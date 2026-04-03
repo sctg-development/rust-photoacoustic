@@ -1,0 +1,89 @@
+# rpi64 build image for rust-photoacoustic
+# Uses Debian 13 base with ARM64 support
+# Includes toolchain and needed system libs for playwright-rust and rust build.
+# HASH=$(shasum -a 256 docker/Dockerfile.rpi64 | awk '{print $1}')
+# CACHE_DIR="/tmp/dockerfile-${HASH}"
+
+# mkdir -p "${CACHE_DIR}/cache"
+# DOCKER_BUILDKIT=1 docker buildx build \
+#   --platform linux/arm64 \
+#   --progress=plain \
+#   --cache-to=type=local,dest="${CACHE_DIR}/cache",mode=max \
+#   --cache-from=type=local,src="${CACHE_DIR}/cache" \
+#   --build-arg CARGO_TARGET_DIR=/workspace/target \
+#   -t rust-photoacoustic:latest \
+#   .
+
+FROM --platform=linux/arm64 debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    APT_LISTCHANGES_FRONTEND=none \
+    RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+# Basic deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    pkg-config \
+    cmake \
+    libssl-dev \
+    libasound2-dev \
+    libgtk-3-0 \
+    libgtk-3-dev \
+    libgbm-dev \
+    libnss3 \
+    libx11-xcb-dev \
+    libxcomposite-dev \
+    libxcursor-dev \
+    libxdamage-dev \
+    libxrandr-dev \
+    libxss-dev \
+    libxtst-dev \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdrm-dev \
+    libexpat1-dev \
+    libgtk2.0-0 \
+    libpango-1.0-0 \
+    libatk1.0-dev \
+    libatk-bridge2.0-dev \
+    libgdk-pixbuf2.0-dev \
+    libx11-dev \
+    libxcb1-dev \
+    xauth \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+
+# Install rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.91.1
+
+# Install key rust targets
+RUN rustup target add aarch64-unknown-linux-gnu 
+
+# Set up working directory
+WORKDIR /workspace
+
+# Copy source and dependency files
+COPY . /workspace
+
+# Setup for playwright-rust (requires playwright dependencies script)
+RUN mkdir -p /root/.cache/playwright && \
+    # install playwright dependencies inside image
+    apt-get update && apt-get install -y --no-install-recommends \
+      libgbm-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxss1 libxcomposite1 libxdamage1 libxrandr2 libasound2 libpangocairo-1.0-0 libpango1.0-0 libgtk-3-0 libgdk-pixbuf2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build the project
+RUN cargo build --target aarch64-unknown-linux-gnu --release
+
+# Optional: compress target
+RUN strip target/aarch64-unknown-linux-gnu/release/rust_photoacoustic || true
+
+CMD ["/workspace/target/aarch64-unknown-linux-gnu/release/rust_photoacoustic"]

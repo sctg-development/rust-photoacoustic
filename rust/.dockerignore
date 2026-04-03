@@ -1,0 +1,10 @@
+target
+.git
+node_modules
+web/dist
+**/*.log
+**/tmp
+**/temp
+.idea
+.vscode
+*.swp
