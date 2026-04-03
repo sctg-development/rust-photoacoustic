@@ -1,16 +1,11 @@
 # rpi64 build image for rust-photoacoustic
-# Uses Debian 13 base with ARM64 support
+# Uses Debian 12 base with ARM64 support
 # Includes toolchain and needed system libs for playwright-rust and rust build.
 
-# HASH=$(shasum -a 256 docker/Dockerfile.rpi64 | awk '{print $1}')
-# CACHE_DIR="/tmp/dockerfile"
-# mkdir -p "${CACHE_DIR}/cache"
-# DOCKER_BUILDKIT=1 docker buildx build \
-#   --platform linux/arm64 \
+# docker buildx build \
+#   --platform linux/arm64,linux/amd64 \
 #   --file docker/Dockerfile.rpi64 \
 #   --progress=plain \
-#   --cache-to=type=local,dest="${CACHE_DIR}/cache",mode=max \
-#   --cache-from=type=local,src="${CACHE_DIR}/cache" \
 #   --build-arg GIT_COMMIT_HASH_SHORT=$(git rev-parse --short HEAD) \
 #   --build-arg GIT_COMMIT_HASH_FULL=$(git rev-parse HEAD) \
 #   --build-arg GIT_COMMIT_DATE="$(git log -1 --format=%ci)" \
@@ -20,7 +15,7 @@
 #   -t rust-photoacoustic:latest \
 #   ..  # <-- parent dir as build context (rust-photoacoustic/)
 
-FROM --platform=linux/arm64 debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     APT_LISTCHANGES_FRONTEND=none \
@@ -80,8 +75,17 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
 # Install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.91.1
 
-# Install key rust targets
-RUN rustup target add aarch64-unknown-linux-gnu 
+# Select Rust target by architecture for cross-platform buildx
+ARG TARGETARCH
+ENV RUST_TARGET=undefined
+RUN case "${TARGETARCH}" in \
+    amd64|x86_64) RUST_TARGET=x86_64-unknown-linux-gnu ;; \
+    arm64|aarch64) RUST_TARGET=aarch64-unknown-linux-gnu ;; \
+    *) echo "Unsupported TARGETARCH=${TARGETARCH}, defaulting to x86_64-unknown-linux-gnu" && RUST_TARGET=x86_64-unknown-linux-gnu ;; \
+  esac && \
+  rustup target add "${RUST_TARGET}" && \
+  echo "${RUST_TARGET}" > /rust_target && \
+  echo "Using Rust target: ${RUST_TARGET}"
 
 # Build web console (build context must be parent dir: rust-photoacoustic/)
 # vite.config.ts reads ../rust/config.yaml at build time → copy it first
@@ -106,9 +110,9 @@ RUN mkdir -p /root/.cache/playwright && \
 RUN apt-get update && apt-get install -y --no-install-recommends python3-dev
 # Build the project
 WORKDIR /workspace/rust
-RUN cargo build --target aarch64-unknown-linux-gnu --release
+RUN cargo build --target "$(cat /rust_target)" --release
 
 # Optional: compress target
-RUN strip target/aarch64-unknown-linux-gnu/release/rust_photoacoustic || true
+RUN strip target/$(cat /rust_target)/release/rust_photoacoustic || true
 
-CMD ["/workspace/rust/target/aarch64-unknown-linux-gnu/release/rust_photoacoustic"]
+CMD ["/bin/sh", "-c", "/workspace/rust/target/${RUST_TARGET}/release/rust_photoacoustic"]
