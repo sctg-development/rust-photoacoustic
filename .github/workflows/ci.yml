@@ -109,32 +109,10 @@ jobs:
           sudo apt-get autoremove -y
           docker --version || echo "Docker removed"
 
-      - name: Configure Altium HTTP credentials (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Configure Altium HTTP credentials
         shell: bash
         run: |
-          cat > ~/.netrc <<'EOF'
-          machine afs-vcs-eu1.365.altium.com
-          login $ALTIUM_365_USER
-          password $ALTIUM_365_PASSWORD
-          EOF
-          chmod 600 ~/.netrc
-        env:
-          ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
-          ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
-
-      - name: Configure Altium HTTP credentials (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $netrc = @"
-          machine afs-vcs-eu1.365.altium.com
-          login $env:ALTIUM_365_USER
-          password $env:ALTIUM_365_PASSWORD
-          "@
-          $path = Join-Path $Env:HOME "_netrc"
-          $netrc | Out-File -FilePath $path -Encoding ascii
-          icacls $path /inheritance:r /grant:r "$($env:USERNAME):R"
+          git config --global url."https://${ALTIUM_365_USER}:${ALTIUM_365_PASSWORD}@afs-vcs-eu1.365.altium.com/".insteadOf "https://afs-vcs-eu1.365.altium.com/"
         env:
           ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
           ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
@@ -144,16 +122,8 @@ jobs:
           submodules: false
           fetch-depth: 0
 
-      - name: Init and update submodules (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Init and update submodules
         shell: bash
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
-
-      - name: Init and update submodules (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
         run: |
           git submodule sync --recursive
           git submodule update --init --recursive
