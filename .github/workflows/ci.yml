@@ -14,6 +14,19 @@ jobs:
     name: Build and package web (Ubuntu)
     runs-on: ubuntu-latest
     steps:
+
+      - name: Configure Altium HTTP credentials
+        run: |
+          cat > ~/.netrc <<'EOF'
+          machine afs-vcs-eu1.365.altium.com
+          login $ALTIUM_365_USER
+          password $ALTIUM_365_PASSWORD
+          EOF
+          chmod 600 ~/.netrc
+        env:
+          ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
+          ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
+
       - uses: actions/checkout@v6
         with: # fetch all submodules
           submodules: "recursive"
@@ -97,6 +110,36 @@ jobs:
           sudo apt-get remove -y docker docker-engine docker.io containerd runc
           sudo apt-get autoremove -y
           docker --version || echo "Docker removed"
+
+      - name: Configure Altium HTTP credentials (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cat > ~/.netrc <<'EOF'
+          machine afs-vcs-eu1.365.altium.com
+          login $ALTIUM_365_USER
+          password $ALTIUM_365_PASSWORD
+          EOF
+          chmod 600 ~/.netrc
+        env:
+          ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
+          ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
+
+      - name: Configure Altium HTTP credentials (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $netrc = @"
+          machine afs-vcs-eu1.365.altium.com
+          login $env:ALTIUM_365_USER
+          password $env:ALTIUM_365_PASSWORD
+          "@
+          $path = Join-Path $HOME "_netrc"
+          $netrc | Out-File -FilePath $path -Encoding ascii
+          icacls $path /inheritance:r /grant:r "$($env:USERNAME):R"
+        env:
+          ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
+          ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
 
       - uses: actions/checkout@v6
         with: # fetch all submodules
@@ -466,3 +509,4 @@ jobs:
           files: ./rust/cobertura.xml
           slug: sctg-development/rust-photoacoustic
           token: ${{ secrets.CODECOV_TOKEN }}
+
