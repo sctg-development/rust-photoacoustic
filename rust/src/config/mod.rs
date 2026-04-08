@@ -47,6 +47,7 @@
 //!     Some(true),                     // Enable Modbus
 //!     Some("0.0.0.0".to_string()),    // Modbus address
 //!     Some(502),                      // Modbus port  
+//!     Some(false),                    // No local visualization (authentication needed even for localhost)
 //! );
 //!
 //! // Access configuration values
@@ -371,6 +372,7 @@ impl Config {
     ///     Some(true),                     // Enable Modbus
     ///     Some("0.0.0.0".to_string()),    // Modbus address
     ///     Some(502),                      // Modbus port  
+    ///     Some(false),                    // No local visualization (authentication needed even for localhost)
     /// );
     /// ```
     pub fn apply_args(

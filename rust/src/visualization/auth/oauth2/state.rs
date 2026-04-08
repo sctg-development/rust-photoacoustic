@@ -150,12 +150,10 @@ impl OxideState {
         // The first string in the allowed_callbacks is the default callback
         // The rest are additional allowed callbacks
         let mut client_map: Vec<Client> = vec![];
-        // Extract the AccessConfig from the figment
+        // Extract the AccessConfig from the figment, falling back to defaults
         let access_config = figment
             .extract_inner::<AccessConfig>("access_config")
-            .unwrap_or_else(|_| {
-                panic!("Missing access configuration");
-            });
+            .unwrap_or_default();
 
         // Create and configure the JWT issuer
         let mut jwt_issuer = JwtIssuer::new(jwt_secret);
