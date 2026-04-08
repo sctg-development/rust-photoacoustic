@@ -17,12 +17,12 @@ jobs:
 
       - name: Configure Altium HTTP credentials
         run: |
-          cat > "$RUNNER_TEMP/.netrc" <<'EOF'
+          cat > ~/.netrc <<'EOF'
           machine afs-vcs-eu1.365.altium.com
           login $ALTIUM_365_USER
           password $ALTIUM_365_PASSWORD
           EOF
-          chmod 600 "$RUNNER_TEMP/.netrc"
+          chmod 600 ~/.netrc
         env:
           ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
           ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
@@ -113,12 +113,12 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          cat > "$RUNNER_TEMP/.netrc" <<'EOF'
+          cat > ~/.netrc <<'EOF'
           machine afs-vcs-eu1.365.altium.com
           login $ALTIUM_365_USER
           password $ALTIUM_365_PASSWORD
           EOF
-          chmod 600 "$RUNNER_TEMP/.netrc"
+          chmod 600 ~/.netrc
         env:
           ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
           ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
@@ -132,7 +132,7 @@ jobs:
           login $env:ALTIUM_365_USER
           password $env:ALTIUM_365_PASSWORD
           "@
-          $path = Join-Path $Env:RUNNER_TEMP "_netrc"
+          $path = Join-Path $Env:HOME "_netrc"
           $netrc | Out-File -FilePath $path -Encoding ascii
           icacls $path /inheritance:r /grant:r "$($env:USERNAME):R"
         env:
@@ -147,8 +147,6 @@ jobs:
       - name: Init and update submodules (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
-        env:
-          HOME: ${{ runner.temp }}
         run: |
           git submodule sync --recursive
           git submodule update --init --recursive
@@ -156,8 +154,6 @@ jobs:
       - name: Init and update submodules (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        env:
-          HOME: ${{ runner.temp }}
         run: |
           git submodule sync --recursive
           git submodule update --init --recursive
