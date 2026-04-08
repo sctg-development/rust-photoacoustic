@@ -5,11 +5,11 @@ use auth_macros::protect_get;
 use rocket::http::{Header, Status};
 use rocket::local::blocking::Client;
 use rocket::serde::json::Json;
+use rust_photoacoustic::config::Config;
+use rust_photoacoustic::visualization::auth::oauth2::OxideState;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use rust_photoacoustic::config::Config;
-use rust_photoacoustic::visualization::auth::oauth2::OxideState;
 
 #[derive(Serialize)]
 struct ApiResponse {
@@ -112,4 +112,3 @@ mod tests {
         assert_eq!(response.status(), Status::Ok);
     }
 }
-

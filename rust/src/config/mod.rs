@@ -409,7 +409,10 @@ impl Config {
         }
 
         if let Some(enable_local) = enable_local_visualization {
-            debug!("Overriding enable_local_visualization from command line: {}", enable_local);
+            debug!(
+                "Overriding enable_local_visualization from command line: {}",
+                enable_local
+            );
             self.visualization.enable_local_visualization = enable_local;
         }
 

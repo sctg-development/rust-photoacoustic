@@ -1100,15 +1100,19 @@ async fn main() {
                 path.push("version-1B282C00-C9CC-4C5F-890E-952D88623718.txt");
 
                 // Read the version from the file
-                let version = fs::read_to_string(&path)
-                    .unwrap_or_else(|_| env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".to_string()));
+                let version = fs::read_to_string(&path).unwrap_or_else(|_| {
+                    env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".to_string())
+                });
 
                 let changed = package.version != version;
                 if changed {
                     package.set_version(&version);
                     if let Ok(serialized) = serde_json::to_string_pretty(&package) {
                         if let Err(e) = fs::write(&web_package_path, serialized) {
-                            println!("cargo:warning=Failed to write updated web/package.json: {}", e);
+                            println!(
+                                "cargo:warning=Failed to write updated web/package.json: {}",
+                                e
+                            );
                         }
                     } else {
                         println!("cargo:warning=Failed to serialize updated package.json");
