@@ -61,7 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libatk1.0-dev \
     libatk-bridge2.0-dev \
-    libgdk-pixbuf2.0-dev \
+    libgdk-pixbuf-xlib-2.0-dev \
     libx11-dev \
     libxcb1-dev \
     xauth \
@@ -104,7 +104,7 @@ COPY rust/ /workspace/rust/
 RUN mkdir -p /root/.cache/playwright && \
     # install playwright dependencies inside image
     apt-get update && apt-get install -y --no-install-recommends \
-      libgbm-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxss1 libxcomposite1 libxdamage1 libxrandr2 libasound2 libpangocairo-1.0-0 libpango1.0-0 libgtk-3-0 libgdk-pixbuf2.0-0 \
+      libgbm-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxss1 libxcomposite1 libxdamage1 libxrandr2 libasound2 libpangocairo-1.0-0 libpango-1.0-0 libgtk-3-0 libgdk-pixbuf-xlib-2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y --no-install-recommends python3-dev
@@ -114,5 +114,30 @@ RUN cargo build --target "$(cat /rust_target)" --release
 
 # Optional: compress target
 RUN strip target/$(cat /rust_target)/release/rust_photoacoustic || true
+RUN export RUST_TARGET="$(cat /rust_target)" && \
+    cp /workspace/rust/target/${RUST_TARGET}/release/rust_photoacoustic /usr/local/bin/rust_photoacoustic && \
+    chmod +x /usr/local/bin/rust_photoacoustic  && \
+    cp /workspace/rust/target/${RUST_TARGET}/release/create_token /usr/local/bin/create_token && \
+    chmod +x /usr/local/bin/create_token && \
+    cp /workspace/rust/target/${RUST_TARGET}/release/analyze_spectrum /usr/local/bin/analyze_spectrum && \
+    chmod +x /usr/local/bin/analyze_spectrum && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/debug_config /usr/local/bin/debug_config && \
+    chmod +x /usr/local/bin/debug_config && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/differential /usr/local/bin/differential && \
+    chmod +x /usr/local/bin/differential && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/filters /usr/local/bin/filters && \
+    chmod +x /usr/local/bin/filters && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/modbus_client /usr/local/bin/modbus_client && \
+    chmod +x /usr/local/bin/modbus_client && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/noise_generator /usr/local/bin/noise_generator && \
+    chmod +x /usr/local/bin/noise_generator && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/pid_tuner /usr/local/bin/pid_tuner && \
+    chmod +x /usr/local/bin/pid_tuner && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/redis_viewer /usr/local/bin/redis_viewer && \
+    chmod +x /usr/local/bin/redis_viewer && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/rs256keygen /usr/local/bin/rs256keygen && \
+    chmod +x /usr/local/bin/rs256keygen && \
+     cp /workspace/rust/target/${RUST_TARGET}/release/standalone /usr/local/bin/standalone && \
+    chmod +x /usr/local/bin/standalone
 
-CMD ["/bin/sh", "-c", "/workspace/rust/target/${RUST_TARGET}/release/rust_photoacoustic"]
+CMD ["/bin/sh", "-c", "/usr/local/bin/rust_photoacoustic"]
