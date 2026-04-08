@@ -1,10 +1,10 @@
 # rpi64 build image for rust-photoacoustic
-# Uses Debian 12 base with ARM64 support
+# Uses Debian 13 base with ARM64 support
 # Includes toolchain and needed system libs for playwright-rust and rust build.
 
 # docker buildx build \
 #   --platform linux/arm64,linux/amd64 \
-#   --file docker/Dockerfile.rpi64 \
+#   --file docker/Dockerfile.trixie \
 #   --progress=plain \
 #   --build-arg GIT_COMMIT_HASH_SHORT=$(git rev-parse --short HEAD) \
 #   --build-arg GIT_COMMIT_HASH_FULL=$(git rev-parse HEAD) \
@@ -12,7 +12,7 @@
 #   --build-arg CARGO_TARGET_DIR=/workspace/target \
 #   --tag sctg/rustphotoacoustic:preview \
 #   --push \
-#   -t rust-photoacoustic:latest \
+#   --tag rust-photoacoustic:latest \
 #   ..  # <-- parent dir as build context (rust-photoacoustic/)
 
 FROM debian:trixie-slim
