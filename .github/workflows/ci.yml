@@ -17,21 +17,19 @@ jobs:
 
       - name: Configure Altium HTTP credentials
         run: |
-          cat > ~/.netrc <<'EOF'
+          cat > "$RUNNER_TEMP/.netrc" <<'EOF'
           machine afs-vcs-eu1.365.altium.com
           login $ALTIUM_365_USER
           password $ALTIUM_365_PASSWORD
           EOF
-          chmod 600 ~/.netrc
+          chmod 600 "$RUNNER_TEMP/.netrc"
         env:
           ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
           ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
-
+          
       - uses: actions/checkout@v6
-        with: # fetch all submodules
-          submodules: "recursive"
-          fetch-depth: 0
-
+        with:
+          submodules: false
       - name: Create base configuration
         run: |
           cp rust/config.example.yaml rust/config.yaml
@@ -115,12 +113,12 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          cat > ~/.netrc <<'EOF'
+          cat > "$RUNNER_TEMP/.netrc" <<'EOF'
           machine afs-vcs-eu1.365.altium.com
           login $ALTIUM_365_USER
           password $ALTIUM_365_PASSWORD
           EOF
-          chmod 600 ~/.netrc
+          chmod 600 "$RUNNER_TEMP/.netrc"
         env:
           ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
           ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
@@ -134,7 +132,7 @@ jobs:
           login $env:ALTIUM_365_USER
           password $env:ALTIUM_365_PASSWORD
           "@
-          $path = Join-Path $HOME "_netrc"
+          $path = Join-Path $Env:RUNNER_TEMP "_netrc"
           $netrc | Out-File -FilePath $path -Encoding ascii
           icacls $path /inheritance:r /grant:r "$($env:USERNAME):R"
         env:
@@ -142,9 +140,27 @@ jobs:
           ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
 
       - uses: actions/checkout@v6
-        with: # fetch all submodules
-          submodules: "recursive"
+        with:
+          submodules: false
           fetch-depth: 0
+
+      - name: Init and update submodules (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          HOME: ${{ runner.temp }}
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+      - name: Init and update submodules (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          HOME: ${{ runner.temp }}
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
 
       # Debug submodules
       - name: Debug submodules
