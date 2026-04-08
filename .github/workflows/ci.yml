@@ -168,6 +168,15 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Add Rust target
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            "$USERPROFILE/.cargo/bin/rustup" target add ${{ matrix.target }}
+          else
+            rustup target add ${{ matrix.target }}
+          fi
+
       # Install dependencies for Linux
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
