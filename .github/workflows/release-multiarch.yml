@@ -182,11 +182,15 @@ jobs:
           fi
 
       # Cache Dependencies
+      # - shared-key groups amd64/arm64/macOS caches by target so they don't collide
+      # - cache-on-failure saves partial progress even when cargo build fails
+      # - Swatinem/rust-cache automatically appends Cargo.lock hash; no need to add it manually
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "rust -> target"
-          key: rust-release-${{ matrix.os }}-${{ matrix.target }}
+          shared-key: rust-release-${{ matrix.target }}
+          cache-on-failure: true
 
       - name: Create base configuration
         run: |
@@ -378,7 +382,7 @@ jobs:
           path: rust/${{ env.ARCHIVE_PATH }}
           retention-days: 90
 
-  push_to_registry:
+  build_and_release_docker:
     permissions:
       id-token: write
       contents: write
