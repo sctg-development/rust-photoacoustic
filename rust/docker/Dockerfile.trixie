@@ -1,7 +1,10 @@
 # rpi64 build image for rust-photoacoustic
 # Uses Debian 13 base with ARM64 support
 # Includes toolchain and needed system libs for playwright-rust and rust build.
-
+#
+# Stage 1 (builder): full compile environment → produces binaries + lasersmart.deb
+# Stage 2 (runtime): minimal trixie-slim image with binaries, .deb and runtime deps
+#
 # docker buildx build \
 #   --platform linux/arm64,linux/amd64 \
 #   --file docker/Dockerfile.trixie \
@@ -9,13 +12,17 @@
 #   --build-arg GIT_COMMIT_HASH_SHORT=$(git rev-parse --short HEAD) \
 #   --build-arg GIT_COMMIT_HASH_FULL=$(git rev-parse HEAD) \
 #   --build-arg GIT_COMMIT_DATE="$(git log -1 --format=%ci)" \
+#   --build-arg VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0") \
 #   --build-arg CARGO_TARGET_DIR=/workspace/target \
 #   --tag sctg/rustphotoacoustic:preview \
 #   --push \
 #   --tag rust-photoacoustic:latest \
 #   ..  # <-- parent dir as build context (rust-photoacoustic/)
 
-FROM debian:trixie-slim
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1: builder
+# ─────────────────────────────────────────────────────────────────────────────
+FROM debian:trixie-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive \
     APT_LISTCHANGES_FRONTEND=none \
@@ -23,10 +30,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 
-# Git build metadata fallback vars (can être surchargés via --build-arg)
+# Git build metadata fallback vars (can be overridden via --build-arg)
 ARG GIT_COMMIT_HASH_SHORT=unknown
 ARG GIT_COMMIT_HASH_FULL=unknown
 ARG GIT_COMMIT_DATE=unknown
+ARG VERSION=0.0.0
 ENV GIT_COMMIT_HASH_SHORT=${GIT_COMMIT_HASH_SHORT}
 ENV GIT_COMMIT_HASH_FULL=${GIT_COMMIT_HASH_FULL}
 ENV GIT_COMMIT_DATE=${GIT_COMMIT_DATE}
@@ -140,4 +148,41 @@ RUN export RUST_TARGET="$(cat /rust_target)" && \
      cp /workspace/rust/target/${RUST_TARGET}/release/standalone /usr/local/bin/standalone && \
     chmod +x /usr/local/bin/standalone
 
-CMD ["/bin/sh", "-c", "/usr/local/bin/rust_photoacoustic"]
+# Build lasersmart.deb package
+# dpkg-deb is part of the base dpkg package, always available on Debian
+# Detect the exact libpython shared-library package via ldd + dpkg -S so the
+# .deb Depends field is always correct regardless of the Python version in trixie.
+RUN ARCH=$(dpkg --print-architecture) && \
+    DEB_ROOT="/deb-pkg/lasersmart_${VERSION}_${ARCH}" && \
+    mkdir -p "${DEB_ROOT}/DEBIAN" "${DEB_ROOT}/usr/local/bin" && \
+    for bin in rust_photoacoustic create_token analyze_spectrum debug_config differential \
+               filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do \
+        cp "/usr/local/bin/${bin}" "${DEB_ROOT}/usr/local/bin/"; \
+    done && \
+    PYLIB_SO=$(ldd /usr/local/bin/rust_photoacoustic | awk '/libpython/{print $1}') && \
+    PYLIB_PKG=$(dpkg -S "${PYLIB_SO}" 2>/dev/null | cut -d: -f1 | head -1) && \
+    echo "Detected Python shared lib: ${PYLIB_SO} → package: ${PYLIB_PKG}" && \
+    printf "Package: lasersmart\nVersion: %s\nArchitecture: %s\nMaintainer: SCTG Development <rust-photoacoustic@noreply.github.com>\nSection: science\nPriority: optional\nDescription: LaserSmart photoacoustic tools\n Photoacoustic signal processing binaries.\nDepends: libssl3, libasound2, ca-certificates, %s\n" \
+        "${VERSION}" "${ARCH}" "${PYLIB_PKG}" > "${DEB_ROOT}/DEBIAN/control" && \
+    cat "${DEB_ROOT}/DEBIAN/control" && \
+    dpkg-deb --build "${DEB_ROOT}" && \
+    mkdir -p /packages && \
+    cp "/deb-pkg/lasersmart_${VERSION}_${ARCH}.deb" /packages/lasersmart.deb
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2: minimal runtime image
+# ─────────────────────────────────────────────────────────────────────────────
+FROM debian:trixie-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    APT_LISTCHANGES_FRONTEND=none
+
+# Copy the .deb package from builder, then install it.
+# apt-get resolves all Depends automatically (libssl3, libasound2, python3, …).
+# The .deb is kept in /packages/ so GitHub Actions can extract it via docker cp.
+COPY --from=builder /packages/ /packages/
+RUN apt-get update && \
+    apt-get install -y /packages/lasersmart.deb && \
+    rm -rf /var/lib/apt/lists/*
+
+CMD ["/usr/local/bin/rust_photoacoustic"]

@@ -510,13 +510,17 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          
           context: .
           file: ./rust/docker/Dockerfile.trixie
           platforms: ${{ steps.set_platforms.outputs.platforms }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           push: true
+          build-args: |
+            GIT_COMMIT_HASH_SHORT=${{ github.sha }}
+            GIT_COMMIT_HASH_FULL=${{ github.sha }}
+            GIT_COMMIT_DATE=${{ github.event.repository.updated_at }}
+            VERSION=${{ steps.set_tag.outputs.tag }}
           tags: sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}
           labels: |
             org.opencontainers.image.title=rust-photoacoustic
@@ -549,6 +553,9 @@ jobs:
           # copy also the python binary and libpython static library
           docker cp temp-container-amd64:/usr/local/bin/python3.12 /tmp/amd64/ || echo "python3 not found"
           docker cp temp-container-amd64:/usr/local/lib/libpython3.12.a /tmp/amd64/ || echo "libpython3.12.a not found"
+
+          # Extract the .deb package
+          docker cp temp-container-amd64:/packages/lasersmart.deb /tmp/amd64/lasersmart_${{ steps.set_tag.outputs.tag }}_amd64.deb || echo "lasersmart.deb not found"
 
           docker rm temp-container-amd64
 
@@ -584,6 +591,9 @@ jobs:
           # copy also the python binary and libpython static library
           docker cp temp-container-arm64:/usr/local/bin/python3.12 /tmp/arm64/ || echo "python3 not found"
           docker cp temp-container-arm64:/usr/local/lib/libpython3.12.a /tmp/arm64/ || echo "libpython3.12.a not found"
+
+          # Extract the .deb package
+          docker cp temp-container-arm64:/packages/lasersmart.deb /tmp/arm64/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb || echo "lasersmart.deb not found"
 
           docker rm temp-container-arm64
 
@@ -690,6 +700,22 @@ jobs:
             if [ -f "$binary" ]; then
               echo "Uploading: $binary"
               gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
+            fi
+          done
+
+      - name: Upload lasersmart .deb packages to release
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.set_tag.outputs.tag }}
+          echo "Uploading lasersmart .deb packages..."
+          for deb in /tmp/amd64/lasersmart_${TAG}_amd64.deb /tmp/arm64/lasersmart_${TAG}_arm64.deb; do
+            if [ -f "$deb" ]; then
+              echo "Uploading: $deb"
+              gh release upload "${TAG}" "$deb" --clobber
+            else
+              echo "Not found, skipping: $deb"
             fi
           done
 
