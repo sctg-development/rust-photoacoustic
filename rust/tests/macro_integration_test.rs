@@ -18,7 +18,7 @@ struct ApiResponse {
 }
 
 /// Test route using the protect_get macro
-#[protect_get("/api/test", "read:test")]
+#[protect_get("/api/test", "read:api")]
 fn test_protected_route(
     bearer: rust_photoacoustic::visualization::auth::guards::bearer::OAuthBearer,
 ) -> Json<ApiResponse> {
@@ -107,7 +107,10 @@ mod tests {
             .mount("/", routes![test_protected_route]);
 
         let client = Client::tracked(rocket).expect("valid rocket instance");
-        let response = client.get("/api/test").dispatch();
+        let response = client
+            .get("/api/test")
+            .remote("127.0.0.1:8000".parse().unwrap())
+            .dispatch();
 
         assert_eq!(response.status(), Status::Ok);
     }
