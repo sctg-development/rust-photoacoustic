@@ -294,6 +294,30 @@ export const useGenerixProvider = (
     }
   };
 
+  const refreshAccessToken = async (
+    options?: TokenOptions,
+  ): Promise<string | null> => {
+    try {
+      console.log(t("attempting-silent-token-refresh"), options);
+
+      // Perform silent sign-in to refresh the token
+      const newUser = await userManager.signinSilent();
+
+      if (!newUser || !newUser.access_token) {
+        console.warn(t("silent-token-refresh-failed"), "No user or access token");
+        return null;
+      }
+
+      console.log(t("silent-token-refresh-successful"));
+      setUser(newUser);
+
+      return newUser.access_token;
+    } catch (error) {
+      console.error(t("error-refreshing-token"), error);
+      return null;
+    }
+  };
+
   const hasPermission = async (permission: string): Promise<boolean> => {
     try {
       const accessToken = await getAccessToken({ redirect: false });
@@ -447,6 +471,7 @@ export const useGenerixProvider = (
     login,
     logout,
     getAccessToken,
+    refreshAccessToken,
     hasPermission,
     getJson,
     postJson,

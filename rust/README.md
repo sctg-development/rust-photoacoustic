@@ -287,6 +287,8 @@ This architecture ensures both interactive visualization and secure programmatic
 - `--modbus-enabled`: Enable Modbus functionality
 - `--modbus-address`: Modbus server address
 - `--modbus-port`: Modbus server port
+- `--external-web-client <URL>`: Use an external web client URL instead of the built-in client interface. When specified, the internal server will proxy all /client/* requests to this external server. This is useful for development or when using a custom web interface. Must be a valid HTTP or HTTPS URL (e.g., http://localhost:3000 or https://example.com) Note: You must only specify the base URL of the external web client, without any path (e.g., http://localhost:3000). The server will automatically proxy requests to /client/* to this URL. So your external web client should be configured to serve the client interface at /client/* paths (e.g., http://localhost:3000/client/*) for this to work correctly
+- `--enable-local-visualization`: Enable local frame-based visualization access without JWT for loopback clients
 - `--verbose`, `-v`: Enable verbose logging (debug level)
 - `--quiet`, `-q`: Disable all logging output
 

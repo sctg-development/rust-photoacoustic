@@ -78,6 +78,28 @@ export const useAuth0Provider = (): AuthProvider => {
     return Promise.resolve();
   };
 
+  const refreshAccessToken = async (
+    options?: TokenOptions,
+  ): Promise<string | null> => {
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: options?.audience || import.meta.env.AUTH0_AUDIENCE,
+          scope: options?.scope || import.meta.env.AUTH0_SCOPE,
+        },
+        cacheMode: "off",
+        ...options,
+      });
+
+      return token || null;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Error refreshing access token:", error);
+
+      return null;
+    }
+  };
+
   const hasPermission = async (permission: string): Promise<boolean> => {
     try {
       const accessToken = await getAccessToken();
@@ -178,6 +200,7 @@ export const useAuth0Provider = (): AuthProvider => {
     login,
     logout,
     getAccessToken,
+    refreshAccessToken,
     hasPermission,
     getJson,
     postJson,

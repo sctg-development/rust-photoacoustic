@@ -364,5 +364,13 @@
   "time": "Time",
   "molecule": "Molecule",
   "current-value": "Current Value",
-  "no-data-available": "No data available"
+  "no-data-available": "No data available",
+  "nav-user-prefix": "User:",
+  "nav-user-dropdown-connected-as": "Connected as",
+  "nav-user-dropdown-token-status": "Token Status",
+  "nav-user-dropdown-expires-in": "Expires in:",
+  "nav-user-dropdown-no-expiry": "No expiry found",
+  "nav-user-dropdown-playwright-export-description": "Export OIDC/Generix tokens as Playwright <0>storageState</0>. Reserved for E2E tests only — do not commit.",
+  "nav-user-dropdown-access-token": "Access Token (Bearer)",
+  "nav-user-dropdown-loading": "Loading..."
 }

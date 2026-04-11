@@ -364,5 +364,6 @@
   "time": "Tiempo",
   "molecule": "Molécula",
   "current-value": "Valor Actual",
-  "no-data-available": "No hay datos disponibles"
+  "no-data-available": "No hay datos disponibles",
+  "nav-user-dropdown-playwright-export-description": "Exporta los tokens OIDC/Generix en formato Playwright <0>storageState</0>. Reservado para pruebas E2E — no lo subas al repositorio."
 }

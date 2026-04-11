@@ -364,5 +364,13 @@
   "time": "时间",
   "molecule": "分子",
   "current-value": "当前值",
-  "no-data-available": "无可用数据"
+  "no-data-available": "无可用数据",
+  "nav-user-dropdown-access-token": "访问令牌（承载）",
+  "nav-user-dropdown-connected-as": "连接为",
+  "nav-user-dropdown-expires-in": "到期时间：",
+  "nav-user-dropdown-loading": "加载中...",
+  "nav-user-dropdown-no-expiry": "未发现过期时间",
+  "nav-user-dropdown-playwright-export-description": "将 OIDC/Generix 令牌导出为 Playwright <0>storageState</0> 格式。仅用于 E2E 测试 — 切勿提交。",
+  "nav-user-dropdown-token-status": "代币状态",
+  "nav-user-prefix": "用户："
 }

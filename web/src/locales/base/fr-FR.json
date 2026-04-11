@@ -364,5 +364,13 @@
   "time": "Temps",
   "molecule": "Molécule",
   "current-value": "Valeur actuelle",
-  "no-data-available": "Aucune donnée disponible"
+  "no-data-available": "Aucune donnée disponible",
+  "nav-user-dropdown-access-token": "Jeton d'accès (Porteur)",
+  "nav-user-dropdown-connected-as": "Connecté comme",
+  "nav-user-dropdown-expires-in": "Expire dans :",
+  "nav-user-dropdown-loading": "Chargement...",
+  "nav-user-dropdown-no-expiry": "Aucune date d'expiration trouvée",
+  "nav-user-dropdown-playwright-export-description": "Exporte les tokens OIDC/Generix au format <0>storageState</0> Playwright. Réservé aux tests E2E — ne jamais committer.",
+  "nav-user-dropdown-token-status": "Statut du jeton",
+  "nav-user-prefix": "Utilisateur:"
 }

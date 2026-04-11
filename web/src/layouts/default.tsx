@@ -1,14 +1,15 @@
 import type React from "react";
 
-import { Dropdown } from "@heroui/react";
 import { Trans, useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { createRemoteJWKSet, JWTPayload, jwtVerify } from "jose";
 
 import { useAuth } from "../authentication";
 import { Navbar } from "../components/navbar";
+import { UserTechnicalInfoModal } from "../components/user-technical-info";
 import { siteConfig } from "../config/site";
 import { useGenerixConfig } from "../authentication/providers/generix-config";
+import { TOKEN_REFRESHED_EVENT } from "../hooks/use-token-refresh";
 
 export default function DefaultLayout({
   children,
@@ -19,6 +20,7 @@ export default function DefaultLayout({
   const { isAuthenticated, user, getAccessToken } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [decodedToken, setDecodedToken] = useState<JWTPayload | null>(null);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
   const { config: generixConfig } = useGenerixConfig();
 
@@ -41,12 +43,41 @@ export default function DefaultLayout({
         }
       });
     }
-  }, [isAuthenticated, generixConfig]);
+  }, [isAuthenticated, generixConfig, getAccessToken]);
+
+  useEffect(() => {
+    const handleTokenRefreshed = (event: CustomEvent) => {
+      const newToken = event.detail;
+      setAccessToken(newToken);
+      const jwksUrl = `${generixConfig?.authority}/.well-known/jwks.json`;
+
+      if (generixConfig && newToken) {
+        const JWKS = createRemoteJWKSet(new URL(jwksUrl));
+        jwtVerify(newToken, JWKS, {
+          issuer: `${generixConfig.issuer}`,
+          audience: `${generixConfig.audience}`,
+        }).then((jwt) => {
+          setDecodedToken(jwt.payload as JWTPayload);
+        });
+      }
+    };
+
+    window.addEventListener(
+      TOKEN_REFRESHED_EVENT,
+      handleTokenRefreshed as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        TOKEN_REFRESHED_EVENT,
+        handleTokenRefreshed as EventListener,
+      );
+    };
+  }, [generixConfig]);
 
   return (
     <div className="relative flex flex-col h-screen">
       <Navbar />
-      <main className="container mx-auto max-w-7xl px-6 flex-grow pt-16">
+      <main className="container mx-auto max-w-7xl px-6 grow pt-16">
         {children}
       </main>
       <footer className="w-full flex items-center justify-center py-3">
@@ -62,41 +93,23 @@ export default function DefaultLayout({
           </span>
           <p className="text-primary">{t("brand")}&nbsp;</p>
         </a>
-        <Dropdown>
-          <Dropdown.Trigger>
-            {isAuthenticated ? (
-              <span className="cursor-pointer">
-                {t("user")}: &nbsp;{user?.name}
-              </span>
-            ) : (
-              <></>
-            )}
-          </Dropdown.Trigger>
-          <Dropdown.Popover>
-            <Dropdown.Menu className="max-w-5xl">
-              <Dropdown.Item key="user-logged" textValue="user-logged">
-                <span className="text-default-600">{t("token")}:</span>
-                <br />
-                <div className="max-w-4xl font-mono text-xs bg-default-100 rounded p-2 mt-1">
-                  <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-3xl whitespace-break-spaces text-wrap break-words">
-                    {accessToken}
-                  </div>
-                </div>
-                <br />
-                <span className="text-default-600">
-                  {t("expiration")}:{" "}
-                  {new Date((decodedToken?.exp || 0) * 1000).toLocaleString()}
-                </span>
-                <br />
-                <span className="text-default-600">
-                  {t("permissions")}:{" "}
-                  {((decodedToken?.permissions as string[]) || []).join(", ") ||
-                    t("no-permissions")}
-                </span>
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown.Popover>
-        </Dropdown>
+        {isAuthenticated && user ? (
+          <>
+            <span
+              className="cursor-pointer text-foreground hover:text-primary transition-colors"
+              onClick={() => setIsUserModalOpen(true)}
+            >
+              {t("user")}: &nbsp;{user.name}
+            </span>
+            <UserTechnicalInfoModal
+              isOpen={isUserModalOpen}
+              onClose={() => setIsUserModalOpen(false)}
+              user={user}
+              accessToken={accessToken}
+              tokenPayload={decodedToken}
+            />
+          </>
+        ) : null}
         <a
           className="flex items-center mx-1"
           color="secondary"

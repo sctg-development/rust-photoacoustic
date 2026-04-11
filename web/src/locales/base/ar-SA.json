@@ -364,5 +364,13 @@
   "time": "الوقت",
   "molecule": "الجزيء",
   "current-value": "القيمة الحالية",
-  "no-data-available": "لا توجد بيانات متاحة"
+  "no-data-available": "لا توجد بيانات متاحة",
+  "nav-user-dropdown-access-token": "رمز الوصول (حامله)",
+  "nav-user-dropdown-connected-as": "متصل كما",
+  "nav-user-dropdown-expires-in": "تنتهي صلاحيته في:",
+  "nav-user-dropdown-loading": "تحميل...",
+  "nav-user-dropdown-no-expiry": "لم يتم العثور على انتهاء الصلاحية",
+  "nav-user-dropdown-playwright-export-description": "يصدر رموز OIDC/Generix بتنسيق Playwright <0>storageState</0>. مخصص لاختبارات E2E فقط — لا تقم بعمل commit عليه.",
+  "nav-user-dropdown-token-status": "حالة الرمز المميز",
+  "nav-user-prefix": "مستخدم:"
 }
