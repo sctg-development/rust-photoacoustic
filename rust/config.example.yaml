@@ -226,7 +226,7 @@ access:
   clients:
   # OAuth2/OpenID Connect clients allowed to use the API
     - client_id: LaserSmartClient
-      default_scope: "openid profile email"
+      default_scope: "openid profile email offline_access"
       allowed_callbacks:
         - "https://localhost:8080/client/"
         - "http://localhost:8080/client/"
@@ -242,7 +242,7 @@ generix:
   api_base_url: https://localhost:8080/api # Base URL of the API server
   authority: https://localhost:8080 # Authority URL for OAuth2/OpenID Connect
   client_id: LaserSmartClient # OAuth2/OpenID Connect client ID
-  scope: openid email profile read:api write:api # Scopes requested by the client
+  scope: openid email profile offline_access read:api write:api # Scopes requested by the client
   redirect_uri: https://localhost:8080/client/ # Redirect URI after authentication
   audience: LaserSmartClient # Audience claim in JWT tokens
   token_issuer: https://localhost:8080 # Token issuer base URL

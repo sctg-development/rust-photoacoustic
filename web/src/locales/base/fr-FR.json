@@ -43,6 +43,7 @@
   "cookie-consent-title": "Politique de cookies",
   "error": "Erreur",
   "authentication_error": "erreur d'authentification",
+  "analyzer_access_requires_authentication": "L'accès à l'analyseur nécessite une authentification.",
   "site-homepage": "page d'accueil du site",
   "brand": "Lasersmart",
   "audio-streaming-test": "Test de streaming audio",
@@ -372,5 +373,7 @@
   "nav-user-dropdown-no-expiry": "Aucune date d'expiration trouvée",
   "nav-user-dropdown-playwright-export-description": "Exporte les tokens OIDC/Generix au format <0>storageState</0> Playwright. Réservé aux tests E2E — ne jamais committer.",
   "nav-user-dropdown-token-status": "Statut du jeton",
-  "nav-user-prefix": "Utilisateur:"
+  "nav-user-prefix": "Utilisateur:",
+  "duration-day_one": "{{count}} jour",
+  "duration-day_other": "{{count}} jours"
 }

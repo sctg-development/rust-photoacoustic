@@ -34,7 +34,7 @@
 //! }
 //! ```
 
-use crate::config::AccessConfig;
+use crate::config::{AccessConfig, Config};
 use crate::visualization::auth::jwt::JwtValidator;
 use anyhow::Result;
 use rocket::serde::json::Json;
@@ -42,11 +42,11 @@ use rocket::{
     get,
     http::Status,
     request::{self, FromRequest, Request},
+    State,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-
-use super::server::get_config_from_request;
+use tokio::sync::RwLock;
 
 /// JWT bearer token extractor for Rocket routes
 ///
@@ -182,7 +182,13 @@ impl<'r> FromRequest<'r> for AuthenticatedUser {
             request::Outcome::Forward(forward) => return request::Outcome::Forward(forward),
         };
 
-        let access_config = get_config_from_request(request);
+        // Read access config live from Arc<RwLock<Config>> (hot-reload Phase 1)
+        let config_state = request
+            .rocket()
+            .state::<Arc<RwLock<Config>>>()
+            .expect("Config not managed");
+        let access_config = config_state.read().await.access.clone();
+
         // Get the validator from state
         let state = request
             .rocket()

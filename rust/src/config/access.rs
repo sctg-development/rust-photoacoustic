@@ -7,7 +7,9 @@
 //! This module defines the structures for managing users, OAuth clients,
 //! and their respective permissions within the application.
 
-use crate::visualization::auth::OxideState;
+use crate::config::Config;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use rocket::{
     request::{FromRequest, Outcome},
@@ -183,6 +185,7 @@ impl Default for User {
                 "openid".to_string(),
                 "profile".to_string(),
                 "email".to_string(),
+                "offline_access".to_string(),
             ],
             email: Some("email@example.org".to_string()),
             name: Some("Admin User".to_string()),
@@ -194,7 +197,7 @@ impl Default for Client {
     fn default() -> Self {
         Self {
             client_id: "LaserSmartClient".to_string(),
-            default_scope: "openid profile email read:api write:api".to_string(),
+            default_scope: "openid profile email offline_access read:api write:api".to_string(),
             allowed_callbacks: vec![
                 "http://localhost:8080/client/".to_string(),
                 "https://localhost:8080/client/".to_string(),
@@ -216,19 +219,21 @@ impl Default for AccessConfig {
 
 /// Rocket request guard for extracting [`AccessConfig`] from the application state.
 ///
-/// This guard retrieves the [`AccessConfig`] from the [`OxideState`] managed by Rocket.
+/// This guard retrieves the [`AccessConfig`] from the managed `Arc<RwLock<Config>>` state,
+/// reading the current live configuration on every request (supports hot-reload).
 /// It allows routes to access the configuration as a request guard parameter.
 ///
 /// ### Errors
-/// Returns a 500 error if the [`OxideState`] is missing from Rocket state.
+/// Returns a 500 error if the `Config` state is missing from Rocket.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AccessConfig {
     type Error = &'static str;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        match request.guard::<&State<OxideState>>().await {
-            Outcome::Success(oxide_state) => Outcome::Success(oxide_state.access_config.clone()),
-            Outcome::Error((status, _)) => Outcome::Error((status, "Missing oxide state")),
+        // Read live from Arc<RwLock<Config>> (hot-reload Phase 1)
+        match request.guard::<&State<Arc<RwLock<Config>>>>().await {
+            Outcome::Success(config) => Outcome::Success(config.read().await.access.clone()),
+            Outcome::Error((status, _)) => Outcome::Error((status, "Missing config state")),
             Outcome::Forward(status) => Outcome::Forward(status),
         }
     }

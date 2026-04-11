@@ -23,6 +23,10 @@
     {
       "name": "Root",
       "path": "."
+    },
+    {
+      "name": "Sensitive data store",
+      "path": "_sensitive_datas"
     }
   ],
   "settings": {
@@ -52,5 +56,27 @@
       ]
     },
     "rust-analyzer.check.allTargets": false,
+    "chat.tools.terminal.autoApprove": {
+      "cargo test": true
+    },
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.profiles.linux": {
+      "bash": {
+        "path": "bash",
+        "args": [
+          "-c",
+          "echo WORKSPACE_ROOT=${workspaceFolder:Root};if [ -f ${workspaceFolder:Root}/.env ]; then set -a && source ${workspaceFolder:Root}/.env && export PROJECT_ROOT=${workspaceFolder:Root}/ && set +a && echo '.env loaded successfully from ${workspaceFolder:Root}/.env'; else echo '.env file not found'; fi && exec bash -i"
+        ]
+      }
+    },
+    "terminal.integrated.profiles.osx": {
+      "zsh": {
+        "path": "zsh",
+        "args": [
+          "-c",
+          "echo WORKSPACE_ROOT=${workspaceFolder:Root}; if [ -f ${workspaceFolder:Root}/.env ]; then set -a && source ${workspaceFolder:Root}/.env && export PROJECT_ROOT=${workspaceFolder:Root}/ && set +a && echo '.env loaded successfully from ${workspaceFolder:Root}/.env'; else echo '.env file not found'; fi && exec zsh -i"
+        ]
+      }
   }
 }

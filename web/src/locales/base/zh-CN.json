@@ -43,6 +43,7 @@
   "cookie-consent-title": "Cookies政策",
   "error": "错误",
   "authentication_error": "身份验证错误",
+  "analyzer_access_requires_authentication": "访问信号分析器需要身份验证。",
   "site-homepage": "站点主页",
   "brand": "Lasersmart",
   "audio-streaming-test": "音频流测试",
@@ -372,5 +373,7 @@
   "nav-user-dropdown-no-expiry": "未发现过期时间",
   "nav-user-dropdown-playwright-export-description": "将 OIDC/Generix 令牌导出为 Playwright <0>storageState</0> 格式。仅用于 E2E 测试 — 切勿提交。",
   "nav-user-dropdown-token-status": "代币状态",
-  "nav-user-prefix": "用户："
+  "nav-user-prefix": "用户：",
+  "duration-day_one": "{{count}}天",
+  "duration-day_other": "{{count}} 天"
 }

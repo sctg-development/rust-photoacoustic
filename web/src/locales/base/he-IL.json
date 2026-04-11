@@ -41,8 +41,9 @@
   "accept-all": "קבל את הכל",
   "reject": "לִדחוֹת",
   "cookie-consent-title": "מדיניות עוגיות",
-  "error": "שְׁגִיאָה",
+  "error": "שגיאה",
   "authentication_error": "שגיאת אימות",
+  "analyzer_access_requires_authentication": "הגישה למנתח דורשת אימות.",
   "site-homepage": "דף הבית של אתר",
   "brand": "Lasersmart",
   "audio-streaming-test": "מבחן הזרמת שמע",
@@ -372,5 +373,7 @@
   "nav-user-dropdown-no-expiry": "לא נמצא תפוגה",
   "nav-user-dropdown-playwright-export-description": "מייצא את אסימוני OIDC/Generix בפורמט Playwright <0>storageState</0>. שמור לבדיקות E2E בלבד — אסור לבצע commit על זה.",
   "nav-user-dropdown-token-status": "סטטוס אסימון",
-  "nav-user-prefix": "מִשׁתַמֵשׁ:"
+  "nav-user-prefix": "מִשׁתַמֵשׁ:",
+  "duration-day_one": "יום {{count}}",
+  "duration-day_other": "{{count}} ימים"
 }

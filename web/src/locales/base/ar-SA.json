@@ -43,6 +43,7 @@
   "cookie-consent-title": "سياسة ملفات تعريف الارتباط",
   "error": "خطأ",
   "authentication_error": "خطأ المصادقة",
+  "analyzer_access_requires_authentication": "يتطلب الوصول إلى المحلل المصادقة.",
   "site-homepage": "الصفحة الرئيسية الموقع",
   "brand": "Lasersmart",
   "audio-streaming-test": "اختبار تدفق الصوت",
@@ -372,5 +373,7 @@
   "nav-user-dropdown-no-expiry": "لم يتم العثور على انتهاء الصلاحية",
   "nav-user-dropdown-playwright-export-description": "يصدر رموز OIDC/Generix بتنسيق Playwright <0>storageState</0>. مخصص لاختبارات E2E فقط — لا تقم بعمل commit عليه.",
   "nav-user-dropdown-token-status": "حالة الرمز المميز",
-  "nav-user-prefix": "مستخدم:"
+  "nav-user-prefix": "مستخدم:",
+  "duration-day_one": "{{عدد}} يوم",
+  "duration-day_other": "{{عدد}} يوم"
 }

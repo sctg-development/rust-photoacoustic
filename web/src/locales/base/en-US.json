@@ -43,6 +43,7 @@
   "cookie-consent-title": "Cookies policy",
   "error": "Error",
   "authentication_error": "authentication error",
+  "analyzer_access_requires_authentication": "Analyzer access requires authentication.",
   "site-homepage": "site homepage",
   "brand": "Lasersmart",
   "audio-streaming-test": "audio streaming test",
@@ -372,5 +373,14 @@
   "nav-user-dropdown-no-expiry": "No expiry found",
   "nav-user-dropdown-playwright-export-description": "Export OIDC/Generix tokens as Playwright <0>storageState</0>. Reserved for E2E tests only — do not commit.",
   "nav-user-dropdown-access-token": "Access Token (Bearer)",
-  "nav-user-dropdown-loading": "Loading..."
+  "nav-user-dropdown-loading": "Loading...",
+  "duration-day_one": "{{count}} day",
+  "duration-day_other": "{{count}} days",
+  "login": "Login",
+  "authentication": {
+    "redirect-to-logout-initiated": "Redirect to logout initiated",
+    "error-during-logout": "Error during logout",
+    "no-access-token-available": "No access token available",
+    "logout-initiated": "Logout initiated"
+  }
 }

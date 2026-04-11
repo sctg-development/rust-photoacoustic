@@ -43,6 +43,7 @@
   "cookie-consent-title": "Política de cookies",
   "error": "Error",
   "authentication_error": "Error de autenticación",
+  "analyzer_access_requires_authentication": "El acceso al analizador requiere autenticación.",
   "site-homepage": "página de inicio del sitio",
   "brand": "Lasersmart",
   "audio-streaming-test": "prueba de transmisión de audio",

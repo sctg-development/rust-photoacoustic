@@ -566,7 +566,7 @@ export default function IndexPage() {
               <Alert.Content>
                 <Alert.Title>{t("authentication_error")}</Alert.Title>
                 <Alert.Description>
-                  {t("authentication_required")}
+                  {t("analyzer_access_requires_authentication")}
                 </Alert.Description>
               </Alert.Content>
             </Alert>

@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 
 import { SiteLoading } from "./components/site-loading";
 import DefaultLayout from "./layouts/default";
-import { title } from "./components/primitives";
+import { Alert } from "@heroui/react";
 import { PageNotFound } from "./pages/404";
-import { AuthenticationGuard, LogoutButton, useAuth } from "./authentication";
+import { AuthenticationGuard, useAuth } from "./authentication";
 
 import IndexPage from "./pages/index";
 import AudioPage from "./pages/audio";
@@ -33,19 +33,15 @@ function App() {
     return (
       <DefaultLayout>
         <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-          <div className="inline-block max-w-lg text-center justify-center">
-            <div className="mb-4">
-              <h1 className={title()}>
-                {t("error")}: {t("authentication_error")}
-              </h1>
-            </div>
-            <div>
-              <LogoutButton
-                showButtonIfNotAuthenticated={true}
-                text={t("reload")}
-              />
-            </div>
-          </div>
+            <Alert status="danger">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("authentication_error")}</Alert.Title>
+                <Alert.Description>
+                  {t("analyzer_access_requires_authentication")}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
         </section>
       </DefaultLayout>
     );
