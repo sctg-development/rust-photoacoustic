@@ -28,8 +28,8 @@ use oxide_auth::primitives::issuer::Issuer;
 use rocket::config::LogLevel;
 use rocket::http::{Header, Status};
 use rust_photoacoustic::config::{AccessConfig, Config, User, VisualizationConfig};
-use rust_photoacoustic::visualization::auth::jwt::{JwtIssuer, JwtValidator};
 use rust_photoacoustic::visualization::api_auth::init_jwt_validator;
+use rust_photoacoustic::visualization::auth::jwt::{JwtIssuer, JwtValidator};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -52,10 +52,7 @@ fn test_figment() -> rocket::figment::Figment {
         .merge(("hmac_secret", TEST_HMAC_SECRET.to_string()))
         .merge(("secret_key", "/qCJ7RyQIugza05wgFNN6R+c2/afrKlG5jJfZ0oQPis="))
         .merge(("access_config", AccessConfig::default()))
-        .merge((
-            "visualization_config",
-            VisualizationConfig::default(),
-        ))
+        .merge(("visualization_config", VisualizationConfig::default()))
 }
 
 /// Build a `Config` with default access settings and the test HMAC secret.
@@ -86,22 +83,17 @@ fn issue_test_token(username: &str) -> String {
         extensions: Extensions::new(),
     };
 
-    let issued = issuer
-        .issue(grant)
-        .expect("token issuance must not fail");
+    let issued = issuer.issue(grant).expect("token issuance must not fail");
     issued.token
 }
 
 /// Create a `JwtValidator` configured for the test HMAC secret.
 fn test_jwt_validator(access: AccessConfig) -> JwtValidator {
-    init_jwt_validator(TEST_HMAC_SECRET, None, access)
-        .expect("validator creation must not fail")
+    init_jwt_validator(TEST_HMAC_SECRET, None, access).expect("validator creation must not fail")
 }
 
 /// Build a full Rocket instance around a shared `Arc<RwLock<Config>>`.
-async fn build_test_rocket(
-    config: Arc<RwLock<Config>>,
-) -> rocket::local::asynchronous::Client {
+async fn build_test_rocket(config: Arc<RwLock<Config>>) -> rocket::local::asynchronous::Client {
     let rocket = rust_photoacoustic::visualization::server::build_rocket(
         test_figment(),
         config,
@@ -140,7 +132,11 @@ fn test_get_user_info_succeeds_for_known_user() {
     let validator = test_jwt_validator(access.clone());
     let result = validator.get_user_info(&token, access);
 
-    assert!(result.is_ok(), "user 'admin' must be found: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "user 'admin' must be found: {:?}",
+        result.err()
+    );
     assert_eq!(result.unwrap().user_id, "admin");
 }
 
@@ -224,7 +220,9 @@ fn test_get_user_info_accepts_token_after_user_added() {
 
     // After: add "newuser" to the config
     let mut updated_access = AccessConfig::default();
-    updated_access.users.push(make_user("newuser", &["read:api"]));
+    updated_access
+        .users
+        .push(make_user("newuser", &["read:api"]));
 
     let result_after = validator.get_user_info(&token, updated_access);
     assert!(
@@ -239,7 +237,9 @@ fn test_get_user_info_accepts_token_after_user_added() {
 /// Baseline integration test: a valid token for the default "admin" user returns 200.
 #[rocket::async_test]
 async fn test_authenticated_user_guard_baseline() {
-    let config = Arc::new(RwLock::new(test_config_with_access(AccessConfig::default())));
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
     let client = build_test_rocket(config).await;
 
     let token = issue_test_token("admin");
@@ -255,10 +255,8 @@ async fn test_authenticated_user_guard_baseline() {
         "valid admin token must be accepted"
     );
 
-    let body: Value = serde_json::from_str(
-        &response.into_string().await.expect("body"),
-    )
-    .expect("valid JSON");
+    let body: Value =
+        serde_json::from_str(&response.into_string().await.expect("body")).expect("valid JSON");
     assert_eq!(body["user_id"], "admin");
 }
 
@@ -266,7 +264,9 @@ async fn test_authenticated_user_guard_baseline() {
 /// requests with that user's (still-valid) token to be rejected with 401.
 #[rocket::async_test]
 async fn test_authenticated_user_guard_rejects_removed_user() {
-    let config = Arc::new(RwLock::new(test_config_with_access(AccessConfig::default())));
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
     let client = build_test_rocket(Arc::clone(&config)).await;
 
     let token = issue_test_token("admin");
@@ -310,7 +310,9 @@ async fn test_authenticated_user_guard_rejects_removed_user() {
 /// the identical token succeeds.
 #[rocket::async_test]
 async fn test_authenticated_user_guard_accepts_newly_added_user() {
-    let config = Arc::new(RwLock::new(test_config_with_access(AccessConfig::default())));
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
     let client = build_test_rocket(Arc::clone(&config)).await;
 
     let token = issue_test_token("alice");
@@ -330,10 +332,9 @@ async fn test_authenticated_user_guard_accepts_newly_added_user() {
     // --- Add alice to the shared config ---
     {
         let mut cfg = config.write().await;
-        cfg.access.users.push(make_user(
-            "alice",
-            &["read:api", "write:api"],
-        ));
+        cfg.access
+            .users
+            .push(make_user("alice", &["read:api", "write:api"]));
     }
 
     // --- After addition: same token is accepted ---
@@ -348,10 +349,8 @@ async fn test_authenticated_user_guard_accepts_newly_added_user() {
         "alice must be accepted after being added to config"
     );
 
-    let body: Value = serde_json::from_str(
-        &response_after.into_string().await.expect("body"),
-    )
-    .expect("valid JSON");
+    let body: Value = serde_json::from_str(&response_after.into_string().await.expect("body"))
+        .expect("valid JSON");
     assert_eq!(body["user_id"], "alice");
 }
 
@@ -370,7 +369,10 @@ async fn test_authenticated_user_guard_swap_user_list() {
     assert_eq!(
         client
             .get("/api/profile")
-            .header(Header::new("Authorization", format!("Bearer {}", admin_token)))
+            .header(Header::new(
+                "Authorization",
+                format!("Bearer {}", admin_token)
+            ))
             .dispatch()
             .await
             .status(),
@@ -379,7 +381,10 @@ async fn test_authenticated_user_guard_swap_user_list() {
     assert_eq!(
         client
             .get("/api/profile")
-            .header(Header::new("Authorization", format!("Bearer {}", bob_token)))
+            .header(Header::new(
+                "Authorization",
+                format!("Bearer {}", bob_token)
+            ))
             .dispatch()
             .await
             .status(),
@@ -396,7 +401,10 @@ async fn test_authenticated_user_guard_swap_user_list() {
     assert_eq!(
         client
             .get("/api/profile")
-            .header(Header::new("Authorization", format!("Bearer {}", bob_token)))
+            .header(Header::new(
+                "Authorization",
+                format!("Bearer {}", bob_token)
+            ))
             .dispatch()
             .await
             .status(),
@@ -406,7 +414,10 @@ async fn test_authenticated_user_guard_swap_user_list() {
     assert_eq!(
         client
             .get("/api/profile")
-            .header(Header::new("Authorization", format!("Bearer {}", admin_token)))
+            .header(Header::new(
+                "Authorization",
+                format!("Bearer {}", admin_token)
+            ))
             .dispatch()
             .await
             .status(),
@@ -419,7 +430,9 @@ async fn test_authenticated_user_guard_swap_user_list() {
 /// Ensures the guard doesn't bypass auth on empty input.
 #[rocket::async_test]
 async fn test_authenticated_user_guard_rejects_missing_token() {
-    let config = Arc::new(RwLock::new(test_config_with_access(AccessConfig::default())));
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
     let client = build_test_rocket(config).await;
 
     let response = client.get("/api/profile").dispatch().await;
@@ -433,7 +446,9 @@ async fn test_authenticated_user_guard_rejects_missing_token() {
 /// An Authorization header with a malformed (non-JWT) value is rejected.
 #[rocket::async_test]
 async fn test_authenticated_user_guard_rejects_malformed_token() {
-    let config = Arc::new(RwLock::new(test_config_with_access(AccessConfig::default())));
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
     let client = build_test_rocket(config).await;
 
     let response = client
@@ -556,7 +571,9 @@ async fn test_access_config_guard_reflects_removed_user() {
 /// either 200 or 401 (never 500).
 #[rocket::async_test]
 async fn test_concurrent_config_mutation_is_safe() {
-    let config = Arc::new(RwLock::new(test_config_with_access(AccessConfig::default())));
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
     let client = Arc::new(build_test_rocket(Arc::clone(&config)).await);
 
     let writer_config = Arc::clone(&config);
