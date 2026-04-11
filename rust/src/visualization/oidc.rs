@@ -15,15 +15,19 @@
 //! These endpoints allow OAuth/OIDC clients to automatically discover the server's
 //! capabilities and configuration, including supported signing algorithms and endpoints.
 
+use std::sync::Arc;
+
 use base64::Engine;
 use log::debug;
 use rocket::serde::json::{json, Json, Value};
 use rocket::{get, State};
 use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 
 use super::auth::OxideState;
 use super::request_guard::ConnectionInfo;
+use crate::config::{AccessConfig, Config};
 use crate::visualization::auth::jwt::JwkKeySet;
 
 /// OpenID Connect Discovery Configuration
@@ -90,11 +94,16 @@ pub struct OpenIdConfiguration {
 ///
 /// * `base_url` - The base URL of the server (e.g., "https://myserver.com")
 /// * `state` - The application OAuth state
+/// * `access_config` - The live access configuration (read from `Arc<RwLock<Config>>`)
 ///
 /// ### Returns
 ///
 /// OpenID Configuration object ready to be serialized to JSON
-fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdConfiguration {
+fn generate_openid_configuration(
+    base_url: &str,
+    state: &OxideState,
+    access_config: &AccessConfig,
+) -> OpenIdConfiguration {
     // Determine which signing algorithms are supported
     let mut signing_algs = vec!["HS256".to_string()];
 
@@ -116,11 +125,12 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
             state.rs256_private_key.is_empty()
         );
     }
-    // Get the access_config from the state
-    let access_config = state.access_config.clone();
 
     OpenIdConfiguration {
-        issuer: access_config.iss.unwrap_or("LaserSmartServer".to_string()),
+        issuer: access_config
+            .iss
+            .clone()
+            .unwrap_or("LaserSmartServer".to_string()),
         authorization_endpoint: format!("{}/authorize", base_url),
         token_endpoint: format!("{}/token", base_url),
         userinfo_endpoint: Some(format!("{}/userinfo", base_url)),
@@ -173,14 +183,17 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
 #[get("/.well-known/openid-configuration")]
 pub async fn openid_configuration(
     state: &State<OxideState>,
+    config: &State<Arc<RwLock<Config>>>,
     connection: ConnectionInfo<'_>,
 ) -> Json<OpenIdConfiguration> {
     let base_url = &connection.base_url;
     debug!("Base URL for OpenID configuration: {}", base_url);
+    // Read live access config (iss field may change without restart)
+    let access_config = config.read().await.access.clone();
     // Generate the configuration document
-    let config = generate_openid_configuration(base_url, state);
+    let openid_config = generate_openid_configuration(base_url, state, &access_config);
 
-    Json(config)
+    Json(openid_config)
 }
 
 /// JSON Web Key Set (JWKS) endpoint

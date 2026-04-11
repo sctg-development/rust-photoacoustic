@@ -209,10 +209,7 @@ async fn test_logout_blocks_open_redirect() {
         location, "https://evil.example.com/steal",
         "external redirect must be blocked"
     );
-    assert_eq!(
-        location, "/",
-        "blocked open-redirect must fall back to /"
-    );
+    assert_eq!(location, "/", "blocked open-redirect must fall back to /");
 }
 
 // ─── Session / consent regression tests ─────────────────────────────────────
@@ -253,7 +250,8 @@ async fn test_login_shows_consent_form_when_session_active() {
     assert!(
         body.contains("Authorization Request"),
         "response must contain the consent form, not the login form; \
-         got: {:.200}", body
+         got: {:.200}",
+        body
     );
     assert!(
         !body.contains("Photoacoustic Login"),
@@ -316,7 +314,8 @@ async fn test_authorize_shows_login_form_after_logout() {
     let body_after = after_logout.into_string().await.expect("body");
     assert!(
         body_after.contains("Photoacoustic Login"),
-        "login form must be shown after logout; got: {:.300}", body_after
+        "login form must be shown after logout; got: {:.300}",
+        body_after
     );
     assert!(
         !body_after.contains("Authorization Request"),
@@ -387,7 +386,11 @@ async fn test_login_again_after_logout_succeeds() {
         .body(admin_login_body())
         .dispatch()
         .await;
-    assert_eq!(first_login.status(), Status::Found, "first login must redirect");
+    assert_eq!(
+        first_login.status(),
+        Status::Found,
+        "first login must redirect"
+    );
 
     // Logout
     let logout = client.get("/logout").dispatch().await;

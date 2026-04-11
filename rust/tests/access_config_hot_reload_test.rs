@@ -2,11 +2,11 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Integration tests for Phase 1 hot-reload of `AccessConfig`
+//! Integration tests for Phase 1 & Phase 2 hot-reload of `AccessConfig`
 //!
 //! These tests verify that modifying `Config.access` in the shared `Arc<RwLock<Config>>`
-//! is immediately visible to the `AuthenticatedUser` and `AccessConfig` request guards
-//! without restarting the server.
+//! is immediately visible to the `AuthenticatedUser` and `AccessConfig` request guards,
+//! the `login` handler, and the OIDC discovery endpoint — without restarting the server.
 //!
 //! ## Covered scenarios
 //!
@@ -15,13 +15,18 @@
 //! - [`test_get_user_info_fails_for_unknown_user`]                   — user not in config
 //! - [`test_get_user_info_reflects_permission_changes`]              — new permissions visible immediately
 //!
-//! ### Integration tests (Rocket test client, HTTP round-trips)
+//! ### Integration tests — Phase 1 (AuthenticatedUser / AccessConfig guards)
 //! - [`test_authenticated_user_guard_baseline`]                      — valid token → 200
 //! - [`test_authenticated_user_guard_rejects_removed_user`]         — user removed → 401
 //! - [`test_authenticated_user_guard_accepts_newly_added_user`]     — user added → 200
 //! - [`test_access_config_guard_reflects_added_user`]               — AccessConfig guard is live
 //! - [`test_access_config_guard_reflects_removed_user`]             — AccessConfig guard is live
 //! - [`test_concurrent_config_mutation_is_safe`]                    — concurrent reads during write
+//!
+//! ### Integration tests — Phase 2 (login handler + OIDC discovery)
+//! - [`test_login_handler_rejects_removed_user`]                    — live login: removed user → 401
+//! - [`test_login_handler_accepts_newly_added_user`]                — live login: added user → 302
+//! - [`test_oidc_discovery_reflects_live_issuer`]                   — iss field live in OIDC discovery
 
 use oxide_auth::primitives::grant::{Extensions, Grant};
 use oxide_auth::primitives::issuer::Issuer;
@@ -628,4 +633,159 @@ async fn test_concurrent_config_mutation_is_safe() {
     for t in tasks {
         t.await.expect("reader task panicked");
     }
+}
+
+// ─── Phase 2 integration tests — login handler + OIDC ────────────────────────
+
+/// Phase 2 — login handler reads live config.
+///
+/// Verifies that changing the user list in the shared config after the server
+/// starts immediately affects form-based login (POST /login). When a user is
+/// removed from the config, their credentials must be rejected even if the
+/// server has been running since before the removal.
+#[rocket::async_test]
+async fn test_login_handler_rejects_removed_user() {
+    use rocket::http::{ContentType, Status};
+
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
+    let client = build_test_rocket(Arc::clone(&config)).await;
+
+    // Baseline: admin can log in (the default "admin" user exists with password "admin123")
+    let login_form = "username=admin&password=admin123&response_type=code&client_id=LaserSmartClient&redirect_uri=https%3A%2F%2Flocalhost%2Fcallback";
+    let response_before = client
+        .post("/login")
+        .header(ContentType::Form)
+        .body(login_form)
+        .dispatch()
+        .await;
+    // Successful login redirects to /authorize
+    assert_eq!(
+        response_before.status(),
+        Status::Found,
+        "admin must be able to log in before config change"
+    );
+
+    // Remove the admin user from the live config
+    {
+        let mut cfg = config.write().await;
+        cfg.access.users.clear();
+    }
+
+    // Same credentials must now be rejected
+    let response_after = client
+        .post("/login")
+        .header(ContentType::Form)
+        .body(login_form)
+        .dispatch()
+        .await;
+    assert_eq!(
+        response_after.status(),
+        Status::Unauthorized,
+        "admin login must fail after user is removed from live config"
+    );
+}
+
+/// Phase 2 — login handler accepts a newly added user.
+///
+/// A user ("carol") not present in the initial config can log in after
+/// being added to the shared config — without restarting the server.
+#[rocket::async_test]
+async fn test_login_handler_accepts_newly_added_user() {
+    use rocket::http::{ContentType, Status};
+
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
+    let client = build_test_rocket(Arc::clone(&config)).await;
+
+    // "carol" is unknown initially — login must fail
+    let login_form = "username=carol&password=admin123&response_type=code&client_id=LaserSmartClient&redirect_uri=https%3A%2F%2Flocalhost%2Fcallback";
+    let response_before = client
+        .post("/login")
+        .header(ContentType::Form)
+        .body(login_form)
+        .dispatch()
+        .await;
+    assert_eq!(
+        response_before.status(),
+        Status::Unauthorized,
+        "carol must be rejected before being added to config"
+    );
+
+    // Add "carol" with the same password hash as "admin" (admin123)
+    {
+        let mut cfg = config.write().await;
+        cfg.access.users.push(make_user("carol", &["read:api"]));
+        // Override with the correct bcrypt hash for "admin123"
+        cfg.access.users.last_mut().unwrap().pass = ADMIN123_HASH.to_string();
+    }
+
+    // Now carol can log in
+    let response_after = client
+        .post("/login")
+        .header(ContentType::Form)
+        .body(login_form)
+        .dispatch()
+        .await;
+    assert_eq!(
+        response_after.status(),
+        Status::Found,
+        "carol must be accepted after being added to live config"
+    );
+}
+
+/// Phase 2 — OIDC discovery endpoint reflects live `iss` field.
+///
+/// The `/.well-known/openid-configuration` endpoint must return the `iss` value
+/// from the live `AccessConfig`, not from the value frozen at server startup.
+#[rocket::async_test]
+async fn test_oidc_discovery_reflects_live_issuer() {
+    let config = Arc::new(RwLock::new(
+        test_config_with_access(AccessConfig::default()),
+    ));
+    let client = build_test_rocket(Arc::clone(&config)).await;
+
+    // Initial issuer comes from default config (None → "LaserSmartServer")
+    let response_before = client
+        .get("/.well-known/openid-configuration")
+        .dispatch()
+        .await;
+    assert_eq!(response_before.status(), Status::Ok);
+    let body_before: Value = serde_json::from_str(
+        &response_before
+            .into_string()
+            .await
+            .expect("body must be present"),
+    )
+    .expect("valid JSON");
+    assert_eq!(
+        body_before["issuer"], "LaserSmartServer",
+        "default issuer must be 'LaserSmartServer'"
+    );
+
+    // Change issuer in the live config
+    {
+        let mut cfg = config.write().await;
+        cfg.access.iss = Some("https://laser.example.com".to_string());
+    }
+
+    // OIDC discovery must now reflect the new issuer
+    let response_after = client
+        .get("/.well-known/openid-configuration")
+        .dispatch()
+        .await;
+    assert_eq!(response_after.status(), Status::Ok);
+    let body_after: Value = serde_json::from_str(
+        &response_after
+            .into_string()
+            .await
+            .expect("body must be present"),
+    )
+    .expect("valid JSON");
+    assert_eq!(
+        body_after["issuer"], "https://laser.example.com",
+        "issuer must reflect the live config change"
+    );
 }

@@ -8,6 +8,7 @@
 //! including authorization, token exchange, refresh, and user info.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use log::debug;
 use oxide_auth::endpoint::{Solicitation, WebRequest};
@@ -18,10 +19,12 @@ use rocket::http::{Cookie, CookieJar, Status};
 use rocket::serde::json::Json;
 use rocket::time::Duration;
 use rocket::{get, post, State};
+use tokio::sync::RwLock;
 
 use super::consent::{consent_decision, consent_form};
 use super::forms::{encode_user_session, login_page_html, AuthForm, AuthenticatedUser};
 use super::state::OxideState;
+use crate::config::Config;
 use crate::visualization::auth::oauth2::validate_user;
 use crate::visualization::auth::OAuthBearer;
 use crate::visualization::user_info_reponse::UserInfoResponse;
@@ -187,18 +190,23 @@ pub fn authorize(
 }
 
 /// Handles user login credentials and sets session if valid
+///
+/// The access configuration (users and credentials) is read live from the shared
+/// `Arc<RwLock<Config>>` so that credential changes take effect immediately without
+/// restarting the server.
 #[post("/login", data = "<form>")]
-pub fn login(
+pub async fn login(
     form: Form<AuthForm>,
     state: &State<OxideState>,
+    config: &State<Arc<RwLock<Config>>>,
     cookies: &CookieJar<'_>,
 ) -> Result<OAuthResponse, OAuthFailure> {
     debug!("Login form data: {:?}", form);
-    // Get access config from state
-    let access_config = &state.access_config;
+    // Read live access config from the shared config state
+    let access_config = config.read().await.access.clone();
 
     // Validate user credentials
-    if let Some(user) = validate_user(&form.username, &form.password, access_config) {
+    if let Some(user) = validate_user(&form.username, &form.password, &access_config) {
         // Set authenticated session cookie
         let mut cookie = Cookie::new("user_session", encode_user_session(user.clone()));
         cookie.set_http_only(true);
@@ -328,10 +336,7 @@ pub fn authorize_consent(
 ///
 /// HTTP 302 redirect to the post-logout URI
 #[get("/logout?<post_logout_redirect_uri>")]
-pub fn logout(
-    cookies: &CookieJar<'_>,
-    post_logout_redirect_uri: Option<String>,
-) -> OAuthResponse {
+pub fn logout(cookies: &CookieJar<'_>, post_logout_redirect_uri: Option<String>) -> OAuthResponse {
     // Remove the private session cookie — this is the key step that prevents
     // the consent handler from re-authenticating a logged-out user.
     cookies.remove_private("user_session");
@@ -340,7 +345,11 @@ pub fn logout(
     // Redirect to the requested post-logout URI, falling back to "/".
     // Only allow relative URIs to prevent open-redirect attacks.
     let redirect_to = post_logout_redirect_uri
-        .filter(|uri| uri.starts_with('/') || uri.starts_with("https://localhost") || uri.starts_with("https://127.0.0.1"))
+        .filter(|uri| {
+            uri.starts_with('/')
+                || uri.starts_with("https://localhost")
+                || uri.starts_with("https://127.0.0.1")
+        })
         .unwrap_or_else(|| "/".to_string());
 
     OAuthResponse::new()
