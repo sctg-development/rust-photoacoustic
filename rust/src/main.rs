@@ -137,6 +137,8 @@ pub struct Args {
     /// When specified, the internal server will proxy all /client/* requests to this external server.
     /// This is useful for development or when using a custom web interface.
     /// Must be a valid HTTP or HTTPS URL (e.g., http://localhost:3000 or https://example.com)
+    /// Note: You must only specify the base URL of the external web client, without any path (e.g., http://localhost:3000). The server will automatically proxy requests to /client/* to this URL.
+    /// So your external web client should be configured to serve the client interface at /client/* paths (e.g., http://localhost:3000/client/*) for this to work correctly.
     #[arg(long = "external-web-client", value_name = "URL")]
     external_web_client: Option<String>,
 

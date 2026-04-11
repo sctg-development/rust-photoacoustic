@@ -1,16 +1,16 @@
-import eslint from "@eslint/js";
+import js from "@eslint/js";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import jsxA11yPlugin from "eslint-plugin-jsx-a11y";
 import unusedImports from "eslint-plugin-unused-imports";
-import importPlugin from "eslint-plugin-import";
+import importPlugin from "eslint-plugin-import-x";
 import prettierPlugin from "eslint-plugin-prettier";
 import globals from "globals";
 
 export default [
-  eslint.configs.recommended,
+  js.configs.recommended,
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
@@ -37,7 +37,7 @@ export default [
       "react-hooks": reactHooksPlugin,
       "jsx-a11y": jsxA11yPlugin,
       "unused-imports": unusedImports,
-      import: importPlugin,
+      "import-x": importPlugin,
       "@typescript-eslint": tseslint,
       prettier: prettierPlugin,
     },
@@ -61,7 +61,7 @@ export default [
           argsIgnorePattern: "^_.*?$",
         },
       ],
-      "import/order": [
+      "import-x/order": [
         "warn",
         {
           groups: [

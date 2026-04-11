@@ -52,7 +52,8 @@ import { useMemo, useCallback, useState, useEffect } from "react";
 // Internationalization for multi-language support
 import { useTranslation } from "react-i18next";
 // ReactFlow components for graph visualization
-import ReactFlow, {
+import {
+  ReactFlow,
   Node,
   Edge,
   Controls,
@@ -63,23 +64,18 @@ import ReactFlow, {
   Handle,
   Position,
   ReactFlowProvider,
-} from "reactflow";
+} from "@xyflow/react";
 // ReactFlow base styles (required for proper rendering)
-import "reactflow/dist/style.css";
+import "@xyflow/react/dist/style.css";
 // HeroUI components for consistent design system
 import {
   Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
-import { Card, CardBody } from "@heroui/card";
-import { Chip } from "@heroui/chip";
-import { Progress } from "@heroui/progress";
-import { Divider } from "@heroui/divider";
+  Button,
+  Card,
+  Chip,
+  ProgressBar,
+  Separator,
+} from "@heroui/react";
 
 // Application-specific types and utilities
 import {
@@ -120,6 +116,9 @@ const nodeTypes = {
  * @interface ProcessingNodeData
  */
 interface ProcessingNodeData {
+  /** Index signature required by @xyflow/react v12 (Node data must extend Record<string, unknown>) */
+  [key: string]: unknown;
+
   /** Unique identifier for the node - used for connections and display */
   id: string;
 
@@ -142,8 +141,11 @@ interface ProcessingNodeData {
   isBottleneck?: boolean;
 
   /** Event handler for node click interactions - triggers modal display */
-  onClick: (nodeId: string, nodeData: any) => void;
+  onClick: (nodeId: string, nodeData: ProcessingNodeData) => void;
 }
+
+/** Typed ReactFlow node using ProcessingNodeData — required by @xyflow/react v12 */
+type ProcessingFlowNode = Node<ProcessingNodeData>;
 
 /**
  * Icon mapping for different node types
@@ -226,7 +228,7 @@ export const getNodeIcon = (nodeType: string): string => {
  * @see ProcessingNodeData - Interface defining the expected data structure
  * @see getNodeIcon - Function providing visual icons for node types
  */
-function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
+function ProcessingNode({ data }: NodeProps<ProcessingFlowNode>) {
   const { t } = useTranslation();
   const { statistics, isBottleneck, nodeType, id } = data;
 
@@ -336,7 +338,7 @@ function ProcessingNode({ data }: NodeProps<ProcessingNodeData>) {
 
         {/* Critical performance warning - bottleneck indicator with high visibility */}
         {isBottleneck && (
-          <Chip className="mt-1" color="danger" size="sm" variant="flat">
+          <Chip className="mt-1" color="danger" size="sm" variant="soft">
             {t("view-bottleneck")}
           </Chip>
         )}
@@ -586,210 +588,215 @@ function NodeDetailsModal({
   const isBottleneck = nodeData.isBottleneck || false;
 
   return (
-    <Modal isOpen={isOpen} scrollBehavior="inside" size="2xl" onClose={onClose}>
-      <ModalContent>
-        {/* Modal Header with Icon and Node Identification */}
-        <ModalHeader className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{getNodeIcon(nodeData.nodeType)}</span>
-            <div>
-              <h2 className="text-xl font-bold">{nodeData.id}</h2>
-              <p className="text-sm text-gray-600 font-normal">
-                {t("view-modal-node-subtitle", { type: nodeData.nodeType })}
-              </p>
+    <Modal.Backdrop isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Modal.Container>
+        <Modal.Dialog className="max-w-2xl">
+          <Modal.CloseTrigger />
+          {/* Modal Header with Icon and Node Identification */}
+          <Modal.Header>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{getNodeIcon(nodeData.nodeType)}</span>
+              <div>
+                <Modal.Heading>{nodeData.id}</Modal.Heading>
+                <p className="text-sm text-gray-600 font-normal">
+                  {t("view-modal-node-subtitle", { type: nodeData.nodeType })}
+                </p>
+              </div>
             </div>
-          </div>
-        </ModalHeader>
+          </Modal.Header>
 
-        <ModalBody>
-          {/* **Section 1: Node Information**
-              Displays basic node configuration and metadata */}
-          <Card>
-            <CardBody>
-              <h3 className="text-lg font-semibold mb-3">
-                {t("view-modal-node-information")}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Node Identity Information */}
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {t("view-modal-node-id")}
-                  </p>
-                  <p className="font-medium">{nodeData.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {t("view-modal-node-type")}
-                  </p>
-                  <p className="font-medium">{nodeData.nodeType}</p>
-                </div>
+          <Modal.Body>
+            {/* **Section 1: Node Information**
+                Displays basic node configuration and metadata */}
+            <Card>
+              <Card.Content>
+                <h3 className="text-lg font-semibold mb-3">
+                  {t("view-modal-node-information")}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Node Identity Information */}
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-node-id")}
+                    </p>
+                    <p className="font-medium">{nodeData.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-node-type")}
+                    </p>
+                    <p className="font-medium">{nodeData.nodeType}</p>
+                  </div>
 
-                {/* Data Type Information */}
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {t("view-modal-output-type")}
-                  </p>
-                  <p className="font-medium">
-                    {nodeData.outputType || t("view-modal-dynamic")}
-                  </p>
+                  {/* Data Type Information */}
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-output-type")}
+                    </p>
+                    <p className="font-medium">
+                      {nodeData.outputType || t("view-modal-dynamic")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-input-types")}
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {nodeData.acceptsInputTypes.map((type) => (
+                        <Chip key={type} size="sm" variant="soft">
+                          {type}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {t("view-modal-input-types")}
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {nodeData.acceptsInputTypes.map((type) => (
-                      <Chip key={type} size="sm" variant="flat">
-                        {type}
+              </Card.Content>
+            </Card>
+
+            {/* **Section 2: Performance Statistics**
+                Displays runtime performance metrics with visual indicators
+                Only rendered when meaningful statistics are available */}
+            {statistics && statistics.frames_processed > 0 && (
+              <Card>
+                <Card.Content>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold">
+                      {t("view-modal-performance-statistics")}
+                    </h3>
+                    {/* Bottleneck Warning Badge */}
+                    {isBottleneck && (
+                      <Chip color="danger" variant="soft">
+                        {t("view-modal-bottleneck-chip")}
                       </Chip>
+                    )}
+                  </div>
+
+                  {/* Primary Performance Metrics Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Frames Processed - Primary throughput indicator */}
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {t("view-modal-frames-processed")}
+                      </p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {statistics.frames_processed.toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* Average Processing Time - Primary efficiency indicator */}
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {t("view-modal-average-processing-time")}
+                      </p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {ProcessingGraphUtils.formatDuration(
+                          statistics.average_processing_time,
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Performance Range Indicators */}
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {t("view-modal-fastest-processing")}
+                      </p>
+                      <p className="text-lg font-semibold text-green-500">
+                        {ProcessingGraphUtils.formatDuration(
+                          statistics.fastest_processing_time,
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {t("view-modal-slowest-processing")}
+                      </p>
+                      <p className="text-lg font-semibold text-red-500">
+                        {ProcessingGraphUtils.formatDuration(
+                          statistics.worst_processing_time,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* **Performance Consistency Visualization**
+                      Shows how consistent the processing times are using a progress bar */}
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {t("view-modal-processing-time-consistency")}
+                    </p>
+                    <div className="relative">
+                      {/* Consistency ratio: higher ratio = more consistent performance */}
+                      <ProgressBar
+                        className="mb-2"
+                        color={isBottleneck ? "danger" : "success"}
+                        value={
+                          (statistics.fastest_processing_time /
+                            statistics.worst_processing_time) *
+                          100
+                        }
+                      >
+                        <ProgressBar.Track>
+                          <ProgressBar.Fill />
+                        </ProgressBar.Track>
+                      </ProgressBar>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>{t("view-modal-consistent")}</span>
+                        <span>{t("view-modal-variable")}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Processing Time - Cumulative performance indicator */}
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">
+                      {t("view-modal-total-processing-time")}
+                    </p>
+                    <p className="text-lg font-semibold">
+                      {ProcessingGraphUtils.formatDuration(
+                        statistics.total_processing_time,
+                      )}
+                    </p>
+                  </div>
+                </Card.Content>
+              </Card>
+            )}
+
+            {/* **Section 3: Configuration Parameters**
+                Displays node-specific configuration values
+                Only rendered when parameters exist */}
+            {Object.keys(nodeData.parameters).length > 0 && (
+              <Card>
+                <Card.Content>
+                  <h3 className="text-lg font-semibold mb-3">
+                    {t("view-modal-configuration-parameters")}
+                  </h3>
+                  <div className="space-y-2">
+                    {Object.entries(nodeData.parameters).map(([key, value]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="text-sm text-gray-600">{key}:</span>
+                        <span className="text-sm font-medium">
+                          {/* Handle complex object values with JSON serialization */}
+                          {typeof value === "object"
+                            ? JSON.stringify(value)
+                            : String(value)}
+                        </span>
+                      </div>
                     ))}
                   </div>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
+                </Card.Content>
+              </Card>
+            )}
+          </Modal.Body>
 
-          {/* **Section 2: Performance Statistics**
-              Displays runtime performance metrics with visual indicators
-              Only rendered when meaningful statistics are available */}
-          {statistics && statistics.frames_processed > 0 && (
-            <Card>
-              <CardBody>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold">
-                    {t("view-modal-performance-statistics")}
-                  </h3>
-                  {/* Bottleneck Warning Badge */}
-                  {isBottleneck && (
-                    <Chip color="danger" variant="flat">
-                      {t("view-modal-bottleneck-chip")}
-                    </Chip>
-                  )}
-                </div>
-
-                {/* Primary Performance Metrics Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Frames Processed - Primary throughput indicator */}
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {t("view-modal-frames-processed")}
-                    </p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {statistics.frames_processed.toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* Average Processing Time - Primary efficiency indicator */}
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {t("view-modal-average-processing-time")}
-                    </p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {ProcessingGraphUtils.formatDuration(
-                        statistics.average_processing_time,
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Performance Range Indicators */}
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {t("view-modal-fastest-processing")}
-                    </p>
-                    <p className="text-lg font-semibold text-green-500">
-                      {ProcessingGraphUtils.formatDuration(
-                        statistics.fastest_processing_time,
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {t("view-modal-slowest-processing")}
-                    </p>
-                    <p className="text-lg font-semibold text-red-500">
-                      {ProcessingGraphUtils.formatDuration(
-                        statistics.worst_processing_time,
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <Divider className="my-4" />
-
-                {/* **Performance Consistency Visualization**
-                    Shows how consistent the processing times are using a progress bar */}
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {t("view-modal-processing-time-consistency")}
-                  </p>
-                  <div className="relative">
-                    {/* Consistency ratio: higher ratio = more consistent performance */}
-                    <Progress
-                      className="mb-2"
-                      color={isBottleneck ? "danger" : "success"}
-                      value={
-                        (statistics.fastest_processing_time /
-                          statistics.worst_processing_time) *
-                        100
-                      }
-                    />
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>{t("view-modal-consistent")}</span>
-                      <span>{t("view-modal-variable")}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Total Processing Time - Cumulative performance indicator */}
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600">
-                    {t("view-modal-total-processing-time")}
-                  </p>
-                  <p className="text-lg font-semibold">
-                    {ProcessingGraphUtils.formatDuration(
-                      statistics.total_processing_time,
-                    )}
-                  </p>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-
-          {/* **Section 3: Configuration Parameters**
-              Displays node-specific configuration values
-              Only rendered when parameters exist */}
-          {Object.keys(nodeData.parameters).length > 0 && (
-            <Card>
-              <CardBody>
-                <h3 className="text-lg font-semibold mb-3">
-                  {t("view-modal-configuration-parameters")}
-                </h3>
-                <div className="space-y-2">
-                  {Object.entries(nodeData.parameters).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-sm text-gray-600">{key}:</span>
-                      <span className="text-sm font-medium">
-                        {/* Handle complex object values with JSON serialization */}
-                        {typeof value === "object"
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          )}
-        </ModalBody>
-
-        {/* Modal Footer with Close Action */}
-        <ModalFooter>
-          <Button color="primary" onPress={onClose}>
-            {t("view-modal-close")}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+          {/* Modal Footer with Close Action */}
+          <Modal.Footer>
+            <Button slot="close">{t("view-modal-close")}</Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
@@ -847,15 +854,19 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
   // **ReactFlow State Management**
   // These hooks provide optimized state management for ReactFlow components
   // with built-in change handling and performance optimizations
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<ProcessingFlowNode>(
+    [],
+  );
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   // **Modal State Management**
   // Manages the node details modal with selected node data
   const [selectedNode, setSelectedNode] = useState<ProcessingNodeData | null>(
     null,
   );
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [isOpen, setIsOpen] = useState(false);
+  const onOpen = () => setIsOpen(true);
+  const onClose = () => setIsOpen(false);
 
   /**
    * Handles node click events to open detailed information modals
@@ -875,7 +886,7 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
       setSelectedNode(nodeData);
       onOpen();
     },
-    [onOpen],
+    [],
   );
 
   /**
@@ -913,27 +924,29 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
 
     // **Phase 2: ReactFlow Node Creation**
     // Convert each processing node to ReactFlow format with enhanced data
-    const reactFlowNodes: Node[] = graph.nodes.map((node, index) => {
-      // Integrate runtime statistics for performance-aware visualization
-      const statistics = graph.statistics.node_statistics[node.id];
-      const isBottleneck = ProcessingGraphUtils.isBottleneck(graph, node.id);
+    const reactFlowNodes: ProcessingFlowNode[] = graph.nodes.map(
+      (node, index) => {
+        // Integrate runtime statistics for performance-aware visualization
+        const statistics = graph.statistics.node_statistics[node.id];
+        const isBottleneck = ProcessingGraphUtils.isBottleneck(graph, node.id);
 
-      return {
-        id: node.id,
-        type: "processingNode", // References our custom node component
-        position: nodePositions[node.id] || { x: index * 200, y: 100 }, // Fallback positioning
-        data: {
+        return {
           id: node.id,
-          nodeType: node.node_type,
-          acceptsInputTypes: node.accepts_input_types,
-          outputType: node.output_type,
-          parameters: node.parameters,
-          statistics,
-          isBottleneck,
-          onClick: handleNodeClick, // Stable callback reference
-        } as ProcessingNodeData,
-      };
-    });
+          type: "processingNode", // References our custom node component
+          position: nodePositions[node.id] || { x: index * 200, y: 100 }, // Fallback positioning
+          data: {
+            id: node.id,
+            nodeType: node.node_type,
+            acceptsInputTypes: node.accepts_input_types,
+            outputType: node.output_type,
+            parameters: node.parameters,
+            statistics,
+            isBottleneck,
+            onClick: handleNodeClick, // Stable callback reference
+          } as ProcessingNodeData,
+        };
+      },
+    );
 
     // **Phase 3: Standard Edge Creation**
     // Convert graph connections to ReactFlow edges with consistent styling
@@ -1043,30 +1056,34 @@ function FlowContainer({ graph }: { graph: SerializableProcessingGraph }) {
 
   return (
     <>
-      {/* **Main ReactFlow Visualization** 
-          Core graph rendering with enhanced features and controls */}
-      <ReactFlow
-        fitView // Automatically fit the graph to the viewport
-        className="bg-gray-50" // Light background for better contrast
-        edges={edges}
-        nodeTypes={nodeTypes} // Our custom node component registry
-        nodes={nodes}
-        proOptions={{ hideAttribution: true }} // Clean professional appearance
-        onEdgesChange={onEdgesChange} // Handle edge state changes
-        onNodesChange={onNodesChange} // Handle node state changes (drag, select, etc.)
-      >
-        {/* **Interactive Controls Panel**
-            Provides pan, zoom, and fit controls for user navigation */}
-        <Controls />
+      {/* **Explicit sized wrapper** — @xyflow/react v12 requires the direct parent
+          of <ReactFlow> to have a defined width and height (error #004). */}
+      <div style={{ width: "100%", height: "100%" }}>
+        {/* **Main ReactFlow Visualization**
+            Core graph rendering with enhanced features and controls */}
+        <ReactFlow
+          fitView // Automatically fit the graph to the viewport
+          className="bg-gray-50" // Light background for better contrast
+          edges={edges}
+          nodeTypes={nodeTypes} // Our custom node component registry
+          nodes={nodes}
+          proOptions={{ hideAttribution: true }} // Clean professional appearance
+          onEdgesChange={onEdgesChange} // Handle edge state changes
+          onNodesChange={onNodesChange} // Handle node state changes (drag, select, etc.)
+        >
+          {/* **Interactive Controls Panel**
+              Provides pan, zoom, and fit controls for user navigation */}
+          <Controls />
 
-        {/* **Grid Background**
-            Subtle grid pattern for spatial reference and professional appearance */}
-        <Background color="#aaa" gap={16} />
-      </ReactFlow>
+          {/* **Grid Background**
+              Subtle grid pattern for spatial reference and professional appearance */}
+          <Background color="#aaa" gap={16} />
+        </ReactFlow>
+      </div>
 
-      {/* **Modal System**
-          Centralized modal management for detailed node information
-          Automatically routes to specialized modals based on node type */}
+      {/* **Modal System** — rendered outside the sized wrapper so it is not
+          clipped by the container. HeroUI modals use portals so DOM placement
+          here does not affect visual positioning. */}
       <NodeDetailsModal
         graphStatistics={graph.statistics} // Provides context for comparative analysis
         isOpen={isOpen}

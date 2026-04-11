@@ -17,14 +17,7 @@
  */
 import { type FC, useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
-import { Button } from "@heroui/button";
-import { Tooltip } from "@heroui/tooltip";
+import { Dropdown, Tooltip, Label } from "@heroui/react";
 
 import { type AvailableLanguage } from "@/i18n";
 import { type IconSvgProps } from "@/types";
@@ -65,21 +58,6 @@ export const I18nIcon: FC<IconSvgProps> = ({
 
 /**
  * Language switch component
- * @description
- * A language switch component that allows users to change the language of the application
- * It uses the i18n instance to change the language and update the document metadata
- * Available languages are defined in the i18n configuration (src/i18n.ts)
- * @param availableLanguages Optional The available languages default [{ code: "en-US", nativeName: "English", isRTL: false, isDefault: true }]
- * @param icon Optional custom icon to use instead of the default I18nIcon
- * @example
- * ```tsx
- * <LanguageSwitch  availableLanguages={[{ code: "en-US", nativeName: "English", isRTL: false, isDefault: true },{ code: "fr-FR", nativeName: "Français", isRTL: false }]} />
- * ```
- * @example
- * ```tsx
- * import { availableLanguages } from "@/i18n";
- * <LanguageSwitch availableLanguages={availableLanguages} />
- * ```
  */
 export const LanguageSwitch: FC<LanguageSwitchProps> = ({
   availableLanguages: availableLanguages = [
@@ -92,13 +70,6 @@ export const LanguageSwitch: FC<LanguageSwitchProps> = ({
     localStorage.getItem("preferredLanguage") || i18n.language,
   );
 
-  /**
-   * Update document direction based on language
-   * @description
-   * This effect updates the document direction based on the language
-   * It uses the availableLanguages array to determine the language direction
-   * @see availableLanguages
-   */
   useEffect(() => {
     const isRTL =
       availableLanguages.find((lang) => lang.code === language)?.isRTL || false;
@@ -106,16 +77,10 @@ export const LanguageSwitch: FC<LanguageSwitchProps> = ({
     document.documentElement.dir = isRTL ? "rtl" : "ltr";
   }, [language]);
 
-  // Sync state with i18n when language changes externally
   useEffect(() => {
     setLanguage(i18n.language);
   }, [i18n.language]);
 
-  /**
-   * Change the language and update document metadata
-   * @param lng The language code
-   * @example changeLanguage("fr-FR")
-   */
   const changeLanguage = useCallback(
     (lng: string) => {
       i18n.changeLanguage(lng);
@@ -123,7 +88,6 @@ export const LanguageSwitch: FC<LanguageSwitchProps> = ({
       localStorage.setItem("preferredLanguage", lng);
       document.documentElement.lang = lng;
 
-      // Update metadata
       document.title = t("vite-heroui");
       const metaTags = [
         document.head.querySelector("meta[key='title']"),
@@ -138,57 +102,52 @@ export const LanguageSwitch: FC<LanguageSwitchProps> = ({
     [i18n, t],
   );
 
-  /**
-   * Get the short language code from the language code
-   * erases the region part of the language code
-   * @param lng
-   * @returns The short language code
-   * @example getShortLanguage("fr-FR") => "FR"
-   */
   const getShortLanguage = (lng: string) => {
-    // use the last part of the language code or the whole code
     return lng.split("-")[1] || lng;
   };
 
   return (
-    <Tooltip content={t("language")} delay={750}>
-      <div className="flex gap-1">
-        <Dropdown>
-          <DropdownTrigger>
-            <Button aria-label={t("language")} variant="light">
+    <Tooltip>
+      <Tooltip.Trigger>
+        <div className="flex gap-1">
+          <Dropdown>
+            <Dropdown.Trigger aria-label={t("language")}>
               <Icon className="text-default-500" size={24} />
-            </Button>
-          </DropdownTrigger>
-          <DropdownMenu aria-label={t("language")}>
-            {availableLanguages.map((languageIdentifier) => {
-              // Construct the language switch component with the language code
-              const isSelected = language === languageIdentifier.code;
+            </Dropdown.Trigger>
+            <Dropdown.Popover>
+              <Dropdown.Menu aria-label={t("language")}>
+                {availableLanguages.map((languageIdentifier) => {
+                  const isSelected = language === languageIdentifier.code;
 
-              return (
-                <DropdownItem
-                  key={languageIdentifier.code}
-                  aria-label={`${t("language")}: ${languageIdentifier}`}
-                  aria-selected={isSelected}
-                >
-                  <button
-                    key={languageIdentifier.code}
-                    className={`${isSelected ? "text-primary" : "text-default-600"} w-full flex items-center justify-between`}
-                    type="button"
-                    onClick={() => changeLanguage(languageIdentifier.code)}
-                  >
-                    <span>{languageIdentifier.nativeName}</span>
-                    <span>
-                      {getShortLanguage(
-                        languageIdentifier.code,
-                      ).toLocaleUpperCase()}
-                    </span>
-                  </button>
-                </DropdownItem>
-              );
-            })}
-          </DropdownMenu>
-        </Dropdown>
-      </div>
+                  return (
+                    <Dropdown.Item
+                      key={languageIdentifier.code}
+                      aria-label={`${t("language")}: ${languageIdentifier.nativeName}`}
+                      aria-selected={isSelected}
+                      className={
+                        isSelected ? "text-primary" : "text-default-600"
+                      }
+                      id={languageIdentifier.code}
+                      textValue={languageIdentifier.nativeName}
+                      onPress={() => changeLanguage(languageIdentifier.code)}
+                    >
+                      <Label className="w-full flex items-center justify-between">
+                        <span>{languageIdentifier.nativeName}</span>
+                        <span>
+                          {getShortLanguage(
+                            languageIdentifier.code,
+                          ).toLocaleUpperCase()}
+                        </span>
+                      </Label>
+                    </Dropdown.Item>
+                  );
+                })}
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
+        </div>
+      </Tooltip.Trigger>
+      <Tooltip.Content>{t("language")}</Tooltip.Content>
     </Tooltip>
   );
 };

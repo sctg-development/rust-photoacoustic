@@ -15,39 +15,66 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-import { ButtonProps } from "@heroui/button";
-import { useClipboard } from "@heroui/use-clipboard";
-import { memo } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
+import { type ButtonProps } from "@heroui/react";
+
+import { CheckLinearIcon, CopyLinearIcon } from "../components/icons";
 
 import { PreviewButton } from "./preview-button";
 
-import { CheckLinearIcon, CopyLinearIcon } from "@/components/icons";
-
-export interface CopyButtonProps extends ButtonProps {
+export interface CopyButtonProps extends Omit<ButtonProps, "value"> {
   value?: string;
+  copiedTimeout?: number;
+  onCopySuccess?: () => void;
+  onCopyError?: (error: unknown) => void;
 }
 
 export const CopyButton = memo<CopyButtonProps>(
-  ({ value, className, ...buttonProps }) => {
-    const { copy, copied } = useClipboard();
+  ({
+    value,
+    className,
+    copiedTimeout = 2000,
+    onCopySuccess,
+    onCopyError,
+    ...buttonProps
+  }) => {
+    const [isCopied, setIsCopied] = useState(false);
+    const [hasCopyError, setHasCopyError] = useState(false);
 
-    const icon = copied ? (
+    useEffect(() => {
+      if (hasCopyError) {
+        const timer = setTimeout(() => setHasCopyError(false), copiedTimeout);
+
+        return () => clearTimeout(timer);
+      }
+    }, [hasCopyError, copiedTimeout]);
+
+    const handleCopy = useCallback(async () => {
+      try {
+        if (!value) throw new Error("No value to copy");
+        await navigator.clipboard.writeText(value);
+        setIsCopied(true);
+        if (onCopySuccess) onCopySuccess();
+        setTimeout(() => setIsCopied(false), copiedTimeout);
+      } catch (error) {
+        setHasCopyError(true);
+        if (onCopyError) onCopyError(error);
+      }
+    }, [value, onCopySuccess, onCopyError, copiedTimeout]);
+
+    const icon = isCopied ? (
       <CheckLinearIcon
         className="opacity-0 scale-50 data-[visible=true]:opacity-100 data-[visible=true]:scale-100 transition-transform-opacity"
-        data-visible={copied}
+        data-visible={isCopied}
         size={16}
       />
     ) : (
       <CopyLinearIcon
         className="opacity-0 scale-50 data-[visible=true]:opacity-100 data-[visible=true]:scale-100 transition-transform-opacity"
-        data-visible={!copied}
+        data-visible={!isCopied && !hasCopyError}
         size={16}
       />
     );
-
-    const handleCopy = () => {
-      copy(value);
-    };
 
     return (
       <PreviewButton

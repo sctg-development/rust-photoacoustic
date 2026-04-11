@@ -10,7 +10,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Line } from "react-chartjs-2";
-import GaugeChart from "react-gauge-chart";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,6 +21,8 @@ import {
   Legend,
   TimeScale,
 } from "chart.js";
+
+import GaugeChart from "../components/gauge-chart";
 
 import {
   VisualizationOutputItem,
@@ -68,11 +69,13 @@ export default function LocalPage() {
       const visualizationConfigUrl = `${apiBase}/api/config/visualization/output`;
       const outputs = (await fetch(visualizationConfigUrl).then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
         return res.json();
       })) as VisualizationOutputItem[];
 
       if (!outputs || outputs.length === 0) {
         setError(t("local-no-visualization-output"));
+
         return;
       }
 
@@ -82,6 +85,7 @@ export default function LocalPage() {
       )}/history?limit=100`;
       const history = (await fetch(historyUrl).then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
         return res.json();
       })) as MeasurementData[];
 
@@ -99,7 +103,8 @@ export default function LocalPage() {
       }
     } catch (fetchError) {
       setError(
-        (fetchError as Error).message || t("local-error-fetching-concentration"),
+        (fetchError as Error).message ||
+          t("local-error-fetching-concentration"),
       );
     }
   }, [apiBase, t]);
@@ -109,11 +114,13 @@ export default function LocalPage() {
       const regUrl = `${apiBase}/api/thermal/regulators`;
       const regulators = (await fetch(regUrl).then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
         return res.json();
       })) as string[];
 
       if (!regulators || regulators.length === 0) {
         setError(t("local-no-thermal-regulator"));
+
         return;
       }
 
@@ -126,6 +133,7 @@ export default function LocalPage() {
 
       const thermalData = (await fetch(thermalUrl).then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
         return res.json();
       })) as { data: Record<string, ThermalDataPoint[]> };
 
@@ -139,12 +147,15 @@ export default function LocalPage() {
         setLastTemperature(points[points.length - 1].y);
       }
     } catch (fetchError) {
-      setError((fetchError as Error).message || t("local-error-fetching-temperature"));
+      setError(
+        (fetchError as Error).message || t("local-error-fetching-temperature"),
+      );
     }
   }, [apiBase, t]);
 
   useEffect(() => {
     const hostname = window.location.hostname;
+
     setIsLocal(LOCAL_HOSTNAMES.includes(hostname));
   }, []);
 
@@ -190,8 +201,12 @@ export default function LocalPage() {
     );
   }
 
-  const gaugeValue = mode === "concentration" ? lastConcentration : lastTemperature;
-  const gaugeLabel = mode === "concentration" ? t("concentration-ppm") : t("temperature-celsius");
+  const gaugeValue =
+    mode === "concentration" ? lastConcentration : lastTemperature;
+  const gaugeLabel =
+    mode === "concentration"
+      ? t("concentration-ppm")
+      : t("temperature-celsius");
 
   const chartData = {
     datasets: [
@@ -200,10 +215,14 @@ export default function LocalPage() {
           mode === "concentration"
             ? t("concentration-history")
             : t("temperature-history"),
-        data: mode === "concentration" ? concentrationPoints : temperaturePoints,
-        borderColor: mode === "concentration" ? "rgb(59, 130, 246)" : "rgb(245, 101, 101)",
+        data:
+          mode === "concentration" ? concentrationPoints : temperaturePoints,
+        borderColor:
+          mode === "concentration" ? "rgb(59, 130, 246)" : "rgb(245, 101, 101)",
         backgroundColor:
-          mode === "concentration" ? "rgba(59, 130, 246, 0.3)" : "rgba(245, 101, 101, 0.3)",
+          mode === "concentration"
+            ? "rgba(59, 130, 246, 0.3)"
+            : "rgba(245, 101, 101, 0.3)",
         tension: 0.2,
         fill: true,
       },
@@ -218,7 +237,10 @@ export default function LocalPage() {
         type: "time" as const,
         time: {
           tooltipFormat: "HH:mm:ss",
-          unit: mode === "concentration" ? "minute" as const : "minute" as const,
+          unit:
+            mode === "concentration"
+              ? ("minute" as const)
+              : ("minute" as const),
         },
         title: {
           display: true,
@@ -279,11 +301,6 @@ export default function LocalPage() {
             {t("local-mode-dashboard")}
           </h1>
           <button
-            onClick={() =>
-              setMode((prev) =>
-                prev === "concentration" ? "temperature" : "concentration",
-              )
-            }
             style={{
               cursor: "pointer",
               padding: "6px 10px",
@@ -292,6 +309,11 @@ export default function LocalPage() {
               borderRadius: "4px",
               color: "#38bdf8",
             }}
+            onClick={() =>
+              setMode((prev) =>
+                prev === "concentration" ? "temperature" : "concentration",
+              )
+            }
           >
             {t("toggle-to", {
               mode:
@@ -310,25 +332,41 @@ export default function LocalPage() {
             flex: "0 0 200px",
           }}
         >
-          <div onClick={() => setMode((prev) => (prev === "concentration" ? "temperature" : "concentration"))}>
+          <div
+            onClick={() =>
+              setMode((prev) =>
+                prev === "concentration" ? "temperature" : "concentration",
+              )
+            }
+          >
             <GaugeChart
-              id="local-gauge"
-              nrOfLevels={20}
-              percent={Math.min(Math.max(gaugeValue / (mode === "concentration" ? 100 : 200), 0), 1)}
-              textColor="#ffffff"
-              needleColor="#38bdf8"
-              needleBaseColor="#38bdf8"
-              formatTextValue={() => `${gaugeValue.toFixed(1)} ${
-                mode === "concentration" ? "ppm" : "°C"
-              }`}
               animate={false}
+              formatTextValue={() =>
+                `${gaugeValue.toFixed(1)} ${
+                  mode === "concentration" ? "ppm" : "°C"
+                }`
+              }
+              id="local-gauge"
+              needleBaseColor="#38bdf8"
+              needleColor="#38bdf8"
+              nrOfLevels={20}
+              percent={Math.min(
+                Math.max(
+                  gaugeValue / (mode === "concentration" ? 100 : 200),
+                  0,
+                ),
+                1,
+              )}
+              textColor="#ffffff"
             />
           </div>
         </div>
 
         <div style={{ flex: 1, overflow: "hidden" }}>
           {error && (
-            <p style={{ color: "#fca5a5" }}>{t("error")}: {error}</p>
+            <p style={{ color: "#fca5a5" }}>
+              {t("error")}: {error}
+            </p>
           )}
           <Line data={chartData} options={chartOptions} />
         </div>

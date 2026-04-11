@@ -18,8 +18,8 @@
 import type React from "react";
 
 import { forwardRef } from "react";
-import { Button, type ButtonProps } from "@heroui/button";
-import { clsx } from "@heroui/shared-utils";
+import { Button, type ButtonProps } from "@heroui/react";
+import { clsx } from "clsx";
 
 export interface PreviewButtonProps extends ButtonProps {
   icon: React.ReactNode;
@@ -37,7 +37,7 @@ export const PreviewButton = forwardRef<
       isIconOnly
       className={clsx("relative z-50 text-zinc-300 top-8", className)}
       size="sm"
-      variant={props.variant ?? "light"}
+      variant={props.variant ?? "secondary"}
       {...buttonProps}
     >
       {icon}

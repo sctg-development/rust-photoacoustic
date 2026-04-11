@@ -3,18 +3,8 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 import { useTranslation } from "react-i18next";
-import { Accordion, AccordionItem } from "@heroui/accordion";
+import { Accordion, Modal, Button, Card, Chip } from "@heroui/react";
 import { useEffect } from "react";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
-import { Card, CardBody } from "@heroui/card";
-import { Chip } from "@heroui/chip";
 
 import { useGenerixConfig } from "../authentication/providers/generix-config";
 
@@ -111,192 +101,210 @@ export function StreamingNodeModal({
   const { subtitle, liveAudioTitle } = getModalTitles();
 
   return (
-    <Modal isOpen={isOpen} scrollBehavior="inside" size="4xl" onClose={onClose}>
-      <ModalContent>
-        <ModalHeader className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">
-              {nodeData.nodeType === "input" ? "📥" : "📡"}
-            </span>
-            <div>
-              <h2 className="text-xl font-bold">{nodeData.id}</h2>
-              <p className="text-sm text-gray-600 font-normal">{subtitle}</p>
+    <Modal.Backdrop isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Modal.Container>
+        <Modal.Dialog className="max-w-4xl">
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">
+                {nodeData.nodeType === "input" ? "📥" : "📡"}
+              </span>
+              <div>
+                <Modal.Heading>{nodeData.id}</Modal.Heading>
+                <p className="text-sm text-gray-600 font-normal">{subtitle}</p>
+              </div>
             </div>
-          </div>
-        </ModalHeader>
+          </Modal.Header>
 
-        <ModalBody>
-          {/* Node Information */}
-          <Card>
-            <CardBody>
-              <Accordion>
-                <AccordionItem
-                  className="text-xl font-semibold"
-                  title={t("streaming-modal-node-information")}
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-normal">
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        {t("streaming-modal-node-id")}
-                      </p>
-                      <p className="font-medium">{nodeData.id}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        {nodeData.nodeType === "input"
-                          ? t("streaming-modal-input-name")
-                          : t("streaming-modal-stream-name")}
-                      </p>
-                      <p className="font-medium">{streamName}</p>
-                    </div>
-                    {nodeData.nodeType === "streaming" && (
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          {t("streaming-modal-stream-id")}
-                        </p>
-                        <p className="font-medium">{streamId}</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        {t("streaming-modal-output-type")}
-                      </p>
-                      <p className="font-medium">
-                        {nodeData.outputType || t("streaming-modal-dynamic")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-600">
-                      {t("streaming-modal-input-types")}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {nodeData.acceptsInputTypes.map((type) => (
-                        <Chip key={type} size="sm" variant="flat">
-                          {type}
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-                </AccordionItem>
-              </Accordion>
-            </CardBody>
-          </Card>
-
-          {/* Configuration Loading State */}
-          {configLoading && (
+          <Modal.Body>
+            {/* Node Information */}
             <Card>
-              <CardBody>
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-                    <p className="text-gray-600">
-                      {t("streaming-modal-loading-config")}
-                    </p>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-
-          {/* Configuration Error State */}
-          {configError && (
-            <Card className="border-red-200 bg-red-50">
-              <CardBody>
-                <div className="text-center py-4">
-                  <p className="text-red-600 font-medium mb-2">
-                    {t("streaming-modal-config-error-title")}
-                  </p>
-                  <p className="text-red-500 text-sm mb-4">{configError}</p>
-                  <Button color="danger" variant="flat" onPress={loadConfig}>
-                    {t("streaming-modal-retry-config")}
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-
-          {/* Audio Stream Analyzer */}
-          {generixConfig && streamUrl && !configLoading && !configError && (
-            <Card>
-              <CardBody className="p-0">
-                <AudioStreamAnalyzer
-                  analyzerTitle={t("streaming-modal-spectrum-analyzer")}
-                  className="p-4"
-                  isCurrentFrameStatisticsDisplayed={false}
-                  isPrestateDisplayed={false}
-                  isStatisticsDisplayed={false}
-                  isStatusDisplayed={false}
-                  showUniversalControl={true}
-                  statsUrl={statsUrl}
-                  streamUrl={streamUrl}
-                  title={liveAudioTitle}
-                />
-              </CardBody>
-            </Card>
-          )}
-
-          {/* Stream URLs Information (for debugging) */}
-          {generixConfig && (
-            <Card>
-              <CardBody>
+              <Card.Content>
                 <Accordion>
-                  <AccordionItem
-                    className="text-xl font-semibold"
-                    title={t("streaming-modal-connection-details")}
-                  >
-                    <div className="font-light space-y-2 text-xs">
-                      <div>
-                        <p className="text-gray-600">
-                          {nodeData.nodeType === "input"
-                            ? t("streaming-modal-stream-url")
-                            : t("streaming-modal-websocket-url")}
-                          :
-                        </p>
-                        <div className="relative">
-                          <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
-                            {streamUrl}
-                          </p>
-                          <CopyButton
-                            aria-label={t("streaming-modal-copy-stream-url")}
-                            className="absolute top-0 right-2"
-                            value={streamUrl}
-                          />
-                        </div>
-                      </div>
-                      {statsUrl && (
-                        <div>
-                          <p className="text-gray-600">
-                            {t("streaming-modal-stats-url")}:
-                          </p>
-                          <div className="relative">
-                            <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
-                              {statsUrl}
+                  <Accordion.Item>
+                    <Accordion.Heading>
+                      <Accordion.Trigger className="text-xl font-semibold">
+                        {t("streaming-modal-node-information")}
+                        <Accordion.Indicator />
+                      </Accordion.Trigger>
+                    </Accordion.Heading>
+                    <Accordion.Panel>
+                      <Accordion.Body>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-normal">
+                          <div>
+                            <p className="text-sm text-gray-600">
+                              {t("streaming-modal-node-id")}
                             </p>
-                            <CopyButton
-                              aria-label={t("streaming-modal-copy-stats-url")}
-                              className="absolute top-0 right-2"
-                              value={statsUrl}
-                            />
+                            <p className="font-medium">{nodeData.id}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">
+                              {nodeData.nodeType === "input"
+                                ? t("streaming-modal-input-name")
+                                : t("streaming-modal-stream-name")}
+                            </p>
+                            <p className="font-medium">{streamName}</p>
+                          </div>
+                          {nodeData.nodeType === "streaming" && (
+                            <div>
+                              <p className="text-sm text-gray-600">
+                                {t("streaming-modal-stream-id")}
+                              </p>
+                              <p className="font-medium">{streamId}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm text-gray-600">
+                              {t("streaming-modal-output-type")}
+                            </p>
+                            <p className="font-medium">
+                              {nodeData.outputType ||
+                                t("streaming-modal-dynamic")}
+                            </p>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </AccordionItem>
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-600">
+                            {t("streaming-modal-input-types")}
+                          </p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {nodeData.acceptsInputTypes.map((type) => (
+                              <Chip key={type} size="sm" variant="soft">
+                                {type}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                      </Accordion.Body>
+                    </Accordion.Panel>
+                  </Accordion.Item>
                 </Accordion>
-              </CardBody>
+              </Card.Content>
             </Card>
-          )}
-        </ModalBody>
 
-        <ModalFooter>
-          <Button color="primary" onPress={onClose}>
-            {t("streaming-modal-close")}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+            {/* Configuration Loading State */}
+            {configLoading && (
+              <Card>
+                <Card.Content>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+                      <p className="text-gray-600">
+                        {t("streaming-modal-loading-config")}
+                      </p>
+                    </div>
+                  </div>
+                </Card.Content>
+              </Card>
+            )}
+
+            {/* Configuration Error State */}
+            {configError && (
+              <Card className="border-red-200 bg-red-50">
+                <Card.Content>
+                  <div className="text-center py-4">
+                    <p className="text-red-600 font-medium mb-2">
+                      {t("streaming-modal-config-error-title")}
+                    </p>
+                    <p className="text-red-500 text-sm mb-4">{configError}</p>
+                    <Button variant="danger-soft" onPress={loadConfig}>
+                      {t("streaming-modal-retry-config")}
+                    </Button>
+                  </div>
+                </Card.Content>
+              </Card>
+            )}
+
+            {/* Audio Stream Analyzer */}
+            {generixConfig && streamUrl && !configLoading && !configError && (
+              <Card>
+                <Card.Content className="p-0">
+                  <AudioStreamAnalyzer
+                    analyzerTitle={t("streaming-modal-spectrum-analyzer")}
+                    className="p-4"
+                    isCurrentFrameStatisticsDisplayed={false}
+                    isPrestateDisplayed={false}
+                    isStatisticsDisplayed={false}
+                    isStatusDisplayed={false}
+                    showUniversalControl={true}
+                    statsUrl={statsUrl}
+                    streamUrl={streamUrl}
+                    title={liveAudioTitle}
+                  />
+                </Card.Content>
+              </Card>
+            )}
+
+            {/* Stream URLs Information (for debugging) */}
+            {generixConfig && (
+              <Card>
+                <Card.Content>
+                  <Accordion>
+                    <Accordion.Item>
+                      <Accordion.Heading>
+                        <Accordion.Trigger className="text-xl font-semibold">
+                          {t("streaming-modal-connection-details")}
+                          <Accordion.Indicator />
+                        </Accordion.Trigger>
+                      </Accordion.Heading>
+                      <Accordion.Panel>
+                        <Accordion.Body>
+                          <div className="font-light space-y-2 text-xs">
+                            <div>
+                              <p className="text-gray-600">
+                                {nodeData.nodeType === "input"
+                                  ? t("streaming-modal-stream-url")
+                                  : t("streaming-modal-websocket-url")}
+                                :
+                              </p>
+                              <div className="relative">
+                                <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
+                                  {streamUrl}
+                                </p>
+                                <CopyButton
+                                  aria-label={t(
+                                    "streaming-modal-copy-stream-url",
+                                  )}
+                                  className="absolute top-0 right-2"
+                                  value={streamUrl}
+                                />
+                              </div>
+                            </div>
+                            {statsUrl && (
+                              <div>
+                                <p className="text-gray-600">
+                                  {t("streaming-modal-stats-url")}:
+                                </p>
+                                <div className="relative">
+                                  <p className="font-mono text-xs bg-gray-100 p-2 rounded break-all">
+                                    {statsUrl}
+                                  </p>
+                                  <CopyButton
+                                    aria-label={t(
+                                      "streaming-modal-copy-stats-url",
+                                    )}
+                                    className="absolute top-0 right-2"
+                                    value={statsUrl}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </Accordion.Body>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  </Accordion>
+                </Card.Content>
+              </Card>
+            )}
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button slot="close">{t("streaming-modal-close")}</Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }

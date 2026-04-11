@@ -9,14 +9,18 @@
  */
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useRef } from "react";
-import { Card, CardBody, CardHeader } from "@heroui/card";
-import { Button } from "@heroui/button";
-import { Spinner } from "@heroui/spinner";
-import { Alert } from "@heroui/alert";
-import { Tabs, Tab } from "@heroui/tabs";
-import { Switch } from "@heroui/switch";
-import { Select, SelectItem } from "@heroui/select";
-import { Chip } from "@heroui/chip";
+import {
+  Card,
+  Button,
+  Spinner,
+  Alert,
+  Tabs,
+  Switch,
+  Select,
+  ListBox,
+  Chip,
+  Label,
+} from "@heroui/react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,17 +36,16 @@ import { Line } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 
 import { useGenerixConfig } from "../authentication/providers/generix-config";
-
 import {
   LastTemperaturesResponse,
   ThermalDataResponse,
   ThermalUtils,
   CurrentTemperatureInfo,
-} from "@/types/thermal";
-import { title } from "@/components/primitives";
-import DefaultLayout from "@/layouts/default";
-import { useAuth } from "@/authentication";
-import { CopyButton } from "@/components/copy-button";
+} from "../types/thermal";
+import { title } from "../components/primitives";
+import DefaultLayout from "../layouts/default";
+import { useAuth } from "../authentication";
+import { CopyButton } from "../components/copy-button";
 
 // Register Chart.js components
 ChartJS.register(
@@ -202,10 +205,8 @@ export default function ThermalPage() {
     loadAllData();
   };
 
-  const handleTimeRangeChange = (keys: any) => {
-    const selectedKey = Array.from(keys)[0] as string;
-
-    setSelectedTimeRange(selectedKey);
+  const handleTimeRangeChange = (key: any) => {
+    if (key) setSelectedTimeRange(key as string);
   };
 
   // Calculate statistics
@@ -369,38 +370,44 @@ export default function ThermalPage() {
         {/* Error State */}
         {error && !lastTemperatures && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="danger"
-              description={error}
-              endContent={
-                <Button color="danger" variant="flat" onPress={handleRefresh}>
-                  {t("retry")}
-                </Button>
-              }
-              title={t("thermal-data-error")}
-            />
+            <Alert status="danger">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("thermal-data-error")}</Alert.Title>
+                <Alert.Description>{error}</Alert.Description>
+              </Alert.Content>
+              <Button variant="danger-soft" onPress={handleRefresh}>
+                {t("retry")}
+              </Button>
+            </Alert>
           </div>
         )}
 
         {/* No Data State */}
         {!loading && !error && !lastTemperatures && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="warning"
-              description={t("no-thermal-data")}
-              title={t("thermal-data-error")}
-            />
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("thermal-data-error")}</Alert.Title>
+                <Alert.Description>{t("no-thermal-data")}</Alert.Description>
+              </Alert.Content>
+            </Alert>
           </div>
         )}
 
         {/* Authentication Required */}
         {!isAuthenticated && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="warning"
-              description={t("authentication_required")}
-              title={t("authentication_error")}
-            />
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("authentication_error")}</Alert.Title>
+                <Alert.Description>
+                  {t("authentication_required")}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           </div>
         )}
 
@@ -413,56 +420,70 @@ export default function ThermalPage() {
                 <Switch
                   isSelected={autoRefresh}
                   size="sm"
-                  onValueChange={setAutoRefresh}
+                  onChange={setAutoRefresh}
                 >
-                  {t("auto-refresh")}
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Content>
+                    <Label>{t("auto-refresh")}</Label>
+                  </Switch.Content>
                 </Switch>
 
-                <Button
-                  color="primary"
-                  isLoading={loading}
-                  variant="flat"
-                  onPress={handleRefresh}
-                >
+                <Button variant="secondary" onPress={handleRefresh}>
                   {t("refresh")}
                 </Button>
               </div>
 
               <Select
                 className="w-48"
-                label={t("time-range")}
-                selectedKeys={[selectedTimeRange]}
-                size="sm"
-                onSelectionChange={handleTimeRangeChange}
+                selectedKey={selectedTimeRange}
+                onSelectionChange={(key) => handleTimeRangeChange(key)}
               >
-                {timeRanges.map((range) => (
-                  <SelectItem key={range.value}>{range.label}</SelectItem>
-                ))}
+                <Label>{t("time-range")}</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {timeRanges.map((range) => (
+                      <ListBox.Item
+                        key={range.value}
+                        id={range.value}
+                        textValue={range.label}
+                      >
+                        {range.label}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
               </Select>
             </div>
 
             {/* System Status Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card className="bg-blue-50 border-blue-200">
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p className="text-2xl font-bold text-blue-600">
                     {stats.total}
                   </p>
                   <p className="text-sm text-blue-800">
                     {t("total-regulators")}
                   </p>
-                </CardBody>
+                </Card.Content>
               </Card>
 
               <Card className="bg-green-50 border-green-200">
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p className="text-2xl font-bold text-green-600">
                     {stats.active}
                   </p>
                   <p className="text-sm text-green-800">
                     {t("active-regulators")}
                   </p>
-                </CardBody>
+                </Card.Content>
               </Card>
 
               <Card
@@ -472,7 +493,7 @@ export default function ThermalPage() {
                     : "bg-gray-50 border-gray-200"
                 }`}
               >
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p
                     className={`text-2xl font-bold ${
                       stats.errors > 0 ? "text-red-600" : "text-gray-600"
@@ -487,7 +508,7 @@ export default function ThermalPage() {
                   >
                     {t("error-regulators")}
                   </p>
-                </CardBody>
+                </Card.Content>
               </Card>
             </div>
 
@@ -495,15 +516,35 @@ export default function ThermalPage() {
             <Tabs
               className="w-full"
               selectedKey={selectedTab}
-              size="lg"
               onSelectionChange={(key) => setSelectedTab(key as string)}
             >
-              <Tab key="overview" title={t("current-temperatures")}>
+              <Tabs.ListContainer>
+                <Tabs.List aria-label={t("thermal-dashboard")}>
+                  <Tabs.Tab id="overview">
+                    {t("current-temperatures")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="temperature-chart">
+                    {t("temperature-chart")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="control-chart">
+                    {t("control-output-chart")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="raw-data">
+                    {t("raw-data")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                </Tabs.List>
+              </Tabs.ListContainer>
+
+              <Tabs.Panel id="overview">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(lastTemperatures).map(
                     ([regulatorId, info]: [string, CurrentTemperatureInfo]) => (
                       <Card key={regulatorId} className="p-4">
-                        <CardHeader className="pb-2">
+                        <Card.Header className="pb-2">
                           <div className="flex justify-between items-center w-full">
                             <h3 className="text-lg font-semibold">
                               {regulatorId}
@@ -513,13 +554,13 @@ export default function ThermalPage() {
                                 info.status,
                               )}
                               size="sm"
-                              variant="flat"
+                              variant="soft"
                             >
                               {info.status}
                             </Chip>
                           </div>
-                        </CardHeader>
-                        <CardBody>
+                        </Card.Header>
+                        <Card.Content>
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <span className="text-sm text-gray-600">
@@ -562,21 +603,21 @@ export default function ThermalPage() {
                               </span>
                             </div>
                           </div>
-                        </CardBody>
+                        </Card.Content>
                       </Card>
                     ),
                   )}
                 </div>
-              </Tab>
+              </Tabs.Panel>
 
-              <Tab key="temperature-chart" title={t("temperature-chart")}>
+              <Tabs.Panel id="temperature-chart">
                 <Card className="min-h-[500px]">
-                  <CardHeader>
+                  <Card.Header>
                     <h2 className="text-xl font-semibold">
                       {t("temperature-history-chart")}
                     </h2>
-                  </CardHeader>
-                  <CardBody className="h-[450px]">
+                  </Card.Header>
+                  <Card.Content className="h-[450px]">
                     {temperatureChartData ? (
                       <Line
                         data={temperatureChartData}
@@ -587,18 +628,18 @@ export default function ThermalPage() {
                         <p className="text-gray-500">{t("no-thermal-data")}</p>
                       </div>
                     )}
-                  </CardBody>
+                  </Card.Content>
                 </Card>
-              </Tab>
+              </Tabs.Panel>
 
-              <Tab key="control-chart" title={t("control-output-chart")}>
+              <Tabs.Panel id="control-chart">
                 <Card className="min-h-[500px]">
-                  <CardHeader>
+                  <Card.Header>
                     <h2 className="text-xl font-semibold">
                       {t("control-output-chart")}
                     </h2>
-                  </CardHeader>
-                  <CardBody className="h-[450px]">
+                  </Card.Header>
+                  <Card.Content className="h-[450px]">
                     {controlOutputChartData ? (
                       <Line
                         data={controlOutputChartData}
@@ -609,19 +650,19 @@ export default function ThermalPage() {
                         <p className="text-gray-500">{t("no-thermal-data")}</p>
                       </div>
                     )}
-                  </CardBody>
+                  </Card.Content>
                 </Card>
-              </Tab>
+              </Tabs.Panel>
 
-              <Tab key="raw-data" title={t("raw-data")}>
+              <Tabs.Panel id="raw-data">
                 <div className="space-y-4">
                   <Card>
-                    <CardHeader>
+                    <Card.Header>
                       <h2 className="text-xl font-semibold">
                         {t("current-temperatures")}
                       </h2>
-                    </CardHeader>
-                    <CardBody>
+                    </Card.Header>
+                    <Card.Content>
                       <div className="relative">
                         <CopyButton
                           className="absolute top-2 right-2"
@@ -631,17 +672,16 @@ export default function ThermalPage() {
                           {JSON.stringify(lastTemperatures, null, 2)}
                         </pre>
                       </div>
-                    </CardBody>
+                    </Card.Content>
                   </Card>
-
                   {thermalHistory && (
                     <Card>
-                      <CardHeader>
+                      <Card.Header>
                         <h2 className="text-xl font-semibold">
                           {t("thermal-history")}
                         </h2>
-                      </CardHeader>
-                      <CardBody>
+                      </Card.Header>
+                      <Card.Content>
                         <div className="relative">
                           <CopyButton
                             className="absolute top-2 right-2"
@@ -651,11 +691,11 @@ export default function ThermalPage() {
                             {JSON.stringify(thermalHistory, null, 2)}
                           </pre>
                         </div>
-                      </CardBody>
+                      </Card.Content>
                     </Card>
                   )}
                 </div>
-              </Tab>
+              </Tabs.Panel>
             </Tabs>
           </div>
         )}

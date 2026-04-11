@@ -23,7 +23,9 @@
 
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useRef } from "react";
-import GaugeChart from "react-gauge-chart";
+
+import GaugeChart from "../components/gauge-chart";
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -38,18 +40,22 @@ import {
 import { Line } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 
-import { Card, CardBody, CardHeader } from "@heroui/card";
-import { Button } from "@heroui/button";
-import { Spinner } from "@heroui/spinner";
-import { Alert } from "@heroui/alert";
-import { Switch } from "@heroui/switch";
-import { Select, SelectItem } from "@heroui/select";
+import {
+  Card,
+  Button,
+  Spinner,
+  Alert,
+  Switch,
+  Select,
+  ListBox,
+  Label,
+} from "@heroui/react";
 
-import DefaultLayout from "@/layouts/default";
-import { useGenerixConfig } from "@/authentication/providers/generix-config";
-import { useAuth } from "@/authentication";
-import { VisualizationOutputItem, MeasurementData } from "@/types";
-import { title } from "@/components/primitives";
+import DefaultLayout from "../layouts/default";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
+import { useAuth } from "../authentication";
+import { VisualizationOutputItem, MeasurementData } from "../types";
+import { title } from "../components/primitives";
 
 // Register Chart.js components for time-series chart functionality
 ChartJS.register(
@@ -301,10 +307,8 @@ export default function IndexPage() {
    *
    * @param keys - Selected keys from the Select component
    */
-  const handleDataPointsChange = (keys: any) => {
-    const selectedKey = Array.from(keys)[0] as string;
-
-    setSelectedDataPoints(selectedKey);
+  const handleDataPointsChange = (key: any) => {
+    if (key) setSelectedDataPoints(key as string);
   };
 
   // ============================================================================
@@ -526,38 +530,46 @@ export default function IndexPage() {
         {/* Error State - Shown when data loading fails */}
         {error && outputItems.length === 0 && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="danger"
-              description={error}
-              endContent={
-                <Button color="danger" variant="flat" onPress={handleRefresh}>
-                  {t("retry")}
-                </Button>
-              }
-              title={t("measurement-data-error")}
-            />
+            <Alert status="danger">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("measurement-data-error")}</Alert.Title>
+                <Alert.Description>{error}</Alert.Description>
+              </Alert.Content>
+              <Button variant="danger-soft" onPress={handleRefresh}>
+                {t("retry")}
+              </Button>
+            </Alert>
           </div>
         )}
 
         {/* No Data State - Shown when no output items are configured */}
         {!loading && !error && outputItems.length === 0 && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="warning"
-              description={t("no-measurement-data")}
-              title={t("measurement-data-error")}
-            />
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("measurement-data-error")}</Alert.Title>
+                <Alert.Description>
+                  {t("no-measurement-data")}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           </div>
         )}
 
         {/* Authentication Required State - Shown when user is not logged in */}
         {!isAuthenticated && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="warning"
-              description={t("authentication_required")}
-              title={t("authentication_error")}
-            />
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("authentication_error")}</Alert.Title>
+                <Alert.Description>
+                  {t("authentication_required")}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           </div>
         )}
 
@@ -571,18 +583,18 @@ export default function IndexPage() {
                 <Switch
                   isSelected={autoRefresh}
                   size="sm"
-                  onValueChange={setAutoRefresh}
+                  onChange={setAutoRefresh}
                 >
-                  {t("auto-refresh")}
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Content>
+                    <Label>{t("auto-refresh")}</Label>
+                  </Switch.Content>
                 </Switch>
 
                 {/* Manual refresh button */}
-                <Button
-                  color="primary"
-                  isLoading={loading}
-                  variant="flat"
-                  onPress={handleRefresh}
-                >
+                <Button variant="secondary" onPress={handleRefresh}>
                   {t("refresh")}
                 </Button>
               </div>
@@ -590,14 +602,28 @@ export default function IndexPage() {
               {/* Data points selector - Controls how many measurement points to display */}
               <Select
                 className="w-48"
-                label={t("data-points")}
-                selectedKeys={[selectedDataPoints]}
-                size="sm"
-                onSelectionChange={handleDataPointsChange}
+                selectedKey={selectedDataPoints}
+                onSelectionChange={(key) => handleDataPointsChange(key)}
               >
-                {dataPointsOptions.map((option) => (
-                  <SelectItem key={option.value}>{option.label}</SelectItem>
-                ))}
+                <Label>{t("data-points")}</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {dataPointsOptions.map((option) => (
+                      <ListBox.Item
+                        key={option.value}
+                        id={option.value}
+                        textValue={option.label}
+                      >
+                        {option.label}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
               </Select>
             </div>
 
@@ -607,7 +633,7 @@ export default function IndexPage() {
               {outputItems.map((item, index) => (
                 <Card key={item.id} className="p-4">
                   {/* Gauge Card Header - Molecule name and description */}
-                  <CardHeader className="pb-2">
+                  <Card.Header className="pb-2">
                     <div className="flex flex-col items-center w-full">
                       <h3 className="text-lg font-semibold text-center">
                         {item.molecule}
@@ -616,15 +642,16 @@ export default function IndexPage() {
                         {item.description}
                       </p>
                     </div>
-                  </CardHeader>
+                  </Card.Header>
 
                   {/* Gauge Card Body - Gauge chart and current value */}
-                  <CardBody className="pt-2">
+                  <Card.Content className="pt-2">
                     <div className="flex flex-col items-center">
                       {/* Gauge Chart Container */}
                       <div className="w-48 h-32 mb-4">
                         {measurements[index] &&
                         measurements[index].length > 0 ? (
+                          // <></>
                           <GaugeChart
                             formatTextValue={(value: number) =>
                               `${value.toFixed(1)} ${item.unit}`
@@ -665,19 +692,19 @@ export default function IndexPage() {
                         </p>
                       </div>
                     </div>
-                  </CardBody>
+                  </Card.Content>
                 </Card>
               ))}
             </div>
 
             {/* Concentration History Chart */}
             <Card className="min-h-[500px]">
-              <CardHeader>
+              <Card.Header>
                 <h2 className="text-xl font-semibold">
                   {t("concentration-history")}
                 </h2>
-              </CardHeader>
-              <CardBody className="h-[450px]">
+              </Card.Header>
+              <Card.Content className="h-[450px]">
                 {concentrationChartData ? (
                   // Chart.js Line Chart Component
                   <Line data={concentrationChartData} options={chartOptions} />
@@ -687,7 +714,7 @@ export default function IndexPage() {
                     <p className="text-gray-500">{t("no-measurement-data")}</p>
                   </div>
                 )}
-              </CardBody>
+              </Card.Content>
             </Card>
           </div>
         )}

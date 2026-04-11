@@ -1,21 +1,14 @@
 import type React from "react";
 
-import { Link } from "@heroui/link";
+import { Dropdown } from "@heroui/react";
 import { Trans, useTranslation } from "react-i18next";
-import {
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-} from "@heroui/dropdown";
 import { useEffect, useState } from "react";
-import { Snippet } from "@heroui/snippet";
 import { createRemoteJWKSet, JWTPayload, jwtVerify } from "jose";
 
-import { useAuth } from "@/authentication";
-import { Navbar } from "@/components/navbar";
-import { siteConfig } from "@/config/site";
-import { useGenerixConfig } from "@/authentication/providers/generix-config";
+import { useAuth } from "../authentication";
+import { Navbar } from "../components/navbar";
+import { siteConfig } from "../config/site";
+import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 export default function DefaultLayout({
   children,
@@ -27,7 +20,6 @@ export default function DefaultLayout({
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [decodedToken, setDecodedToken] = useState<JWTPayload | null>(null);
 
-  // Configuration state
   const { config: generixConfig } = useGenerixConfig();
 
   useEffect(() => {
@@ -58,49 +50,52 @@ export default function DefaultLayout({
         {children}
       </main>
       <footer className="w-full flex items-center justify-center py-3">
-        <Link
-          isExternal
+        <a
           className="flex items-center gap-1 text-current"
           href={siteConfig().links.brand}
+          rel="noopener noreferrer"
+          target="_blank"
           title={t("site-homepage")}
         >
           <span className="text-default-600">
             <Trans ns="base">powered-by</Trans>
           </span>
           <p className="text-primary">{t("brand")}&nbsp;</p>
-        </Link>
+        </a>
         <Dropdown>
-          <DropdownTrigger>
+          <Dropdown.Trigger>
             {isAuthenticated ? (
-              <span>
+              <span className="cursor-pointer">
                 {t("user")}: &nbsp;{user?.name}
               </span>
             ) : (
               <></>
             )}
-          </DropdownTrigger>
-          <DropdownMenu className="max-w-5xl">
-            <DropdownItem key="user-logged" textValue="user-logged">
-              <span className="text-default-600">{t("token")}:</span>
-              <br />
-              <Snippet className="max-w-4xl" symbol="" title="api-response">
-                <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-3xl  whitespace-break-spaces  text-wrap break-words">
-                  {accessToken}
+          </Dropdown.Trigger>
+          <Dropdown.Popover>
+            <Dropdown.Menu className="max-w-5xl">
+              <Dropdown.Item key="user-logged" textValue="user-logged">
+                <span className="text-default-600">{t("token")}:</span>
+                <br />
+                <div className="max-w-4xl font-mono text-xs bg-default-100 rounded p-2 mt-1">
+                  <div className="max-w-2xs sm:max-w-sm md:max-w-md lg:max-w-3xl whitespace-break-spaces text-wrap break-words">
+                    {accessToken}
+                  </div>
                 </div>
-              </Snippet>
-              <br />
-              <span className="text-default-600">
-                {t("expiration")}:{" "}
-                {new Date((decodedToken?.exp || 0) * 1000).toLocaleString()}
-              </span>
-              <br />
-              <span className="text-default-600">
-                {t("permissions")}:{" "}
-                {((decodedToken?.permissions as string[]) || []).join(", ") ||
-                  t("no-permissions")}
-              </span>
-            </DropdownItem>
-          </DropdownMenu>
+                <br />
+                <span className="text-default-600">
+                  {t("expiration")}:{" "}
+                  {new Date((decodedToken?.exp || 0) * 1000).toLocaleString()}
+                </span>
+                <br />
+                <span className="text-default-600">
+                  {t("permissions")}:{" "}
+                  {((decodedToken?.permissions as string[]) || []).join(", ") ||
+                    t("no-permissions")}
+                </span>
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown.Popover>
         </Dropdown>
         <a
           className="flex items-center mx-1"

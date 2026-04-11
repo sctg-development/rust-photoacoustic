@@ -1,154 +1,160 @@
-import { Button } from "@heroui/button";
-import { Kbd } from "@heroui/kbd";
-import { Link } from "@heroui/link";
-import { Input } from "@heroui/input";
-import {
-  Navbar as HeroUINavbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
-  NavbarMenuToggle,
-  NavbarMenu,
-  NavbarMenuItem,
-} from "@heroui/navbar";
-import { link as linkStyles } from "@heroui/theme";
-import { clsx } from "@heroui/shared-utils";
+import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 
-import { I18nIcon, LanguageSwitch } from "./language-switch";
-
-import { LoginLogoutButton, LoginLogoutLink } from "@/authentication";
-import { siteConfig } from "@/config/site";
-import { ThemeSwitch } from "@/components/theme-switch";
+import { LoginLogoutButton } from "../authentication";
+import { siteConfig } from "../config/site";
+import { ThemeSwitch } from "../components/theme-switch";
 import {
   GithubIcon,
   HeartFilledIcon,
   LaserIcon,
   SearchIcon,
-} from "@/components/icons";
-import { availableLanguages } from "@/i18n";
+} from "../components/icons";
+import { availableLanguages } from "../i18n";
+
+import { I18nIcon, LanguageSwitch } from "./language-switch";
+import { LinkUniversal } from "./link-universal";
 
 export const Navbar = () => {
   const { t } = useTranslation();
-  const searchInput = (
-    <Input
-      aria-label={t("search")}
-      classNames={{
-        inputWrapper: "bg-default-100",
-        input: "text-sm",
-      }}
-      endContent={
-        <Kbd className="hidden lg:inline-block" keys={["command"]}>
-          K
-        </Kbd>
-      }
-      labelPlacement="outside"
-      placeholder={`${t("search")}…`}
-      startContent={
-        <SearchIcon className="text-base text-default-400 pointer-events-none flex-shrink-0" />
-      }
-      type="search"
-    />
-  );
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <HeroUINavbar maxWidth="xl" position="sticky">
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <NavbarBrand className="gap-3 max-w-fit">
-          <Link
-            className="flex justify-start items-center gap-1"
-            color="foreground"
-            href="/"
-          >
+    <header className="sticky top-0 z-50 border-b border-default-100 bg-background/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2">
+        {/* Brand */}
+        <div className="flex items-center gap-4">
+          <a className="flex items-center gap-1 text-foreground" href="/">
             <LaserIcon />
             <p className="font-bold text-inherit">LaserSmart</p>
-          </Link>
-        </NavbarBrand>
-        <div className="hidden lg:flex gap-4 justify-start ml-2">
-          {siteConfig().navItems.map((item) => (
-            <NavbarItem key={item.href}>
-              <Link
-                className={clsx(
-                  linkStyles({ color: "foreground" }),
-                  "data-[active=true]:text-primary data-[active=true]:font-medium",
-                )}
-                color="foreground"
+          </a>
+          <div className="hidden lg:flex items-center gap-3">
+            {siteConfig().navItems.map((item) => (
+              <LinkUniversal
+                key={item.href}
+                className="text-default-700 hover:text-primary transition-colors text-sm"
                 href={item.href}
               >
                 {item.label}
-              </Link>
-            </NavbarItem>
-          ))}
+              </LinkUniversal>
+            ))}
+          </div>
         </div>
-      </NavbarContent>
 
-      <NavbarContent
-        className="hidden sm:flex basis-1/5 sm:basis-full"
-        justify="end"
-      >
-        <NavbarItem className="hidden sm:flex gap-2">
-          <Link isExternal href={siteConfig().links.github} title={t("github")}>
+        {/* Desktop actions */}
+        <div className="hidden sm:flex items-center gap-2">
+          <div className="hidden lg:flex items-center">
+            <div className="relative">
+              <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
+              <input
+                aria-label={t("search")}
+                className="bg-default-100 text-sm rounded-md pl-8 pr-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+                placeholder={`${t("search")}…`}
+                type="search"
+              />
+            </div>
+          </div>
+          <a
+            href={siteConfig().links.github}
+            rel="noopener noreferrer"
+            target="_blank"
+            title={t("github")}
+          >
             <GithubIcon className="text-default-500" />
-          </Link>
+          </a>
           <ThemeSwitch />
           <LanguageSwitch
             availableLanguages={availableLanguages}
             icon={I18nIcon}
           />
           <LoginLogoutButton />
-        </NavbarItem>
-        <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
-        <NavbarItem className="hidden md:flex">
-          <Button
-            isExternal
-            as={Link}
-            className="text-sm font-normal text-default-600 bg-default-100"
+          <a
+            className="flex items-center gap-1 text-sm text-default-600 bg-default-100 rounded-md px-3 py-1.5 hover:bg-default-200 transition-colors"
             href={siteConfig().links.sponsor}
-            startContent={<HeartFilledIcon className="text-danger" />}
-            variant="flat"
+            rel="noopener noreferrer"
+            target="_blank"
           >
+            <HeartFilledIcon className="text-danger" />
             <Trans i18nKey="sponsor" />
-          </Button>
-        </NavbarItem>
-      </NavbarContent>
+          </a>
+        </div>
 
-      <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        <Link isExternal href={siteConfig().links.github}>
-          <GithubIcon className="text-default-500" />
-        </Link>
-        <ThemeSwitch />
-        <NavbarMenuToggle />
-      </NavbarContent>
+        {/* Mobile actions */}
+        <div className="flex items-center gap-2 sm:hidden">
+          <a
+            href={siteConfig().links.github}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <GithubIcon className="text-default-500" />
+          </a>
+          <ThemeSwitch />
+          <button
+            aria-label="Toggle menu"
+            className="p-2 text-default-500"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              {isMenuOpen ? (
+                <path
+                  d="M6 18L18 6M6 6l12 12"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <path
+                  d="M4 6h16M4 12h16M4 18h16"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      <NavbarMenu>
-        {searchInput}
-        <LanguageSwitch
-          availableLanguages={availableLanguages}
-          icon={I18nIcon}
-        />
-        <div className="mx-4 mt-2 flex flex-col gap-2">
-          {siteConfig().navMenuItems.map((item, index) => (
-            <NavbarMenuItem key={`${item}-${index}`}>
-              <Link
-                color={
+      {/* Mobile menu */}
+      {isMenuOpen && (
+        <div className="sm:hidden border-t border-default-100 bg-background px-4 py-3 flex flex-col gap-3">
+          <div className="relative">
+            <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-default-400 pointer-events-none" />
+            <input
+              aria-label={t("search")}
+              className="w-full bg-default-100 text-sm rounded-md pl-8 pr-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
+              placeholder={`${t("search")}…`}
+              type="search"
+            />
+          </div>
+          <LanguageSwitch
+            availableLanguages={availableLanguages}
+            icon={I18nIcon}
+          />
+          <div className="flex flex-col gap-2">
+            {siteConfig().navMenuItems.map((item, index) => (
+              <a
+                key={`${item}-${index}`}
+                className={
                   index === 2
-                    ? "primary"
+                    ? "text-primary text-lg"
                     : index === siteConfig().navMenuItems.length - 1
-                      ? "danger"
-                      : "foreground"
+                      ? "text-danger text-lg"
+                      : "text-foreground text-lg"
                 }
                 href={item.href}
-                size="lg"
               >
                 {item.label}
-              </Link>
-            </NavbarMenuItem>
-          ))}
-          <NavbarMenuItem key="login-logout">
-            <LoginLogoutLink color="primary" />
-          </NavbarMenuItem>
+              </a>
+            ))}
+            <LoginLogoutButton />
+          </div>
         </div>
-      </NavbarMenu>
-    </HeroUINavbar>
+      )}
+    </header>
   );
 };

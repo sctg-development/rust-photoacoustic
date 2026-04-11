@@ -49,26 +49,29 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 
 // HeroUI components for consistent design system
-import { Card, CardBody, CardHeader } from "@heroui/card";
-import { Button } from "@heroui/button";
-import { Spinner } from "@heroui/spinner";
-import { Alert } from "@heroui/alert";
-import { Tabs, Tab } from "@heroui/tabs";
-import { Switch } from "@heroui/switch";
+import {
+  Card,
+  Button,
+  Spinner,
+  Alert,
+  Tabs,
+  Switch,
+  Label,
+} from "@heroui/react";
 
 // Custom authentication and configuration hooks
 import { useGenerixConfig } from "../authentication/providers/generix-config";
 
 // Application-specific types and utilities
-import { SerializableProcessingGraph } from "@/types/processing-graph";
-import { useAuth, useSecuredApi } from "@/authentication";
-import { title } from "@/components/primitives";
+import { SerializableProcessingGraph } from "../types/processing-graph";
+import { useAuth, useSecuredApi } from "../authentication";
+import { title } from "../components/primitives";
 
 // Layout and component imports
-import DefaultLayout from "@/layouts/default";
-import { ProcessingGraphView } from "@/components/processing-graph-view";
-import { ProcessingGraphStats } from "@/components/processing-graph-stats";
-import { CopyButton } from "@/components/copy-button";
+import DefaultLayout from "../layouts/default";
+import { ProcessingGraphView } from "../components/processing-graph-view";
+import { ProcessingGraphStats } from "../components/processing-graph-stats";
+import { CopyButton } from "../components/copy-button";
 
 /**
  * Main Processing Graph Dashboard Component
@@ -290,27 +293,31 @@ export default function DocsPage() {
         {/* **Error State** - Comprehensive error display with retry functionality */}
         {error && !graph && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="danger"
-              description={error}
-              endContent={
-                <Button color="danger" variant="flat" onPress={handleRefresh}>
-                  {t("retry")}
-                </Button>
-              }
-              title={t("graph-failed-to-load-title")}
-            />
+            <Alert status="danger">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("graph-failed-to-load-title")}</Alert.Title>
+                <Alert.Description>{error}</Alert.Description>
+              </Alert.Content>
+              <Button variant="danger-soft" onPress={handleRefresh}>
+                {t("retry")}
+              </Button>
+            </Alert>
           </div>
         )}
 
         {/* **No Data State** - Informative message when no graph data is available */}
         {!loading && !error && !graph && (
           <div className="max-w-2xl mx-auto mt-8">
-            <Alert
-              color="warning"
-              description={t("graph-no-data-description")}
-              title={t("graph-no-data-title")}
-            />
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("graph-no-data-title")}</Alert.Title>
+                <Alert.Description>
+                  {t("graph-no-data-description")}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           </div>
         )}
 
@@ -324,18 +331,18 @@ export default function DocsPage() {
                 <Switch
                   isSelected={autoRefresh}
                   size="sm"
-                  onValueChange={setAutoRefresh}
+                  onChange={setAutoRefresh}
                 >
-                  {t("auto-refresh")}
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Content>
+                    <Label>{t("auto-refresh")}</Label>
+                  </Switch.Content>
                 </Switch>
 
                 {/* Manual refresh button with loading state */}
-                <Button
-                  color="primary"
-                  isLoading={loading}
-                  variant="flat"
-                  onPress={handleRefresh}
-                >
+                <Button variant="secondary" onPress={handleRefresh}>
                   {t("refresh")}
                 </Button>
               </div>
@@ -345,27 +352,27 @@ export default function DocsPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               {/* Total Nodes - Overall system scale indicator */}
               <Card className="bg-blue-50 border-blue-200">
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p className="text-2xl font-bold text-blue-600">
                     {graph.performance_summary.total_nodes}
                   </p>
                   <p className="text-sm text-blue-800">{t("active-nodes")}</p>
-                </CardBody>
+                </Card.Content>
               </Card>
 
               {/* Throughput FPS - Real-time performance indicator */}
               <Card className="bg-green-50 border-green-200">
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p className="text-2xl font-bold text-green-600">
                     {graph.performance_summary.throughput_fps.toFixed(1)}
                   </p>
                   <p className="text-sm text-green-800">{t("fps")}</p>
-                </CardBody>
+                </Card.Content>
               </Card>
 
               {/* Average Execution Time - Efficiency metric */}
               <Card className="bg-purple-50 border-purple-200">
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
                     {graph.performance_summary.average_execution_time_ms.toFixed(
                       2,
@@ -373,7 +380,7 @@ export default function DocsPage() {
                     {t("ms")}
                   </p>
                   <p className="text-sm text-purple-800">{t("avg-time")}</p>
-                </CardBody>
+                </Card.Content>
               </Card>
 
               {/* System Validity - Health status indicator */}
@@ -384,7 +391,7 @@ export default function DocsPage() {
                     : "bg-red-50 border-red-200"
                 }`}
               >
-                <CardBody className="text-center">
+                <Card.Content className="text-center">
                   <p
                     className={`text-2xl font-bold ${
                       graph.is_valid ? "text-green-600" : "text-red-600"
@@ -399,7 +406,7 @@ export default function DocsPage() {
                   >
                     {graph.is_valid ? t("valid") : t("invalid")}
                   </p>
-                </CardBody>
+                </Card.Content>
               </Card>
             </div>
 
@@ -407,55 +414,70 @@ export default function DocsPage() {
             <Tabs
               className="w-full"
               selectedKey={selectedTab}
-              size="lg"
               onSelectionChange={(key) => setSelectedTab(key as string)}
             >
-              {/* **Graph Visualization Tab** - Interactive visual representation */}
-              <Tab key="graph" title={t("graph-view")}>
-                <Card className="min-h-[600px]">
-                  <CardHeader>
+              <Tabs.ListContainer>
+                <Tabs.List aria-label={t("graph-title")}>
+                  <Tabs.Tab id="graph">
+                    {t("graph-view")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="stats">
+                    {t("performance-stats")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="raw">
+                    {t("raw-data")}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                </Tabs.List>
+              </Tabs.ListContainer>
+
+              <Tabs.Panel id="graph">
+                <Card className="min-h-150">
+                  <Card.Header>
                     <h2 className="text-xl font-semibold">
                       {t("graph-visualization-title")}
                     </h2>
                     <p className="text-sm text-gray-600 ml-auto">
                       {t("graph-click-node-hint")}
                     </p>
-                  </CardHeader>
-                  <CardBody className="h-[600px] p-0">
-                    {/* Core graph visualization component */}
-                    <ProcessingGraphView className="h-full" graph={graph} />
-                  </CardBody>
+                  </Card.Header>
+                  <Card.Content className="p-0">
+                    {/* Explicit inline height: h-full inside a flex-1 card__content
+                        does not resolve reliably — ReactFlow needs a direct parent
+                        with a definite pixel height for its ResizeObserver. */}
+                    <div style={{ height: "600px", width: "100%" }}>
+                      <ProcessingGraphView graph={graph} />
+                    </div>
+                  </Card.Content>
                 </Card>
-              </Tab>
+              </Tabs.Panel>
 
-              {/* **Performance Statistics Tab** - Detailed analytics and metrics */}
-              <Tab key="stats" title={t("performance-stats")}>
+              <Tabs.Panel id="stats">
                 <ProcessingGraphStats graph={graph} />
-              </Tab>
+              </Tabs.Panel>
 
-              {/* **Raw Data Tab** - JSON debug view for developers */}
-              <Tab key="raw" title={t("raw-data")}>
+              <Tabs.Panel id="raw">
                 <Card>
-                  <CardHeader>
+                  <Card.Header>
                     <h2 className="text-xl font-semibold">
                       {t("raw-graph-data")}
                     </h2>
-                  </CardHeader>
-                  <CardBody>
+                  </Card.Header>
+                  <Card.Content>
                     <div className="relative">
-                      {/* Copy functionality for easy data extraction */}
                       <CopyButton
                         className="absolute top-2 right-2"
                         value={JSON.stringify(graph, null, 2)}
                       />
-                      {/* Formatted JSON display with syntax highlighting */}
                       <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
                         {JSON.stringify(graph, null, 2)}
                       </pre>
                     </div>
-                  </CardBody>
+                  </Card.Content>
                 </Card>
-              </Tab>
+              </Tabs.Panel>
             </Tabs>
           </div>
         )}

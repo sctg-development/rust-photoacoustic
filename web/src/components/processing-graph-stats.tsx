@@ -3,17 +3,18 @@
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
 import { useTranslation } from "react-i18next";
-import { Card, CardBody, CardHeader } from "@heroui/card";
-import { Chip } from "@heroui/chip";
-import { Progress } from "@heroui/progress";
 import {
+  Card,
+  Chip,
+  ProgressBar,
   Table,
+  TableContent,
   TableHeader,
   TableColumn,
   TableBody,
   TableRow,
   TableCell,
-} from "@heroui/table";
+} from "@heroui/react";
 
 import {
   SerializableProcessingGraph,
@@ -39,12 +40,12 @@ export function ProcessingGraphStats({
     <div className={`space-y-6 ${className}`}>
       {/* Overall Performance Summary */}
       <Card>
-        <CardHeader>
+        <Card.Header>
           <h3 className="text-lg font-semibold">
             {t("stats-performance-summary")}
           </h3>
-        </CardHeader>
-        <CardBody>
+        </Card.Header>
+        <Card.Content>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-blue-600">
@@ -84,7 +85,8 @@ export function ProcessingGraphStats({
                 {performance_summary.efficiency_percentage.toFixed(1)}%
               </span>
             </div>
-            <Progress
+            <ProgressBar
+              aria-label="efficiency"
               className="mb-2"
               color={
                 performance_summary.efficiency_percentage > 80
@@ -94,7 +96,11 @@ export function ProcessingGraphStats({
                     : "danger"
               }
               value={performance_summary.efficiency_percentage}
-            />
+            >
+              <ProgressBar.Track>
+                <ProgressBar.Fill />
+              </ProgressBar.Track>
+            </ProgressBar>
             <div className="flex justify-between text-xs text-gray-500">
               <span>
                 {t("stats-best")}:{" "}
@@ -110,15 +116,15 @@ export function ProcessingGraphStats({
               </span>
             </div>
           </div>
-        </CardBody>
+        </Card.Content>
       </Card>
 
       {/* Bottlenecks Alert */}
       {performance_summary.slowest_node && (
         <Card className="border-red-200 bg-red-50">
-          <CardBody>
+          <Card.Content>
             <div className="flex items-center gap-2 mb-2">
-              <Chip color="danger" variant="flat">
+              <Chip color="danger" variant="soft">
                 ⚠️ {t("stats-bottleneck-detected")}
               </Chip>
             </div>
@@ -127,97 +133,101 @@ export function ProcessingGraphStats({
                 node: performance_summary.slowest_node,
               })}
             </p>
-          </CardBody>
+          </Card.Content>
         </Card>
       )}
 
       {/* Node Performance Table */}
       <Card>
-        <CardHeader>
+        <Card.Header>
           <h3 className="text-lg font-semibold">
             {t("stats-node-performance-details")}
           </h3>
-        </CardHeader>
-        <CardBody>
-          <Table aria-label={t("stats-node-performance-table-aria")}>
-            <TableHeader>
-              <TableColumn>{t("stats-table-node")}</TableColumn>
-              <TableColumn>{t("stats-table-type")}</TableColumn>
-              <TableColumn>{t("stats-table-frames")}</TableColumn>
-              <TableColumn>{t("stats-table-avg-time")}</TableColumn>
-              <TableColumn>{t("stats-table-total-time")}</TableColumn>
-              <TableColumn>{t("stats-table-status")}</TableColumn>
-            </TableHeader>
-            <TableBody>
-              {nodesByPerformance.map((nodeStats) => {
-                const isBottleneck = ProcessingGraphUtils.isBottleneck(
-                  graph,
-                  nodeStats.node_id,
-                );
-                const isFastest =
-                  performance_summary.fastest_node === nodeStats.node_id;
+        </Card.Header>
+        <Card.Content>
+          {/* In HeroUI v3, <Table> is a plain div context provider.
+              The react-aria Table wrapper is <TableContent> — aria-label goes here. */}
+          <Table>
+            <TableContent aria-label={t("stats-node-performance-table-aria")}>
+              <TableHeader>
+                <TableColumn isRowHeader>{t("stats-table-node")}</TableColumn>
+                <TableColumn>{t("stats-table-type")}</TableColumn>
+                <TableColumn>{t("stats-table-frames")}</TableColumn>
+                <TableColumn>{t("stats-table-avg-time")}</TableColumn>
+                <TableColumn>{t("stats-table-total-time")}</TableColumn>
+                <TableColumn>{t("stats-table-status")}</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {nodesByPerformance.map((nodeStats) => {
+                  const isBottleneck = ProcessingGraphUtils.isBottleneck(
+                    graph,
+                    nodeStats.node_id,
+                  );
+                  const isFastest =
+                    performance_summary.fastest_node === nodeStats.node_id;
 
-                return (
-                  <TableRow key={nodeStats.node_id}>
-                    <TableCell>
-                      <div className="font-medium">{nodeStats.node_id}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="sm" variant="flat">
-                        {nodeStats.node_type}
-                      </Chip>
-                    </TableCell>
-                    <TableCell>
-                      {nodeStats.frames_processed.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          isBottleneck
-                            ? "text-red-600 font-semibold"
-                            : isFastest
-                              ? "text-green-600 font-semibold"
-                              : ""
-                        }
-                      >
+                  return (
+                    <TableRow key={nodeStats.node_id}>
+                      <TableCell>
+                        <div className="font-medium">{nodeStats.node_id}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="sm" variant="soft">
+                          {nodeStats.node_type}
+                        </Chip>
+                      </TableCell>
+                      <TableCell>
+                        {nodeStats.frames_processed.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={
+                            isBottleneck
+                              ? "text-red-600 font-semibold"
+                              : isFastest
+                                ? "text-green-600 font-semibold"
+                                : ""
+                          }
+                        >
+                          {ProcessingGraphUtils.formatDuration(
+                            nodeStats.average_processing_time,
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         {ProcessingGraphUtils.formatDuration(
-                          nodeStats.average_processing_time,
+                          nodeStats.total_processing_time,
                         )}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {ProcessingGraphUtils.formatDuration(
-                        nodeStats.total_processing_time,
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isBottleneck && (
-                        <Chip color="danger" size="sm" variant="flat">
-                          {t("stats-chip-bottleneck")}
-                        </Chip>
-                      )}
-                      {isFastest && !isBottleneck && (
-                        <Chip color="success" size="sm" variant="flat">
-                          {t("stats-chip-fastest")}
-                        </Chip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
+                      </TableCell>
+                      <TableCell>
+                        {isBottleneck && (
+                          <Chip color="danger" size="sm" variant="soft">
+                            {t("stats-chip-bottleneck")}
+                          </Chip>
+                        )}
+                        {isFastest && !isBottleneck && (
+                          <Chip color="success" size="sm" variant="soft">
+                            {t("stats-chip-fastest")}
+                          </Chip>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </TableContent>
           </Table>
-        </CardBody>
+        </Card.Content>
       </Card>
 
       {/* Graph Structure Info */}
       <Card>
-        <CardHeader>
+        <Card.Header>
           <h3 className="text-lg font-semibold">
             {t("stats-graph-structure")}
           </h3>
-        </CardHeader>
-        <CardBody>
+        </Card.Header>
+        <Card.Content>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-600">{t("stats-total-nodes")}</p>
@@ -247,7 +257,7 @@ export function ProcessingGraphStats({
               <Chip
                 color={graph.is_valid ? "success" : "danger"}
                 size="sm"
-                variant="flat"
+                variant="soft"
               >
                 {graph.is_valid ? `✓ ${t("valid")}` : `✗ ${t("invalid")}`}
               </Chip>
@@ -272,7 +282,7 @@ export function ProcessingGraphStats({
               </div>
             )}
           </div>
-        </CardBody>
+        </Card.Content>
       </Card>
     </div>
   );

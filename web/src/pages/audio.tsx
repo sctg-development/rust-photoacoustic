@@ -9,15 +9,14 @@
  */
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
-import { Select, SelectItem } from "@heroui/select";
+import { Select, ListBox, Label } from "@heroui/react";
 
 import { useGenerixConfig } from "../authentication/providers/generix-config";
-
-import { title } from "@/components/primitives";
-import DefaultLayout from "@/layouts/default";
-import { useAuth } from "@/authentication";
-import AudioStreamAnalyzer from "@/components/audio-stream-analyzer";
-import { AudioStreamInfo } from "@/types";
+import { title } from "../components/primitives";
+import DefaultLayout from "../layouts/default";
+import { useAuth } from "../authentication";
+import AudioStreamAnalyzer from "../components/audio-stream-analyzer";
+import { AudioStreamInfo } from "../types";
 
 /**
  * ApiPage Component - Real-time Audio Streaming and Visualization Demo
@@ -97,20 +96,31 @@ export default function ApiPage() {
           <div className="w-full max-w-lg mb-6">
             <Select
               className="max-w-xs"
-              label={t("select-audio-stream")}
               placeholder={t("choose-stream-to-analyze")}
-              selectedKeys={selectedStreamId ? [selectedStreamId] : []}
-              onSelectionChange={(keys) => {
-                const selectedKey = Array.from(keys)[0] as string;
-
-                if (selectedKey) {
-                  setSelectedStreamId(selectedKey);
-                }
+              selectedKey={selectedStreamId || null}
+              onSelectionChange={(key) => {
+                if (key) setSelectedStreamId(key as string);
               }}
             >
-              {audioStreamInfos.map((stream) => (
-                <SelectItem key={stream.id}>{stream.id}</SelectItem>
-              ))}
+              <Label>{t("select-audio-stream")}</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {audioStreamInfos.map((stream) => (
+                    <ListBox.Item
+                      key={stream.id}
+                      id={stream.id}
+                      textValue={stream.id}
+                    >
+                      {stream.id}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
             </Select>
             {selectedStream && (
               <div className="mt-2 text-sm text-gray-600">

@@ -115,9 +115,11 @@ export default defineConfig({
     // "import.meta.env.GENERIX_DOMAIN": JSON.stringify(process.env.GENERIX_DOMAIN),
   },
   base: "/client/",
+  optimizeDeps: {
+    include: ["react-gauge-chart"],
+  },
   plugins: [
     react(),
-    tsconfigPaths(),
     tailwindcss(),
     // githubPagesSpa(),
     loggerPlugin(),
@@ -142,18 +144,28 @@ export default defineConfig({
          * Groups all @heroui dependencies into a single chunk
          * to optimize loading performance and avoid oversized chunks
          */
-        manualChunks: {
-          react: [
-            "react",
-            "react-dom",
-            "react-router-dom",
-            "react-i18next",
-            "i18next",
-            "i18next-http-backend",
-          ],
-          heroui: extractPerVendorDependencies(packageJson, "@heroui"),
-          auth0: extractPerVendorDependencies(packageJson, "@auth0"),
-          reactflow: extractPerVendorDependencies(packageJson, "reactflow"),
+                /**
+         * Manual chunk configuration for better code splitting
+         *
+         * Groups all @heroui dependencies into a single chunk
+         * to optimize loading performance and avoid oversized chunks
+         */
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          // Group core React + i18n dependencies into a single chunk
+          if (
+            [
+              "react",
+              "react-dom",
+              "react-router-dom",
+              "react-i18next",
+              "i18next",
+              "i18next-http-backend",
+            ].some((name) => id.includes(`/node_modules/${name}/`))
+          ) {
+            return "react";
+          }
         },
       },
     },

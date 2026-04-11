@@ -1,6 +1,6 @@
 /**
  * @copyright Copyright (c) 2024-2025 Ronan LE MEILLAT
- * @license AGPL-3.0-or-later
+ * @license SCTG Development Non-Commercial License v1.0
  *
  * AudioStreamAnalyzer Component - Reusable audio streaming dashboard
  *
@@ -13,18 +13,14 @@
 
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Button } from "@heroui/button";
-import { Card, CardBody, CardHeader } from "@heroui/card";
-import { Progress } from "@heroui/progress";
-import { Chip } from "@heroui/chip";
-import { Switch } from "@heroui/switch";
+import { Button, Card, ProgressBar, Chip, Switch, Label } from "@heroui/react";
 // @ts-ignore - audiomotion-analyzer doesn't have TypeScript definitions
 import AudioMotionAnalyzer from "audiomotion-analyzer";
 
 import {
   TimestampValidationConfig,
   useAudioStream,
-} from "@/hooks/useAudioStream";
+} from "../hooks/useAudioStream";
 import {
   SpeakerOnIcon,
   SpeakerOffIcon,
@@ -32,7 +28,7 @@ import {
   SpeakerMaxIcon,
   RecordOnIcon,
   RecordOffIcon,
-} from "@/components/icons";
+} from "../components/icons";
 
 export interface AudioStreamAnalyzerProps {
   /** Base URL for the audio stream endpoint */
@@ -456,12 +452,12 @@ export default function AudioStreamAnalyzer({
         {/* Connection Status Card */}
         {isStatusDisplayed && (
           <Card className="w-full">
-            <CardHeader className="pb-2">
+            <Card.Header className="pb-2">
               <h3 className="text-lg font-semibold">
                 {t("connection-status")}
               </h3>
-            </CardHeader>
-            <CardBody>
+            </Card.Header>
+            <Card.Content>
               <div className="flex flex-col gap-3">
                 {/* WebSocket Connection Status */}
                 <div className="flex items-center justify-between">
@@ -474,7 +470,7 @@ export default function AudioStreamAnalyzer({
                           ? "warning"
                           : "danger"
                     }
-                    variant="flat"
+                    variant="soft"
                   >
                     {isConnected
                       ? t("connected")
@@ -489,7 +485,7 @@ export default function AudioStreamAnalyzer({
                   <span>{t("audio-ready")}</span>
                   <Chip
                     color={isAudioReady ? "success" : "default"}
-                    variant="flat"
+                    variant="soft"
                   >
                     {isAudioReady ? t("ready") : t("not-ready")}
                   </Chip>
@@ -503,7 +499,7 @@ export default function AudioStreamAnalyzer({
                       audioContext?.state === "running" ? "success" : "warning"
                     }
                     size="sm"
-                    variant="flat"
+                    variant="soft"
                   >
                     {audioContext?.state || t("none")}
                   </Chip>
@@ -514,7 +510,7 @@ export default function AudioStreamAnalyzer({
                   <span>{analyzerTitle || t("analyzer")}:</span>
                   <Chip
                     color={isAnalyzerInitialized ? "success" : "default"}
-                    variant="flat"
+                    variant="soft"
                   >
                     {isAnalyzerInitialized ? t("active") : t("inactive")}
                   </Chip>
@@ -524,11 +520,7 @@ export default function AudioStreamAnalyzer({
                 <div className="flex gap-2">
                   {/* Initialize Audio Context */}
                   {!isAudioReady && (
-                    <Button
-                      color="primary"
-                      size="sm"
-                      onPress={handleInitializeAudio}
-                    >
+                    <Button size="sm" onPress={handleInitializeAudio}>
                       {t("connect")}
                     </Button>
                   )}
@@ -537,7 +529,6 @@ export default function AudioStreamAnalyzer({
                   {isAudioReady && !isConnected && !isConnecting && (
                     <Button
                       aria-label={t("connect-to-audio-stream")}
-                      color="primary"
                       size="sm"
                       onPress={handleConnect}
                     >
@@ -549,8 +540,8 @@ export default function AudioStreamAnalyzer({
                   {isConnected && (
                     <Button
                       aria-label={t("disconnect-from-audio-stream")}
-                      color="danger"
                       size="sm"
+                      variant="danger"
                       onPress={handleDisconnect}
                     >
                       {t("disconnect")}
@@ -560,12 +551,17 @@ export default function AudioStreamAnalyzer({
 
                 {/* Analyzer Visibility Toggle */}
                 <div className="flex items-center justify-between">
-                  <span>{t("show-analyzer")}</span>
                   <Switch
-                    aria-label={t("toggle-audio-analyzer-visibility")}
                     isSelected={showAnalyzer}
-                    onValueChange={handleAnalyzerToggle}
-                  />
+                    onChange={handleAnalyzerToggle}
+                  >
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                    <Switch.Content>
+                      <Label>{t("show-analyzer")}</Label>
+                    </Switch.Content>
+                  </Switch>
                 </div>
 
                 {/* Error Display */}
@@ -578,17 +574,17 @@ export default function AudioStreamAnalyzer({
                   </div>
                 )}
               </div>
-            </CardBody>
+            </Card.Content>
           </Card>
         )}
 
         {/* Stream Statistics Card */}
         {isStatisticsDisplayed && (
           <Card className="w-full">
-            <CardHeader className="pb-2">
+            <Card.Header className="pb-2">
               <h3 className="text-lg font-semibold">{t("statistics")}</h3>
-            </CardHeader>
-            <CardBody>
+            </Card.Header>
+            <Card.Content>
               <div className="flex flex-col gap-3">
                 {/* Total frames successfully processed */}
                 <div className="flex justify-between">
@@ -628,27 +624,31 @@ export default function AudioStreamAnalyzer({
                     <span>{t("fps-performance")}</span>
                     <span>{fps.toFixed(1)}/8</span>
                   </div>
-                  <Progress
+                  <ProgressBar
                     aria-label={t("fps-performance-progress")}
                     color={
                       fps > 4.9 ? "success" : fps > 4 ? "warning" : "danger"
                     }
                     size="sm"
                     value={Math.min((fps / 8) * 100, 100)}
-                  />
+                  >
+                    <ProgressBar.Track>
+                      <ProgressBar.Fill />
+                    </ProgressBar.Track>
+                  </ProgressBar>
                 </div>
               </div>
-            </CardBody>
+            </Card.Content>
           </Card>
         )}
 
         {/* Current Frame Information Card */}
         {isCurrentFrameStatisticsDisplayed && (
           <Card className="w-full">
-            <CardHeader className="pb-2">
+            <Card.Header className="pb-2">
               <h3 className="text-lg font-semibold">{t("current-frame")}</h3>
-            </CardHeader>
-            <CardBody>
+            </Card.Header>
+            <Card.Content>
               {currentFrame ? (
                 <div className="flex flex-col gap-2 text-sm">
                   {/* Frame sequence number for tracking */}
@@ -719,7 +719,7 @@ export default function AudioStreamAnalyzer({
                   {t("no-frame-received")}
                 </div>
               )}
-            </CardBody>
+            </Card.Content>
           </Card>
         )}
       </div>
@@ -727,7 +727,7 @@ export default function AudioStreamAnalyzer({
       {/* Audio Spectrum Analyzer Visualization */}
       {showAnalyzer && (
         <Card className="w-full mt-6">
-          <CardHeader className="pb-2">
+          <Card.Header className="pb-2">
             <div className="flex items-center justify-between w-full">
               <h3 className="text-lg font-semibold">
                 {analyzerTitle || t("analyzer")}
@@ -735,20 +735,20 @@ export default function AudioStreamAnalyzer({
               <div className="flex items-center gap-2">
                 {/* Live indicator when analyzer is running */}
                 {isAnalyzerInitialized && (
-                  <Chip color="success" size="sm" variant="flat">
+                  <Chip color="success" size="sm" variant="soft">
                     {t("live")}
                   </Chip>
                 )}
                 {/* Sample rate indicator */}
                 {audioContext && (
-                  <Chip color="primary" size="sm" variant="flat">
+                  <Chip color="accent" size="sm" variant="soft">
                     {Math.round(audioContext.sampleRate)} Hz
                   </Chip>
                 )}
               </div>
             </div>
-          </CardHeader>
-          <CardBody>
+          </Card.Header>
+          <Card.Content>
             <div className="w-full">
               {/* Analyzer Container with Audio Controls and Universal Control Button Overlay */}
               <div className="relative">
@@ -771,7 +771,7 @@ export default function AudioStreamAnalyzer({
                           : t("enable-audio-playback")
                       }
                       size="sm"
-                      variant="flat"
+                      variant="ghost"
                       onPress={handleAudioPlaybackToggle}
                     >
                       {isAudioPlaybackEnabled ? (
@@ -789,7 +789,7 @@ export default function AudioStreamAnalyzer({
                           isIconOnly
                           aria-label={t("decrease-volume")}
                           size="sm"
-                          variant="flat"
+                          variant="ghost"
                           onPress={handleVolumeDecrease}
                         >
                           <SpeakerLowIcon size={16} />
@@ -807,7 +807,7 @@ export default function AudioStreamAnalyzer({
                           isIconOnly
                           aria-label={t("increase-volume")}
                           size="sm"
-                          variant="flat"
+                          variant="ghost"
                           onPress={handleVolumeIncrease}
                         >
                           <SpeakerMaxIcon size={16} />
@@ -826,7 +826,7 @@ export default function AudioStreamAnalyzer({
                             : t("start-recording")
                         }
                         size="sm"
-                        variant="flat"
+                        variant="ghost"
                         onPress={handleToggleRecording}
                       >
                         {isRecording ? (
@@ -854,9 +854,7 @@ export default function AudioStreamAnalyzer({
                     {!isAudioReady && (
                       <Button
                         className="shadow-lg backdrop-blur-sm bg-primary/90"
-                        color="primary"
                         size="sm"
-                        variant="solid"
                         onPress={handleInitializeAudio}
                       >
                         {t("connect")}
@@ -867,9 +865,7 @@ export default function AudioStreamAnalyzer({
                       <Button
                         aria-label={t("connect-to-audio-stream")}
                         className="shadow-lg backdrop-blur-sm bg-primary/90"
-                        color="primary"
                         size="sm"
-                        variant="solid"
                         onPress={handleConnect}
                       >
                         {t("connect")}
@@ -880,9 +876,8 @@ export default function AudioStreamAnalyzer({
                       <Button
                         aria-label={t("disconnect-from-audio-stream")}
                         className="shadow-lg backdrop-blur-sm bg-danger/90"
-                        color="danger"
                         size="sm"
-                        variant="solid"
+                        variant="danger"
                         onPress={handleDisconnect}
                       >
                         {t("disconnect")}
@@ -892,11 +887,8 @@ export default function AudioStreamAnalyzer({
                     {isConnecting && (
                       <Button
                         isDisabled
-                        isLoading
                         className="shadow-lg backdrop-blur-sm bg-warning/90"
-                        color="warning"
                         size="sm"
-                        variant="solid"
                       >
                         {t("connecting")}
                       </Button>
@@ -945,7 +937,7 @@ export default function AudioStreamAnalyzer({
                 </div>
               )}
             </div>
-          </CardBody>
+          </Card.Content>
         </Card>
       )}
     </div>

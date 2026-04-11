@@ -8,12 +8,12 @@ import { title } from "./components/primitives";
 import { PageNotFound } from "./pages/404";
 import { AuthenticationGuard, LogoutButton, useAuth } from "./authentication";
 
-import IndexPage from "@/pages/index";
-import AudioPage from "@/pages/audio";
-import ThermalPage from "@/pages/thermal";
-import BlogPage from "@/pages/blog";
-import GraphPage from "@/pages/graph";
-import LocalPage from "@/pages/local";
+import IndexPage from "./pages/index";
+import AudioPage from "./pages/audio";
+import ThermalPage from "./pages/thermal";
+import BlogPage from "./pages/blog";
+import GraphPage from "./pages/graph";
+import LocalPage from "./pages/local";
 
 function App() {
   const { isLoading, isAuthenticated } = useAuth();

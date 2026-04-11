@@ -96,7 +96,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-import { useAuth, useSecuredApi } from "@/authentication";
+import { useAuth, useSecuredApi } from "../authentication";
 
 /**
  * Audio Frame Data Structure
