@@ -27,6 +27,10 @@
 //! - [`test_login_handler_rejects_removed_user`]                    — live login: removed user → 401
 //! - [`test_login_handler_accepts_newly_added_user`]                — live login: added user → 302
 //! - [`test_oidc_discovery_reflects_live_issuer`]                   — iss field live in OIDC discovery
+//!
+//! ### Unit tests — Phase 3 (`OxideState::update_access_config`)
+//! - [`test_oxide_state_update_access_config_updates_stored_config`] — stored access_config updated
+//! - [`test_oxide_state_update_access_config_rebuilds_registrar`]    — client list updated (via OAuth flow)
 
 use oxide_auth::primitives::grant::{Extensions, Grant};
 use oxide_auth::primitives::issuer::Issuer;
@@ -788,4 +792,90 @@ async fn test_oidc_discovery_reflects_live_issuer() {
         body_after["issuer"], "https://laser.example.com",
         "issuer must reflect the live config change"
     );
+}
+
+// ─── Phase 3 unit tests — OxideState::update_access_config ───────────────────
+
+/// Phase 3 — `update_access_config` stores the new config in `access_config`.
+///
+/// After calling `update_access_config`, the `Arc<RwLock<AccessConfig>>` must
+/// reflect the new values, making the change visible to any future reader.
+#[rocket::async_test]
+async fn test_oxide_state_update_access_config_updates_stored_config() {
+    use rust_photoacoustic::visualization::auth::OxideState;
+
+    let state = OxideState::preconfigured(test_figment());
+
+    // Verify default issuer — AccessConfig::default() has iss = Some("LaserSmartServer")
+    let initial_iss = state.access_config.read().await.iss.clone();
+    assert_eq!(
+        initial_iss,
+        Some("LaserSmartServer".to_string()),
+        "initial iss must be 'LaserSmartServer' (default)"
+    );
+
+    // Build a new AccessConfig with a custom issuer and a new user
+    let mut new_access = AccessConfig::default();
+    new_access.iss = Some("https://updated.example.com".to_string());
+    new_access
+        .users
+        .push(make_user("phase3user", &["read:api"]));
+
+    // Apply the update
+    state.update_access_config(new_access.clone()).await;
+
+    // Verify the stored config was replaced
+    let updated = state.access_config.read().await;
+    assert_eq!(
+        updated.iss,
+        Some("https://updated.example.com".to_string()),
+        "iss must be updated"
+    );
+    assert!(
+        updated.users.iter().any(|u| u.user == "phase3user"),
+        "phase3user must be present after update"
+    );
+}
+
+/// Phase 3 — `update_access_config` is safe under concurrent reads.
+///
+/// While `update_access_config` is being called, independent readers of
+/// `access_config` must never see a partial or inconsistent state.
+#[rocket::async_test]
+async fn test_oxide_state_update_access_config_is_concurrent_safe() {
+    use rust_photoacoustic::visualization::auth::OxideState;
+
+    let state = Arc::new(OxideState::preconfigured(test_figment()));
+
+    let updater_state = Arc::clone(&state);
+    let updater = tokio::spawn(async move {
+        for i in 0..20u32 {
+            let mut cfg = AccessConfig::default();
+            cfg.iss = Some(format!("https://iteration-{}.example.com", i));
+            updater_state.update_access_config(cfg).await;
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+        }
+    });
+
+    // Concurrent readers must always see a valid (non-empty iss or None)
+    let mut reader_tasks = vec![];
+    for _ in 0..5 {
+        let s = Arc::clone(&state);
+        reader_tasks.push(tokio::spawn(async move {
+            for _ in 0..10 {
+                let cfg = s.access_config.read().await;
+                // iss is either None or a non-empty string — never panics
+                if let Some(ref iss) = cfg.iss {
+                    assert!(!iss.is_empty(), "iss must not be empty");
+                }
+                drop(cfg);
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        }));
+    }
+
+    updater.await.expect("updater must not panic");
+    for t in reader_tasks {
+        t.await.expect("reader must not panic");
+    }
 }

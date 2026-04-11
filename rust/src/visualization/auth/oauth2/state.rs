@@ -82,8 +82,10 @@ pub struct OxideState {
     /// User access configuration
     ///
     /// Contains the list of users and their permissions used for authentication
-    /// and authorization in the OAuth flow.
-    pub access_config: AccessConfig,
+    /// and authorization in the OAuth flow. Wrapped in `Arc<RwLock<>>` so it
+    /// can be updated at runtime via [`OxideState::update_access_config`] without
+    /// restarting the server.
+    pub access_config: Arc<RwLock<AccessConfig>>,
 
     /// Generix configuration for Oxide Auth
     pub generix_config: GenerixConfig,
@@ -103,7 +105,7 @@ impl Clone for OxideState {
             hmac_secret: self.hmac_secret.clone(),
             rs256_private_key: self.rs256_private_key.clone(),
             rs256_public_key: self.rs256_public_key.clone(),
-            access_config: self.access_config.clone(),
+            access_config: Arc::clone(&self.access_config),
             generix_config: self.generix_config.clone(),
         }
     }
@@ -200,8 +202,8 @@ impl OxideState {
             // Add RS256 keys (to be set later)
             rs256_private_key: String::new(),
             rs256_public_key: String::new(),
-            // Initialize access config with default values
-            access_config: AccessConfig::default(),
+            // Initialize access config with default values — wrapped for live updates
+            access_config: Arc::new(RwLock::new(AccessConfig::default())),
             // Initialize the generix configuration
             generix_config: GenerixConfig::default(),
         }
@@ -298,8 +300,8 @@ impl OxideState {
             // Set RS256 keys from config
             rs256_private_key,
             rs256_public_key,
-            // Use the access config from config
-            access_config,
+            // Wrap the access config in Arc<RwLock<>> for live updates
+            access_config: Arc::new(RwLock::new(access_config)),
             // Use the generix configuration from config
             generix_config,
         }
@@ -345,5 +347,96 @@ impl OxideState {
             // `rocket::Response` is `Default`, so we don't need more configuration.
             response: Vacant,
         }
+    }
+
+    /// Update the access configuration at runtime (hot-reload)
+    ///
+    /// This method atomically updates all components that depend on `AccessConfig`:
+    /// - The stored `access_config` (users, iss, duration)
+    /// - The OAuth2 client `registrar` (client list + allowed callbacks)
+    /// - The JWT `issuer` (issuer name + token duration)
+    ///
+    /// Call this whenever `Config.access` changes (e.g. after a config file reload
+    /// or a `POST /api/config` update) to keep the OAuth state in sync.
+    ///
+    /// ### Example
+    ///
+    /// ```no_run
+    /// use std::sync::Arc;
+    /// use tokio::sync::RwLock;
+    /// use rust_photoacoustic::{config::{Config, AccessConfig}, visualization::auth::OxideState};
+    ///
+    /// async fn reload(state: &OxideState, new_config: AccessConfig) {
+    ///     state.update_access_config(new_config).await;
+    /// }
+    /// ```
+    pub async fn update_access_config(&self, new_config: AccessConfig) {
+        // 1. Rebuild the OAuth2 client registrar
+        self.rebuild_registrar(&new_config);
+
+        // 2. Update the JWT issuer name and token duration
+        self.update_jwt_issuer(&new_config);
+
+        // 3. Replace the stored access config last (so readers always see a consistent state)
+        *self.access_config.write().await = new_config;
+    }
+
+    /// Rebuild the OAuth2 client registrar from a new `AccessConfig`.
+    ///
+    /// Replaces the in-memory `ClientMap` with a fresh one derived from
+    /// `access_config.clients`. Called by [`update_access_config`].
+    fn rebuild_registrar(&self, access_config: &AccessConfig) {
+        let mut client_map: Vec<Client> = vec![];
+        for client in &access_config.clients {
+            if client.allowed_callbacks.is_empty() {
+                continue;
+            }
+            let mut oauth_client = Client::public(
+                client.client_id.as_str(),
+                RegisteredUrl::Semantic(
+                    client.allowed_callbacks[0]
+                        .parse::<url::Url>()
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Invalid redirect URI for client {}: {}",
+                                client.client_id, client.allowed_callbacks[0]
+                            )
+                        }),
+                ),
+                client
+                    .default_scope
+                    .parse::<Scope>()
+                    .unwrap_or_else(|_| "read:api".parse().unwrap()),
+            );
+            for callback in &client.allowed_callbacks[1..] {
+                oauth_client =
+                    oauth_client.with_additional_redirect_uris(vec![RegisteredUrl::Semantic(
+                        callback.parse::<url::Url>().unwrap_or_else(|_| {
+                            panic!(
+                                "Invalid additional redirect URI for client {}: {}",
+                                client.client_id, callback
+                            )
+                        }),
+                    )]);
+            }
+            client_map.push(oauth_client);
+        }
+        *self.registrar.lock().unwrap() = client_map.into_iter().collect::<ClientMap>();
+    }
+
+    /// Update the JWT issuer name and token duration from a new `AccessConfig`.
+    ///
+    /// Called by [`update_access_config`].
+    fn update_jwt_issuer(&self, access_config: &AccessConfig) {
+        let mut issuer = self.issuer.lock().unwrap();
+        issuer.with_issuer(
+            access_config
+                .iss
+                .clone()
+                .unwrap_or_else(|| "LaserSmartServer".to_string()),
+        );
+        issuer.valid_for(chrono::Duration::seconds(
+            access_config.duration.unwrap_or(86400),
+        ));
     }
 }

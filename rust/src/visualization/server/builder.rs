@@ -818,8 +818,6 @@ fn make_rapidoc_with_vite_assets(config: &RapiDocConfig) -> Vec<Route> {
         // Add Vite-generated bundle files
         static_file_vite!("helper.js", JavaScript),
         static_file_vite!("helper.js.map", Text),
-        static_file_vite!("index.js", JavaScript),
-        static_file_vite!("index.js.map", Text),
         static_file_vite!("rapidoc-min.js", JavaScript),
         static_file_vite!("rapidoc-min.js.map", JavaScript),
     ]
