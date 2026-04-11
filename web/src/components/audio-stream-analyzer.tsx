@@ -755,7 +755,7 @@ export default function AudioStreamAnalyzer({
                 <div
                   ref={analyzerContainerRef}
                   className={`w-full rounded-lg bg-black ${
-                    showAnalyzer ? "h-[300px]" : "h-0"
+                    showAnalyzer ? "h-75" : "h-0"
                   } overflow-hidden`}
                 />
 

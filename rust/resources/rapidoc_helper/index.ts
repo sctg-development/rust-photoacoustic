@@ -265,6 +265,28 @@ async function initializeApp() {
          * - See request/response examples
          * - Try out API calls directly in the browser
          */
+        /**
+         * Pre-fill BearerAuth security scheme from URL query parameter
+         *
+         * If the page URL contains a `token` query parameter (e.g. `/rapidoc?token=eyJ...`),
+         * the value is injected into the `BearerAuth` HTTP Bearer security scheme once
+         * RapiDoc has finished parsing the spec.  The `spec-loaded` event is the
+         * authoritative signal that `resolvedSpec.securitySchemes` is ready, so we
+         * register the one-shot listener *before* calling `loadSpec`.
+         *
+         * RapiDoc's `setApiKey` automatically prepends "Bearer " for schemes whose
+         * `scheme` property equals "bearer", so the raw token value is passed as-is.
+         */
+        const urlToken = new URLSearchParams(window.location.search).get('token');
+        if (urlToken && rapidocEl) {
+            const onSpecLoaded = () => {
+                rapidocEl.removeEventListener('spec-loaded', onSpecLoaded);
+                rapidocEl.setApiKey('BearerAuth', urlToken);
+                console.log('[index.ts] BearerAuth token pre-filled from URL parameter');
+            };
+            rapidocEl.addEventListener('spec-loaded', onSpecLoaded);
+        }
+
         console.log('[index.ts] Loading spec into Rapidoc...');
         rapidocEl?.loadSpec(dataWithSnippets);
         console.log('[index.ts] Spec loaded successfully');
