@@ -436,7 +436,8 @@
                     "admin:api",
                     "openid",
                     "profile",
-                    "email"
+                    "email",
+                    "offline_access"
                   ]
                 },
                 "minItems": 1,
