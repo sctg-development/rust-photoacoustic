@@ -67,6 +67,15 @@ pub struct OpenIdConfiguration {
     /// JSON array containing the scopes that this server supports
     pub scopes_supported: Vec<String>,
 
+    /// URL of the OP's End-Session (logout) Endpoint
+    ///
+    /// When present, OIDC clients (e.g. `oidc-client-ts`) will redirect the
+    /// browser here during `signoutRedirect()`, allowing the server to clear
+    /// the server-side session cookie before the user is sent back to the
+    /// application.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_session_endpoint: Option<String>,
+
     /// JSON array containing a list of the claim names of the Claims that the OpenID Provider supports
     pub claims_supported: Vec<String>,
 }
@@ -115,6 +124,7 @@ fn generate_openid_configuration(base_url: &str, state: &OxideState) -> OpenIdCo
         authorization_endpoint: format!("{}/authorize", base_url),
         token_endpoint: format!("{}/token", base_url),
         userinfo_endpoint: Some(format!("{}/userinfo", base_url)),
+        end_session_endpoint: Some(format!("{}/logout", base_url)),
         jwks_uri: format!("{}/.well-known/jwks.json", base_url),
         response_types_supported: vec!["code".to_string(), "token".to_string()],
         grant_types_supported: vec![

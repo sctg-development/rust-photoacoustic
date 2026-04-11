@@ -19,8 +19,8 @@ use crate::visualization::api::action::get_action_routes;
 use crate::visualization::api::graph::graph::*;
 use crate::visualization::api::*;
 use crate::visualization::auth::{
-    authorize, oauth2::authorize_consent, oauth2::login, oauth2::userinfo, refresh, token,
-    OxideState,
+    authorize, oauth2::authorize_consent, oauth2::login, oauth2::logout, oauth2::userinfo,
+    refresh, token, OxideState,
 };
 use crate::visualization::oidc::{jwks, openid_configuration};
 use crate::visualization::shared_state::SharedVisualizationState;
@@ -430,6 +430,7 @@ pub async fn build_rocket(
                 authorize,
                 authorize_consent,
                 login,
+                logout,
                 userinfo,
                 token,
                 refresh,
@@ -963,6 +964,8 @@ pub fn build_rocket_test_instance() -> Rocket<Build> {
                 // Routes for OAuth tests
                 authorize,
                 authorize_consent,
+                login,
+                logout,
                 token,
                 refresh,
                 openid_configuration, // Add OIDC configuration endpoint

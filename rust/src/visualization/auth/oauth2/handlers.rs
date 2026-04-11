@@ -305,6 +305,50 @@ pub fn authorize_consent(
         .map_err(|err| err.pack::<OAuthFailure>())
 }
 
+/// OIDC end-session (logout) endpoint
+///
+/// Clears the server-side `user_session` cookie, effectively invalidating the
+/// user's authentication session.  After clearing the cookie the user is
+/// redirected to the `post_logout_redirect_uri` query parameter (if provided
+/// and relative), or to the application root `/`.
+///
+/// This endpoint is advertised as `end_session_endpoint` in the OIDC discovery
+/// document so that `oidc-client-ts` (frontend) can invoke it automatically
+/// when `userManager.signoutRedirect()` is called.
+///
+/// ### URL
+///
+/// `GET /logout?post_logout_redirect_uri=<uri>`
+///
+/// ### Query Parameters
+///
+/// - `post_logout_redirect_uri` *(optional)*: URL to redirect to after logout
+///
+/// ### Returns
+///
+/// HTTP 302 redirect to the post-logout URI
+#[get("/logout?<post_logout_redirect_uri>")]
+pub fn logout(
+    cookies: &CookieJar<'_>,
+    post_logout_redirect_uri: Option<String>,
+) -> OAuthResponse {
+    // Remove the private session cookie — this is the key step that prevents
+    // the consent handler from re-authenticating a logged-out user.
+    cookies.remove_private("user_session");
+    debug!("User session cookie removed (logout)");
+
+    // Redirect to the requested post-logout URI, falling back to "/".
+    // Only allow relative URIs to prevent open-redirect attacks.
+    let redirect_to = post_logout_redirect_uri
+        .filter(|uri| uri.starts_with('/') || uri.starts_with("https://localhost") || uri.starts_with("https://127.0.0.1"))
+        .unwrap_or_else(|| "/".to_string());
+
+    OAuthResponse::new()
+        .set_status(Status::Found)
+        .set_location(Some(&redirect_to))
+        .clone()
+}
+
 /// OAuth 2.0 token endpoint
 ///
 /// This Rocket handler implements the OAuth 2.0 token endpoint, which

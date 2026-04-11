@@ -15,5 +15,5 @@ pub use consent::{consent_decision, consent_form, consent_page_html};
 pub use forms::{
     decode_user_session, encode_user_session, AuthForm, AuthenticatedUser, UserSession,
 };
-pub use handlers::{authorize, authorize_consent, login, refresh, token, userinfo};
+pub use handlers::{authorize, authorize_consent, login, logout, refresh, token, userinfo};
 pub use state::OxideState;
