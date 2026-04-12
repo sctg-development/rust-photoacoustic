@@ -150,7 +150,7 @@ async fn test_rapidoc_static_files_served() {
     // Test that the JavaScript files are served
     let files_to_test = vec![
         "/api/doc/helper.js",
-        "/api/doc/index.js",
+        "/api/doc/rapidoc_helper.js",
         "/api/doc/rapidoc-min.js",
     ];
 
