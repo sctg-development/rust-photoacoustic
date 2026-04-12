@@ -929,81 +929,47 @@ jobs:
         run: |
           echo "## 🚀 Multi-Architecture Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Released Binaries and Packages" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Released Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Architecture | Static Binaries | Static Package | Dynamic Binaries | Dynamic Package |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------------|-----------------|----------------|------------------|-----------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Docker Image | Debian Package | Dynamic Binaries |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------------|----------------|------------------|" >> $GITHUB_STEP_SUMMARY
 
           # AMD64 summary
-          echo -n "| **Linux amd64** | " >> $GITHUB_STEP_SUMMARY
-          ls /tmp/amd64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " individual | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "/tmp/rust-photoacoustic-"*"-x86_64-static-musl-linux-gnu.tar.gz" ]; then
-            echo -n "✅ tar.gz | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **Linux x86_64 (Trixie)** | " >> $GITHUB_STEP_SUMMARY
+          echo -n "✅ linux/amd64 | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "/tmp/amd64/lasersmart_${{ steps.set_tag.outputs.tag }}_amd64.deb" ]; then
+            echo -n "✅ .deb | " >> $GITHUB_STEP_SUMMARY
           else
-            echo -n "❌ No pkg | " >> $GITHUB_STEP_SUMMARY
+            echo -n "❌ Not found | " >> $GITHUB_STEP_SUMMARY
           fi
           ls artifacts/rust-photoacoustic-x86_64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "artifacts/rust-photoacoustic-x86_64-unknown-linux-gnu.tar.gz" ]; then
-            echo "✅ tar.gz |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo " |" >> $GITHUB_STEP_SUMMARY
 
           # ARM64 summary
-          echo -n "| **Linux arm64** | " >> $GITHUB_STEP_SUMMARY
-          ls /tmp/arm64/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " individual | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "/tmp/rust-photoacoustic-"*"-aarch64-static-musl-linux-gnu.tar.gz" ]; then
-            echo -n "✅ tar.gz | " >> $GITHUB_STEP_SUMMARY
+          echo -n "| **Linux arm64 (Trixie/RPi)** | " >> $GITHUB_STEP_SUMMARY
+          echo -n "✅ linux/arm64 | " >> $GITHUB_STEP_SUMMARY
+          if [ -f "/tmp/arm64/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb" ]; then
+            echo -n "✅ .deb | " >> $GITHUB_STEP_SUMMARY
           else
-            echo -n "❌ No pkg | " >> $GITHUB_STEP_SUMMARY
+            echo -n "❌ Not found | " >> $GITHUB_STEP_SUMMARY
           fi
           ls artifacts/rust-photoacoustic-aarch64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "artifacts/rust-photoacoustic-aarch64-unknown-linux-gnu.tar.gz" ]; then
-            echo "✅ tar.gz |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo " |" >> $GITHUB_STEP_SUMMARY
 
           # Windows summary
           echo -n "| **Windows x64** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
           ls artifacts/rust-photoacoustic-x86_64-pc-windows-msvc/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "artifacts/rust-photoacoustic-x86_64-pc-windows-msvc.zip" ]; then
-            echo "✅ zip |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo " |" >> $GITHUB_STEP_SUMMARY
 
           # macOS Intel summary
           echo -n "| **macOS Intel** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
           ls artifacts/rust-photoacoustic-x86_64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "artifacts/rust-photoacoustic-x86_64-apple-darwin.zip" ]; then
-            echo "✅ zip |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo " |" >> $GITHUB_STEP_SUMMARY
 
           # macOS Apple Silicon summary
           echo -n "| **macOS Apple Silicon** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
           ls artifacts/rust-photoacoustic-aarch64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo -n " dynamic | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "artifacts/rust-photoacoustic-aarch64-apple-darwin.zip" ]; then
-            echo "✅ zip |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ No pkg |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          # ARMHF summary
-          if [ "${{ env.DOCKER_ARMHF_EXPERIMENTAL }}" = "enabled" ]; then
-            echo -n "| **Linux armhf** | " >> $GITHUB_STEP_SUMMARY
-            ls /tmp/armhf/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-            echo " individual | N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo " |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔧 Available Tools (All Packages)" >> $GITHUB_STEP_SUMMARY
@@ -1021,38 +987,40 @@ jobs:
           echo "- **rs256keygen**: RS256 key generation utility" >> $GITHUB_STEP_SUMMARY
           echo "- **standalone**: Standalone analysis tool" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Package Types" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Package Types" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Static Linux packages (RECOMMENDED for servers):**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`bin/\`: All executable binaries (statically compiled with musl)" >> $GITHUB_STEP_SUMMARY
-          echo "- \`lib/\`: Static Python libraries (if needed)" >> $GITHUB_STEP_SUMMARY
-          echo "- Launch scripts for direct execution" >> $GITHUB_STEP_SUMMARY
-          echo "- \`README.md\`: Complete documentation and usage guide" >> $GITHUB_STEP_SUMMARY
-          echo "- **No dependencies**: Self-contained, works on any Linux (including Alpine)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Optimized**: Compiled for maximum performance and compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "**Debian Packages (.deb) - RECOMMENDED for Linux servers/Raspberry Pi:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`lasersmart_*.deb\` (amd64 & arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Built from Debian 13 (Trixie) official base image" >> $GITHUB_STEP_SUMMARY
+          echo "- All binaries compiled for Debian 13 / Ubuntu 24.04 LTS" >> $GITHUB_STEP_SUMMARY
+          echo "- Automatic dependency resolution via dpkg" >> $GITHUB_STEP_SUMMARY
+          echo "- Native RPi OS 64-bit support (arm64)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Dynamic binary packages:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`bin/\`: Executable binaries (dynamically linked)" >> $GITHUB_STEP_SUMMARY
-          echo "- \`lib/\`: Required Python libraries (.dylib/.dll/.so)" >> $GITHUB_STEP_SUMMARY
-          echo "- Launch scripts for easy execution" >> $GITHUB_STEP_SUMMARY
-          echo "- Platform-specific (Windows, macOS, Linux glibc)" >> $GITHUB_STEP_SUMMARY
+          echo "- Available for Windows, macOS (Intel & Apple Silicon), and Linux glibc" >> $GITHUB_STEP_SUMMARY
+          echo "- Platform-specific: download matching your OS architecture" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Multi-architecture Docker image available at: \`sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Multi-architecture Docker image: \`sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Base: Debian 13 Trixie slim" >> $GITHUB_STEP_SUMMARY
+          echo "- Binaries also extractable via \`docker cp\` for standalone use" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🚀 Quick Start" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**For production/server deployment (Linux):**" >> $GITHUB_STEP_SUMMARY
+          echo "**For production/server deployment (Debian/Ubuntu/Raspberry Pi):**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# Download static package (self-contained)" >> $GITHUB_STEP_SUMMARY
-          echo "wget 'https://github.com/${{ github.repository }}/releases/download/${{ steps.set_tag.outputs.tag }}/rust-photoacoustic-${{ steps.set_tag.outputs.tag }}-x86_64-static-musl-linux-gnu.tar.gz'" >> $GITHUB_STEP_SUMMARY
-          echo "tar -xzf rust-photoacoustic-*.tar.gz && cd rust-photoacoustic-*/" >> $GITHUB_STEP_SUMMARY
-          echo "./rust_photoacoustic --help" >> $GITHUB_STEP_SUMMARY
+          echo "# Download and install .deb package" >> $GITHUB_STEP_SUMMARY
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ steps.set_tag.outputs.tag }}/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb" >> $GITHUB_STEP_SUMMARY
+          echo "sudo apt install ./lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Run any tool" >> $GITHUB_STEP_SUMMARY
+          echo "rust_photoacoustic --help" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**For development/local use:**" >> $GITHUB_STEP_SUMMARY
-          echo "Download the appropriate dynamic package for your platform and extract." >> $GITHUB_STEP_SUMMARY
+          echo "**For Docker deployment:**" >> $GITHUB_STEP_SUMMARY
+          echo "Use \`docker run sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\` or extract binaries via Docker." >> $GITHUB_STEP_SUMMARY
 
       - name: Update GitHub Release Notes
         continue-on-error: true
@@ -1064,21 +1032,28 @@ jobs:
           # Generate comprehensive release notes
           echo "## 🎯 Multi-Architecture Rust Photoacoustic Release" > release_notes.md
           echo "" >> release_notes.md
-          echo "This release provides Rust Photoacoustic binaries for multiple platforms with both **static** and **dynamic** linking options." >> release_notes.md
+          echo "This release provides Rust Photoacoustic binaries built with **Debian 13 (Trixie)** for Linux servers, Raspberry Pi, and other platforms." >> release_notes.md
           echo "" >> release_notes.md
           echo "### 📦 Available Packages" >> release_notes.md
           echo "" >> release_notes.md
-          echo "#### 🏆 Static Linux Packages (RECOMMENDED for production)" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz\` - Complete x86_64 static package" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz\` - Complete aarch64 static package" >> release_notes.md
+          echo "#### 🏆 Debian Packages (.deb) - RECOMMENDED for Linux/Raspberry Pi" >> release_notes.md
+          echo "- \`lasersmart_${TAG}_amd64.deb\` - x86_64 Debian package (Linux servers)" >> release_notes.md
+          echo "- \`lasersmart_${TAG}_arm64.deb\` - aarch64 Debian package (Raspberry Pi 4/5 64-bit, Ubuntu 24.04 ARM64)" >> release_notes.md
           echo "" >> release_notes.md
           echo "**Features:**" >> release_notes.md
-          echo "- ✅ **Self-contained** - No external dependencies required" >> release_notes.md
-          echo "- ✅ **Universal compatibility** - Works on any Linux (including Alpine, Ubuntu, CentOS, etc.)" >> release_notes.md
-          echo "- ✅ **Easy deployment** - Extract and run anywhere" >> release_notes.md
-          echo "- ✅ **Production ready** - Optimized for performance and reliability" >> release_notes.md
+          echo "- ✅ **Official Debian 13 (Trixie) build** - Built from Debian base image" >> release_notes.md
+          echo "- ✅ **Simple installation** - Standard \`apt install\` process" >> release_notes.md
+          echo "- ✅ **Automatic dependencies** - dpkg resolves all required libraries" >> release_notes.md
+          echo "- ✅ **Production ready** - Optimized release builds" >> release_notes.md
+          echo "- ✅ **Native RPi support** - Works on Raspberry Pi OS 64-bit (Dec 4, 2025)" >> release_notes.md
           echo "" >> release_notes.md
-          echo "#### 🔧 Dynamic Packages (Platform-specific)" >> release_notes.md
+          echo "#### 🐳 Docker Image (Multi-architecture)" >> release_notes.md
+          echo "\`sctg/rust-photoacoustic:${TAG}\`" >> release_notes.md
+          echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`" >> release_notes.md
+          echo "- Base: Debian 13 Trixie slim" >> release_notes.md
+          echo "- Direct container usage or extract binaries via \`docker cp\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "#### 🔧 Dynamic Binary Packages (Platform-specific)" >> release_notes.md
           echo "- \`rust-photoacoustic-${TAG}-x86_64-pc-windows-msvc.zip\` - Windows x64 package" >> release_notes.md
           echo "- \`rust-photoacoustic-${TAG}-x86_64-apple-darwin.zip\` - macOS Intel package" >> release_notes.md
           echo "- \`rust-photoacoustic-${TAG}-aarch64-apple-darwin.zip\` - macOS Apple Silicon package" >> release_notes.md
@@ -1102,56 +1077,66 @@ jobs:
           echo "- **rs256keygen** - RS256 key generation utility" >> release_notes.md
           echo "- **standalone** - Standalone analysis tool" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### 🚀 Quick Start" >> release_notes.md
+          echo "### 🚀 Installation & Quick Start" >> release_notes.md
           echo "" >> release_notes.md
-          echo "#### For Production/Server Deployment (Linux - Static)" >> release_notes.md
+          echo "#### For Debian/Ubuntu/Raspberry Pi (RECOMMENDED):" >> release_notes.md
           echo "\`\`\`bash" >> release_notes.md
-          echo "# Download static package (recommended)" >> release_notes.md
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${TAG}/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" >> release_notes.md
+          echo "# Download the appropriate .deb package for your architecture" >> release_notes.md
+          echo "# For Raspberry Pi 64-bit or Ubuntu 24.04 ARM64:" >> release_notes.md
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${TAG}/lasersmart_${TAG}_arm64.deb" >> release_notes.md
           echo "" >> release_notes.md
-          echo "# Extract and use" >> release_notes.md
-          echo "tar -xzf rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" >> release_notes.md
-          echo "cd rust-photoacoustic-*/" >> release_notes.md
+          echo "# For Linux x86_64 servers:" >> release_notes.md
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${TAG}/lasersmart_${TAG}_amd64.deb" >> release_notes.md
           echo "" >> release_notes.md
-          echo "# Run any tool directly" >> release_notes.md
-          echo "./rust_photoacoustic --help" >> release_notes.md
-          echo "./pid_tuner --help" >> release_notes.md
-          echo "./analyze_spectrum --help" >> release_notes.md
+          echo "# Install the package" >> release_notes.md
+          echo "sudo apt install ./lasersmart_${TAG}_arm64.deb" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "# Run any tool" >> release_notes.md
+          echo "rust_photoacoustic --help" >> release_notes.md
+          echo "pid_tuner --help" >> release_notes.md
           echo "\`\`\`" >> release_notes.md
           echo "" >> release_notes.md
-          echo "#### For Development/Local Use (Dynamic)" >> release_notes.md
-          echo "Download the appropriate package for your platform and extract. Run tools using the provided launch scripts." >> release_notes.md
+          echo "#### For Docker:" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "# Run directly from Docker" >> release_notes.md
+          echo "docker run --rm sctg/rust-photoacoustic:${TAG} rust_photoacoustic --help" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### 📋 Package Contents" >> release_notes.md
+          echo "# Or extract binaries for standalone use" >> release_notes.md
+          echo "docker create --name temp sctg/rust-photoacoustic:${TAG}" >> release_notes.md
+          echo "docker cp temp:/usr/local/bin ./binaries" >> release_notes.md
+          echo "docker rm temp" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
           echo "" >> release_notes.md
-          echo "**Static Packages (Linux):**" >> release_notes.md
-          echo "- \`bin/\` - All statically linked binaries" >> release_notes.md
-          echo "- \`lib/\` - Static Python libraries (if needed)" >> release_notes.md
-          echo "- \`README.md\` - Complete documentation" >> release_notes.md
-          echo "- Launch scripts for all tools" >> release_notes.md
+          echo "#### For Development/Local Use:" >> release_notes.md
+          echo "Download the appropriate dynamic package for your platform (Windows, macOS, Linux glibc) and extract. Run tools using the provided launch scripts." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 📋 Package Details" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "**Debian Packages (.deb):**" >> release_notes.md
+          echo "- Built on Debian 13 base image" >> release_notes.md
+          echo "- All binaries installed to \`/usr/local/bin/\`" >> release_notes.md
+          echo "- Dependencies automatically managed by apt" >> release_notes.md
+          echo "- Works on Debian 13, Ubuntu 24.04 LTS, Raspberry Pi OS 64-bit, and compatible systems" >> release_notes.md
           echo "" >> release_notes.md
           echo "**Dynamic Packages (All Platforms):**" >> release_notes.md
           echo "- \`bin/\` - Platform-specific binaries" >> release_notes.md
-          echo "- \`lib/\` - Required dynamic libraries" >> release_notes.md
-          echo "- \`README.md\` - Platform-specific documentation" >> release_notes.md
-          echo "- Platform-appropriate launch scripts" >> release_notes.md
+          echo "- \`lib/\` - Required dynamic libraries (.dylib/.dll/.so)" >> release_notes.md
+          echo "- Launch scripts for easy execution" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### 🐳 Docker" >> release_notes.md
+          echo "**Docker Image:**" >> release_notes.md
+          echo "- Multi-platform support (\`linux/amd64\`, \`linux/arm64\`)" >> release_notes.md
+          echo "- Minimal Debian Trixie base" >> release_notes.md
+          echo "- Ready to run as container or for binary extraction" >> release_notes.md
           echo "" >> release_notes.md
-          echo "Multi-architecture Docker image: \`sctg/rust-photoacoustic:${TAG}\`" >> release_notes.md
+          echo "### ℹ️ Build Information" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### ⚡ Performance & Compatibility" >> release_notes.md
+          echo "- **Commit**: ${{ github.sha }}" >> release_notes.md
+          echo "- **Base OS**: Debian 13 (Trixie)" >> release_notes.md
+          echo "- **For Raspberry Pi**: Use \`arm64.deb\` with RPi OS 64-bit (recommended v4 Dec 2025+)" >> release_notes.md
           echo "" >> release_notes.md
-          echo "- **Static packages**: Completely portable, no dependency requirements" >> release_notes.md
-          echo "- **Dynamic packages**: Smaller size but require platform-specific dependencies" >> release_notes.md
-          echo "- **All packages**: Optimized release builds with maximum performance" >> release_notes.md
-          echo "- **Universal**: Static packages work on any Linux distribution" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "Choose the package type that best fits your deployment needs!" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "Built from commit: ${{ github.sha }}" >> release_notes.md
+          echo "Built from: ${{ github.repository }} @ ${{ github.sha }}" >> release_notes.md
 
           # Update the GitHub release with the comprehensive notes
           gh release edit "$TAG" --notes-file release_notes.md || echo "Failed to update release notes, continuing..."
 
-          echo "✅ Release notes updated with static package information"
+          echo "✅ Release notes updated with Debian/Docker/multiarch information"
