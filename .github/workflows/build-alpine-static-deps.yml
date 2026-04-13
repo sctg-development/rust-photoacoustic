@@ -28,6 +28,21 @@ jobs:
                   remove-databases: "true"
                   remove-cloud-tools: "true"
                   show-top-packages: "true"
+            - name: Configure Altium HTTP credentials
+              shell: bash
+              run: |
+                git config --global credential.helper store
+                ENCODED=$(python3 -c "
+                import urllib.parse, os
+                user = urllib.parse.quote(os.environ['ALTIUM_365_USER'], safe='')
+                pwd  = urllib.parse.quote(os.environ['ALTIUM_365_PASSWORD'], safe='')
+                print(f'https://{user}:{pwd}@afs-vcs-eu1.365.altium.com')
+                ")
+                echo "$ENCODED" >> ~/.git-credentials
+                chmod 600 ~/.git-credentials
+                env:
+                ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
+                ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
 
             - name: Check out the repo
               uses: actions/checkout@v6
