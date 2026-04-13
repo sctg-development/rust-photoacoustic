@@ -39,7 +39,14 @@ jobs:
             - name: Check out the repo
               uses: actions/checkout@v6
               with:
-                  submodules: recursive
+                  submodules: false
+                  fetch-depth: 0
+
+            - name: Init and update submodules
+              shell: bash
+              run: |
+                git submodule sync --recursive
+                git submodule update --init --recursive
                   
             - name: Clean runner for Docker builds
               uses: sctg-development/clean-image-for-docker@v1
