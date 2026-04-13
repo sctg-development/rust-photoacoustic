@@ -2,7 +2,7 @@
 # This workflow builds static dependencies (zlib, OpenSSL, librdkafka)
 # and publishes them as sctg/rust-photoacoustic-static-deps on Docker Hub
 
-name: Build Alpine Static Dependencies
+name: Build Alpine Static Python
 
 permissions:
     id-token: write
