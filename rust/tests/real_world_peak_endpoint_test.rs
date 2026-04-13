@@ -9,7 +9,6 @@
 //! It tests the actual data flow from simulation → processing → shared state → API endpoints.
 
 use anyhow::Result;
-use rand::rand_core::le;
 use rust_photoacoustic::{
     config::Config,
     daemon::launch_daemon::Daemon,
