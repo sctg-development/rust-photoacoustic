@@ -152,7 +152,7 @@ jobs:
             echo "$CONDA/envs/release-env" >> $GITHUB_PATH
           else
             echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/release-env/bin/python" >> $GITHUB_ENV
-            echo "PYTHONPATH=$CONDA/envs/release-env/lib/python3.12/site-packages" >> $GITHUB_ENV
+            echo "PYTHONPATH=$CONDA/envs/release-env/lib/python3.13/site-packages" >> $GITHUB_ENV
             echo "$CONDA/envs/release-env/bin" >> $GITHUB_PATH
             
             # Configure dynamic library path for macOS
@@ -240,15 +240,18 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             EXE_EXT=".exe"
             LIB_EXT=".dll"
-            PYTHON_LIB_NAME="python312.dll"
+            PYTHON_LIB_NAME="python313.dll"
+            PYTHON_LIB_VERSION="3.13"
           else
             EXE_EXT=""
             if [[ "${{ runner.os }}" == "macOS" ]]; then
               LIB_EXT=".dylib"
-              PYTHON_LIB_NAME="libpython3.12.dylib"
+              PYTHON_LIB_NAME="libpython3.13.dylib"
+              PYTHON_LIB_VERSION="3.13"
             else
               LIB_EXT=".so"
-              PYTHON_LIB_NAME="libpython3.12.so.1.0"
+              PYTHON_LIB_NAME="libpython3.13.so.1.0"
+              PYTHON_LIB_VERSION="3.13"
             fi
           fi
 
@@ -265,9 +268,107 @@ jobs:
           # Copy Python library
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             cp "$CONDA/envs/release-env/${PYTHON_LIB_NAME}" package/lib/ || echo "Python library not found"
-            cp "$CONDA/envs/release-env/Library/bin/python312.dll" package/lib/ || echo "Python312.dll not found"
+            cp "$CONDA/envs/release-env/Library/bin/python313.dll" package/lib/ || echo "Python313.dll not found"
             cp "$CONDA/envs/release-env/Library/bin/zlib.dll" package/lib/ || echo "zlib.dll not found"
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            # For macOS, we need to copy all required dylibs and fix rpath references
+            echo "=== Processing macOS dependencies ==="
+            CONDA_LIB_DIR="$CONDA/envs/release-env/lib"
+            
+            # Function to recursively copy and fix dependencies
+            fix_macos_dependencies() {
+              local binary="$1"
+              local processed_libs=""
+              
+              # Get all dependencies from the binary
+              otool_output=$(otool -L "$binary" 2>/dev/null || echo "")
+              if [ -z "$otool_output" ]; then
+                echo "Failed to process $binary with otool"
+                return
+              fi
+              
+              echo "Dependencies for $(basename $binary):"
+              echo "$otool_output" | tail -n +2 | awk '{print $1}' | while read lib; do
+                # Skip system frameworks and libraries
+                if [[ "$lib" == "/System/Library/"* ]] || [[ "$lib" == "/usr/lib/"* ]] || [[ "$lib" == "@rpath/"* ]] || [[ "$lib" == "/opt/homebrew/"* ]]; then
+                  # For @rpath references, try to find them in conda env
+                  if [[ "$lib" == "@rpath/"* ]]; then
+                    lib_name=$(basename "$lib")
+                    if [ -f "$CONDA_LIB_DIR/$lib_name" ]; then
+                      echo "  Copying @rpath lib: $lib_name"
+                      cp "$CONDA_LIB_DIR/$lib_name" package/lib/ 2>/dev/null || true
+                      # Update the binary to reference the local lib directory
+                      install_name_tool -change "$lib" "@loader_path/../lib/$lib_name" "$binary" 2>/dev/null || true
+                    fi
+                  fi
+                  continue
+                fi
+                
+                # Process non-system libs from conda
+                if [ -f "$CONDA_LIB_DIR/$(basename $lib)" ]; then
+                  lib_name=$(basename "$lib")
+                  echo "  Copying: $lib_name"
+                  cp "$CONDA_LIB_DIR/$lib_name" package/lib/ 2>/dev/null || true
+                  # Update references in the binary
+                  install_name_tool -change "$lib" "@loader_path/../lib/$lib_name" "$binary" 2>/dev/null || true
+                elif [[ "$lib" == *".dylib"* ]] || [[ "$lib" == *".so"* ]]; then
+                  # Handle absolute paths to conda libs
+                  if [[ "$lib" == "$CONDA_LIB_DIR"* ]]; then
+                    lib_name=$(basename "$lib")
+                    echo "  Copying (absolute path): $lib_name"
+                    cp "$lib" package/lib/ 2>/dev/null || true
+                    install_name_tool -change "$lib" "@loader_path/../lib/$lib_name" "$binary" 2>/dev/null || true
+                  fi
+                fi
+              done
+            }
+            
+            # Process all binaries
+            for binary in package/bin/*; do
+              if [ -f "$binary" ]; then
+                fix_macos_dependencies "$binary"
+              fi
+            done
+            
+            # Also copy libpython explicitly
+            if [ -f "$CONDA_LIB_DIR/$PYTHON_LIB_NAME" ]; then
+              cp "$CONDA_LIB_DIR/$PYTHON_LIB_NAME" package/lib/
+              echo "Copied main Python library: $PYTHON_LIB_NAME"
+            fi
+            
+            # Now fix internal dependencies of the copied libraries themselves
+            echo "=== Fixing internal library dependencies ==="
+            for lib in package/lib/*.dylib; do
+              if [ -f "$lib" ]; then
+                echo "Processing library: $(basename $lib)"
+                otool_output=$(otool -L "$lib" 2>/dev/null || echo "")
+                if [ -n "$otool_output" ]; then
+                  echo "$otool_output" | tail -n +2 | awk '{print $1}' | while read deplib; do
+                    # Skip system frameworks
+                    if [[ "$deplib" == "/System/Library/"* ]] || [[ "$deplib" == "/usr/lib/"* ]] || [[ "$deplib" == "@loader_path/"* ]]; then
+                      continue
+                    fi
+                    
+                    # Handle @rpath references in libraries
+                    if [[ "$deplib" == "@rpath/"* ]]; then
+                      lib_name=$(basename "$deplib")
+                      if [ -f "$CONDA_LIB_DIR/$lib_name" ] && [ ! -f "package/lib/$lib_name" ]; then
+                        cp "$CONDA_LIB_DIR/$lib_name" package/lib/ 2>/dev/null || true
+                        echo "  Copied transitive dep: $lib_name"
+                      fi
+                      # Update the library to use @loader_path
+                      install_name_tool -change "$deplib" "@loader_path/$lib_name" "$lib" 2>/dev/null || true
+                    elif [[ "$deplib" == "$CONDA_LIB_DIR"* ]]; then
+                      lib_name=$(basename "$deplib")
+                      install_name_tool -change "$deplib" "@loader_path/$lib_name" "$lib" 2>/dev/null || true
+                    fi
+                  done
+                fi
+              fi
+            done
+            
           else
+            # Linux
             cp "$CONDA/envs/release-env/lib/${PYTHON_LIB_NAME}" package/lib/ || echo "Python library not found"
           fi
 
@@ -555,8 +656,8 @@ jobs:
           docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
           docker cp temp-container-amd64:/usr/local/bin/standalone /tmp/amd64/ || echo "standalone not found"
           # copy also the python binary and libpython static library
-          docker cp temp-container-amd64:/usr/local/bin/python3.12 /tmp/amd64/ || echo "python3 not found"
-          docker cp temp-container-amd64:/usr/local/lib/libpython3.12.a /tmp/amd64/ || echo "libpython3.12.a not found"
+          docker cp temp-container-amd64:/usr/local/bin/python3.13 /tmp/amd64/ || echo "python3 not found"
+          docker cp temp-container-amd64:/usr/local/lib/libpython3.13.a /tmp/amd64/ || echo "libpython3.13.a not found"
 
           # Extract the .deb package
           docker cp temp-container-amd64:/packages/lasersmart.deb /tmp/amd64/lasersmart_${{ steps.set_tag.outputs.tag }}_amd64.deb || echo "lasersmart.deb not found"
@@ -565,7 +666,7 @@ jobs:
 
           # Rename binaries with architecture suffix for individual static releases
           cd /tmp/amd64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.12.a python3.12; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.13.a python3.13; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_amd64_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -593,8 +694,8 @@ jobs:
           docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
           docker cp temp-container-arm64:/usr/local/bin/standalone /tmp/arm64/ || echo "standalone not found"
           # copy also the python binary and libpython static library
-          docker cp temp-container-arm64:/usr/local/bin/python3.12 /tmp/arm64/ || echo "python3 not found"
-          docker cp temp-container-arm64:/usr/local/lib/libpython3.12.a /tmp/arm64/ || echo "libpython3.12.a not found"
+          docker cp temp-container-arm64:/usr/local/bin/python3.13 /tmp/arm64/ || echo "python3 not found"
+          docker cp temp-container-arm64:/usr/local/lib/libpython3.13.a /tmp/arm64/ || echo "libpython3.13.a not found"
 
           # Extract the .deb package
           docker cp temp-container-arm64:/packages/lasersmart.deb /tmp/arm64/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb || echo "lasersmart.deb not found"
@@ -603,7 +704,7 @@ jobs:
 
           # Rename binaries with architecture suffix for individual static releases
           cd /tmp/arm64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.12.a python3.12; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.13.a python3.13; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_arm64_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -631,14 +732,14 @@ jobs:
           docker cp temp-container-armhf:/usr/local/bin/rs256keygen /tmp/armhf/ || echo "rs256keygen not found"
           docker cp temp-container-armhf:/usr/local/bin/rust_photoacoustic /tmp/armhf/ || echo "rust_photoacoustic not found"
           # copy also the python binary and libpython static library
-          docker cp temp-container-armhf:/usr/local/bin/python3.12 /tmp/armhf/ || echo "python3 not found"
-          docker cp temp-container-armhf:/usr/local/lib/libpython3.12.a /tmp/armhf/ || echo "libpython3.12.a not found"
+          docker cp temp-container-armhf:/usr/local/bin/python3.13 /tmp/armhf/ || echo "python3 not found"
+          docker cp temp-container-armhf:/usr/local/lib/libpython3.13.a /tmp/armhf/ || echo "libpython3.13.a not found"
 
           docker rm temp-container-armhf
 
           # Rename binaries with architecture suffix
           cd /tmp/armhf/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.12.a python3.12; do
+          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.13.a python3.13; do
             if [ -f "$binary" ]; then
               mv "$binary" "${binary}_linux_armhf_static_${{ steps.set_tag.outputs.tag }}"
             fi
@@ -739,7 +840,7 @@ jobs:
               if [ -f "$file" ]; then
                 # Extract original binary name (remove _linux_amd64_static_TAG suffix)
                 original_name=$(echo "$file" | sed "s/_linux_amd64_static_${TAG}//")
-                if [[ "$original_name" == "libpython3.12.a" || "$original_name" == "python3.12" ]]; then
+                if [[ "$original_name" == "libpython3.13.a" || "$original_name" == "python3.13" ]]; then
                   cp "$file" "/tmp/static-package-amd64/lib/${original_name}"
                 # else
                 #   cp "$file" "/tmp/static-package-amd64/bin/${original_name}"
@@ -823,7 +924,7 @@ jobs:
               if [ -f "$file" ]; then
                 # Extract original binary name (remove _linux_arm64_static_TAG suffix)
                 original_name=$(echo "$file" | sed "s/_linux_arm64_static_${TAG}//")
-                if [[ "$original_name" == "libpython3.12.a" || "$original_name" == "python3.12" ]]; then
+                if [[ "$original_name" == "libpython3.13.a" || "$original_name" == "python3.13" ]]; then
                   cp "$file" "/tmp/static-package-arm64/lib/${original_name}"
                 # else
                 #   cp "$file" "/tmp/static-package-arm64/bin/${original_name}"
