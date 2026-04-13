@@ -40,7 +40,7 @@ jobs:
                 ")
                 echo "$ENCODED" >> ~/.git-credentials
                 chmod 600 ~/.git-credentials
-                env:
+              env:
                 ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
                 ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
 
