@@ -192,6 +192,25 @@ RUN cd /tmp && \
     make install && \
     rm -fv /usr/lib/libreadline.so*
 
+# Build mimalloc
+FROM alpine:3.23 AS libmimalloc-static-builder
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    git clone https://github.com/microsoft/mimalloc.git --branch v3.2.8 &&\
+    cd /tmp/mimalloc &&\
+    curl -sL https://github.com/tweag/rust-alpine-mimalloc/raw/82fdd662fd20b94ac393e86b71700b90c81d9180/mimalloc.diff -o mimalloc.patch &&\
+    patch --fuzz 50 -p1 < mimalloc.patch &&\
+    mkdir build && cd build &&\
+    cmake .. -DCMAKE_BUILD_TYPE=Release \
+    -DMI_BUILD_SHARED=OFF \
+    -DMI_BUILD_OBJECT=OFF \
+    -DMI_BUILD_TESTS=OFF &&\
+    make -j$(nproc) && make install
+
 # Final stage: export all static dependencies
 FROM alpine:3.23
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
@@ -225,6 +244,13 @@ COPY --from=libuuid-static-deps /usr/include/libintl.h /usr/local/include/libint
 COPY --from=libreadline-static-builder /usr/local/lib/libreadline.a /usr/local/lib/libreadline.a
 COPY --from=libreadline-static-builder /usr/local/include/readline /usr/local/include/readline
 COPY --from=libreadline-static-builder /usr/local/lib/pkgconfig/readline.pc /usr/local/lib/pkgconfig/readline.pc
+COPY --from=libreadline-static-builder /usr/local/lib/libhistory.a /usr/local/lib/libhistory.a
+COPY --from=libreadline-static-builder /usr/local/lib/pkgconfig/history.pc /usr/local/lib/pkgconfig/history.pc
+COPY --from=sctg/libtermcap:musl-1.3.2 /usr/local/lib/libtermcap.a /usr/local/lib/libtermcap.a
+COPY --from=sctg/libtermcap:musl-1.3.2 /usr/local/include/termcap.h /usr/local/include/termcap.h
+COPY --from=libmimalloc-static-builder /usr/local/lib/mimalloc-3.2/libmimalloc.a /usr/local/lib/libmimalloc.a
+COPY --from=libmimalloc-static-builder /usr/local/include/mimalloc-3.2 /usr/local/include/mimalloc
+COPY --from=libmimalloc-static-builder /usr/local/lib/pkgconfig/mimalloc.pc /usr/local/lib/pkgconfig/mimalloc.pc
 
 # Patch uuid.pc to reflect new lib path
 RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc
