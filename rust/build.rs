@@ -203,7 +203,7 @@ fn run_generate_license_notice_if_needed() -> Result<bool> {
     // Calculate a hash of the Cargo.lock content
     let mut hasher = Sha256::new();
     hasher.update(cargo_lock_content.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    let hash = format!("{:?}", hex::encode(hasher.finalize()).to_lowercase());
 
     // Get the path to the stored hash file
     let hash_file_path = PathBuf::from(env::var("OUT_DIR")?).join("cargo_lock_hash.txt");

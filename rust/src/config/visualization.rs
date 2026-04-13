@@ -8,6 +8,7 @@
 //! visualization server in the photoacoustic application.
 
 use base64::Engine;
+use rand::RngExt;
 use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
