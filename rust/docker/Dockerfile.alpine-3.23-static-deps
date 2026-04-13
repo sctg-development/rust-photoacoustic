@@ -1,0 +1,234 @@
+# Copyright (c) 2025-2026 Ronan LE MEILLAT, SCTG Development
+# This file is part of the rust-photoacoustic project and is licensed under the
+# SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
+#
+# Dockerfile for building static dependencies (zlib, OpenSSL, librdkafka)
+# Published as: sctg/rust-photoacoustic-static-deps
+
+FROM alpine:3.23 AS libz-fpic-static-builder
+ARG LIBZ_VERSION=1.3.1
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl --retry 5 -O https://zlib.net/fossils/zlib-${LIBZ_VERSION}.tar.gz && \
+    tar xzvf zlib-${LIBZ_VERSION}.tar.gz
+RUN cd /tmp/zlib-${LIBZ_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --static --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
+FROM alpine:3.23 AS openssl-static-builder
+ARG OPENSSL_VERSION=3.6.0
+RUN apk update && apk add clang git patch cmake build-base \
+    pkgconfig musl-dev autoconf automake libtool \
+    linux-headers
+COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
+COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
+COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+RUN cd /tmp && \
+    wget https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz --output-document - | tar xz
+RUN cd /tmp/openssl-${OPENSSL_VERSION} && \
+    ./Configure no-shared no-pinshared no-dso no-tests -fPIC \
+    --prefix=/usr/local \
+    --libdir=/usr/local/lib \
+    --openssldir=/etc/ssl && \
+    make -j$(nproc) && \
+    make install && \
+    sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/libssl.pc && \
+    sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/libcrypto.pc && \
+    sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/openssl.pc
+
+FROM alpine:3.23 AS libbz2-static-builder
+ARG LIBBZ2_VERSION=1.0.8
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl --retry 5 -O https://sourceware.org/pub/bzip2/bzip2-${LIBBZ2_VERSION}.tar.gz && \
+    tar xzvf bzip2-${LIBBZ2_VERSION}.tar.gz
+RUN cd /tmp/bzip2-${LIBBZ2_VERSION} && \
+    CFLAGS="-fPIC -static" make -j$(nproc) && \
+    make install
+# create a pkgconfig file for libbz2
+RUN mkdir -p /usr/local/lib/pkgconfig && \
+    printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: bzip2\nDescription: A high-quality block-sorting file compressor library\nVersion: %s\nLibs: -L${libdir} -lbz2\nCflags: -I${includedir}\n' '${LIBBZ2_VERSION}' > /usr/local/lib/pkgconfig/bz2.pc
+FROM alpine:3.23 AS librdkafka-static-builder
+ARG LIBRDKAFKA_VERSION=2.12.1
+RUN apk update && apk add \
+    bash \
+    clang git patch cmake build-base \
+    pkgconfig \
+    libpsl-static libpsl-dev\
+    musl-dev autoconf automake libtool \
+    linux-headers
+# Copy static zlib built in the previous stage
+COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
+COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
+COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib/libssl.a
+COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib/libcrypto.a
+COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
+COPY --from=libbz2-static-builder /usr/local/lib/libbz2.a /usr/local/lib/libbz2.a
+COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/bzlib.h
+COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
+
+RUN cd /tmp && \
+    wget https://github.com/confluentinc/librdkafka/archive/refs/tags/v${LIBRDKAFKA_VERSION}.tar.gz --output-document - | tar xz
+RUN cd /tmp/librdkafka-${LIBRDKAFKA_VERSION} && \
+    ./configure --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --disable-gssapi \
+    --disable-sasl \
+    --disable-curl \
+    --disable-lz4-ext \
+    --cc=clang \
+    --CFLAGS="-fPIC -static -O2" \
+    --CPPFLAGS="-fPIC -static" \
+    --CXXFLAGS="-fPIC -static -O2" \
+    --LDFLAGS="-static -L /usr/local/lib -L /usr/lib" && \
+    make -j$(nproc) && \
+    make install && \
+    rm -f /usr/lib/librdkafka.so* /usr/local/lib/librdkafka.so*
+
+FROM alpine:3.23 AS liblzma-static-builder
+ARG LIBLZMA_VERSION=5.8.2
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl -L --retry 5 -O https://github.com/tukaani-project/xz/releases/download/v${LIBLZMA_VERSION}/xz-${LIBLZMA_VERSION}.tar.gz && \
+    tar xzvf xz-${LIBLZMA_VERSION}.tar.gz
+RUN cd /tmp/xz-${LIBLZMA_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared --enable-year2038 --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
+FROM alpine:3.23 AS libffi-static-deps
+ARG LIBFFI_VERSION=3.5.2
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    curl -L --retry 5 -O https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz && \
+    tar xzvf libffi-${LIBFFI_VERSION}.tar.gz
+RUN cd /tmp/libffi-${LIBFFI_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared --prefix=/usr/local && \
+    make -j$(nproc) && \
+    make install
+
+FROM alpine:3.23 AS libuuid-static-deps
+ARG LIBUUID_VERSION=2.40.3
+ARG GETTEXT_VERSION=0.23
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool flex bison bash\
+    linux-headers
+# Manually upgrade gettext-tools to a version >= 0.23 to avoid build issues
+RUN cd /tmp && \
+    wget https://ftp.gnu.org/gnu/gettext/gettext-${GETTEXT_VERSION}.tar.gz --output-document - | tar xz && \
+    cd /tmp/gettext-${GETTEXT_VERSION} && \
+    CFLAGS="-fPIC -static" ./configure --prefix=/usr \
+    --disable-curses \
+    --enable-static --disable-shared && \
+    make -j$(nproc) && \
+    make install
+COPY rust/docker/uuid-patch.diff /tmp/uuid-patch.diff
+RUN cd /tmp && \
+    # retry 5 times in case of transient network issues
+    git clone https://github.com/util-linux/util-linux --branch v${LIBUUID_VERSION} --depth 1 && \
+    cd util-linux && \
+    patch -p1 < /tmp/uuid-patch.diff && \
+    ./autogen.sh && \
+    CFLAGS="-fPIC -static" ./configure --enable-static --disable-shared \
+    --disable-liblastlog2 \
+    --prefix=/usr/local && \
+    make -j$(nproc) libuuid.la && \
+    cp .libs/libuuid.a /usr/local/lib/ && \
+    mkdir -p /usr/local/include/uuid && \
+    cp libuuid/src/uuid.h /usr/local/include/uuid/ && \
+    # create a pkgconfig file for libuuid
+    mkdir -p /usr/local/lib/pkgconfig && \
+    printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: uuid\nDescription: Universally Unique Identifier library\nVersion: %s\nLibs: -L${libdir} -luuid\nCflags: -I${includedir}/uuid\n' '${LIBUUID_VERSION}' > /usr/local/lib/pkgconfig/uuid.pc
+COPY rust/docker/test_uuid.c /tmp/test_uuid.c
+RUN clang -static -o /tmp/test_uuid /tmp/test_uuid.c -I/usr/local/include -L/usr/local/lib -luuid -lintl && \
+    /tmp/test_uuid
+
+# Build libreadline statically
+FROM alpine:3.23 AS libreadline-static-builder
+ARG LIBREADLINE_VERSION=8.3
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    curl -L https://ftp.gnu.org/gnu/readline/readline-${LIBREADLINE_VERSION}.tar.gz | tar xz && \
+    cd readline-${LIBREADLINE_VERSION} && \
+    ./configure --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --enable-multibyte \
+    --enable-year2038 \
+    CFLAGS="-fPIC -static" && \
+    make -j$(nproc) && \
+    make install && \
+    rm -fv /usr/lib/libreadline.so*
+
+# Final stage: export all static dependencies
+FROM alpine:3.23
+COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
+COPY --from=libz-fpic-static-builder /usr/local/include/zlib.h /usr/local/include/zlib.h
+COPY --from=libz-fpic-static-builder /usr/local/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc
+COPY --from=openssl-static-builder /usr/local/lib/libssl.a /usr/local/lib/libssl.a
+COPY --from=openssl-static-builder /usr/local/lib/libcrypto.a /usr/local/lib/libcrypto.a
+COPY --from=openssl-static-builder /usr/local/include/openssl /usr/local/include/openssl
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/local/lib/pkgconfig/libcrypto.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
+COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
+COPY --from=librdkafka-static-builder /usr/local/lib/librdkafka.a /usr/local/lib/librdkafka.a
+COPY --from=librdkafka-static-builder /usr/local/include/librdkafka/ /usr/local/include/librdkafka/
+COPY --from=librdkafka-static-builder /usr/local/lib/pkgconfig/rdkafka.pc /usr/local/lib/pkgconfig/rdkafka.pc
+COPY --from=libbz2-static-builder /usr/local/lib/libbz2.a /usr/local/lib/libbz2.a
+COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/bzlib.h
+COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
+COPY --from=liblzma-static-builder /usr/local/lib/liblzma.a /usr/local/lib/liblzma.a
+COPY --from=liblzma-static-builder /usr/local/include/lzma.h /usr/local/include/lzma.h
+COPY --from=liblzma-static-builder /usr/local/include/lzma /usr/local/include/lzma
+COPY --from=liblzma-static-builder /usr/local/lib/pkgconfig/liblzma.pc /usr/local/lib/pkgconfig/liblzma.pc
+COPY --from=libffi-static-deps /usr/local/lib/libffi.a /usr/local/lib/libffi.a
+COPY --from=libffi-static-deps /usr/local/include/ffi.h /usr/local/include/ffi.h
+COPY --from=libffi-static-deps /usr/local/include/ffitarget.h /usr/local/include/ffitarget.h
+COPY --from=libffi-static-deps /usr/local/lib/pkgconfig/libffi.pc /usr/local/lib/pkgconfig/libffi.pc
+COPY --from=libuuid-static-deps /usr/local/lib/libuuid.a /usr/local/lib/libuuid.a
+COPY --from=libuuid-static-deps /usr/local/include/uuid /usr/local/include/uuid
+COPY --from=libuuid-static-deps /usr/local/lib/pkgconfig/uuid.pc /usr/local/lib/pkgconfig/uuid.pc
+COPY --from=libuuid-static-deps /usr/lib/libintl.a /usr/local/lib/libintl.a
+COPY --from=libuuid-static-deps /usr/include/libintl.h /usr/local/include/libintl.h
+COPY --from=libreadline-static-builder /usr/local/lib/libreadline.a /usr/local/lib/libreadline.a
+COPY --from=libreadline-static-builder /usr/local/include/readline /usr/local/include/readline
+COPY --from=libreadline-static-builder /usr/local/lib/pkgconfig/readline.pc /usr/local/lib/pkgconfig/readline.pc
+
+# Patch uuid.pc to reflect new lib path
+RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc
+# Create libintl.pc for libintl
+RUN printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: intl\nDescription: Internationalization library\nVersion: 0.21\nLibs: -L${libdir} -lintl\nCflags: -I${includedir}\n' > /usr/local/lib/pkgconfig/intl.pc
+# add libintl dependency to libuuid.pc
+RUN sed -i 's|^Libs: \(.*\)|Libs: \1 -lintl|' /usr/local/lib/pkgconfig/uuid.pc
