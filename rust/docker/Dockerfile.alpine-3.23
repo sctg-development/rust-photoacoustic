@@ -25,13 +25,17 @@ ENV GIT_COMMIT_HASH_FULL=${GIT_COMMIT_HASH_FULL}
 ENV GIT_COMMIT_DATE=${GIT_COMMIT_DATE}
 ENV VERSION=${VERSION}
 
-# Map TARGETPLATFORM to Rust target triple
-RUN case "${TARGETPLATFORM}" in \
-    "linux/amd64") echo "x86_64-unknown-linux-musl" > /tmp/rust_target.txt ;; \
-    "linux/arm64") echo "aarch64-unknown-linux-musl" > /tmp/rust_target.txt ;; \
-    *) echo "x86_64-unknown-linux-musl" > /tmp/rust_target.txt ;; \
+# Detect build architecture and map to Rust target triple
+RUN set -e && \
+    ARCH=$(uname -m) && \
+    case "$ARCH" in \
+      x86_64) echo "x86_64-unknown-linux-musl" > /tmp/rust_target.txt ;; \
+      aarch64) echo "aarch64-unknown-linux-musl" > /tmp/rust_target.txt ;; \
+      armv7l) echo "armv7-unknown-linux-musleabihf" > /tmp/rust_target.txt ;; \
+      *) echo "x86_64-unknown-linux-musl" > /tmp/rust_target.txt ;; \
     esac && \
-    cat /tmp/rust_target.txt
+    echo "Detected build architecture: $ARCH" && \
+    echo "Rust target: $(cat /tmp/rust_target.txt)"
 
 RUN apk update && apk add --no-cache \
     alpine-sdk \
