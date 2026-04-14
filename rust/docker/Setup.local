@@ -4,7 +4,7 @@ _bisect _bisectmodule.c
 _contextvars _contextvarsmodule.c
 _csv _csv.c
 _datetime _datetimemodule.c
-_decimal _decimal/_decimal.c -I/usr/local/include -L/usr/local/lib -lmpdec -lm
+#_decimal _decimal/_decimal.c -I/usr/local/include -L/usr/local/lib -lmpdec -lm
 _heapq _heapqmodule.c
 _interpchannels _interpchannelsmodule.c
 _interpqueues _interpqueuesmodule.c
