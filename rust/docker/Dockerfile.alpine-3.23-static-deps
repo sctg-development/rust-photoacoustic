@@ -56,6 +56,10 @@ RUN cd /tmp && \
 RUN cd /tmp/bzip2-${LIBBZ2_VERSION} && \
     CFLAGS="-fPIC -static" make -j$(nproc) && \
     make install
+# Create separate lib for bz_internal_error stub to avoid archive merge issues
+RUN printf '#include <stdlib.h>\n#include <stdio.h>\nvoid bz_internal_error(int errCode) {\n  fprintf(stderr, "bzip2 internal error: %%d\\n", errCode);\n  abort();\n}\n' > /tmp/bz_internal_error.c && \
+    gcc -c -fPIC -static /tmp/bz_internal_error.c -o /tmp/bz_internal_error.o && \
+    ar rcs /usr/local/lib/libbz_internal_error.a /tmp/bz_internal_error.o
 # create a pkgconfig file for libbz2
 RUN mkdir -p /usr/local/lib/pkgconfig && \
     printf 'prefix=/usr/local\nexec_prefix=${prefix}\nlibdir=${exec_prefix}/lib\nincludedir=${prefix}/include\nName: bzip2\nDescription: A high-quality block-sorting file compressor library\nVersion: %s\nLibs: -L${libdir} -lbz2\nCflags: -I${includedir}\n' '${LIBBZ2_VERSION}' > /usr/local/lib/pkgconfig/bz2.pc
@@ -79,6 +83,7 @@ COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libcrypto.pc /usr/lo
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/libssl.pc /usr/local/lib/pkgconfig/libssl.pc
 COPY --from=openssl-static-builder /usr/local/lib/pkgconfig/openssl.pc /usr/local/lib/pkgconfig/openssl.pc
 COPY --from=libbz2-static-builder /usr/local/lib/libbz2.a /usr/local/lib/libbz2.a
+COPY --from=libbz2-static-builder /usr/local/lib/libbz_internal_error.a /usr/local/lib/libbz_internal_error.a
 COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/bzlib.h
 COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
 
@@ -275,6 +280,7 @@ COPY --from=librdkafka-static-builder /usr/local/lib/librdkafka.a /usr/local/lib
 COPY --from=librdkafka-static-builder /usr/local/include/librdkafka/ /usr/local/include/librdkafka/
 COPY --from=librdkafka-static-builder /usr/local/lib/pkgconfig/rdkafka.pc /usr/local/lib/pkgconfig/rdkafka.pc
 COPY --from=libbz2-static-builder /usr/local/lib/libbz2.a /usr/local/lib/libbz2.a
+COPY --from=libbz2-static-builder /usr/local/lib/libbz_internal_error.a /usr/local/lib/libbz_internal_error.a
 COPY --from=libbz2-static-builder /usr/local/include/bzlib.h /usr/local/include/bzlib.h
 COPY --from=libbz2-static-builder /usr/local/lib/pkgconfig/bz2.pc /usr/local/lib/pkgconfig/bz2.pc
 COPY --from=liblzma-static-builder /usr/local/lib/liblzma.a /usr/local/lib/liblzma.a
