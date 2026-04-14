@@ -4,7 +4,7 @@ _bisect _bisectmodule.c
 _contextvars _contextvarsmodule.c
 _csv _csv.c
 _datetime _datetimemodule.c
-_decimal _decimal/_decimal.c
+_decimal _decimal/_decimal.c -I/usr/local/include -L/usr/local/lib -lmpdec -lm
 _heapq _heapqmodule.c
 _interpchannels _interpchannelsmodule.c
 _interpqueues _interpqueuesmodule.c
@@ -48,12 +48,12 @@ unicodedata unicodedata.c
 
 
 
-_bz2 _bz2module.c -lbz2
-_lzma _lzmamodule.c -llzma
-zlib  zlibmodule.c -lz
+_bz2 _bz2module.c -I/usr/local/include -L/usr/local/lib -lbz2
+_lzma _lzmamodule.c -I/usr/local/include -L/usr/local/lib -llzma
+zlib  zlibmodule.c -I/usr/local/include -L/usr/local/lib -lz
 
 readline readline.c -lreadline -ltermcap
 
 _ssl _ssl.c -I/usr/local/include -L/usr/local/lib -l:libssl.a -Wl,--exclude-libs,libssl.a -l:libcrypto.a -Wl,--exclude-libs,libcrypto.a
-_hashlib _hashopenssl.c -I/usr/local/include -L/usr/local/lib -l:libcrypto.a -Wl,--exclude-libs,libcrypto.a
+_hashlib _hashopenssl.c -I/usr/local/include -L/usr/local/lib -l:libssl.a -Wl,--exclude-libs,libssl.a -l:libcrypto.a -Wl,--exclude-libs,libcrypto.a -lz
 
