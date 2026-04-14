@@ -240,6 +240,26 @@ RUN cd /tmp && \
     make -j$(nproc) && \
     make install
 
+# Build mpdecimal (for Python _decimal module)
+FROM alpine:3.23 AS mpdecimal-static-builder
+ARG MPDECIMAL_VERSION=4.0.0
+RUN apk update && apk add \
+    curl curl-dev curl-static clang git patch cmake build-base \
+    pkgconfig \
+    musl-dev autoconf automake libtool \
+    linux-headers
+RUN cd /tmp && \
+    curl -L https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-${MPDECIMAL_VERSION}.tar.gz | tar xz && \
+    cd mpdecimal-${MPDECIMAL_VERSION} && \
+    ./configure --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --disable-cxx \
+    CC=clang \
+    CFLAGS="-fPIC -static" && \
+    make -j$(nproc) && \
+    make install
+
 # Final stage: export all static dependencies
 FROM alpine:3.23
 COPY --from=libz-fpic-static-builder /usr/local/lib/libz.a /usr/local/lib/libz.a
@@ -286,6 +306,9 @@ COPY --from=libalsa-static-builder /usr/local/include/sys /usr/local/include/sys
 COPY --from=libalsa-static-builder /usr/local/include/alsa /usr/local/include/alsa
 COPY --from=libalsa-static-builder /usr/local/lib/pkgconfig/alsa.pc /usr/local/lib/pkgconfig/alsa.pc
 COPY --from=libalsa-static-builder /usr/local/lib/pkgconfig/alsa-topology.pc /usr/local/lib/pkgconfig/alsa-topology.pc
+COPY --from=mpdecimal-static-builder /usr/local/lib/libmpdec.a /usr/local/lib/libmpdec.a
+COPY --from=mpdecimal-static-builder /usr/local/include/mpdecimal.h /usr/local/include/mpdecimal.h
+COPY --from=mpdecimal-static-builder /usr/local/lib/pkgconfig/libmpdec.pc /usr/local/lib/pkgconfig/libmpdec.pc
 
 # Patch uuid.pc to reflect new lib path
 RUN sed -i 's|^libdir=.*|libdir=/usr/local/lib|' /usr/local/lib/pkgconfig/uuid.pc
