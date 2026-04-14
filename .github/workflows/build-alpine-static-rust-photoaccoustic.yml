@@ -17,7 +17,7 @@ on:
 
 jobs:
     build_static_deps:
-        name: Build Static Dependencies
+        name: Build Static Rust Photoacoustic
         runs-on: ubuntu-latest
         steps:
             - name: Configure Altium HTTP credentials

@@ -44,7 +44,8 @@ RUN apk update && apk add --no-cache \
     musl-dev \
     cmake \
     linux-headers \
-    expat-dev expat-static \
+    expat-static \
+    expat-dev \
     ca-certificates \
     && rm -rf /var/cache/apk/*
 
@@ -59,8 +60,9 @@ COPY --from=python /usr/local/lib/python${PYTHON_SHORT_VERSION} /usr/local/lib/p
 COPY --from=python /usr/local/bin/python${PYTHON_SHORT_VERSION} /usr/local/bin/python3
 COPY --from=python /usr/local/bin/pip /usr/local/bin/pip
 
+RUN rm /usr/lib/libexpat.so* || true
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.91.1
-RUN rustup target add x86_64-unknown-linux-musl && rustup target add aarch64-unknown-linux-musl
+RUN rustup target add $(cat /tmp/rust_target.txt)
 
 # Set Cargo build target based on TARGETPLATFORM
 ENV RUST_TARGET_FILE=/tmp/rust_target.txt
@@ -179,7 +181,7 @@ RUN export RUST_TARGET=$(cat /tmp/rust_target.txt) && \
 FROM alpine:3.23 AS runtime
 ARG PYTHON_VERSION=3.13.13
 ARG PYTHON_SHORT_VERSION=3.13
-RUN apk add --no-cache ca-certificates libexpat
+RUN apk add --no-cache ca-certificates
 
 # Copy Python runtime files (libs, binaries, pip)
 COPY --from=builder /usr/local/bin/python3 /usr/local/bin/python3
