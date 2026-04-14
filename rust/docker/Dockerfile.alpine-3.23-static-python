@@ -37,7 +37,7 @@ RUN curl -sl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VE
     --with-static-libpython \
     ac_cv_func_preadv2=no \
     ac_cv_func_pwritev2=no \
-    LDFLAGS="-static -L/usr/local/lib -lmimalloc -lffi -luuid -lintl -lssl -lcrypto -lz -lbz2 -lexpat -ltermcap -lhistory -lasound -lreadline" \
+    LDFLAGS="-static -L/usr/local/lib -lmimalloc -lffi -luuid -lintl -lssl -lcrypto -lz -lbz2 -lexpat -ltermcap -lhistory -lasound -lreadline -lmpdec -lpthread" \
     CFLAGS="-static -fPIC -I/usr/local/include -I/usr/local/include/uuid" \
     CPPFLAGS="-static" \
     LINKFORSHARED=" " \
