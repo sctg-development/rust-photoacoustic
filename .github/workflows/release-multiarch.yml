@@ -585,10 +585,13 @@ jobs:
           echo "Creating nightly release: $TAG"
           gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture binaries." --prerelease
 
-      - name: Download all artifacts
+      - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
+          pattern: |
+            rust-photoacoustic-*
+            docker-binaries-*
 
       - name: Upload release artifacts
         env:
