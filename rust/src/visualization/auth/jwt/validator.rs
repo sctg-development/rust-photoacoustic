@@ -351,7 +351,10 @@ impl JwtValidator {
                 .map(|client| client.client_id.clone())
                 .collect();
             if !audiences.is_empty() {
-                debug!("Validating against access_config audiences: {:?}", audiences);
+                debug!(
+                    "Validating against access_config audiences: {:?}",
+                    audiences
+                );
                 let audience_refs: Vec<&str> = audiences.iter().map(|s| s.as_str()).collect();
                 validation.set_audience(&audience_refs);
             } else {

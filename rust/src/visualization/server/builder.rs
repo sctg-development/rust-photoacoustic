@@ -513,7 +513,7 @@ async fn build_rocket_inner(
             ],
         )
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
-        .manage(oxide_state)        // Rocket owns OxideState; State<OxideState> works in handlers
+        .manage(oxide_state) // Rocket owns OxideState; State<OxideState> works in handlers
         .manage(jwt_validator)
         .manage(config.clone()); // Add config as managed state for future dynamic configuration
 

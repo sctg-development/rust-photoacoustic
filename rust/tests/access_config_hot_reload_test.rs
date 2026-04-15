@@ -44,8 +44,8 @@ use oxide_auth::primitives::grant::{Extensions, Grant};
 use oxide_auth::primitives::issuer::Issuer;
 use rocket::config::LogLevel;
 use rocket::http::{Header, Status};
-use rust_photoacoustic::config::{AccessConfig, Config, User, VisualizationConfig};
 use rust_photoacoustic::config::access::Client;
+use rust_photoacoustic::config::{AccessConfig, Config, User, VisualizationConfig};
 use rust_photoacoustic::visualization::api_auth::init_jwt_validator;
 use rust_photoacoustic::visualization::auth::jwt::{JwtIssuer, JwtValidator};
 use serde_json::Value;
@@ -940,10 +940,9 @@ fn test_validator_expected_audience_wins_over_clients() {
 fn test_validator_falls_back_to_clients_without_expected_audience() {
     // Case A: clients contain "LaserSmartClient" — token with aud="LaserSmartClient" passes.
     let access_match = AccessConfig::default(); // default clients = [{client_id: "LaserSmartClient"}]
-    let validator_match =
-        JwtValidator::new(Some(TEST_HMAC_SECRET.as_bytes()), None, access_match)
-            .expect("validator creation must not fail")
-            .with_issuer("LaserSmartServer");
+    let validator_match = JwtValidator::new(Some(TEST_HMAC_SECRET.as_bytes()), None, access_match)
+        .expect("validator creation must not fail")
+        .with_issuer("LaserSmartServer");
     // Note: NO .with_audience() here — fallback path is tested.
 
     let token = issue_test_token("admin");
@@ -991,9 +990,16 @@ async fn test_build_rocket_for_daemon_returns_shared_oxide_state() {
     use rust_photoacoustic::visualization::server::build_rocket_for_daemon;
 
     let config = Arc::new(RwLock::new(Config::default()));
-    let (rocket, oxide_state_clone) =
-        build_rocket_for_daemon(test_figment(), Arc::clone(&config), None, None, None, None, None)
-            .await;
+    let (rocket, oxide_state_clone) = build_rocket_for_daemon(
+        test_figment(),
+        Arc::clone(&config),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
 
     // The returned OxideState clone must be valid — we can retrieve the stored access_config.
     let initial_config = oxide_state_clone.access_config.read().await;
@@ -1017,10 +1023,7 @@ async fn test_build_rocket_for_daemon_returns_shared_oxide_state() {
     // Verify the stored access_config was updated.
     let updated_config = oxide_state_clone.access_config.read().await;
     assert!(
-        updated_config
-            .users
-            .iter()
-            .any(|u| u.user == "phase5_user"),
+        updated_config.users.iter().any(|u| u.user == "phase5_user"),
         "New user 'phase5_user' must appear in the updated access_config"
     );
 
@@ -1038,19 +1041,32 @@ async fn test_build_rocket_for_daemon_update_access_config_updates_clients() {
     use rust_photoacoustic::visualization::server::build_rocket_for_daemon;
 
     let config = Arc::new(RwLock::new(Config::default()));
-    let (_rocket, oxide_state_clone) =
-        build_rocket_for_daemon(test_figment(), Arc::clone(&config), None, None, None, None, None)
-            .await;
+    let (_rocket, oxide_state_clone) = build_rocket_for_daemon(
+        test_figment(),
+        Arc::clone(&config),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
 
     // Initial state: default clients (LaserSmartClient only).
     {
         let initial = oxide_state_clone.access_config.read().await;
         assert!(
-            initial.clients.iter().any(|c| c.client_id == "LaserSmartClient"),
+            initial
+                .clients
+                .iter()
+                .any(|c| c.client_id == "LaserSmartClient"),
             "default config must have LaserSmartClient"
         );
         assert!(
-            !initial.clients.iter().any(|c| c.client_id == "HotReloadedClient"),
+            !initial
+                .clients
+                .iter()
+                .any(|c| c.client_id == "HotReloadedClient"),
             "HotReloadedClient must not exist before hot-reload"
         );
     }
