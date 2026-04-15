@@ -312,6 +312,70 @@ pub async fn build_rocket(
     thermal_state: Option<SharedThermalState>,
     computing_state: Option<SharedComputingState>,
 ) -> Rocket<Build> {
+    let (rocket, _oxide_state) = build_rocket_inner(
+        figment,
+        config,
+        audio_stream,
+        visualization_state,
+        streaming_registry,
+        thermal_state,
+        computing_state,
+    )
+    .await;
+    rocket
+}
+
+/// Build a Rocket server instance and return a shared reference to the OAuth2 state.
+///
+/// This variant of [`build_rocket`] additionally returns the [`OxideState`] wrapped in
+/// an [`Arc`] so that the caller (e.g. the daemon) can hold a reference to it for
+/// hot-reloading the access configuration via [`OxideState::update_access_config`].
+///
+/// All other behavior is identical to [`build_rocket`].
+///
+/// ### Returns
+///
+/// A tuple `(Rocket<Build>, OxideState)`. The daemon stores the `OxideState` clone, which
+/// shares the same inner `Arc` references as the Rocket-managed instance. Calling
+/// `oxide_state_clone.update_access_config(new_config).await` mutates the shared OAuth2
+/// registrar and JWT issuer in-place, affecting the live server.
+///
+/// ### Example
+///
+/// ```no_run
+/// // Requires a running tokio runtime and real configuration.
+/// // Used internally by the daemon.
+/// ```
+pub async fn build_rocket_for_daemon(
+    figment: Figment,
+    config: Arc<RwLock<Config>>,
+    audio_stream: Option<Arc<SharedAudioStream>>,
+    visualization_state: Option<Arc<SharedVisualizationState>>,
+    streaming_registry: Option<Arc<StreamingNodeRegistry>>,
+    thermal_state: Option<SharedThermalState>,
+    computing_state: Option<SharedComputingState>,
+) -> (Rocket<Build>, OxideState) {
+    build_rocket_inner(
+        figment,
+        config,
+        audio_stream,
+        visualization_state,
+        streaming_registry,
+        thermal_state,
+        computing_state,
+    )
+    .await
+}
+
+async fn build_rocket_inner(
+    figment: Figment,
+    config: Arc<RwLock<Config>>,
+    audio_stream: Option<Arc<SharedAudioStream>>,
+    visualization_state: Option<Arc<SharedVisualizationState>>,
+    streaming_registry: Option<Arc<StreamingNodeRegistry>>,
+    thermal_state: Option<SharedThermalState>,
+    computing_state: Option<SharedComputingState>,
+) -> (Rocket<Build>, OxideState) {
     // Load hmac secret from config
     let config_read = config.read().await;
     let hmac_secret = config_read.visualization.hmac_secret.clone();
@@ -345,6 +409,12 @@ pub async fn build_rocket(
             }
         }
     }
+
+    // Clone oxide_state BEFORE managing it. OxideState::clone() uses Arc::clone for all
+    // inner fields (registrar, issuer, access_config), so the clone shares the same underlying
+    // data. The daemon can call update_access_config() on this clone and the mutations will
+    // be visible to the Rocket-managed instance.
+    let oxide_state_for_caller = oxide_state.clone();
 
     // Initialize JWT validator - try to use RS256 if keys are available, otherwise use HMAC secret
     let rs256_public_key_bytes = if !oxide_state.rs256_public_key.is_empty() {
@@ -443,7 +513,7 @@ pub async fn build_rocket(
             ],
         )
         .mount("/", vite_dev_proxy::get_vite_dev_routes())
-        .manage(oxide_state)
+        .manage(oxide_state)        // Rocket owns OxideState; State<OxideState> works in handlers
         .manage(jwt_validator)
         .manage(config.clone()); // Add config as managed state for future dynamic configuration
 
@@ -466,7 +536,8 @@ pub async fn build_rocket(
     );
 
     // Add OpenAPI documentation routes
-    add_openapi_documentation(rocket_builder, openapi_spec)
+    let rocket = add_openapi_documentation(rocket_builder, openapi_spec);
+    (rocket, oxide_state_for_caller)
 }
 
 use rocket::{get, http::Status, serde::json::Json, State};

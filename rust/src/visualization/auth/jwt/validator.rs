@@ -335,21 +335,29 @@ impl JwtValidator {
             validation.set_issuer(&[issuer]);
         }
 
-        // Extract all valid audiences from the access config
-        let audiences: Vec<String> = self
-            .access_config
-            .clients
-            .iter()
-            .map(|client| client.client_id.clone())
-            .collect();
-
-        // Use configured audiences for validation
-        if !audiences.is_empty() {
-            debug!("Validating against configured audiences: {:?}", audiences);
-            let audience_refs: Vec<&str> = audiences.iter().map(|s| s.as_str()).collect();
-            validation.set_audience(&audience_refs);
+        // Audience validation: prefer the statically-configured expected_audience
+        // (set at startup via `with_audience`) over the dynamic client list.
+        // This makes audience validation independent of runtime AccessConfig changes
+        // (Phase 4 hot-reload: changing clients at runtime doesn't invalidate existing tokens).
+        if let Some(ref expected_aud) = self.expected_audience {
+            debug!("Validating against configured audience: {}", expected_aud);
+            validation.set_audience(&[expected_aud.as_str()]);
         } else {
-            debug!("No audiences configured, skipping audience validation");
+            // Fall back to building the audience list from the access config clients
+            let audiences: Vec<String> = self
+                .access_config
+                .clients
+                .iter()
+                .map(|client| client.client_id.clone())
+                .collect();
+            if !audiences.is_empty() {
+                debug!("Validating against access_config audiences: {:?}", audiences);
+                let audience_refs: Vec<&str> = audiences.iter().map(|s| s.as_str()).collect();
+                validation.set_audience(&audience_refs);
+            } else {
+                debug!("No audiences configured, skipping audience validation");
+                validation.validate_aud = false;
+            }
         }
 
         let token_data = decode::<JwtClaims>(token, key, &validation).map_err(|e| {

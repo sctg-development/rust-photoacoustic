@@ -1,0 +1,2 @@
+- Client : pass token to /api/doc/index.html via ?token=... for interactive API docs testing
+- Client : allow /client, /client/ and /client/index.html for static file serving (Rocket route statique embedded)

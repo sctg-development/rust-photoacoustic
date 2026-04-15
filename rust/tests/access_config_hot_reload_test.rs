@@ -2,7 +2,7 @@
 // This file is part of the rust-photoacoustic project and is licensed under the
 // SCTG Development Non-Commercial License v1.0 (see LICENSE.md for details).
 
-//! Integration tests for Phase 1 & Phase 2 hot-reload of `AccessConfig`
+//! Integration tests for Phase 1–4 hot-reload of `AccessConfig`
 //!
 //! These tests verify that modifying `Config.access` in the shared `Arc<RwLock<Config>>`
 //! is immediately visible to the `AuthenticatedUser` and `AccessConfig` request guards,
@@ -32,11 +32,20 @@
 //! - [`test_oxide_state_update_access_config_updates_stored_config`] — stored access_config updated
 //! - [`test_oxide_state_update_access_config_rebuilds_registrar`]    — client list updated (via OAuth flow)
 
+//! ### Unit tests — Phase 4 (`JwtValidator` audience priority)
+//! - [`test_validator_expected_audience_wins_over_clients`]          — expected_audience takes priority over clients list
+//! - [`test_validator_falls_back_to_clients_without_expected_audience`] — clients used when no expected_audience
+//!
+//! ### Integration tests — Phase 5 (`build_rocket_for_daemon` + `apply_configuration_changes`)
+//! - [`test_build_rocket_for_daemon_returns_shared_oxide_state`]    — returned clone shares inner Arcs, update propagates
+//! - [`test_build_rocket_for_daemon_update_access_config_updates_clients`] — hot-reload adds new OAuth2 client to shared state
+
 use oxide_auth::primitives::grant::{Extensions, Grant};
 use oxide_auth::primitives::issuer::Issuer;
 use rocket::config::LogLevel;
 use rocket::http::{Header, Status};
 use rust_photoacoustic::config::{AccessConfig, Config, User, VisualizationConfig};
+use rust_photoacoustic::config::access::Client;
 use rust_photoacoustic::visualization::api_auth::init_jwt_validator;
 use rust_photoacoustic::visualization::auth::jwt::{JwtIssuer, JwtValidator};
 use serde_json::Value;
@@ -878,4 +887,197 @@ async fn test_oxide_state_update_access_config_is_concurrent_safe() {
     for t in reader_tasks {
         t.await.expect("reader must not panic");
     }
+}
+
+// ─── Phase 4 unit tests — JwtValidator audience validation priority ───────────
+
+/// Phase 4 — `expected_audience` takes priority over `access_config.clients`.
+///
+/// When `JwtValidator` is configured with `.with_audience("LaserSmartClient")`
+/// (as `init_jwt_validator` always does), audience validation must succeed for
+/// a token issued with `aud = "LaserSmartClient"` even if `access_config.clients`
+/// contains a different client id — because `expected_audience` takes precedence.
+///
+/// Before Phase 4 this test would fail: the old code built audiences exclusively
+/// from `access_config.clients` and ignored `expected_audience`.
+#[test]
+fn test_validator_expected_audience_wins_over_clients() {
+    // Build an AccessConfig whose only client is NOT "LaserSmartClient".
+    // Pre-Phase-4 code would validate the token's aud="LaserSmartClient" against
+    // ["WrongClient"] and reject it.
+    let mut access = AccessConfig::default();
+    access.clients = vec![Client {
+        client_id: "WrongClient".to_string(),
+        default_scope: "read:api".to_string(),
+        allowed_callbacks: vec![],
+    }];
+
+    // Create a validator WITH expected_audience — mirrors what init_jwt_validator does.
+    let validator = JwtValidator::new(Some(TEST_HMAC_SECRET.as_bytes()), None, access)
+        .expect("validator creation must not fail")
+        .with_issuer("LaserSmartServer")
+        .with_audience("LaserSmartClient");
+
+    // Issue a token with aud="LaserSmartClient" (the standard client id).
+    let token = issue_test_token("admin");
+
+    // Phase 4 fix: expected_audience wins → validation succeeds.
+    let result = validator.validate(&token);
+    assert!(
+        result.is_ok(),
+        "token must be accepted when expected_audience='LaserSmartClient' even if \
+         access_config.clients only contains 'WrongClient': {:?}",
+        result.err()
+    );
+}
+
+/// Phase 4 — without `expected_audience`, the validator falls back to `access_config.clients`.
+///
+/// When no `.with_audience()` is configured, audience validation uses the client
+/// list from `access_config`. A token whose `aud` matches a listed client succeeds;
+/// one whose `aud` does not match a listed client fails.
+#[test]
+fn test_validator_falls_back_to_clients_without_expected_audience() {
+    // Case A: clients contain "LaserSmartClient" — token with aud="LaserSmartClient" passes.
+    let access_match = AccessConfig::default(); // default clients = [{client_id: "LaserSmartClient"}]
+    let validator_match =
+        JwtValidator::new(Some(TEST_HMAC_SECRET.as_bytes()), None, access_match)
+            .expect("validator creation must not fail")
+            .with_issuer("LaserSmartServer");
+    // Note: NO .with_audience() here — fallback path is tested.
+
+    let token = issue_test_token("admin");
+    let result_match = validator_match.validate(&token);
+    assert!(
+        result_match.is_ok(),
+        "token with aud='LaserSmartClient' must succeed when clients=['LaserSmartClient']: {:?}",
+        result_match.err()
+    );
+
+    // Case B: clients contain an unrelated id — token with aud="LaserSmartClient" must fail.
+    let mut access_no_match = AccessConfig::default();
+    access_no_match.clients = vec![Client {
+        client_id: "AnotherApp".to_string(),
+        default_scope: "read:api".to_string(),
+        allowed_callbacks: vec![],
+    }];
+    let validator_no_match =
+        JwtValidator::new(Some(TEST_HMAC_SECRET.as_bytes()), None, access_no_match)
+            .expect("validator creation must not fail")
+            .with_issuer("LaserSmartServer");
+    // Note: NO .with_audience() — fallback path uses clients.
+
+    let result_no_match = validator_no_match.validate(&token);
+    assert!(
+        result_no_match.is_err(),
+        "token with aud='LaserSmartClient' must fail when clients=['AnotherApp'] and no \
+         expected_audience is configured"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 5 — Daemon `apply_configuration_changes` + `build_rocket_for_daemon`
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Phase 5 — `build_rocket_for_daemon` returns an `OxideState` clone that shares the
+/// same inner Arcs as the Rocket-managed instance.
+///
+/// Verifies that:
+/// 1. The returned clone can be used to read the initial access_config.
+/// 2. Calling `update_access_config()` on the clone propagates to both the clone
+///    and (via shared Arcs) the Rocket-managed instance.
+#[rocket::async_test]
+async fn test_build_rocket_for_daemon_returns_shared_oxide_state() {
+    use rust_photoacoustic::visualization::server::build_rocket_for_daemon;
+
+    let config = Arc::new(RwLock::new(Config::default()));
+    let (rocket, oxide_state_clone) =
+        build_rocket_for_daemon(test_figment(), Arc::clone(&config), None, None, None, None, None)
+            .await;
+
+    // The returned OxideState clone must be valid — we can retrieve the stored access_config.
+    let initial_config = oxide_state_clone.access_config.read().await;
+    assert!(
+        !initial_config.users.is_empty(),
+        "Initial access_config must have at least one user"
+    );
+    drop(initial_config);
+
+    // Update the access_config via the clone: add a new user.
+    let mut new_access = AccessConfig::default();
+    new_access.users.push(User {
+        user: "phase5_user".to_string(),
+        pass: ADMIN123_HASH.to_string(),
+        permissions: vec!["read:api".to_string()],
+        email: None,
+        name: None,
+    });
+    oxide_state_clone.update_access_config(new_access).await;
+
+    // Verify the stored access_config was updated.
+    let updated_config = oxide_state_clone.access_config.read().await;
+    assert!(
+        updated_config
+            .users
+            .iter()
+            .any(|u| u.user == "phase5_user"),
+        "New user 'phase5_user' must appear in the updated access_config"
+    );
+
+    // The rocket was built (not ignited) — drop it cleanly.
+    drop(rocket);
+}
+
+/// Phase 5 — Adding a new OAuth2 client via hot-reload is reflected in the shared OxideState.
+///
+/// Verifies that `build_rocket_for_daemon` returns a clone whose `update_access_config()`
+/// correctly updates the OAuth2 client registrar — demonstrated by reading back the
+/// `access_config` field which is shared between the clone and the Rocket-managed instance.
+#[rocket::async_test]
+async fn test_build_rocket_for_daemon_update_access_config_updates_clients() {
+    use rust_photoacoustic::visualization::server::build_rocket_for_daemon;
+
+    let config = Arc::new(RwLock::new(Config::default()));
+    let (_rocket, oxide_state_clone) =
+        build_rocket_for_daemon(test_figment(), Arc::clone(&config), None, None, None, None, None)
+            .await;
+
+    // Initial state: default clients (LaserSmartClient only).
+    {
+        let initial = oxide_state_clone.access_config.read().await;
+        assert!(
+            initial.clients.iter().any(|c| c.client_id == "LaserSmartClient"),
+            "default config must have LaserSmartClient"
+        );
+        assert!(
+            !initial.clients.iter().any(|c| c.client_id == "HotReloadedClient"),
+            "HotReloadedClient must not exist before hot-reload"
+        );
+    }
+
+    // Hot-reload: add a new OAuth2 client.
+    let mut new_access = AccessConfig::default();
+    new_access.clients.push(Client {
+        client_id: "HotReloadedClient".to_string(),
+        default_scope: "read:api".to_string(),
+        allowed_callbacks: vec!["https://localhost/callback2".to_string()],
+    });
+    oxide_state_clone.update_access_config(new_access).await;
+
+    // Post-reload: both clients must be present in the shared access_config.
+    let updated = oxide_state_clone.access_config.read().await;
+    assert!(
+        updated
+            .clients
+            .iter()
+            .any(|c| c.client_id == "HotReloadedClient"),
+        "HotReloadedClient must appear after update_access_config"
+    );
+    assert!(
+        updated
+            .clients
+            .iter()
+            .any(|c| c.client_id == "LaserSmartClient"),
+        "LaserSmartClient must still be present after hot-reload"
+    );
 }

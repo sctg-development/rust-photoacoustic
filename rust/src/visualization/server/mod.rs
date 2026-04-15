@@ -61,7 +61,8 @@ pub mod proxy;
 
 // Re-export main functions from builder
 pub use self::builder::{
-    build_openapi_spec, build_rocket, generate_openapi_json, get_generix_config,
+    build_openapi_spec, build_rocket, build_rocket_for_daemon, generate_openapi_json,
+    get_generix_config,
 };
 
 #[cfg(test)]

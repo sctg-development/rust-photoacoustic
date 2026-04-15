@@ -29,7 +29,8 @@ use crate::thermal_regulation::{
     create_shared_thermal_state, SharedThermalState, ThermalRegulationSystemDaemon,
 };
 use crate::utility::PhotoacousticDataSource;
-use crate::visualization::server::build_rocket;
+use crate::visualization::auth::OxideState;
+use crate::visualization::server::{build_rocket, build_rocket_for_daemon};
 use crate::visualization::shared_state::SharedVisualizationState;
 use crate::{config::Config, modbus::PhotoacousticModbusServer};
 use base64::prelude::*;
@@ -91,6 +92,10 @@ pub struct Daemon {
     thermal_regulation_state: SharedThermalState,
     /// Shared computing state for analytical results from computing nodes
     computing_state: SharedComputingState,
+    /// Shared OxideState clone for hot-reloading access configuration (Phase 5).
+    /// All inner Arcs (registrar, issuer, access_config) are shared with the
+    /// Rocket-managed instance, so mutations are reflected immediately.
+    oxide_state: Option<OxideState>,
 }
 
 impl Default for Daemon {
@@ -136,6 +141,7 @@ impl Daemon {
             computing_state: Arc::new(RwLock::new(
                 crate::processing::computing_nodes::ComputingSharedData::default(),
             )),
+            oxide_state: None,
         }
     }
 
@@ -324,7 +330,7 @@ impl Daemon {
             info!("TLS enabled for web server");
         }
 
-        let rocket = build_rocket(
+        let (rocket, oxide_state) = build_rocket_for_daemon(
             figment,
             Arc::clone(&config),
             self.audio_stream.clone(),
@@ -334,6 +340,11 @@ impl Daemon {
             Some(self.computing_state.clone()),
         )
         .await;
+
+        // Store the shared OxideState clone for hot-reloading access configuration.
+        // Since OxideState::clone() shares the inner Arcs (registrar, issuer, access_config),
+        // calling update_access_config() on this clone will update the live Rocket instance.
+        self.oxide_state = Some(oxide_state);
 
         let _running = self.running.clone();
         let task = tokio::spawn(async move {
@@ -1419,6 +1430,23 @@ impl Daemon {
                 "modbus" => {
                     // Modbus server changes typically require restart
                     warn!("Modbus configuration changes require daemon restart to take effect");
+                }
+                "access" => {
+                    // Access configuration (users, clients, OAuth2) — hot-reloaded via OxideState
+                    let new_access_config = self.config.read().await.access.clone();
+                    if let Some(ref oxide) = self.oxide_state {
+                        oxide.update_access_config(new_access_config.clone()).await;
+                        info!(
+                            "AccessConfig hot-reloaded: {} users, {} clients",
+                            new_access_config.users.len(),
+                            new_access_config.clients.len()
+                        );
+                    } else {
+                        warn!(
+                            "AccessConfig changed but OxideState reference is not available \
+                             (visualization server not started yet?). Restart required."
+                        );
+                    }
                 }
                 _ => {
                     debug!("Configuration section '{}' changes noted but no specific handler implemented", section);
