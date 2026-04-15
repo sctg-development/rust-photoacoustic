@@ -1,0 +1,55 @@
+name: Setup Repository
+description: Configure Altium credentials, checkout repo with submodules
+inputs:
+  altium-user:
+    description: Altium 365 username
+    required: true
+  altium-password:
+    description: Altium 365 password
+    required: true
+  debug-submodules:
+    description: Enable submodule debug output
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Configure Altium HTTP credentials
+      shell: bash
+      run: |
+        git config --global credential.helper store
+        ENCODED=$(python3 -c "
+        import urllib.parse, os
+        user = urllib.parse.quote(os.environ['ALTIUM_365_USER'], safe='')
+        pwd  = urllib.parse.quote(os.environ['ALTIUM_365_PASSWORD'], safe='')
+        print(f'https://{user}:{pwd}@afs-vcs-eu1.365.altium.com')
+        ")
+        echo "$ENCODED" >> ~/.git-credentials
+        chmod 600 ~/.git-credentials
+      env:
+        ALTIUM_365_USER: ${{ inputs.altium-user }}
+        ALTIUM_365_PASSWORD: ${{ inputs.altium-password }}
+
+    - name: Check out the repo
+      uses: actions/checkout@v4
+      with:
+        submodules: false
+        fetch-depth: 0
+
+    - name: Init and update submodules
+      shell: bash
+      run: |
+        git submodule sync --recursive
+        git submodule update --init --recursive
+
+    - name: Debug submodules
+      if: ${{ inputs.debug-submodules == 'true' }}
+      shell: bash
+      run: |
+        echo "=== Git submodule status ==="
+        git submodule status
+        echo "=== .gitmodules content ==="
+        cat .gitmodules || echo "No .gitmodules found"
+        echo "=== Checking rust directory ==="
+        ls -la rust/

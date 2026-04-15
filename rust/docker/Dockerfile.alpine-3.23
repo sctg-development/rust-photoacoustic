@@ -136,51 +136,6 @@ RUN export RUST_TARGET=$(cat /tmp/rust_target.txt) && \
     cp target/${RUST_TARGET}/release/rs256keygen /usr/local/bin/rs256keygen && \
     cp target/${RUST_TARGET}/release/standalone /usr/local/bin/standalone
 
-# # Build APK package (requires non-root user in abuild group)
-# RUN export RUST_TARGET=$(cat /tmp/rust_target.txt) && \
-#     export APK_ARCH=$(case "${TARGETPLATFORM}" in \
-#     "linux/amd64") echo "x86_64" ;; \
-#     "linux/arm64") echo "aarch64" ;; \
-#     *) echo "x86_64" ;; \
-#     esac) && \
-#     addgroup -S abuild 2>/dev/null || true && \
-#     adduser -D -h /home/builder -G abuild builder && \
-#     mkdir -p /workspace/abuild && mkdir -p /packages && \
-#     chown -R builder:abuild /workspace/abuild /packages && \
-#     cd /workspace/abuild && \
-#     cat > APKBUILD <<EOF
-# pkgname=lasersmart
-# pkgver="${VERSION}"
-# pkgrel=0
-# pkgdesc="LaserSmart photoacoustic tools"
-# url="https://github.com/sctg-development/rust-photoacoustic"
-# arch="${APK_ARCH}"
-# license="non-commercial"
-# depends=""
-# makedepends="alpine-sdk bash curl git nodejs npm python3-dev musl-dev openssl-dev libffi-dev cmake"
-# source=""
-
-# build() {
-#     return 0
-# }
-
-# package() {
-#     install -d "\$pkgdir"/usr/local/bin
-#     for bin in rust_photoacoustic create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
-#         install -Dm755 /workspace/rust/target/${RUST_TARGET}/release/\${bin} "\$pkgdir"/usr/local/bin/\${bin}
-#     done
-#     # Install Python runtime files
-#     install -d "\$pkgdir"/usr/local/lib/python${PYTHON_SHORT_VERSION}
-#     cp -r /usr/local/lib/python${PYTHON_SHORT_VERSION}/* "\$pkgdir"/usr/local/lib/python${PYTHON_SHORT_VERSION}/
-# }
-# EOF
-
-# USER builder
-# RUN cd /workspace/abuild && abuild-keygen -a -n -q && abuild -r
-# USER root
-# RUN find /home/builder/packages -name 'lasersmart-*.apk' -exec cp {} /packages/ \;
-# RUN find /root/packages -name 'lasersmart-*.apk' -exec cp {} /packages/ \;
-
 # Runtime image
 FROM alpine:3.23 AS runtime
 ARG PYTHON_VERSION=3.13.13

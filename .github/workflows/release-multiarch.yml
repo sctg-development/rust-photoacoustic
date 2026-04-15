@@ -1,6 +1,6 @@
 # Copyright 2025 SCTG Development - Ronan LE MEILLAT
-# This workflow builds multi-architecture static binaries for rust-photoacoustic
-# and creates GitHub releases with all photoacoustic tools
+# Multi-architecture release workflow: native builds + static Docker builds
+# Produces release with binaries for 8 targets (4 native + 2 Docker × 2 archs)
 
 name: Generate multi-arch Docker image and release linux binaries
 
@@ -13,14 +13,35 @@ permissions:
 on:
   release:
     types: [published]
-  # Uncomment for manual testing:
   workflow_dispatch:
 
 jobs:
-  # Build non-static binaries for multiple platforms
-  build_release_binaries:
+  # Compute release tag once, share via output
+  compute-tag:
+    name: Compute Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set_tag.outputs.tag }}
+    steps:
+      - name: Set release tag
+        id: set_tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="nightly.$(date +'%Y%m%d')"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "Using nightly tag: $TAG"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "Using release tag: $TAG"
+          fi
+
+  # Native builds: ubuntu, windows, macos (intel + arm64)
+  build-native:
     name: Build Release Binaries on ${{ matrix.os }} (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    needs: compute-tag
 
     strategy:
       fail-fast: false
@@ -59,48 +80,12 @@ jobs:
           remove-cloud-tools: "true"
           show-top-packages: "true"
 
-      - name: Configure Altium HTTP credentials
-        shell: bash
-        run: |
-          git config --global credential.helper store
-          ENCODED=$(python3 -c "
-          import urllib.parse, os
-          user = urllib.parse.quote(os.environ['ALTIUM_365_USER'], safe='')
-          pwd  = urllib.parse.quote(os.environ['ALTIUM_365_PASSWORD'], safe='')
-          print(f'https://{user}:{pwd}@afs-vcs-eu1.365.altium.com')
-          ")
-          echo "$ENCODED" >> ~/.git-credentials
-          chmod 600 ~/.git-credentials
-        env:
-          ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
-          ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
-
-      - uses: actions/checkout@v4
+      - name: Setup repository
+        uses: ./.github/actions/setup-repo
         with:
-          submodules: false
-          fetch-depth: 0
-
-      - name: Init and update submodules
-        shell: bash
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
-
-      # Debug submodules
-      - name: Debug submodules
-        shell: bash
-        run: |
-          echo "=== Git submodule status ==="
-          git submodule status
-          echo "=== .gitmodules content ==="
-          cat .gitmodules || echo "No .gitmodules found"
-          echo "=== Checking rust directory ==="
-          ls -la rust/
-          echo "=== Force submodule sync and update ==="
-          git submodule sync --recursive
-          git submodule update --init --recursive --force
-          echo "=== Final submodule status ==="
-          git submodule status
+          altium-user: ${{ secrets.ALTIUM_365_USER }}
+          altium-password: ${{ secrets.ALTIUM_365_PASSWORD }}
+          debug-submodules: "false"
 
       # Install Rust toolchain
       - name: Install Rust toolchain
@@ -154,7 +139,7 @@ jobs:
             echo "PYTHON_SYS_EXECUTABLE=$CONDA/envs/release-env/bin/python" >> $GITHUB_ENV
             echo "PYTHONPATH=$CONDA/envs/release-env/lib/python3.13/site-packages" >> $GITHUB_ENV
             echo "$CONDA/envs/release-env/bin" >> $GITHUB_PATH
-            
+
             # Configure dynamic library path for macOS
             if [[ "${{ runner.os }}" == "macOS" ]]; then
               echo "DYLD_LIBRARY_PATH=$CONDA/envs/release-env/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
@@ -164,27 +149,7 @@ jobs:
           # Install required Python packages
           conda install -n release-env numpy scipy matplotlib -y
 
-      # Set release tag
-      - name: Set release tag
-        id: set_tag
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # For manual workflow dispatch, use nightly tag with current date
-            TAG="nightly.$(date +'%Y%m%d')"
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Using nightly tag: $TAG"
-          else
-            # For release events, use the release tag
-            TAG="${{ github.event.release.tag_name }}"
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Using release tag: $TAG"
-          fi
-
       # Cache Dependencies
-      # - shared-key groups amd64/arm64/macOS caches by target so they don't collide
-      # - cache-on-failure saves partial progress even when cargo build fails
-      # - Swatinem/rust-cache automatically appends Cargo.lock hash; no need to add it manually
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -241,17 +206,14 @@ jobs:
             EXE_EXT=".exe"
             LIB_EXT=".dll"
             PYTHON_LIB_NAME="python313.dll"
-            PYTHON_LIB_VERSION="3.13"
           else
             EXE_EXT=""
             if [[ "${{ runner.os }}" == "macOS" ]]; then
               LIB_EXT=".dylib"
               PYTHON_LIB_NAME="libpython3.13.dylib"
-              PYTHON_LIB_VERSION="3.13"
             else
               LIB_EXT=".so"
               PYTHON_LIB_NAME="libpython3.13.so.1.0"
-              PYTHON_LIB_VERSION="3.13"
             fi
           fi
 
@@ -271,22 +233,21 @@ jobs:
             cp "$CONDA/envs/release-env/Library/bin/python313.dll" package/lib/ || echo "Python313.dll not found"
             cp "$CONDA/envs/release-env/Library/bin/zlib.dll" package/lib/ || echo "zlib.dll not found"
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            # For macOS, we need to copy all required dylibs and fix rpath references
             echo "=== Processing macOS dependencies ==="
             CONDA_LIB_DIR="$CONDA/envs/release-env/lib"
-            
+
             # Function to recursively copy and fix dependencies
             fix_macos_dependencies() {
               local binary="$1"
               local processed_libs=""
-              
+
               # Get all dependencies from the binary
               otool_output=$(otool -L "$binary" 2>/dev/null || echo "")
               if [ -z "$otool_output" ]; then
                 echo "Failed to process $binary with otool"
                 return
               fi
-              
+
               echo "Dependencies for $(basename $binary):"
               echo "$otool_output" | tail -n +2 | awk '{print $1}' | while read lib; do
                 # Skip system frameworks and libraries
@@ -297,19 +258,17 @@ jobs:
                     if [ -f "$CONDA_LIB_DIR/$lib_name" ]; then
                       echo "  Copying @rpath lib: $lib_name"
                       cp "$CONDA_LIB_DIR/$lib_name" package/lib/ 2>/dev/null || true
-                      # Update the binary to reference the local lib directory
                       install_name_tool -change "$lib" "@loader_path/../lib/$lib_name" "$binary" 2>/dev/null || true
                     fi
                   fi
                   continue
                 fi
-                
+
                 # Process non-system libs from conda
                 if [ -f "$CONDA_LIB_DIR/$(basename $lib)" ]; then
                   lib_name=$(basename "$lib")
                   echo "  Copying: $lib_name"
                   cp "$CONDA_LIB_DIR/$lib_name" package/lib/ 2>/dev/null || true
-                  # Update references in the binary
                   install_name_tool -change "$lib" "@loader_path/../lib/$lib_name" "$binary" 2>/dev/null || true
                 elif [[ "$lib" == *".dylib"* ]] || [[ "$lib" == *".so"* ]]; then
                   # Handle absolute paths to conda libs
@@ -322,20 +281,20 @@ jobs:
                 fi
               done
             }
-            
+
             # Process all binaries
             for binary in package/bin/*; do
               if [ -f "$binary" ]; then
                 fix_macos_dependencies "$binary"
               fi
             done
-            
+
             # Also copy libpython explicitly
             if [ -f "$CONDA_LIB_DIR/$PYTHON_LIB_NAME" ]; then
               cp "$CONDA_LIB_DIR/$PYTHON_LIB_NAME" package/lib/
               echo "Copied main Python library: $PYTHON_LIB_NAME"
             fi
-            
+
             # Now fix internal dependencies of the copied libraries themselves
             echo "=== Fixing internal library dependencies ==="
             for lib in package/lib/*.dylib; do
@@ -348,7 +307,7 @@ jobs:
                     if [[ "$deplib" == "/System/Library/"* ]] || [[ "$deplib" == "/usr/lib/"* ]] || [[ "$deplib" == "@loader_path/"* ]]; then
                       continue
                     fi
-                    
+
                     # Handle @rpath references in libraries
                     if [[ "$deplib" == "@rpath/"* ]]; then
                       lib_name=$(basename "$deplib")
@@ -356,7 +315,6 @@ jobs:
                         cp "$CONDA_LIB_DIR/$lib_name" package/lib/ 2>/dev/null || true
                         echo "  Copied transitive dep: $lib_name"
                       fi
-                      # Update the library to use @loader_path
                       install_name_tool -change "$deplib" "@loader_path/$lib_name" "$lib" 2>/dev/null || true
                     elif [[ "$deplib" == "$CONDA_LIB_DIR"* ]]; then
                       lib_name=$(basename "$deplib")
@@ -366,18 +324,17 @@ jobs:
                 fi
               fi
             done
-            
+
           else
             # Linux
             cp "$CONDA/envs/release-env/lib/${PYTHON_LIB_NAME}" package/lib/ || echo "Python library not found"
           fi
 
-          # Create launch scripts for all binaries
+          # Create launch scripts
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             # Windows batch scripts
             for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
               if [ -f "package/bin/${binary}.exe" ]; then
-                # Create batch script directly with correct binary name
                 echo "@echo off" > "package/${binary}.bat"
                 echo "set SCRIPT_DIR=%~dp0" >> "package/${binary}.bat"
                 echo "set PATH=%SCRIPT_DIR%lib;%PATH%" >> "package/${binary}.bat"
@@ -389,7 +346,6 @@ jobs:
             # Unix shell scripts
             for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
               if [ -f "package/bin/${binary}" ]; then
-                # Create shell script directly with correct binary name
                 echo "#!/bin/bash" > "package/${binary}"
                 echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' >> "package/${binary}"
                 echo 'if [[ "$OSTYPE" == "darwin"* ]]; then' >> "package/${binary}"
@@ -404,69 +360,8 @@ jobs:
             done
           fi
 
-          # Create README
-          cat > package/README.md << 'EOF'
-          # Rust Photoacoustic - Release Package
-
-          This package contains the Rust Photoacoustic binaries with Python integration.
-
-          ## Contents
-
-          - `bin/`: Executable binaries
-          - `lib/`: Required Python libraries  
-          - Launch scripts for easy execution
-
-          ## Available Tools
-
-          - **rust_photoacoustic**: Main photoacoustic analysis server
-          - **analyze_spectrum**: Spectrum analysis tool
-          - **create_token**: JWT token generation utility
-          - **debug_config**: Configuration debugging utility
-          - **differential**: Differential signal processing
-          - **filters**: Signal filtering utilities
-          - **modbus_client**: Modbus communication client
-          - **noise_generator**: Noise generation for testing
-          - **pid_tuner**: PID controller tuning tool
-          - **redis_viewer**: Redis data viewer
-          - **rs256keygen**: RS256 key generation utility
-          - **standalone**: Standalone analysis tool
-
-          ## Usage
-
-          ### On Windows:
-          ```
-          rust_photoacoustic.bat [options]
-          pid_tuner.bat [options]
-          analyze_spectrum.bat [options]
-          # ... (other tools available with .bat extension)
-          ```
-
-          ### On macOS/Linux:
-          ```
-          # First remove quarantine attribute on macOS
-          sudo xattr -r -d com.apple.quarantine *
-          ./rust_photoacoustic [options]
-          ./pid_tuner [options]
-          ./analyze_spectrum [options]
-          # ... (other tools available as executable scripts)
-          ```
-
-          ## Requirements
-
-          - No additional Python installation required
-          - All dependencies are included in this package
-          EOF
-
-          # Add build info to README
-          echo "" >> package/README.md
-          echo "## Version" >> package/README.md
-          echo "" >> package/README.md
-          echo "Built from: ${{ github.sha }}" >> package/README.md
-          echo "Target: ${{ matrix.target }}" >> package/README.md
-          echo "Build Date: $(date)" >> package/README.md
-
           # Create archive
-          ARCHIVE_NAME="rust-photoacoustic-${{ steps.set_tag.outputs.tag }}-${{ matrix.target }}"
+          ARCHIVE_NAME="rust-photoacoustic-${{ needs.compute-tag.outputs.tag }}-${{ matrix.target }}"
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             7z a "${ARCHIVE_NAME}.zip" package/*
             echo "ARCHIVE_PATH=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
@@ -483,22 +378,19 @@ jobs:
           path: rust/${{ env.ARCHIVE_PATH }}
           retention-days: 90
 
-  build_and_release_docker:
+  # Docker build: Trixie (Debian)
+  build-trixie:
+    name: Build Docker Image (Trixie)
+    runs-on: ubuntu-latest
+    needs: compute-tag
     permissions:
       id-token: write
       contents: write
       packages: write
-      attestations: write
-    name: Push Docker image to Docker Hub and release binaries
-    runs-on: ubuntu-latest
-    needs: build_release_binaries
-    env:
-      DOCKER_ARMHF_EXPERIMENTAL: off # Set to 'enabled' to enable armhf build
-      INDIVIDUAL_STATIC_RELEASES: off # Set to 'enabled' to enable individual static releases
+
     steps:
       - name: Clean runner for Docker builds
         uses: sctg-development/clean-image-for-docker@v1
-        # Optional parameters
         with:
           remove-development-tools: "true"
           remove-browsers: "true"
@@ -506,118 +398,26 @@ jobs:
           remove-cloud-tools: "true"
           show-top-packages: "true"
 
-      - name: Configure Altium HTTP credentials
-        shell: bash
-        run: |
-          git config --global credential.helper store
-          ENCODED=$(python3 -c "
-          import urllib.parse, os
-          user = urllib.parse.quote(os.environ['ALTIUM_365_USER'], safe='')
-          pwd  = urllib.parse.quote(os.environ['ALTIUM_365_PASSWORD'], safe='')
-          print(f'https://{user}:{pwd}@afs-vcs-eu1.365.altium.com')
-          ")
-          echo "$ENCODED" >> ~/.git-credentials
-          chmod 600 ~/.git-credentials
-        env:
-          ALTIUM_365_USER: ${{ secrets.ALTIUM_365_USER }}
-          ALTIUM_365_PASSWORD: ${{ secrets.ALTIUM_365_PASSWORD }}
-
-      - name: Check out the repo
-        uses: actions/checkout@v6
+      - name: Setup repository
+        uses: ./.github/actions/setup-repo
         with:
-          submodules: false
-          fetch-depth: 0
+          altium-user: ${{ secrets.ALTIUM_365_USER }}
+          altium-password: ${{ secrets.ALTIUM_365_PASSWORD }}
+          debug-submodules: "false"
 
-      - name: Init and update submodules
-        shell: bash
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
-
-      - name: Set release tag
-        id: set_tag
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # For manual workflow dispatch, use nightly tag with current date
-            TAG="nightly.$(date +'%Y%m%d')"
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Using nightly tag: $TAG"
-          else
-            # For release events, use the release tag
-            TAG="${{ github.event.release.tag_name }}"
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-            echo "Using release tag: $TAG"
-          fi
-
-      - name: Create release for nightly builds
-        if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=${{ steps.set_tag.outputs.tag }}
-          echo "Creating nightly release: $TAG"
-          gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture static binaries." --prerelease
-
-      # Download release artifacts from build job
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
+      - name: Setup Docker environment
+        uses: ./.github/actions/setup-docker
         with:
-          path: artifacts/
+          platforms: "linux/amd64,linux/arm64"
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Upload non-static binaries to release
-      - name: Upload release artifacts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=${{ steps.set_tag.outputs.tag }}
-          echo "Uploading release artifacts for tag: $TAG"
-
-          # Upload all downloaded artifacts
-          for artifact_dir in artifacts/*/; do
-            if [ -d "$artifact_dir" ]; then
-              echo "Processing artifact directory: $artifact_dir"
-              for file in "$artifact_dir"*; do
-                if [ -f "$file" ]; then
-                  echo "Uploading: $file"
-                  gh release upload "$TAG" "$file" --clobber
-                fi
-              done
-            fi
-          done
-
-      - name: Set Docker platforms
-        id: set_platforms
-        run: |
-          if [ "${{ env.DOCKER_ARMHF_EXPERIMENTAL }}" = "enabled" ]; then
-            echo "platforms=linux/arm64,linux/amd64,linux/arm/v7" >> $GITHUB_OUTPUT
-            echo "Using platforms with armhf: linux/arm64,linux/amd64,linux/arm/v7"
-          else
-            echo "platforms=linux/arm64,linux/amd64" >> $GITHUB_OUTPUT
-            echo "Using platforms without armhf: linux/arm64,linux/amd64"
-          fi
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: ${{ steps.set_platforms.outputs.platforms }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
+      - name: Build and push Trixie image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./rust/docker/Dockerfile.trixie
-          platforms: ${{ steps.set_platforms.outputs.platforms }}
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           push: true
@@ -625,406 +425,180 @@ jobs:
             GIT_COMMIT_HASH_SHORT=${{ github.sha }}
             GIT_COMMIT_HASH_FULL=${{ github.sha }}
             GIT_COMMIT_DATE=${{ github.event.repository.updated_at }}
-            VERSION=${{ steps.set_tag.outputs.tag }}
-          tags: sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}
+            VERSION=${{ needs.compute-tag.outputs.tag }}
+          tags: |
+            sctg/rust-photoacoustic:${{ needs.compute-tag.outputs.tag }}
+            sctg/rust-photoacoustic:latest
           labels: |
             org.opencontainers.image.title=rust-photoacoustic
             org.opencontainers.image.description=Photoacoustic signal processing
-            org.opencontainers.image.version=${{ steps.set_tag.outputs.tag }}
+            org.opencontainers.image.version=${{ needs.compute-tag.outputs.tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Pull and extract files from Docker image (amd64)
-        continue-on-error: true
+      - name: Extract Trixie binaries (amd64)
+        uses: ./.github/actions/extract-docker-arch
+        with:
+          image: sctg/rust-photoacoustic
+          arch: amd64
+          tag: ${{ needs.compute-tag.outputs.tag }}
+          archive-suffix: x86_64-unknown-linux-gnu
+          extract-deb: "true"
+          extract-python-static: "false"
+
+      - name: Extract Trixie binaries (arm64)
+        uses: ./.github/actions/extract-docker-arch
+        with:
+          image: sctg/rust-photoacoustic
+          arch: arm64
+          tag: ${{ needs.compute-tag.outputs.tag }}
+          archive-suffix: aarch64-unknown-linux-gnu
+          extract-deb: "true"
+          extract-python-static: "false"
+
+      - name: Upload .deb packages to artifacts
+        shell: bash
         run: |
-          export TAG=${{ steps.set_tag.outputs.tag }}
-          mkdir -p /tmp/amd64/
-          docker pull sctg/rust-photoacoustic:${TAG}
-          docker create --platform linux/amd64 --name temp-container-amd64 sctg/rust-photoacoustic:${TAG}
+          mkdir -p /tmp/artifacts
+          ls -la /tmp/amd64/ /tmp/arm64/ 2>/dev/null || true
+          # Artifacts are already uploaded by extract-docker-arch action
 
-          # Extract all photoacoustic binaries
-          docker cp temp-container-amd64:/usr/local/bin/create_token /tmp/amd64/ || echo "create_token not found"
-          docker cp temp-container-amd64:/usr/local/bin/analyze_spectrum /tmp/amd64/ || echo "analyze_spectrum not found"
-          docker cp temp-container-amd64:/usr/local/bin/debug_config /tmp/amd64/ || echo "debug_config not found"
-          docker cp temp-container-amd64:/usr/local/bin/differential /tmp/amd64/ || echo "differential not found"
-          docker cp temp-container-amd64:/usr/local/bin/filters /tmp/amd64/ || echo "filters not found"
-          docker cp temp-container-amd64:/usr/local/bin/modbus_client /tmp/amd64/ || echo "modbus_client not found"
-          docker cp temp-container-amd64:/usr/local/bin/noise_generator /tmp/amd64/ || echo "noise_generator not found"
-          docker cp temp-container-amd64:/usr/local/bin/pid_tuner /tmp/amd64/ || echo "pid_tuner not found"
-          docker cp temp-container-amd64:/usr/local/bin/redis_viewer /tmp/amd64/ || echo "redis_viewer not found"
-          docker cp temp-container-amd64:/usr/local/bin/rs256keygen /tmp/amd64/ || echo "rs256keygen not found"
-          docker cp temp-container-amd64:/usr/local/bin/rust_photoacoustic /tmp/amd64/ || echo "rust_photoacoustic not found"
-          docker cp temp-container-amd64:/usr/local/bin/standalone /tmp/amd64/ || echo "standalone not found"
-          # copy also the python binary and libpython static library
-          docker cp temp-container-amd64:/usr/local/bin/python3.13 /tmp/amd64/ || echo "python3 not found"
-          docker cp temp-container-amd64:/usr/local/lib/libpython3.13.a /tmp/amd64/ || echo "libpython3.13.a not found"
+  # Docker build: Alpine (musl static)
+  build-alpine:
+    name: Build Docker Image (Alpine static)
+    runs-on: ubuntu-latest
+    needs: compute-tag
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
 
-          # Extract the .deb package
-          docker cp temp-container-amd64:/packages/lasersmart.deb /tmp/amd64/lasersmart_${{ steps.set_tag.outputs.tag }}_amd64.deb || echo "lasersmart.deb not found"
+    steps:
+      - name: Clean runner for Docker builds
+        uses: sctg-development/clean-image-for-docker@v1
+        with:
+          remove-development-tools: "true"
+          remove-browsers: "true"
+          remove-databases: "true"
+          remove-cloud-tools: "true"
+          show-top-packages: "true"
 
-          docker rm temp-container-amd64
+      - name: Setup repository
+        uses: ./.github/actions/setup-repo
+        with:
+          altium-user: ${{ secrets.ALTIUM_365_USER }}
+          altium-password: ${{ secrets.ALTIUM_365_PASSWORD }}
+          debug-submodules: "false"
 
-          # Rename binaries with architecture suffix for individual static releases
-          cd /tmp/amd64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.13.a python3.13; do
-            if [ -f "$binary" ]; then
-              mv "$binary" "${binary}_linux_amd64_static_${{ steps.set_tag.outputs.tag }}"
-            fi
-          done
+      - name: Setup Docker environment
+        uses: ./.github/actions/setup-docker
+        with:
+          platforms: "linux/amd64,linux/arm64"
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Pull and extract files from Docker image (arm64)
-        continue-on-error: true
-        run: |
-          export TAG=${{ steps.set_tag.outputs.tag }}
-          mkdir -p /tmp/arm64/
-          docker pull sctg/rust-photoacoustic:${TAG}
-          docker create --platform linux/arm64 --name temp-container-arm64 sctg/rust-photoacoustic:${TAG}
+      - name: Build and push Alpine image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./rust/docker/Dockerfile.alpine-3.23
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          build-args: |
+            GIT_COMMIT_HASH_SHORT=${{ github.sha }}
+            GIT_COMMIT_HASH_FULL=${{ github.sha }}
+            GIT_COMMIT_DATE=${{ github.event.repository.updated_at }}
+            VERSION=${{ needs.compute-tag.outputs.tag }}
+          tags: |
+            sctg/rust-photoacoustic-static:${{ needs.compute-tag.outputs.tag }}
+            sctg/rust-photoacoustic-static:latest
+          labels: |
+            org.opencontainers.image.title=rust-photoacoustic-static
+            org.opencontainers.image.description=Static Rust binaries for rust-photoacoustic
+            org.opencontainers.image.version=${{ needs.compute-tag.outputs.tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
-          # Extract all photoacoustic binaries
-          docker cp temp-container-arm64:/usr/local/bin/create_token /tmp/arm64/ || echo "create_token not found"
-          docker cp temp-container-arm64:/usr/local/bin/analyze_spectrum /tmp/arm64/ || echo "analyze_spectrum not found"
-          docker cp temp-container-arm64:/usr/local/bin/debug_config /tmp/arm64/ || echo "debug_config not found"
-          docker cp temp-container-arm64:/usr/local/bin/differential /tmp/arm64/ || echo "differential not found"
-          docker cp temp-container-arm64:/usr/local/bin/filters /tmp/arm64/ || echo "filters not found"
-          docker cp temp-container-arm64:/usr/local/bin/modbus_client /tmp/arm64/ || echo "modbus_client not found"
-          docker cp temp-container-arm64:/usr/local/bin/noise_generator /tmp/arm64/ || echo "noise_generator not found"
-          docker cp temp-container-arm64:/usr/local/bin/pid_tuner /tmp/arm64/ || echo "pid_tuner not found"
-          docker cp temp-container-arm64:/usr/local/bin/redis_viewer /tmp/arm64/ || echo "redis_viewer not found"
-          docker cp temp-container-arm64:/usr/local/bin/rs256keygen /tmp/arm64/ || echo "rs256keygen not found"
-          docker cp temp-container-arm64:/usr/local/bin/rust_photoacoustic /tmp/arm64/ || echo "rust_photoacoustic not found"
-          docker cp temp-container-arm64:/usr/local/bin/standalone /tmp/arm64/ || echo "standalone not found"
-          # copy also the python binary and libpython static library
-          docker cp temp-container-arm64:/usr/local/bin/python3.13 /tmp/arm64/ || echo "python3 not found"
-          docker cp temp-container-arm64:/usr/local/lib/libpython3.13.a /tmp/arm64/ || echo "libpython3.13.a not found"
+      - name: Extract Alpine binaries (amd64)
+        uses: ./.github/actions/extract-docker-arch
+        with:
+          image: sctg/rust-photoacoustic-static
+          arch: amd64
+          tag: ${{ needs.compute-tag.outputs.tag }}
+          archive-suffix: x86_64-unknown-linux-musl
+          extract-deb: "false"
+          extract-python-static: "true"
 
-          # Extract the .deb package
-          docker cp temp-container-arm64:/packages/lasersmart.deb /tmp/arm64/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb || echo "lasersmart.deb not found"
+      - name: Extract Alpine binaries (arm64)
+        uses: ./.github/actions/extract-docker-arch
+        with:
+          image: sctg/rust-photoacoustic-static
+          arch: arm64
+          tag: ${{ needs.compute-tag.outputs.tag }}
+          archive-suffix: aarch64-unknown-linux-musl
+          extract-deb: "false"
+          extract-python-static: "true"
 
-          docker rm temp-container-arm64
+  # Release: upload all artifacts
+  release:
+    name: Upload Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [compute-tag, build-native, build-trixie, build-alpine]
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
 
-          # Rename binaries with architecture suffix for individual static releases
-          cd /tmp/arm64/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic standalone libpython3.13.a python3.13; do
-            if [ -f "$binary" ]; then
-              mv "$binary" "${binary}_linux_arm64_static_${{ steps.set_tag.outputs.tag }}"
-            fi
-          done
+    steps:
+      - name: Setup repository
+        uses: ./.github/actions/setup-repo
+        with:
+          altium-user: ${{ secrets.ALTIUM_365_USER }}
+          altium-password: ${{ secrets.ALTIUM_365_PASSWORD }}
+          debug-submodules: "false"
 
-      - name: Pull and extract files from Docker image (armhf)
-        continue-on-error: true
-        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' }}
-        run: |
-          export TAG=${{ steps.set_tag.outputs.tag }}
-          mkdir -p /tmp/armhf/
-          docker pull sctg/rust-photoacoustic:latest
-          docker create --platform linux/arm/v7 --name temp-container-armhf sctg/rust-photoacoustic:latest
-
-          # Extract all photoacoustic binaries
-          docker cp temp-container-armhf:/usr/local/bin/create_token /tmp/armhf/ || echo "create_token not found"
-          docker cp temp-container-armhf:/usr/local/bin/analyze_spectrum /tmp/armhf/ || echo "analyze_spectrum not found"
-          docker cp temp-container-armhf:/usr/local/bin/debug_config /tmp/armhf/ || echo "debug_config not found"
-          docker cp temp-container-armhf:/usr/local/bin/differential /tmp/armhf/ || echo "differential not found"
-          docker cp temp-container-armhf:/usr/local/bin/filters /tmp/armhf/ || echo "filters not found"
-          docker cp temp-container_armhf:/usr/local/bin/modbus_client /tmp/armhf/ || echo "modbus_client not found"
-          docker cp temp-container-armhf:/usr/local/bin/noise_generator /tmp/armhf/ || echo "noise_generator not found"
-          docker cp temp-container-armhf:/usr/local/bin/pid_tuner /tmp/armhf/ || echo "pid_tuner not found"
-          docker cp temp-container-armhf:/usr/local/bin/redis_viewer /tmp/armhf/ || echo "redis_viewer not found"
-          docker cp temp-container-armhf:/usr/local/bin/rs256keygen /tmp/armhf/ || echo "rs256keygen not found"
-          docker cp temp-container-armhf:/usr/local/bin/rust_photoacoustic /tmp/armhf/ || echo "rust_photoacoustic not found"
-          # copy also the python binary and libpython static library
-          docker cp temp-container-armhf:/usr/local/bin/python3.13 /tmp/armhf/ || echo "python3 not found"
-          docker cp temp-container-armhf:/usr/local/lib/libpython3.13.a /tmp/armhf/ || echo "libpython3.13.a not found"
-
-          docker rm temp-container-armhf
-
-          # Rename binaries with architecture suffix
-          cd /tmp/armhf/
-          for binary in create_token analyze_spectrum debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen rust_photoacoustic libpython3.13.a python3.13; do
-            if [ -f "$binary" ]; then
-              mv "$binary" "${binary}_linux_armhf_static_${{ steps.set_tag.outputs.tag }}"
-            fi
-          done
-
-      - name: Upload amd64 Release binaries
-        if: ${{ env.INDIVIDUAL_STATIC_RELEASES == 'enabled' }}
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Uploading amd64 binaries..."
-          TAG=${{ steps.set_tag.outputs.tag }}
-
-          # Upload individual static binaries
-          ls -la /tmp/amd64/
-          for binary in /tmp/amd64/*_linux_amd64_static_${TAG}; do
-            if [ -f "$binary" ]; then
-              echo "Uploading: $binary"
-              gh release upload ${TAG} "$binary" --clobber
-            fi
-          done
-
-          # Upload static package
-          if [ -f "/tmp/static-packages/amd64/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" ]; then
-            echo "Uploading static package: rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz"
-            gh release upload ${TAG} "/tmp/static-packages/amd64/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" --clobber
-          fi
-
-      - name: Upload arm64 Release binaries
-        if: ${{ env.INDIVIDUAL_STATIC_RELEASES == 'enabled' }}
+      - name: Create nightly release
+        if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Uploading arm64 binaries..."
-          TAG=${{ steps.set_tag.outputs.tag }}
+          TAG=${{ needs.compute-tag.outputs.tag }}
+          echo "Creating nightly release: $TAG"
+          gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture binaries." --prerelease
 
-          # Upload individual static binaries
-          ls -la /tmp/arm64/
-          for binary in /tmp/arm64/*_linux_arm64_static_${TAG}; do
-            if [ -f "$binary" ]; then
-              echo "Uploading: $binary"
-              gh release upload ${TAG} "$binary" --clobber
-            fi
-          done
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
 
-          # Upload static package
-          if [ -f "/tmp/static-packages/arm64/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" ]; then
-            echo "Uploading static package: rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz"
-            gh release upload ${TAG} "/tmp/static-packages/arm64/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" --clobber
-          fi
-
-      - name: Upload armhf Release binaries
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: ${{ env.DOCKER_ARMHF_EXPERIMENTAL == 'enabled' && env.INDIVIDUAL_STATIC_RELEASES == 'enabled' }}
-        run: |
-          echo "Uploading armhf binaries..."
-          ls -la /tmp/armhf/
-          for binary in /tmp/armhf/*_linux_armhf_static_${{ steps.set_tag.outputs.tag }}; do
-            if [ -f "$binary" ]; then
-              echo "Uploading: $binary"
-              gh release upload ${{ steps.set_tag.outputs.tag }} "$binary" --clobber
-            fi
-          done
-
-      - name: Upload lasersmart .deb packages to release
-        continue-on-error: true
+      - name: Upload release artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG=${{ steps.set_tag.outputs.tag }}
-          echo "Uploading lasersmart .deb packages..."
-          for deb in /tmp/amd64/lasersmart_${TAG}_amd64.deb /tmp/arm64/lasersmart_${TAG}_arm64.deb; do
-            if [ -f "$deb" ]; then
-              echo "Uploading: $deb"
-              gh release upload "${TAG}" "$deb" --clobber
-            else
-              echo "Not found, skipping: $deb"
-            fi
-          done
+          TAG=${{ needs.compute-tag.outputs.tag }}
+          echo "Uploading release artifacts for tag: $TAG"
 
-      - name: Create static Linux packages
-        continue-on-error: true
-        run: |
-          TAG=${{ steps.set_tag.outputs.tag }}
-
-          # Create amd64 static package
-          if [ -d "/tmp/amd64" ] && [ "$(ls -A /tmp/amd64)" ]; then
-            mkdir -p /tmp/static-package-amd64/bin
-            mkdir -p /tmp/static-package-amd64/lib
-            
-            # Copy all binaries and remove architecture suffix for clean package
-            cd /tmp/amd64/
-            for file in *_linux_amd64_static_${TAG}; do
-              if [ -f "$file" ]; then
-                # Extract original binary name (remove _linux_amd64_static_TAG suffix)
-                original_name=$(echo "$file" | sed "s/_linux_amd64_static_${TAG}//")
-                if [[ "$original_name" == "libpython3.13.a" || "$original_name" == "python3.13" ]]; then
-                  cp "$file" "/tmp/static-package-amd64/lib/${original_name}"
-                # else
-                #   cp "$file" "/tmp/static-package-amd64/bin/${original_name}"
+          # Upload all artifacts recursively
+          for artifact_dir in artifacts/*/; do
+            if [ -d "$artifact_dir" ]; then
+              echo "Processing artifact directory: $artifact_dir"
+              for file in "$artifact_dir"*; do
+                if [ -f "$file" ]; then
+                  echo "Uploading: $(basename $file)"
+                  gh release upload "$TAG" "$file" --clobber
                 fi
-                echo "Added to amd64 package: ${original_name}"
-              fi
-            done
-            
-            # Create launch scripts for all binaries
-            for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
-              if [ -f "/tmp/static-package-amd64/bin/${binary}" ]; then
-                # Create launch script
-                echo '#!/bin/bash' > "/tmp/static-package-amd64/${binary}"
-                echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' >> "/tmp/static-package-amd64/${binary}"
-                echo 'export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"' >> "/tmp/static-package-amd64/${binary}"
-                echo "exec \"\${SCRIPT_DIR}/bin/${binary}\" \"\$@\"" >> "/tmp/static-package-amd64/${binary}"
-                chmod +x "/tmp/static-package-amd64/${binary}"
-                echo "Created launch script: ${binary}"
-              fi
-            done
-            
-            # Create README for static package
-            echo "# Rust Photoacoustic - Static Linux Package (x86_64)" > /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "This package contains statically linked Rust Photoacoustic binaries for Linux x86_64." >> /tmp/static-package-amd64/README.md
-            echo "These binaries are self-contained and do not require external dependencies." >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "## Contents" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "- \`bin/\`: Statically linked executable binaries" >> /tmp/static-package-amd64/README.md
-            echo "- \`lib/\`: Static Python libraries (if needed)" >> /tmp/static-package-amd64/README.md
-            echo "- Launch scripts for easy execution" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "## Available Tools" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> /tmp/static-package-amd64/README.md
-            echo "- **analyze_spectrum**: Spectrum analysis tool" >> /tmp/static-package-amd64/README.md
-            echo "- **create_token**: JWT token generation utility" >> /tmp/static-package-amd64/README.md
-            echo "- **debug_config**: Configuration debugging utility" >> /tmp/static-package-amd64/README.md
-            echo "- **differential**: Differential signal processing" >> /tmp/static-package-amd64/README.md
-            echo "- **filters**: Signal filtering utilities" >> /tmp/static-package-amd64/README.md
-            echo "- **modbus_client**: Modbus communication client" >> /tmp/static-package-amd64/README.md
-            echo "- **noise_generator**: Noise generation for testing" >> /tmp/static-package-amd64/README.md
-            echo "- **pid_tuner**: PID controller tuning tool" >> /tmp/static-package-amd64/README.md
-            echo "- **redis_viewer**: Redis data viewer" >> /tmp/static-package-amd64/README.md
-            echo "- **rs256keygen**: RS256 key generation utility" >> /tmp/static-package-amd64/README.md
-            echo "- **standalone**: Standalone analysis tool" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "## Usage" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "Execute any tool directly:" >> /tmp/static-package-amd64/README.md
-            echo "./rust_photoacoustic [options]" >> /tmp/static-package-amd64/README.md
-            echo "./pid_tuner [options]" >> /tmp/static-package-amd64/README.md
-            echo "./analyze_spectrum [options]" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "## Requirements" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "- Linux x86_64 system" >> /tmp/static-package-amd64/README.md
-            echo "- No additional dependencies required (statically linked)" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "## Version" >> /tmp/static-package-amd64/README.md
-            echo "" >> /tmp/static-package-amd64/README.md
-            echo "Built from: ${{ github.sha }}" >> /tmp/static-package-amd64/README.md
-            echo "Target: x86_64-static-musl-linux-gnu" >> /tmp/static-package-amd64/README.md
-            echo "Build Date: $(date)" >> /tmp/static-package-amd64/README.md
-            
-            # Create tar.gz package
-            cd /tmp/static-package-amd64/
-            tar -czf "../rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" .
-            echo "Created amd64 static package: rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz"
-          fi
-
-          # Create arm64 static package
-          if [ -d "/tmp/arm64" ] && [ "$(ls -A /tmp/arm64)" ]; then
-            mkdir -p /tmp/static-package-arm64/bin
-            mkdir -p /tmp/static-package-arm64/lib
-            
-            # Copy all binaries and remove architecture suffix for clean package
-            cd /tmp/arm64/
-            for file in *_linux_arm64_static_${TAG}; do
-              if [ -f "$file" ]; then
-                # Extract original binary name (remove _linux_arm64_static_TAG suffix)
-                original_name=$(echo "$file" | sed "s/_linux_arm64_static_${TAG}//")
-                if [[ "$original_name" == "libpython3.13.a" || "$original_name" == "python3.13" ]]; then
-                  cp "$file" "/tmp/static-package-arm64/lib/${original_name}"
-                # else
-                #   cp "$file" "/tmp/static-package-arm64/bin/${original_name}"
-                fi
-                echo "Added to arm64 package: ${original_name}"
-              fi
-            done
-            
-            # Create launch scripts for all binaries
-            for binary in rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone; do
-              if [ -f "/tmp/static-package-arm64/bin/${binary}" ]; then
-                # Create launch script
-                echo '#!/bin/bash' > "/tmp/static-package-arm64/${binary}"
-                echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' >> "/tmp/static-package-arm64/${binary}"
-                echo 'export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"' >> "/tmp/static-package-arm64/${binary}"
-                echo "exec \"\${SCRIPT_DIR}/bin/${binary}\" \"\$@\"" >> "/tmp/static-package-arm64/${binary}"
-                chmod +x "/tmp/static-package-arm64/${binary}"
-                echo "Created launch script: ${binary}"
-              fi
-            done
-            
-            # Create README for static package
-            echo "# Rust Photoacoustic - Static Linux Package (aarch64)" > /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "This package contains statically linked Rust Photoacoustic binaries for Linux aarch64." >> /tmp/static-package-arm64/README.md
-            echo "These binaries are self-contained and do not require external dependencies." >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "## Contents" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "- \`bin/\`: Statically linked executable binaries" >> /tmp/static-package-arm64/README.md
-            echo "- \`lib/\`: Static Python libraries (if needed)" >> /tmp/static-package-arm64/README.md
-            echo "- Launch scripts for easy execution" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "## Available Tools" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> /tmp/static-package-arm64/README.md
-            echo "- **analyze_spectrum**: Spectrum analysis tool" >> /tmp/static-package-arm64/README.md
-            echo "- **create_token**: JWT token generation utility" >> /tmp/static-package-arm64/README.md
-            echo "- **debug_config**: Configuration debugging utility" >> /tmp/static-package-arm64/README.md
-            echo "- **differential**: Differential signal processing" >> /tmp/static-package-arm64/README.md
-            echo "- **filters**: Signal filtering utilities" >> /tmp/static-package-arm64/README.md
-            echo "- **modbus_client**: Modbus communication client" >> /tmp/static-package-arm64/README.md
-            echo "- **noise_generator**: Noise generation for testing" >> /tmp/static-package-arm64/README.md
-            echo "- **pid_tuner**: PID controller tuning tool" >> /tmp/static-package-arm64/README.md
-            echo "- **redis_viewer**: Redis data viewer" >> /tmp/static-package-arm64/README.md
-            echo "- **rs256keygen**: RS256 key generation utility" >> /tmp/static-package-arm64/README.md
-            echo "- **standalone**: Standalone analysis tool" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "## Usage" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "Execute any tool directly:" >> /tmp/static-package-arm64/README.md
-            echo "./rust_photoacoustic [options]" >> /tmp/static-package-arm64/README.md
-            echo "./pid_tuner [options]" >> /tmp/static-package-arm64/README.md
-            echo "./analyze_spectrum [options]" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "## Requirements" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "- Linux aarch64 system" >> /tmp/static-package-arm64/README.md
-            echo "- No additional dependencies required (statically linked)" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "## Version" >> /tmp/static-package-arm64/README.md
-            echo "" >> /tmp/static-package-arm64/README.md
-            echo "Built from: ${{ github.sha }}" >> /tmp/static-package-arm64/README.md
-            echo "Target: aarch64-static-musl-linux-gnu" >> /tmp/static-package-arm64/README.md
-            echo "Build Date: $(date)" >> /tmp/static-package-arm64/README.md
-            
-            # Create tar.gz package
-            cd /tmp/static-package-arm64/
-            tar -czf "../rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" .
-            echo "Created arm64 static package: rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz"
-          fi
-
-      - name: Upload static Linux packages
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=${{ steps.set_tag.outputs.tag }}
-          echo "Uploading static Linux packages..."
-
-          # Upload amd64 static package
-          if [ -f "/tmp/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" ]; then
-            echo "Uploading amd64 static package..."
-            gh release upload "$TAG" "/tmp/rust-photoacoustic-${TAG}-x86_64-static-musl-linux-gnu.tar.gz" --clobber
-          fi
-
-          # Upload arm64 static package
-          if [ -f "/tmp/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" ]; then
-            echo "Uploading arm64 static package..."
-            gh release upload "$TAG" "/tmp/rust-photoacoustic-${TAG}-aarch64-static-musl-linux-gnu.tar.gz" --clobber
-          fi
+              done
+            fi
+          done
 
       - name: Create attestation for release binaries
         uses: actions/attest-build-provenance@v1
         continue-on-error: true
         with:
-          subject-path: |
-            /tmp/amd64/*_linux_amd64_static_${{ steps.set_tag.outputs.tag }}
-            /tmp/arm64/*_linux_arm64_static_${{ steps.set_tag.outputs.tag }}
-            /tmp/armhf/*_linux_armhf_static_${{ steps.set_tag.outputs.tag }}
+          subject-path: artifacts/**/*
 
       - name: Generate release summary
         run: |
@@ -1032,212 +606,17 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Released Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Platform | Docker Image | Debian Package | Dynamic Binaries |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|--------------|----------------|------------------|" >> $GITHUB_STEP_SUMMARY
-
-          # AMD64 summary
-          echo -n "| **Linux x86_64 (Trixie)** | " >> $GITHUB_STEP_SUMMARY
-          echo -n "✅ linux/amd64 | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "/tmp/amd64/lasersmart_${{ steps.set_tag.outputs.tag }}_amd64.deb" ]; then
-            echo -n "✅ .deb | " >> $GITHUB_STEP_SUMMARY
-          else
-            echo -n "❌ Not found | " >> $GITHUB_STEP_SUMMARY
-          fi
-          ls artifacts/rust-photoacoustic-x86_64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " |" >> $GITHUB_STEP_SUMMARY
-
-          # ARM64 summary
-          echo -n "| **Linux arm64 (Trixie/RPi)** | " >> $GITHUB_STEP_SUMMARY
-          echo -n "✅ linux/arm64 | " >> $GITHUB_STEP_SUMMARY
-          if [ -f "/tmp/arm64/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb" ]; then
-            echo -n "✅ .deb | " >> $GITHUB_STEP_SUMMARY
-          else
-            echo -n "❌ Not found | " >> $GITHUB_STEP_SUMMARY
-          fi
-          ls artifacts/rust-photoacoustic-aarch64-unknown-linux-gnu/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " |" >> $GITHUB_STEP_SUMMARY
-
-          # Windows summary
-          echo -n "| **Windows x64** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
-          ls artifacts/rust-photoacoustic-x86_64-pc-windows-msvc/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " |" >> $GITHUB_STEP_SUMMARY
-
-          # macOS Intel summary
-          echo -n "| **macOS Intel** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
-          ls artifacts/rust-photoacoustic-x86_64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " |" >> $GITHUB_STEP_SUMMARY
-
-          # macOS Apple Silicon summary
-          echo -n "| **macOS Apple Silicon** | N/A | N/A | " >> $GITHUB_STEP_SUMMARY
-          ls artifacts/rust-photoacoustic-aarch64-apple-darwin/ 2>/dev/null | wc -l | tr -d '\n' >> $GITHUB_STEP_SUMMARY
-          echo " |" >> $GITHUB_STEP_SUMMARY
-
+          echo "| Platform | Type | Container | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Linux x86_64 (Trixie)** | Dynamic | ✅ sctg/rust-photoacoustic:${{ needs.compute-tag.outputs.tag }} | $([ -f artifacts/docker-binaries-amd64/*gnu.tar.gz ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
+          echo "| **Linux arm64 (Trixie)** | Dynamic | ✅ sctg/rust-photoacoustic:${{ needs.compute-tag.outputs.tag }} | $([ -f artifacts/docker-binaries-arm64/*gnu.tar.gz ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
+          echo "| **Linux x86_64 (Alpine)** | Static musl | ✅ sctg/rust-photoacoustic-static:${{ needs.compute-tag.outputs.tag }} | $([ -f artifacts/docker-binaries-amd64/*musl.tar.gz ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
+          echo "| **Linux arm64 (Alpine)** | Static musl | ✅ sctg/rust-photoacoustic-static:${{ needs.compute-tag.outputs.tag }} | $([ -f artifacts/docker-binaries-arm64/*musl.tar.gz ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
+          echo "| **Windows x64** | Dynamic | N/A | $([ -f artifacts/rust-photoacoustic-x86_64-pc-windows-msvc/*.zip ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
+          echo "| **macOS Intel** | Dynamic | N/A | $([ -f artifacts/rust-photoacoustic-x86_64-apple-darwin/*.tar.gz ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
+          echo "| **macOS Apple Silicon** | Dynamic | N/A | $([ -f artifacts/rust-photoacoustic-aarch64-apple-darwin/*.tar.gz ] && echo '✅' || echo '⏳')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔧 Available Tools (All Packages)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Available Tools" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **rust_photoacoustic**: Main photoacoustic analysis server" >> $GITHUB_STEP_SUMMARY
-          echo "- **analyze_spectrum**: Spectrum analysis tool" >> $GITHUB_STEP_SUMMARY
-          echo "- **create_token**: JWT token generation utility" >> $GITHUB_STEP_SUMMARY
-          echo "- **debug_config**: Configuration debugging utility" >> $GITHUB_STEP_SUMMARY
-          echo "- **differential**: Differential signal processing" >> $GITHUB_STEP_SUMMARY
-          echo "- **filters**: Signal filtering utilities" >> $GITHUB_STEP_SUMMARY
-          echo "- **modbus_client**: Modbus communication client" >> $GITHUB_STEP_SUMMARY
-          echo "- **noise_generator**: Noise generation for testing" >> $GITHUB_STEP_SUMMARY
-          echo "- **pid_tuner**: PID controller tuning tool" >> $GITHUB_STEP_SUMMARY
-          echo "- **redis_viewer**: Redis data viewer" >> $GITHUB_STEP_SUMMARY
-          echo "- **rs256keygen**: RS256 key generation utility" >> $GITHUB_STEP_SUMMARY
-          echo "- **standalone**: Standalone analysis tool" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Package Types" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Debian Packages (.deb) - RECOMMENDED for Linux servers/Raspberry Pi:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`lasersmart_*.deb\` (amd64 & arm64)" >> $GITHUB_STEP_SUMMARY
-          echo "- Built from Debian 13 (Trixie) official base image" >> $GITHUB_STEP_SUMMARY
-          echo "- All binaries compiled for Debian 13 / Ubuntu 24.04 LTS" >> $GITHUB_STEP_SUMMARY
-          echo "- Automatic dependency resolution via dpkg" >> $GITHUB_STEP_SUMMARY
-          echo "- Native RPi OS 64-bit support (arm64)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Dynamic binary packages:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Available for Windows, macOS (Intel & Apple Silicon), and Linux glibc" >> $GITHUB_STEP_SUMMARY
-          echo "- Platform-specific: download matching your OS architecture" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Multi-architecture Docker image: \`sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Base: Debian 13 Trixie slim" >> $GITHUB_STEP_SUMMARY
-          echo "- Binaries also extractable via \`docker cp\` for standalone use" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Quick Start" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**For production/server deployment (Debian/Ubuntu/Raspberry Pi):**" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# Download and install .deb package" >> $GITHUB_STEP_SUMMARY
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ steps.set_tag.outputs.tag }}/lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb" >> $GITHUB_STEP_SUMMARY
-          echo "sudo apt install ./lasersmart_${{ steps.set_tag.outputs.tag }}_arm64.deb" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Run any tool" >> $GITHUB_STEP_SUMMARY
-          echo "rust_photoacoustic --help" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**For Docker deployment:**" >> $GITHUB_STEP_SUMMARY
-          echo "Use \`docker run sctg/rust-photoacoustic:${{ steps.set_tag.outputs.tag }}\` or extract binaries via Docker." >> $GITHUB_STEP_SUMMARY
-
-      - name: Update GitHub Release Notes
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=${{ steps.set_tag.outputs.tag }}
-
-          # Generate comprehensive release notes
-          echo "## 🎯 Multi-Architecture Rust Photoacoustic Release" > release_notes.md
-          echo "" >> release_notes.md
-          echo "This release provides Rust Photoacoustic binaries built with **Debian 13 (Trixie)** for Linux servers, Raspberry Pi, and other platforms." >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### 📦 Available Packages" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "#### 🏆 Debian Packages (.deb) - RECOMMENDED for Linux/Raspberry Pi" >> release_notes.md
-          echo "- \`lasersmart_${TAG}_amd64.deb\` - x86_64 Debian package (Linux servers)" >> release_notes.md
-          echo "- \`lasersmart_${TAG}_arm64.deb\` - aarch64 Debian package (Raspberry Pi 4/5 64-bit, Ubuntu 24.04 ARM64)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "**Features:**" >> release_notes.md
-          echo "- ✅ **Official Debian 13 (Trixie) build** - Built from Debian base image" >> release_notes.md
-          echo "- ✅ **Simple installation** - Standard \`apt install\` process" >> release_notes.md
-          echo "- ✅ **Automatic dependencies** - dpkg resolves all required libraries" >> release_notes.md
-          echo "- ✅ **Production ready** - Optimized release builds" >> release_notes.md
-          echo "- ✅ **Native RPi support** - Works on Raspberry Pi OS 64-bit (Dec 4, 2025)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "#### 🐳 Docker Image (Multi-architecture)" >> release_notes.md
-          echo "\`sctg/rust-photoacoustic:${TAG}\`" >> release_notes.md
-          echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`" >> release_notes.md
-          echo "- Base: Debian 13 Trixie slim" >> release_notes.md
-          echo "- Direct container usage or extract binaries via \`docker cp\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "#### 🔧 Dynamic Binary Packages (Platform-specific)" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-x86_64-pc-windows-msvc.zip\` - Windows x64 package" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-x86_64-apple-darwin.zip\` - macOS Intel package" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-aarch64-apple-darwin.zip\` - macOS Apple Silicon package" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-x86_64-unknown-linux-gnu.tar.gz\` - Linux x64 glibc package" >> release_notes.md
-          echo "- \`rust-photoacoustic-${TAG}-aarch64-unknown-linux-gnu.tar.gz\` - Linux ARM64 glibc package" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### 🔧 Available Tools" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "All packages include these Rust Photoacoustic tools:" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "- **rust_photoacoustic** - Main photoacoustic analysis server" >> release_notes.md
-          echo "- **analyze_spectrum** - Spectrum analysis tool" >> release_notes.md
-          echo "- **create_token** - JWT token generation utility" >> release_notes.md
-          echo "- **debug_config** - Configuration debugging utility" >> release_notes.md
-          echo "- **differential** - Differential signal processing" >> release_notes.md
-          echo "- **filters** - Signal filtering utilities" >> release_notes.md
-          echo "- **modbus_client** - Modbus communication client" >> release_notes.md
-          echo "- **noise_generator** - Noise generation for testing" >> release_notes.md
-          echo "- **pid_tuner** - PID controller tuning tool" >> release_notes.md
-          echo "- **redis_viewer** - Redis data viewer" >> release_notes.md
-          echo "- **rs256keygen** - RS256 key generation utility" >> release_notes.md
-          echo "- **standalone** - Standalone analysis tool" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### 🚀 Installation & Quick Start" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "#### For Debian/Ubuntu/Raspberry Pi (RECOMMENDED):" >> release_notes.md
-          echo "\`\`\`bash" >> release_notes.md
-          echo "# Download the appropriate .deb package for your architecture" >> release_notes.md
-          echo "# For Raspberry Pi 64-bit or Ubuntu 24.04 ARM64:" >> release_notes.md
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${TAG}/lasersmart_${TAG}_arm64.deb" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "# For Linux x86_64 servers:" >> release_notes.md
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${TAG}/lasersmart_${TAG}_amd64.deb" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "# Install the package" >> release_notes.md
-          echo "sudo apt install ./lasersmart_${TAG}_arm64.deb" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "# Run any tool" >> release_notes.md
-          echo "rust_photoacoustic --help" >> release_notes.md
-          echo "pid_tuner --help" >> release_notes.md
-          echo "\`\`\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "#### For Docker:" >> release_notes.md
-          echo "\`\`\`bash" >> release_notes.md
-          echo "# Run directly from Docker" >> release_notes.md
-          echo "docker run --rm sctg/rust-photoacoustic:${TAG} rust_photoacoustic --help" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "# Or extract binaries for standalone use" >> release_notes.md
-          echo "docker create --name temp sctg/rust-photoacoustic:${TAG}" >> release_notes.md
-          echo "docker cp temp:/usr/local/bin ./binaries" >> release_notes.md
-          echo "docker rm temp" >> release_notes.md
-          echo "\`\`\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "#### For Development/Local Use:" >> release_notes.md
-          echo "Download the appropriate dynamic package for your platform (Windows, macOS, Linux glibc) and extract. Run tools using the provided launch scripts." >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### 📋 Package Details" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "**Debian Packages (.deb):**" >> release_notes.md
-          echo "- Built on Debian 13 base image" >> release_notes.md
-          echo "- All binaries installed to \`/usr/local/bin/\`" >> release_notes.md
-          echo "- Dependencies automatically managed by apt" >> release_notes.md
-          echo "- Works on Debian 13, Ubuntu 24.04 LTS, Raspberry Pi OS 64-bit, and compatible systems" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "**Dynamic Packages (All Platforms):**" >> release_notes.md
-          echo "- \`bin/\` - Platform-specific binaries" >> release_notes.md
-          echo "- \`lib/\` - Required dynamic libraries (.dylib/.dll/.so)" >> release_notes.md
-          echo "- Launch scripts for easy execution" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "**Docker Image:**" >> release_notes.md
-          echo "- Multi-platform support (\`linux/amd64\`, \`linux/arm64\`)" >> release_notes.md
-          echo "- Minimal Debian Trixie base" >> release_notes.md
-          echo "- Ready to run as container or for binary extraction" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### ℹ️ Build Information" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "- **Commit**: ${{ github.sha }}" >> release_notes.md
-          echo "- **Base OS**: Debian 13 (Trixie)" >> release_notes.md
-          echo "- **For Raspberry Pi**: Use \`arm64.deb\` with RPi OS 64-bit (recommended v4 Dec 2025+)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "Built from: ${{ github.repository }} @ ${{ github.sha }}" >> release_notes.md
-
-          # Update the GitHub release with the comprehensive notes
-          gh release edit "$TAG" --notes-file release_notes.md || echo "Failed to update release notes, continuing..."
-
-          echo "✅ Release notes updated with Debian/Docker/multiarch information"
+          echo "- rust_photoacoustic, analyze_spectrum, create_token, debug_config, differential" >> $GITHUB_STEP_SUMMARY
+          echo "- filters, modbus_client, noise_generator, pid_tuner, redis_viewer, rs256keygen, standalone" >> $GITHUB_STEP_SUMMARY

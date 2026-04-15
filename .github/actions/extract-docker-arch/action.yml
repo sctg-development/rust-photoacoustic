@@ -1,0 +1,123 @@
+name: Extract and Archive Docker Binaries
+description: Extract binaries from Docker image by architecture, create archive and upload artifact
+inputs:
+  image:
+    description: Docker image name (e.g., sctg/rust-photoacoustic)
+    required: true
+  arch:
+    description: Architecture (amd64 or arm64)
+    required: true
+    default: amd64
+  tag:
+    description: Image tag and artifact suffix
+    required: true
+  archive-suffix:
+    description: Suffix for archive filename (e.g., linux_amd64_gnu or linux_amd64_musl)
+    required: true
+  binaries:
+    description: Space-separated list of binaries to extract
+    required: true
+    default: "rust_photoacoustic analyze_spectrum create_token debug_config differential filters modbus_client noise_generator pid_tuner redis_viewer rs256keygen standalone"
+  extract-python-static:
+    description: Extract static Python library (libpython3.13.a)
+    required: false
+    default: "true"
+  extract-deb:
+    description: Extract .deb package
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Extract binaries from Docker image (${{ inputs.arch }})
+      shell: bash
+      run: |
+        export TAG="${{ inputs.tag }}"
+        export ARCH="${{ inputs.arch }}"
+        export IMAGE="${{ inputs.image }}"
+        export SUFFIX="${{ inputs.archive-suffix }}"
+
+        # Determine platform string
+        if [ "$ARCH" = "amd64" ]; then
+          PLATFORM="linux/amd64"
+        elif [ "$ARCH" = "arm64" ]; then
+          PLATFORM="linux/arm64"
+        else
+          echo "Unknown architecture: $ARCH"
+          exit 1
+        fi
+
+        # Create extraction directory
+        mkdir -p "/tmp/${ARCH}/"
+        cd "/tmp/${ARCH}/"
+
+        # Pull image
+        echo "Pulling image: ${IMAGE}:${TAG} for platform ${PLATFORM}"
+        docker pull "${IMAGE}:${TAG}"
+
+        # Create container for specific platform
+        CONTAINER_NAME="temp-container-${ARCH}-${RANDOM}"
+        echo "Creating container: $CONTAINER_NAME"
+        docker create --platform "${PLATFORM}" --name "$CONTAINER_NAME" "${IMAGE}:${TAG}"
+
+        # Extract all binaries
+        BINARIES="${{ inputs.binaries }}"
+        for binary in $BINARIES; do
+          docker cp "${CONTAINER_NAME}:/usr/local/bin/${binary}" . || echo "Binary not found: ${binary}"
+        done
+
+        # Extract Python files if requested
+        if [ "${{ inputs.extract-python-static }}" = "true" ]; then
+          docker cp "${CONTAINER_NAME}:/usr/local/bin/python3.13" . || echo "python3.13 not found"
+          docker cp "${CONTAINER_NAME}:/usr/local/lib/libpython3.13.a" . || echo "libpython3.13.a not found"
+        fi
+
+        # Extract .deb package if requested
+        if [ "${{ inputs.extract-deb }}" = "true" ]; then
+          docker cp "${CONTAINER_NAME}:/packages/lasersmart.deb" "lasersmart_${TAG}_${ARCH}.deb" || echo "lasersmart.deb not found"
+        fi
+
+        # Rename binaries with suffix
+        for binary in $BINARIES python3.13 libpython3.13.a; do
+          if [ -f "$binary" ]; then
+            mv "$binary" "${binary}_${SUFFIX}_${TAG}"
+            echo "Renamed: $binary → ${binary}_${SUFFIX}_${TAG}"
+          fi
+        done
+
+        # Clean up container
+        docker rm "$CONTAINER_NAME"
+
+        echo "Extraction complete for $ARCH"
+        ls -la "/tmp/${ARCH}/"
+
+    - name: Create archive and upload artifact
+      shell: bash
+      run: |
+        export ARCH="${{ inputs.arch }}"
+        export TAG="${{ inputs.tag }}"
+        export SUFFIX="${{ inputs.archive-suffix }}"
+
+        cd "/tmp/${ARCH}/"
+
+        # Determine archive format and create (include all extracted files)
+        ARCHIVE_NAME="rust-photoacoustic-${TAG}-${SUFFIX}"
+        tar -czf "${ARCHIVE_NAME}.tar.gz" . --exclude="*.tar.gz" || echo "Warning: archive creation had issues"
+
+        # Create artifact directory
+        mkdir -p /tmp/artifacts
+        mv "${ARCHIVE_NAME}.tar.gz" /tmp/artifacts/
+
+        echo "Created archive: ${ARCHIVE_NAME}.tar.gz"
+        ls -lh /tmp/artifacts/
+        echo "Contents of archive:"
+        tar -tzf "/tmp/artifacts/${ARCHIVE_NAME}.tar.gz" | head -20
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-binaries-${{ inputs.arch }}
+        path: /tmp/artifacts/*.tar.gz
+        retention-days: 90
+        if-no-files-found: ignore
