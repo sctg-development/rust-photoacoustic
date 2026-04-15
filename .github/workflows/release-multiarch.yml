@@ -80,6 +80,12 @@ jobs:
           remove-cloud-tools: "true"
           show-top-packages: "true"
 
+      - name: Check out the repo (enable access to local actions)
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 0
+
       - name: Setup repository
         uses: ./.github/actions/setup-repo
         with:
@@ -398,6 +404,12 @@ jobs:
           remove-cloud-tools: "true"
           show-top-packages: "true"
 
+      - name: Check out the repo (enable access to local actions)
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 0
+
       - name: Setup repository
         uses: ./.github/actions/setup-repo
         with:
@@ -482,6 +494,12 @@ jobs:
           remove-databases: "true"
           remove-cloud-tools: "true"
           show-top-packages: "true"
+
+      - name: Check out the repo (enable access to local actions)
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 0
 
       - name: Setup repository
         uses: ./.github/actions/setup-repo

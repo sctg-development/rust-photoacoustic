@@ -1,5 +1,5 @@
 name: Setup Repository
-description: Checkout repo with submodules and configure Altium credentials
+description: Configure Altium credentials and initialize submodules (call after actions/checkout)
 inputs:
   altium-user:
     description: Altium 365 username
@@ -15,12 +15,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Check out the repo (with full history and submodules)
-      uses: actions/checkout@v4
-      with:
-        submodules: false
-        fetch-depth: 0
-
     - name: Configure Altium HTTP credentials
       shell: bash
       run: |
