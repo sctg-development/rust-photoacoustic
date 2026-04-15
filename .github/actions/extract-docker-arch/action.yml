@@ -101,23 +101,23 @@ runs:
 
         cd "/tmp/${ARCH}/"
 
-        # Determine archive format and create (include all extracted files)
-        ARCHIVE_NAME="rust-photoacoustic-${TAG}-${SUFFIX}"
-        tar -czf "${ARCHIVE_NAME}.tar.gz" . --exclude="*.tar.gz" || echo "Warning: archive creation had issues"
-
         # Create artifact directory
-        mkdir -p /tmp/artifacts
-        mv "${ARCHIVE_NAME}.tar.gz" /tmp/artifacts/
+        mkdir -p /tmp/artifacts-${ARCH}
+
+        # Create archive (avoid "file changed as we read it" by putting tar output outside source dir)
+        # Options must come BEFORE file arguments
+        ARCHIVE_NAME="rust-photoacoustic-${TAG}-${SUFFIX}"
+        tar --exclude="*.tar.gz" -czf "/tmp/artifacts-${ARCH}/${ARCHIVE_NAME}.tar.gz" . || echo "Warning: archive creation had issues"
 
         echo "Created archive: ${ARCHIVE_NAME}.tar.gz"
-        ls -lh /tmp/artifacts/
+        ls -lh "/tmp/artifacts-${ARCH}/"
         echo "Contents of archive:"
-        tar -tzf "/tmp/artifacts/${ARCHIVE_NAME}.tar.gz" | head -20
+        tar -tzf "/tmp/artifacts-${ARCH}/${ARCHIVE_NAME}.tar.gz" | head -20
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: docker-binaries-${{ inputs.arch }}
-        path: /tmp/artifacts/*.tar.gz
+        path: /tmp/artifacts-${{ inputs.arch }}/*.tar.gz
         retention-days: 90
         if-no-files-found: ignore
