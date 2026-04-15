@@ -552,12 +552,10 @@ jobs:
       attestations: write
 
     steps:
-      - name: Setup repository
-        uses: ./.github/actions/setup-repo
+      - name: Check out the repo
+        uses: actions/checkout@v4
         with:
-          altium-user: ${{ secrets.ALTIUM_365_USER }}
-          altium-password: ${{ secrets.ALTIUM_365_PASSWORD }}
-          debug-submodules: "false"
+          fetch-depth: 0
 
       - name: Create nightly release
         if: github.event_name == 'workflow_dispatch'
