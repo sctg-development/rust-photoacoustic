@@ -127,6 +127,21 @@ impl JwtIssuer {
     fn map(&self) -> std::sync::MutexGuard<'_, JwtTokenMap> {
         self.0.lock().unwrap()
     }
+
+    /// Return the `owner_id` (username) stored in a refresh token entry.
+    ///
+    /// Used by token-refresh handlers to look up the user's **current** permissions
+    /// from the live [`AccessConfig`] before re-issuing a new access token, so that
+    /// permission changes in `config.yaml` take effect immediately on the next refresh.
+    ///
+    /// Returns `None` if the refresh token is not found (e.g. server was restarted
+    /// and the in-memory map was cleared).
+    pub fn get_refresh_token_owner(&self, refresh_token: &str) -> Option<String> {
+        let map = self.map();
+        map.refresh_tokens
+            .get(refresh_token)
+            .map(|entry| entry.grant.owner_id.clone())
+    }
 }
 
 impl Issuer for JwtIssuer {

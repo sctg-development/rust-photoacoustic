@@ -4,6 +4,7 @@
 ///   across all daemon components, enabling dynamic configuration support.e LICENSE.md for details).
 use anyhow::Result;
 use log::{debug, error, info, warn};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use std::{
     net::SocketAddr,
@@ -96,6 +97,10 @@ pub struct Daemon {
     /// All inner Arcs (registrar, issuer, access_config) are shared with the
     /// Rocket-managed instance, so mutations are reflected immediately.
     oxide_state: Option<OxideState>,
+    /// Path to the configuration file used for automatic hot-reload detection.
+    /// When set, the daemon polls this file's modification time every 2 seconds
+    /// and reloads configuration changes without requiring a restart.
+    config_path: Option<PathBuf>,
 }
 
 impl Default for Daemon {
@@ -142,7 +147,24 @@ impl Daemon {
                 crate::processing::computing_nodes::ComputingSharedData::default(),
             )),
             oxide_state: None,
+            config_path: None,
         }
+    }
+
+    /// Set the path to the configuration file for automatic hot-reload detection.
+    ///
+    /// When set, the daemon starts a background task that polls the file's
+    /// modification time every 2 seconds. When a change is detected, the
+    /// configuration is reloaded and changes are applied live:
+    /// - `access` section: users and OAuth2 clients updated immediately
+    /// - `processing` section: picked up automatically by `ProcessingConsumer`
+    /// - Other sections: logged with a warning (restart required)
+    ///
+    /// ### Parameters
+    ///
+    /// * `path` - Path to the YAML configuration file
+    pub fn set_config_path(&mut self, path: PathBuf) {
+        self.config_path = Some(path);
     }
 
     /// Launch all configured tasks based on configuration
@@ -234,6 +256,9 @@ impl Daemon {
 
         // Start heartbeat task for monitoring
         self.start_heartbeat()?;
+
+        // Start configuration file watcher for hot-reload support (no-op if no path set)
+        self.start_config_file_watcher();
 
         Ok(())
     }
@@ -477,6 +502,140 @@ impl Daemon {
 
         self.tasks.push(task);
         Ok(())
+    }
+
+    /// Start a background task that watches the configuration file for changes.
+    ///
+    /// Polls the file's modification time every 2 seconds. When a change is
+    /// detected, the configuration is reloaded from disk and applied:
+    ///
+    /// - **`access` section** — hot-reloaded immediately via `OxideState`
+    ///   (users, passwords, OAuth2 clients) without restart.
+    /// - **`processing` nodes** — picked up automatically by the
+    ///   `ProcessingConsumer` config monitor already running.
+    /// - **Other sections** (`visualization`, `acquisition`, `modbus`) — a
+    ///   warning is logged indicating a restart is required.
+    ///
+    /// This method is a no-op if [`set_config_path`] was not called before
+    /// [`launch`].
+    fn start_config_file_watcher(&mut self) {
+        let Some(config_path) = self.config_path.clone() else {
+            debug!("No config file path set — file watcher not started");
+            return;
+        };
+
+        let config = Arc::clone(&self.config);
+        let oxide_state = self.oxide_state.clone();
+        let running = Arc::clone(&self.running);
+
+        info!(
+            "Starting configuration file watcher for: {}",
+            config_path.display()
+        );
+
+        let task = tokio::spawn(async move {
+            // Record the initial modification time so we detect subsequent changes.
+            let mut last_modified: Option<SystemTime> = std::fs::metadata(&config_path)
+                .and_then(|m| m.modified())
+                .ok();
+
+            while running.load(Ordering::SeqCst) {
+                time::sleep(Duration::from_secs(2)).await;
+
+                let current_modified: Option<SystemTime> = std::fs::metadata(&config_path)
+                    .and_then(|m| m.modified())
+                    .ok();
+
+                if current_modified.is_some() && current_modified != last_modified {
+                    last_modified = current_modified;
+                    info!(
+                        "Configuration file changed: {}, reloading…",
+                        config_path.display()
+                    );
+
+                    match crate::config::Config::from_file(&config_path) {
+                        Ok(new_config) => {
+                            // Compare sections via JSON to detect which changed.
+                            let access_changed = {
+                                let current = config.read().await;
+                                serde_json::to_value(&current.access).ok()
+                                    != serde_json::to_value(&new_config.access).ok()
+                            };
+                            let visualization_changed = {
+                                let current = config.read().await;
+                                serde_json::to_value(&current.visualization).ok()
+                                    != serde_json::to_value(&new_config.visualization).ok()
+                            };
+                            let acquisition_changed = {
+                                let current = config.read().await;
+                                serde_json::to_value(&current.acquisition).ok()
+                                    != serde_json::to_value(&new_config.acquisition).ok()
+                            };
+                            let modbus_changed = {
+                                let current = config.read().await;
+                                serde_json::to_value(&current.modbus).ok()
+                                    != serde_json::to_value(&new_config.modbus).ok()
+                            };
+
+                            // Atomically replace the shared configuration.
+                            *config.write().await = new_config;
+                            info!("Configuration reloaded successfully from disk");
+
+                            // Apply hot-reload for each changed section.
+                            if access_changed {
+                                info!(
+                                    "Section 'access' changed — applying live hot-reload…"
+                                );
+                                let new_access = config.read().await.access.clone();
+                                if let Some(ref oxide) = oxide_state {
+                                    oxide.update_access_config(new_access.clone()).await;
+                                    info!(
+                                        "AccessConfig hot-reloaded: {} user(s), {} client(s)",
+                                        new_access.users.len(),
+                                        new_access.clients.len()
+                                    );
+                                } else {
+                                    warn!(
+                                        "Section 'access' changed but OxideState is not \
+                                         available (visualization server not started?). \
+                                         Restart required to apply."
+                                    );
+                                }
+                            }
+                            if visualization_changed {
+                                warn!(
+                                    "Section 'visualization' changed — restart required to apply"
+                                );
+                            }
+                            if acquisition_changed {
+                                warn!(
+                                    "Section 'acquisition' changed — restart required to apply"
+                                );
+                            }
+                            if modbus_changed {
+                                warn!(
+                                    "Section 'modbus' changed — restart required to apply"
+                                );
+                            }
+                            // Note: 'processing' changes are picked up automatically by
+                            // ProcessingConsumer::start_config_monitoring().
+                        }
+                        Err(e) => {
+                            error!(
+                                "Failed to reload configuration from {}: {}",
+                                config_path.display(),
+                                e
+                            );
+                        }
+                    }
+                }
+            }
+
+            info!("Configuration file watcher stopped");
+            Ok(())
+        });
+
+        self.tasks.push(task);
     }
 
     /// Launch the modbus server daemon

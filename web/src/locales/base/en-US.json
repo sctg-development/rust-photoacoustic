@@ -374,6 +374,8 @@
   "nav-user-dropdown-playwright-export-description": "Export OIDC/Generix tokens as Playwright <0>storageState</0>. Reserved for E2E tests only — do not commit.",
   "nav-user-dropdown-access-token": "Access Token (Bearer)",
   "nav-user-dropdown-loading": "Loading...",
+  "nav-user-dropdown-refresh-token": "Refresh token",
+  "nav-user-dropdown-refresh-token-failed": "Session expired — please log in again",
   "duration-day_one": "{{count}} day",
   "duration-day_other": "{{count}} days",
   "login": "Login",

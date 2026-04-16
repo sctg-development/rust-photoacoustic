@@ -370,6 +370,8 @@
   "nav-user-dropdown-connected-as": "מחובר כמו",
   "nav-user-dropdown-expires-in": "יפוג בעוד:",
   "nav-user-dropdown-loading": "טְעִינָה...",
+  "nav-user-dropdown-refresh-token": "רענן אסימון",
+  "nav-user-dropdown-refresh-token-failed": "הפגישה פגה — אנא התחבר מחדש",
   "nav-user-dropdown-no-expiry": "לא נמצא תפוגה",
   "nav-user-dropdown-playwright-export-description": "מייצא את אסימוני OIDC/Generix בפורמט Playwright <0>storageState</0>. שמור לבדיקות E2E בלבד — אסור לבצע commit על זה.",
   "nav-user-dropdown-token-status": "סטטוס אסימון",

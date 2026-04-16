@@ -211,6 +211,7 @@ export const UserTechnicalInfoModal = memo<UserTechnicalInfoModalProps>(
     const { refreshToken } = useTokenRefresh({ onTokenRefreshed });
     const [secondsLeft, setSecondsLeft] = useState<number>(0);
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+    const [refreshError, setRefreshError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Sync parent isOpen prop with local state
@@ -237,10 +238,12 @@ export const UserTechnicalInfoModal = memo<UserTechnicalInfoModalProps>(
 
     const handleRefreshToken = async () => {
       setIsRefreshing(true);
+      setRefreshError(null);
       try {
         await refreshToken();
       } catch (error) {
         console.error("[Modal] Token refresh error:", error);
+        setRefreshError(t("nav-user-dropdown-refresh-token-failed"));
       } finally {
         setIsRefreshing(false);
       }
@@ -347,6 +350,11 @@ export const UserTechnicalInfoModal = memo<UserTechnicalInfoModalProps>(
                       ) : (
                         <p className="text-xs text-danger">
                           {t("nav-user-dropdown-no-expiry")}
+                        </p>
+                      )}
+                      {refreshError && (
+                        <p className="text-xs text-danger mt-1">
+                          {refreshError}
                         </p>
                       )}
                     </div>

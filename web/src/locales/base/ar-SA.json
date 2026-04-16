@@ -370,6 +370,8 @@
   "nav-user-dropdown-connected-as": "متصل كما",
   "nav-user-dropdown-expires-in": "تنتهي صلاحيته في:",
   "nav-user-dropdown-loading": "تحميل...",
+  "nav-user-dropdown-refresh-token": "تحديث الرمز",
+  "nav-user-dropdown-refresh-token-failed": "انتهت الجلسة — الرجاء تسجيل الدخول مرة أخرى",
   "nav-user-dropdown-no-expiry": "لم يتم العثور على انتهاء الصلاحية",
   "nav-user-dropdown-playwright-export-description": "يصدر رموز OIDC/Generix بتنسيق Playwright <0>storageState</0>. مخصص لاختبارات E2E فقط — لا تقم بعمل commit عليه.",
   "nav-user-dropdown-token-status": "حالة الرمز المميز",

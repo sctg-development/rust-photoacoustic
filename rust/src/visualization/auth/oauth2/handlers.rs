@@ -387,32 +387,17 @@ pub async fn token<'r>(
     state: &State<OxideState>,
     authenticated_user: Option<AuthenticatedUser>,
 ) -> Result<OAuthResponse, OAuthFailure> {
-    let body = oauth.urlbody()?;
-    let grant_type = body.unique_value("grant_type");
+    // Extract all values from body as owned Strings before any `.await`.
+    // `Cow<dyn QueryParameter>` is `!Sync` and cannot be held across await points.
+    let (grant_type, refresh_token_for_claims) = {
+        let body = oauth.urlbody()?;
+        let gt = body.unique_value("grant_type").map(|v| v.into_owned());
+        let rt = body.unique_value("refresh_token").map(|v| v.into_owned());
+        (gt, rt)
+    };
     debug!("grant_type: {:?}", grant_type);
 
-    // Extract username from the OAuth request if available
-    let username = body.unique_value("username").or({
-        // Try to extract from other sources if needed
-        // This might need adjustment based on your OAuth flow
-        None
-    });
-
-    // If we have a username, add user claims before token issuance
-    // if let Some(username_cow) = username {
-    //     let username_str = username_cow.as_ref();
-
-    //     // Find the user in our access config and add claims
-    //     for user in &state.access_config.users {
-    //         if user.user == username_str {
-    //             if let Ok(mut issuer) = state.issuer.lock() {
-    //                 issuer.add_user_claims(username_str, &user.permissions);
-    //             }
-    //             break;
-    //         }
-    //     }
-    // }
-    // If user is authenticated, we can add their claims
+    // If user is authenticated via Bearer token, inject their claims for the access_token flow.
     if let Some(authenticated_user) = authenticated_user {
         let username = authenticated_user.0.username;
         if let Ok(mut issuer) = state.issuer.lock() {
@@ -420,7 +405,37 @@ pub async fn token<'r>(
         }
     }
 
-    if grant_type == Some(std::borrow::Cow::Borrowed("refresh_token")) {
+    if grant_type.as_deref() == Some("refresh_token") {
+        // Before executing the refresh flow, inject the user's *current* permissions
+        // from the live AccessConfig so that any changes to config.yaml (e.g. removing
+        // write:api) are reflected immediately in the newly issued token.
+        if let Some(refresh_token_value) = refresh_token_for_claims {
+            let maybe_owner_id = state
+                .issuer
+                .lock()
+                .ok()
+                .and_then(|issuer| issuer.get_refresh_token_owner(&refresh_token_value));
+
+            if let Some(owner_id) = maybe_owner_id {
+                let current_permissions = {
+                    let access = state.access_config.read().await;
+                    access
+                        .users
+                        .iter()
+                        .find(|u| u.user == owner_id)
+                        .map(|u| u.permissions.clone())
+                        .unwrap_or_default()
+                };
+                if let Ok(mut issuer) = state.issuer.lock() {
+                    issuer.add_user_claims(&owner_id, &current_permissions);
+                }
+                debug!(
+                    "Refresh flow: updated permissions for '{}': {:?}",
+                    owner_id, current_permissions
+                );
+            }
+        }
+
         // Handle refresh token flow
         let mut endpoint = state.endpoint().refresh_flow();
         endpoint
@@ -458,9 +473,44 @@ pub async fn token<'r>(
 /// - On error: An OAuth error response
 #[post("/refresh", data = "<oauth>")]
 pub async fn refresh<'r>(
-    oauth: OAuthRequest<'r>,
+    mut oauth: OAuthRequest<'r>,
     state: &State<OxideState>,
 ) -> Result<OAuthResponse, OAuthFailure> {
+    // Extract refresh token as owned String before any `.await` (Cow<dyn QueryParameter> is !Sync).
+    let refresh_token_for_claims = oauth
+        .urlbody()
+        .ok()
+        .and_then(|body| body.unique_value("refresh_token").map(|v| v.into_owned()));
+
+    // Inject current permissions from live AccessConfig before reissuing the token,
+    // so that config.yaml permission changes take effect immediately on refresh.
+    if let Some(refresh_token_value) = refresh_token_for_claims {
+        let maybe_owner_id = state
+            .issuer
+            .lock()
+            .ok()
+            .and_then(|issuer| issuer.get_refresh_token_owner(&refresh_token_value));
+
+        if let Some(owner_id) = maybe_owner_id {
+            let current_permissions = {
+                let access = state.access_config.read().await;
+                access
+                    .users
+                    .iter()
+                    .find(|u| u.user == owner_id)
+                    .map(|u| u.permissions.clone())
+                    .unwrap_or_default()
+            };
+            if let Ok(mut issuer) = state.issuer.lock() {
+                issuer.add_user_claims(&owner_id, &current_permissions);
+            }
+            debug!(
+                "Refresh endpoint: updated permissions for '{}': {:?}",
+                owner_id, current_permissions
+            );
+        }
+    }
+
     state
         .endpoint()
         .refresh_flow()

@@ -366,5 +366,7 @@
   "molecule": "Molécula",
   "current-value": "Valor Actual",
   "no-data-available": "No hay datos disponibles",
-  "nav-user-dropdown-playwright-export-description": "Exporta los tokens OIDC/Generix en formato Playwright <0>storageState</0>. Reservado para pruebas E2E — no lo subas al repositorio."
+  "nav-user-dropdown-playwright-export-description": "Exporta los tokens OIDC/Generix en formato Playwright <0>storageState</0>. Reservado para pruebas E2E — no lo subas al repositorio.",
+  "nav-user-dropdown-refresh-token": "Actualizar token",
+  "nav-user-dropdown-refresh-token-failed": "Sesión expirada — inicia sesión de nuevo"
 }

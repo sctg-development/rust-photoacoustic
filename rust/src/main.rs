@@ -319,6 +319,9 @@ async fn main() -> Result<()> {
         info!("Starting in daemon mode");
         let mut daemon = daemon::launch_daemon::Daemon::new();
 
+        // Register the config file path so the daemon can watch it for hot-reload
+        daemon.set_config_path(config_path.clone());
+
         // Create shared configuration for dynamic configuration support
         let config_arc = Arc::new(RwLock::new(config));
 
