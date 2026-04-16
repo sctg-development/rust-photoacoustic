@@ -455,6 +455,7 @@ jobs:
           arch: amd64
           tag: ${{ needs.compute-tag.outputs.tag }}
           archive-suffix: x86_64-unknown-linux-gnu
+          artifact-name-suffix: gnu
           extract-deb: "true"
           extract-python-static: "false"
 
@@ -465,6 +466,7 @@ jobs:
           arch: arm64
           tag: ${{ needs.compute-tag.outputs.tag }}
           archive-suffix: aarch64-unknown-linux-gnu
+          artifact-name-suffix: gnu
           extract-deb: "true"
           extract-python-static: "false"
 
@@ -546,6 +548,7 @@ jobs:
           arch: amd64
           tag: ${{ needs.compute-tag.outputs.tag }}
           archive-suffix: x86_64-unknown-linux-musl
+          artifact-name-suffix: musl
           extract-deb: "false"
           extract-python-static: "true"
 
@@ -556,6 +559,7 @@ jobs:
           arch: arm64
           tag: ${{ needs.compute-tag.outputs.tag }}
           archive-suffix: aarch64-unknown-linux-musl
+          artifact-name-suffix: musl
           extract-deb: "false"
           extract-python-static: "true"
 
@@ -601,15 +605,10 @@ jobs:
           echo "Uploading release artifacts for tag: $TAG"
 
           # Upload all artifacts recursively
-          for artifact_dir in artifacts/*/; do
-            if [ -d "$artifact_dir" ]; then
-              echo "Processing artifact directory: $artifact_dir"
-              for file in "$artifact_dir"*; do
-                if [ -f "$file" ]; then
-                  echo "Uploading: $(basename $file)"
-                  gh release upload "$TAG" "$file" --clobber
-                fi
-              done
+          find artifacts -type f -name "*.tar.gz" -o -name "*.zip" -o -name "*.deb" | while read file; do
+            if [ -f "$file" ]; then
+              echo "Uploading: $(basename "$file")"
+              gh release upload "$TAG" "$file" --clobber
             fi
           done
 

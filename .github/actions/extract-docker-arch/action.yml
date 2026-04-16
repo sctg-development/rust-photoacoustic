@@ -14,6 +14,10 @@ inputs:
   archive-suffix:
     description: Suffix for archive filename (e.g., linux_amd64_gnu or linux_amd64_musl)
     required: true
+  artifact-name-suffix:
+    description: Suffix for artifact name to distinguish between builds (e.g., gnu or musl)
+    required: false
+    default: ""
   binaries:
     description: Space-separated list of binaries to extract
     required: true
@@ -67,10 +71,12 @@ runs:
           docker cp "${CONTAINER_NAME}:/usr/local/bin/${binary}" . || echo "Binary not found: ${binary}"
         done
 
-        # Extract Python files if requested
+        # Extract Python files if requested (static: .a + stdlib modules .py/.pyc)
         if [ "${{ inputs.extract-python-static }}" = "true" ]; then
           docker cp "${CONTAINER_NAME}:/usr/local/bin/python3.13" . || echo "python3.13 not found"
           docker cp "${CONTAINER_NAME}:/usr/local/lib/libpython3.13.a" . || echo "libpython3.13.a not found"
+          # Extract Python stdlib modules (.py and .pyc files)
+          docker cp "${CONTAINER_NAME}:/usr/local/lib/python3.13" . 2>/dev/null || echo "python3.13 stdlib directory not found"
         fi
 
         # Extract .deb package if requested
@@ -106,8 +112,9 @@ runs:
 
         # Create archive (avoid "file changed as we read it" by putting tar output outside source dir)
         # Options must come BEFORE file arguments
+        # --dereference: follow symlinks (e.g., python3.13 symlink becomes real binary)
         ARCHIVE_NAME="rust-photoacoustic-${TAG}-${SUFFIX}"
-        tar --exclude="*.tar.gz" -czf "/tmp/artifacts-${ARCH}/${ARCHIVE_NAME}.tar.gz" . || echo "Warning: archive creation had issues"
+        tar --exclude="*.tar.gz" --dereference -czf "/tmp/artifacts-${ARCH}/${ARCHIVE_NAME}.tar.gz" . || echo "Warning: archive creation had issues"
 
         echo "Created archive: ${ARCHIVE_NAME}.tar.gz"
         ls -lh "/tmp/artifacts-${ARCH}/"
@@ -117,7 +124,7 @@ runs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: docker-binaries-${{ inputs.arch }}
+        name: docker-binaries-${{ inputs.arch }}${{ inputs.artifact-name-suffix != '' && format('-{0}', inputs.artifact-name-suffix) || '' }}
         path: /tmp/artifacts-${{ inputs.arch }}/*.tar.gz
         retention-days: 90
         if-no-files-found: ignore
