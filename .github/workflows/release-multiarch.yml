@@ -589,13 +589,10 @@ jobs:
           echo "Creating nightly release: $TAG"
           gh release create "$TAG" --title "Nightly Build $TAG" --notes "Automated nightly build of rust-photoacoustic with multi-architecture binaries." --prerelease
 
-      - name: Download release artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
-          pattern: |
-            rust-photoacoustic-*
-            docker-binaries-*
 
       - name: Upload release artifacts
         env:
@@ -604,10 +601,17 @@ jobs:
           TAG=${{ needs.compute-tag.outputs.tag }}
           echo "Uploading release artifacts for tag: $TAG"
 
-          # Upload all artifacts recursively
-          find artifacts -type f -name "*.tar.gz" -o -name "*.zip" -o -name "*.deb" | while read file; do
-            if [ -f "$file" ]; then
-              echo "Uploading: $(basename "$file")"
+          # Debug: show downloaded artifacts
+          echo "=== Downloaded artifacts ==="
+          ls -lh artifacts/ 2>/dev/null | tail -20 || echo "No artifacts directory"
+          find artifacts/ -type f 2>/dev/null | sort || echo "No files found"
+
+          # Upload all binaries (skip dockerbuild internal artifacts)
+          echo ""
+          echo "=== Uploading to release ==="
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.deb" \) 2>/dev/null | while read file; do
+            if [ ! -z "$file" ]; then
+              echo "Uploading: $file"
               gh release upload "$TAG" "$file" --clobber
             fi
           done
