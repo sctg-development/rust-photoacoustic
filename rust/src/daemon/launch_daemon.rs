@@ -583,9 +583,7 @@ impl Daemon {
 
                             // Apply hot-reload for each changed section.
                             if access_changed {
-                                info!(
-                                    "Section 'access' changed — applying live hot-reload…"
-                                );
+                                info!("Section 'access' changed — applying live hot-reload…");
                                 let new_access = config.read().await.access.clone();
                                 if let Some(ref oxide) = oxide_state {
                                     oxide.update_access_config(new_access.clone()).await;
@@ -608,14 +606,10 @@ impl Daemon {
                                 );
                             }
                             if acquisition_changed {
-                                warn!(
-                                    "Section 'acquisition' changed — restart required to apply"
-                                );
+                                warn!("Section 'acquisition' changed — restart required to apply");
                             }
                             if modbus_changed {
-                                warn!(
-                                    "Section 'modbus' changed — restart required to apply"
-                                );
+                                warn!("Section 'modbus' changed — restart required to apply");
                             }
                             // Note: 'processing' changes are picked up automatically by
                             // ProcessingConsumer::start_config_monitoring().
